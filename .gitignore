@@ -1,0 +1,11 @@
+# Environnement virtuel Python
+env/
+venv/
+.venv/
+*.pyc
+__pycache__/
+
+# Dépendances Node (si pertinent)
+node_modules/
+dist/
+.env
