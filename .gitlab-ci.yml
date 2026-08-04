@@ -1,9 +1,6 @@
 stages:
   - build
 
-# -------------------------------------------------------------
-# 1. Verification Compilation Frontend (React)
-# -------------------------------------------------------------
 frontend:
   stage: build
   image: node:20-alpine
@@ -16,9 +13,6 @@ frontend:
     - master
     - merge_requests
 
-# -------------------------------------------------------------
-# 2. Verification Compilation Backend (NestJS)
-# -------------------------------------------------------------
 backend:
   stage: build
   image: node:20-alpine
@@ -31,9 +25,6 @@ backend:
     - master
     - merge_requests
 
-# -------------------------------------------------------------
-# 3. Verification Syntaxe Module IA (Python / Node)
-# -------------------------------------------------------------
 ai-module:
   stage: build
   image: nikolaik/python-nodejs:python3.10-nodejs20-slim
