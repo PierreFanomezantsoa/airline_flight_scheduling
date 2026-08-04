@@ -1,0 +1,33 @@
+name: Pipeline CI
+
+# 1. Déclencheurs : à chaque push ou Pull Request sur la branche main (ou master)
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+# 2. Les tâches à exécuter
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest # Machine virtuelle fournie par GitHub
+
+    steps:
+      # Étape A : Récupérer le code du dépôt
+      - name: Récupération du code
+        uses: actions/checkout@v4
+
+      # Étape B : Configurer votre environnement (ex: Node.js, Python, PHP, etc.)
+      - name: Configuration de Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      # Étape C : Installer les dépendances
+      - name: Installation des dépendances
+        run: npm ci
+
+      # Étape D : Lancer les tests et le build
+      - name: Exécution du build
+        run: npm run build
