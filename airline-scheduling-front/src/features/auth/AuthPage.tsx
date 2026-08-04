@@ -1,4 +1,5 @@
-import { useState, memo, ReactNode, ChangeEvent, FormEvent } from 'react';
+import { useState, memo } from 'react';
+import type { ReactNode, ChangeEvent, FormEvent } from 'react';
 import { BookOpen, ChevronDown, Eye, EyeOff, Lock, Mail, PlaneTakeoff, User } from 'lucide-react';
 // Importation des services API (présumés existants dans votre projet)
 import { signUp, logIn } from '../Api/apiService';
