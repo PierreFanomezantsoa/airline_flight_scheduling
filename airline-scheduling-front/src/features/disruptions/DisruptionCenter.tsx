@@ -139,7 +139,7 @@ export const DisruptionCenter: React.FC = () => {
   }, []);
 
   // --- ACTIONS : GESTION & CONFIGURATION DES LIGNES ---
-  const handleToggleLigne = async (id: number, currentStatus: boolean) => {
+  const handleToggleLigne = async (id: number) => {
     try {
       // NOTE: Le contrôleur actuel ne possédant pas de endpoint direct de bascule globale, 
       // nous simulons ou appelons un comportement d'inversion locale (ou via une future route PATCH).
@@ -372,7 +372,7 @@ export const DisruptionCenter: React.FC = () => {
                   <p className="text-xs text-slate-400 font-medium mt-0.5">Capacité de charge : <span className="text-slate-700 font-bold">{ligne.capaciteParHeure}h/h</span></p>
                 </div>
                 <button 
-                  onClick={() => handleToggleLigne(ligne.id, ligne.estActif)}
+                  onClick={() => handleToggleLigne(ligne.id)}
                   className="cursor-pointer transition-transform duration-100 active:scale-95 focus:outline-none"
                 >
                   {ligne.estActif ? (

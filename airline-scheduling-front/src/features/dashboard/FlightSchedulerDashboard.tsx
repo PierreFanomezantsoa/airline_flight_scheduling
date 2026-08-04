@@ -3,8 +3,8 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie 
 } from 'recharts';
 import { 
-  Plane, Cpu, RefreshCw, AlertTriangle, CheckCircle2, Clock, Calendar, 
-  BarChart3, Layers, Search, Filter, ShieldCheck, Zap
+  Plane, Cpu, RefreshCw, AlertTriangle, CheckCircle2, Calendar, 
+  BarChart3, Layers, Search, ShieldCheck, Zap
 } from 'lucide-react';
 
 interface Flight {

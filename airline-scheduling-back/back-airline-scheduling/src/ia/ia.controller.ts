@@ -8,7 +8,7 @@ export class IaController {
   constructor(private readonly iaService: IaService) {}
 
   @Post('optimize')
-  async optimize(@Body() request: OptimizationRequestDto) {
-    return this.iaService.optimizeSchedule(request);
+   optimize(@Body() request: OptimizationRequestDto) {
+    return  this.iaService.optimizeSchedule(request);
   }
 }

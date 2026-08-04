@@ -1,7 +1,6 @@
 // Entities
 export { Aircraft } from './entities/aircraft.entity';
 export { AircraftType } from './entities/aircraft-type.entity';
-
 // DTOs
 export { CreateAircraftDto } from './dto/create-aircraft.dto';
 export { UpdateAircraftDto } from './dto/update-aircraft.dto';

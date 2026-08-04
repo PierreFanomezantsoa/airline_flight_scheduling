@@ -19,4 +19,7 @@ async function bootstrap() {
   const port = parseInt(configService.get('PORT') || '3001', 10);
   await app.listen(port);
 }
-bootstrap();
+bootstrap().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
