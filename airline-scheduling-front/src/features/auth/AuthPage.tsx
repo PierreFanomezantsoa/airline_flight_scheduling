@@ -1,5 +1,5 @@
 import { useState, memo, ReactNode, ChangeEvent, FormEvent } from 'react';
-import { BookOpen, ChevronDown, Eye, EyeOff, Lock, Mail, PlaneTakeoff, ShieldCheck, User } from 'lucide-react';
+import { BookOpen, ChevronDown, Eye, EyeOff, Lock, Mail, PlaneTakeoff, User } from 'lucide-react';
 // Importation des services API (présumés existants dans votre projet)
 import { signUp, logIn } from '../Api/apiService';
 
@@ -59,7 +59,7 @@ const InputField = ({ label, icon, id, rightElement, className = "", ...props }:
       <input
         id={id}
         {...props}
-        className={`h-12 w-full rounded-full border border-slate-200 bg-slate-50/50 pl-11 pr-4 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-teal-500 focus:bg-white focus:ring-4 focus:ring-teal-50 disabled:opacity-60 ${className}`}
+        className={`h-12 w-full rounded-full border border-slate-200 bg-slate-50/50 pl-11 pr-4 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 disabled:opacity-60 ${className}`}
       />
       {rightElement && (
         <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center">
@@ -85,7 +85,7 @@ const InfoPanel = memo(() => (
       className="absolute inset-0 bg-cover bg-center bg-no-repeat z-0"
       style={{ 
         backgroundImage: `url(${myImage})`,
-        backgroundSize: '120% 120%', // Ou 'cover', 'contain', '24px 24px', 'auto 100%'...
+        backgroundSize: '120% 120%',
         width: '100%',
         height: '100%'
       }}
@@ -94,21 +94,21 @@ const InfoPanel = memo(() => (
 
     {/* 2. Couche Supérieure : Dégradé de couleur placé AU-DESSUS de l'image (z-10) */}
     <div 
-      className="absolute inset-0 bg-gradient-to-br from-teal-600/90 via-slate-600/85 to-slate-650/95 z-10" 
+      className="absolute inset-0 bg-gradient-to-br from-emerald-600/90 via-slate-800/85 to-slate-900/95 z-10" 
       aria-hidden="true" 
     />
 
     {/* 3. Couche Contenu : Texte & Icône au tout premier plan (z-20) */}
     <div className="relative h-full flex flex-col justify-center px-12 space-y-6 text-white z-20">
       <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 border border-white/20 backdrop-blur-md shadow-inner">
-        <PlaneTakeoff className="h-5 w-5 text-teal-300 rotate-45 stroke-[2.5]" />
+        <PlaneTakeoff className="h-5 w-5 text-emerald-300 rotate-45 stroke-[2.5]" />
       </div>
       
       <div className="space-y-3">
         <h3 className="text-3xl font-black tracking-tight leading-tight">
           Gérez vos rotations<br /> en temps réel.
         </h3>
-        <p className="text-xs font-medium text-teal-100/80 leading-relaxed max-w-xs">
+        <p className="text-xs font-medium text-emerald-100/80 leading-relaxed max-w-xs">
           Supervisez l'état de votre flotte, ajustez la planification des équipages et suivez la maintenance technique instantanément.
         </p>
       </div>
@@ -235,8 +235,8 @@ export function AuthPage({ onAuthenticate }: AuthPageProps) {
     <div className="relative min-h-screen flex items-center justify-center overflow-hidden px-4 py-8 text-slate-900 bg-slate-50 font-sans">
       
       {/* Accents lumineux d'arrière-plan */}
-      <div className="pointer-events-none absolute -top-40 -left-40 h-96 w-96 rounded-full bg-teal-100/40 blur-3xl" aria-hidden="true" />
-      <div className="pointer-events-none absolute -bottom-40 -right-20 h-96 w-96 rounded-full bg-emerald-100/20 blur-3xl" aria-hidden="true" />
+      <div className="pointer-events-none absolute -top-40 -left-40 h-96 w-96 rounded-full bg-emerald-100/40 blur-3xl" aria-hidden="true" />
+      <div className="pointer-events-none absolute -bottom-40 -right-20 h-96 w-96 rounded-full bg-emerald-100/30 blur-3xl" aria-hidden="true" />
 
       {/* Carte Conteneur Principal */}
       <div className="relative z-20 w-full max-w-5xl mx-auto rounded-[24px] border border-slate-100 bg-white shadow-xl shadow-slate-200/50 overflow-hidden grid lg:grid-cols-[1.15fr_0.85fr]">
@@ -244,21 +244,21 @@ export function AuthPage({ onAuthenticate }: AuthPageProps) {
         {/* CÔTÉ GAUCHE : Formulaire */}
         <div className="p-8 sm:p-12 flex flex-col justify-between bg-white">
           <div>
-            <div className="flex items-center gap-2.5 text-teal-600 font-black tracking-tight">
-              <div className="h-8 w-8 rounded-xl bg-teal-50 flex items-center justify-center">
-                <BookOpen className="h-4 w-4 text-teal-600 stroke-[2.5]" />
+            <div className="flex items-center gap-2.5 text-emerald-600 font-black tracking-tight">
+              <div className="h-8 w-8 rounded-xl bg-emerald-50 flex items-center justify-center">
+                <BookOpen className="h-4 w-4 text-emerald-600 stroke-[2.5]" />
               </div>
-              <span className="text-sm uppercase tracking-wider font-extrabold text-slate-800">Airline Suite</span>
+              <span className="text-sm uppercase tracking-wider font-extrabold text-slate-800">Airline </span>
             </div>
 
             <div className="mt-8">
               <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                {isSignUp ? 'Créer un compte' : 'Espace Ops Center'}
+                {isSignUp ? 'Créer un compte' : 'Espace de Connexion'}
               </h2>
               <p className="mt-1.5 text-xs font-medium text-slate-400">
                 {isSignUp
                   ? 'Remplissez les informations ci-dessous pour rejoindre la suite'
-                  : 'Connectez-vous pour accéder au centre de décision'}
+                  : 'Connectez-vous pour accéder au système de programmation des vols de compagnie aérienne'}
               </p>
             </div>
 
@@ -285,7 +285,7 @@ export function AuthPage({ onAuthenticate }: AuthPageProps) {
                 type="email"
                 value={formData.email}
                 onChange={handleInputChange}
-                placeholder="ops@compagnie.com"
+                placeholder="example@compagnie.com"
                 disabled={isLoading}
                 autoComplete="username"
                 required
@@ -309,7 +309,7 @@ export function AuthPage({ onAuthenticate }: AuthPageProps) {
                     aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
                     aria-pressed={showPassword}
                     onClick={() => setShowPassword(prev => !prev)}
-                    className="text-slate-400 transition hover:text-teal-600 focus:outline-none focus:text-teal-600 disabled:opacity-50 cursor-pointer"
+                    className="text-slate-400 transition hover:text-emerald-600 focus:outline-none focus:text-emerald-600 disabled:opacity-50 cursor-pointer"
                     disabled={isLoading}
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -327,7 +327,7 @@ export function AuthPage({ onAuthenticate }: AuthPageProps) {
                       id="role"
                       value={formData.role}
                       onChange={handleInputChange}
-                      className="h-12 w-full appearance-none rounded-full border border-slate-200 bg-slate-50/50 pl-5 pr-11 text-sm text-slate-600 outline-none transition hover:border-slate-300 focus:border-teal-500 focus:bg-white focus:ring-4 focus:ring-teal-50 cursor-pointer disabled:opacity-60"
+                      className="h-12 w-full appearance-none rounded-full border border-slate-200 bg-slate-50/50 pl-5 pr-11 text-sm text-slate-600 outline-none transition hover:border-slate-300 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 cursor-pointer disabled:opacity-60"
                       disabled={isLoading}
                     >
                       {(Object.keys(ROLE_LABELS) as UserRole[]).map((roleKey) => (
@@ -344,9 +344,9 @@ export function AuthPage({ onAuthenticate }: AuthPageProps) {
               {!isSignUp && (
                 <div className="flex items-center justify-between text-xs text-slate-400 px-2 pt-1 font-medium">
                   <label className="flex items-center gap-1.5 cursor-pointer select-none">
-                    <input type="checkbox" className="accent-teal-600 rounded h-3.5 w-3.5" /> Se souvenir de moi
+                    <input type="checkbox" className="accent-emerald-600 rounded h-3.5 w-3.5" /> Se souvenir de moi
                   </label>
-                  <button type="button" className="hover:text-teal-600 transition focus:outline-none focus:text-teal-600 focus:underline cursor-pointer">
+                  <button type="button" className="hover:text-emerald-600 transition focus:outline-none focus:text-emerald-600 focus:underline cursor-pointer">
                     Mot de passe oublié ?
                   </button>
                 </div>
@@ -359,9 +359,10 @@ export function AuthPage({ onAuthenticate }: AuthPageProps) {
               )}
 
               <div className="flex items-center gap-6 pt-4">
+                {/* Bouton principal tirant parti de bg-emerald-600 avec hover et ombre ajustés */}
                 <button
                   type="submit"
-                  className="inline-flex items-center justify-center h-11 px-8 rounded-full bg-teal-600 text-xs font-bold uppercase tracking-wider text-white shadow-md shadow-teal-600/10 transition hover:bg-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 disabled:opacity-50 cursor-pointer"
+                  className="inline-flex items-center justify-center h-11 px-8 rounded-full bg-emerald-600 text-xs font-bold uppercase tracking-wider text-white shadow-md shadow-emerald-600/20 transition hover:bg-emerald-500 active:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:opacity-50 cursor-pointer"
                   disabled={isLoading}
                 >
                   {isLoading && <IconSpinner />}
@@ -371,7 +372,7 @@ export function AuthPage({ onAuthenticate }: AuthPageProps) {
                 <button
                   type="button"
                   onClick={handleToggleMode}
-                  className="text-xs font-bold uppercase tracking-wider text-teal-600 hover:text-teal-700 transition focus:outline-none focus:text-teal-700 focus:underline disabled:opacity-50 cursor-pointer"
+                  className="text-xs font-bold uppercase tracking-wider text-emerald-600 hover:text-emerald-700 transition focus:outline-none focus:text-emerald-700 focus:underline disabled:opacity-50 cursor-pointer"
                   disabled={isLoading}
                 >
                   {isSignUp ? 'Retour' : 'Créer un compte'}

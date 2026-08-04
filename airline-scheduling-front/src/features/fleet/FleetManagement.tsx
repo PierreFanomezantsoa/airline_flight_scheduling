@@ -147,7 +147,7 @@ export const FleetManagement: React.FC = () => {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center">
-          <Loader className="h-8 w-8 animate-spin text-teal-600 mx-auto mb-2" />
+          <Loader className="h-8 w-8 animate-spin text-emerald-700 mx-auto mb-2" />
           <p className="text-sm font-medium text-slate-500">Chargement de la flotte aéronautique...</p>
         </div>
       </div>
@@ -191,7 +191,7 @@ export const FleetManagement: React.FC = () => {
         {/* Formulaire d'Immatriculation */}
         <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm h-fit">
           <h3 className="flex items-center gap-2.5 text-base font-bold text-slate-900 mb-5">
-            <div className="p-1.5 bg-teal-50 text-teal-600 rounded-lg">
+            <div className="p-1.5 bg-emerald-50 text-emerald-700 rounded-lg">
               <Plus className="h-4 w-4" />
             </div>
             Immatriculer un Appareil
@@ -205,7 +205,7 @@ export const FleetManagement: React.FC = () => {
                 placeholder="ex: 5R-MFT"
                 value={form.registration}
                 onChange={(e) => setForm({ ...form, registration: e.target.value.toUpperCase() })}
-                className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm focus:border-teal-500 focus:ring-4 focus:ring-teal-50 focus:outline-none font-mono placeholder:text-slate-300 transition"
+                className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm focus:border-emerald-700 focus:ring-4 focus:ring-emerald-50 focus:outline-none font-mono placeholder:text-slate-300 transition"
                 required
               />
             </div>
@@ -216,7 +216,7 @@ export const FleetManagement: React.FC = () => {
                 <select
                   value={form.model}
                   onChange={(e) => setForm({ ...form, model: e.target.value })}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm focus:border-teal-500 focus:outline-none font-medium text-slate-700 transition"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm focus:border-emerald-700 focus:outline-none font-medium text-slate-700 transition"
                 >
                   <option value="Boeing 737-800">Boeing 737-800</option>
                   <option value="Airbus A320">Airbus A320</option>
@@ -231,7 +231,7 @@ export const FleetManagement: React.FC = () => {
                   min="1"
                   value={form.capacity}
                   onChange={(e) => setForm({ ...form, capacity: parseInt(e.target.value) || 0 })}
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:border-teal-500 focus:outline-none font-semibold text-slate-700 transition"
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:border-emerald-700 focus:outline-none font-semibold text-slate-700 transition"
                 />
               </div>
             </div>
@@ -244,7 +244,7 @@ export const FleetManagement: React.FC = () => {
                   min="0"
                   value={form.totalFlightHours}
                   onChange={(e) => setForm({ ...form, totalFlightHours: parseInt(e.target.value) || 0 })}
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:border-teal-500 focus:outline-none transition"
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:border-emerald-700 focus:outline-none transition"
                 />
               </div>
               <div>
@@ -254,7 +254,7 @@ export const FleetManagement: React.FC = () => {
                   min="1"
                   value={form.maintenanceHoursLimit}
                   onChange={(e) => setForm({ ...form, maintenanceHoursLimit: parseInt(e.target.value) || 0 })}
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:border-teal-500 focus:outline-none transition"
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:border-emerald-700 focus:outline-none transition"
                 />
               </div>
             </div>
@@ -265,7 +265,7 @@ export const FleetManagement: React.FC = () => {
                 <select
                   value={form.homeBase || ''}
                   onChange={(e) => setForm({ ...form, homeBase: e.target.value || undefined })}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm focus:border-teal-500 focus:outline-none font-medium text-slate-700 transition"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm focus:border-emerald-700 focus:outline-none font-medium text-slate-700 transition"
                 >
                   <option value="TNR">TNR (Ivato)</option>
                   <option value="CDG">CDG (Paris)</option>
@@ -277,7 +277,7 @@ export const FleetManagement: React.FC = () => {
                 <select
                   value={form.status || 'Active'}
                   onChange={(e) => setForm({ ...form, status: e.target.value as Aircraft['status'] })}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm focus:border-teal-500 focus:outline-none font-semibold text-slate-700 transition"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm focus:border-emerald-700 focus:outline-none font-semibold text-slate-700 transition"
                 >
                   <option value="Active">En Service</option>
                   <option value="Maintenance">En Maintenance</option>
@@ -285,10 +285,11 @@ export const FleetManagement: React.FC = () => {
               </div>
             </div>
 
+            {/* Bouton mis à jour en bg-emerald-700 */}
             <button
               type="submit"
               disabled={isSaving}
-              className="w-full rounded-xl bg-teal-600 py-3 text-sm font-bold text-white shadow-lg shadow-teal-600/15 hover:bg-teal-500 transition duration-150 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2"
+              className="w-full rounded-xl bg-emerald-700 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-700/15 hover:bg-emerald-800 transition duration-150 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2"
             >
               {isSaving ? <Loader className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
               {isSaving ? 'Immatriculation...' : "Ajouter l'appareil"}
@@ -300,7 +301,7 @@ export const FleetManagement: React.FC = () => {
         <div className="lg:col-span-2 rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between mb-5">
             <h3 className="flex items-center gap-2.5 text-base font-bold text-slate-900">
-              <div className="p-1.5 bg-teal-50 text-teal-600 rounded-lg">
+              <div className="p-1.5 bg-emerald-50 text-emerald-700 rounded-lg">
                 <Plane className="h-4 w-4" />
               </div>
               Registre Technique Actif ({aircrafts.length})
@@ -336,7 +337,7 @@ export const FleetManagement: React.FC = () => {
                   >
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <div className="flex items-start gap-3.5 flex-1">
-                        <div className="rounded-xl bg-slate-900 p-2.5 text-teal-400 shrink-0 shadow-sm">
+                        <div className="rounded-xl bg-slate-900 p-2.5 text-emerald-400 shrink-0 shadow-sm">
                           <Plane className="h-5 w-5" />
                         </div>
                         <div className="space-y-1 flex-1">
@@ -410,13 +411,11 @@ export const FleetManagement: React.FC = () => {
       {/* --- MODAL DE CONFIRMATION UNIQUE ET DYNAMIQUE --- */}
       {modal.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          {/* Backdrop sombre flouté */}
           <div 
             className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm animate-fadeIn" 
             onClick={closeConfirmationModal}
           />
           
-          {/* Contenu de la Modal */}
           <div className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl border border-slate-100 animate-scaleIn z-10">
             <div className="flex items-start gap-4">
               <div className={`p-3 rounded-xl shrink-0 ${
@@ -439,7 +438,6 @@ export const FleetManagement: React.FC = () => {
               </div>
             </div>
 
-            {/* Actions de la Modal */}
             <div className="mt-6 flex items-center justify-end gap-3">
               <button
                 type="button"

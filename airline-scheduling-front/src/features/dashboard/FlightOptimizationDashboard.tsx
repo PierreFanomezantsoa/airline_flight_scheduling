@@ -229,7 +229,7 @@ export const FlightOptimizationDashboard: React.FC = () => {
               className={`inline-flex items-center justify-center gap-2.5 px-6 py-3 rounded-xl text-sm font-bold shadow-sm transition-all duration-200 cursor-pointer border select-none ${
                 optimizing
                   ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed shadow-none'
-                  : 'bg-teal-700 hover:bg-teal-600 text-white border-teal-700/20 hover:shadow-teal-600/20 active:scale-98'
+                  : 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-600/20 hover:shadow-emerald-600/20 active:scale-98'
               }`}
             >
               {optimizing ? (

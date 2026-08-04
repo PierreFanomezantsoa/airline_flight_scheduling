@@ -288,14 +288,14 @@ export const DashboardGantt: React.FC = () => {
       {/* Header Panel */}
       <div className="flex flex-col gap-6 bg-white rounded-2xl border border-slate-200 p-6 md:flex-row md:items-center md:justify-between shadow-xs">
         <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-teal-700 text-white shadow-md shadow-slate-900/10">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-700 text-white shadow-md shadow-slate-900/10">
             <Plane className="h-5.5 w-5.5 rotate-45 stroke-2" />
           </div>
           <div>
             <h1 className="text-lg font-black text-slate-950 uppercase tracking-wider">Centre d'Opérations</h1>
             <p className="text-[11px] font-bold text-slate-500 mt-0.5 flex items-center gap-1.5 uppercase tracking-wide">
               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            Synchronisé avec le moteur IA d'optimisation des vols
+              Synchronisé avec le moteur IA d'optimisation des vols
             </p>
           </div>
         </div>
@@ -304,7 +304,7 @@ export const DashboardGantt: React.FC = () => {
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => setIsAddModalOpen(true)}
-            className="flex items-center gap-2 rounded-xl bg-emerald-700 hover:bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition-all"
+            className="flex items-center gap-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition-all"
           >
             <Plus className="h-4.5 w-4.5" />
             <span>Nouveau Vol</span>
@@ -313,7 +313,7 @@ export const DashboardGantt: React.FC = () => {
           <button
             onClick={triggerPredictionIA}
             disabled={loading}
-            className="flex items-center gap-2 rounded-xl bg-teal-900 hover:bg-slate-800 disabled:opacity-60 px-4 py-2.5 text-xs font-bold text-white transition-all shadow-sm"
+            className="flex items-center gap-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 disabled:opacity-60 px-4 py-2.5 text-xs font-bold text-white transition-all shadow-sm"
           >
             <Cpu className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             <span>{loading ? 'Calcul Engine...' : 'Optimisation IA'}</span>
@@ -323,8 +323,8 @@ export const DashboardGantt: React.FC = () => {
             onClick={() => setFilterDelayed(!filterDelayed)}
             className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 text-xs font-bold transition-all ${
               filterDelayed 
-                ? 'border-amber-500 bg-amber-50 text-amber-900 shadow-sm' 
-                : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                ? 'bg-emerald-700 text-white border-emerald-800 shadow-sm' 
+                : 'bg-emerald-700 text-white border-emerald-800 hover:bg-emerald-800'
             }`}
           >
             <Filter className="h-4 w-4" />
@@ -347,7 +347,7 @@ export const DashboardGantt: React.FC = () => {
               onClick={() => loadData()} 
               disabled={loading} 
               aria-label="Rafraîchir les données"
-              className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 transition disabled:opacity-50"
+              className="p-1.5 rounded-lg bg-emerald-700 text-white hover:bg-emerald-800 transition disabled:opacity-50"
             >
               <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             </button>
@@ -364,7 +364,7 @@ export const DashboardGantt: React.FC = () => {
                   <span className="text-sm font-mono font-black text-slate-900">{analytics.metrics.otpRate}%</span>
                 </div>
                 <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
-                  <div className="bg-slate-900 h-full transition-all duration-500" style={{ width: `${analytics.metrics.otpRate}%` }}></div>
+                  <div className="bg-emerald-700 h-full transition-all duration-500" style={{ width: `${analytics.metrics.otpRate}%` }}></div>
                 </div>
               </div>
 
@@ -587,7 +587,7 @@ export const DashboardGantt: React.FC = () => {
             <div className="p-5 pt-0">
               <button 
                 onClick={() => setSelectedFlight(null)} 
-                className="w-full bg-slate-950 hover:bg-slate-900 py-3 text-white font-bold rounded-xl text-[10px] uppercase tracking-wider transition-all"
+                className="w-full bg-emerald-700 hover:bg-emerald-800 py-3 text-white font-bold rounded-xl text-[10px] uppercase tracking-wider transition-all"
               >
                 Fermer la Fiche
               </button>

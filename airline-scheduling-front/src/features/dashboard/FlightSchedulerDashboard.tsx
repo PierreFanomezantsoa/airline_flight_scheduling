@@ -69,7 +69,7 @@ const STATUS_CONFIG: Record<string, { bg: string; border: string; text: string; 
     bg: 'bg-emerald-50/90 hover:bg-emerald-100', 
     border: 'border-emerald-300', 
     text: 'text-emerald-900', 
-    bar: '#16a34a',
+    bar: '#10b981',
     badgeBg: 'bg-emerald-50 text-emerald-700 border-emerald-200',
     dot: 'bg-emerald-500'
   }
@@ -235,13 +235,12 @@ export const FlightSchedulerDashboard: React.FC = () => {
         {/* EN-TÊTE */}
         <header className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div className="flex items-center gap-3.5">
-            <div className="p-3 bg-teal-700 text-white rounded-xl shadow-md shadow-blue-500/20">
+            <div className="p-3 bg-emerald-600 text-white rounded-xl shadow-md shadow-emerald-500/20">
               <Plane className="w-6 h-6" />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl font-bold text-slate-900 tracking-tight">Opérations SkyFlow</h1>
-               
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
                 Planification intelligente & suivi d'ordonnancement de la flotte
@@ -264,8 +263,8 @@ export const FlightSchedulerDashboard: React.FC = () => {
               disabled={optimizing}
               className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm text-white transition-all shadow-sm ${
                 optimizing
-                  ? 'bg-teal-500 cursor-not-allowed'
-                  : 'bg-teal-700 hover:bg-teal-600 hover:shadow-md hover:shadow-teal-500/15 active:scale-[0.99]'
+                  ? 'bg-emerald-400 cursor-not-allowed opacity-80'
+                  : 'bg-emerald-600 hover:bg-emerald-500 hover:shadow-md hover:shadow-emerald-500/20 active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-emerald-500/30'
               }`}
             >
               <Cpu className={`w-4 h-4 ${optimizing ? 'animate-spin' : ''}`} />
@@ -372,7 +371,7 @@ export const FlightSchedulerDashboard: React.FC = () => {
               placeholder="Rechercher par vol, itinéraire..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-slate-50/80 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
+              className="w-full pl-10 pr-4 py-2 bg-slate-50/80 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
             />
           </div>
 
@@ -398,7 +397,7 @@ export const FlightSchedulerDashboard: React.FC = () => {
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-5 gap-2">
             <div>
               <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-blue-600" />
+                <BarChart3 className="w-4 h-4 text-emerald-600" />
                 Rotation Flotte & Ordonnancement
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
@@ -457,7 +456,7 @@ export const FlightSchedulerDashboard: React.FC = () => {
                       
                       {/* Colonne appareil fixe (Sticky) */}
                       <div className="w-48 shrink-0 flex items-center gap-2.5 px-4 py-3 sticky left-0 bg-white border-r border-slate-200 z-20 group-hover:bg-slate-50">
-                        <div className="p-1.5 bg-blue-50 text-blue-600 rounded-lg border border-blue-100 shrink-0">
+                        <div className="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg border border-emerald-100 shrink-0">
                           <Plane className="w-3.5 h-3.5" />
                         </div>
                         <span className="text-xs font-bold text-slate-800 truncate" title={aircraftModel}>
@@ -582,7 +581,7 @@ export const FlightSchedulerDashboard: React.FC = () => {
                       fontSize: '12px'
                     }}
                   />
-                  <Bar dataKey="vols" fill="#2563eb" radius={[6, 6, 0, 0]} barSize={24} />
+                  <Bar dataKey="vols" fill="#10b981" radius={[6, 6, 0, 0]} barSize={24} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -593,7 +592,7 @@ export const FlightSchedulerDashboard: React.FC = () => {
         <div className="bg-white border border-slate-200/80 rounded-2xl overflow-hidden shadow-2xs">
           <div className="p-4 border-b border-slate-200/80 flex items-center justify-between">
             <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <Layers className="w-4 h-4 text-blue-600" />
+              <Layers className="w-4 h-4 text-emerald-600" />
               Registre Officiel des Vols
             </h3>
           </div>

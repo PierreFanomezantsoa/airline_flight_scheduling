@@ -354,13 +354,13 @@ export const DisruptionCenter: React.FC = () => {
             </button>
           </div>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[260px] overflow-y-auto pr-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-65 overflow-y-auto pr-1">
             {lignes.map(ligne => (
               <div 
                 key={ligne.id} 
                 className={`border rounded-xl p-4 flex items-center justify-between transition-all ${
                   ligne.estActif 
-                    ? 'bg-gradient-to-br from-white to-slate-50/30 border-slate-200' 
+                    ? 'bg-linear-to-br from-white to-slate-50/30 border-slate-200' 
                     : 'bg-slate-50/60 border-slate-200/60 opacity-75'
                 }`}
               >
