@@ -1,4 +1,4 @@
-name: Pipeline CI (Monorepo Airline)
+name: Pipeline CI - Verification et Compilation
 
 on:
   push:
@@ -6,25 +6,25 @@ on:
   pull_request:
     branches: [ "main", "master" ]
 
-# Annule automatiquement les builds obsolètes en cours si un nouveau commit est poussé
+# Annule automatiquement les builds obsolètes si un nouveau commit est poussé
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   # -------------------------------------------------------------
-  # 1. Job pour le Frontend React (airline-scheduling-front)
+  # 1. Verification Compilation Frontend (React)
   # -------------------------------------------------------------
-  # 1. Job Frontend
   frontend:
-    name: Build Frontend
+    name: Compilation Frontend
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: airline-scheduling-front
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Récupération du code
+        uses: actions/checkout@v4
 
       - name: Configuration Node.js
         uses: actions/setup-node@v4
@@ -34,20 +34,22 @@ jobs:
       - name: Installation dépendances
         run: npm install
 
-      - name: Compilation Frontend
-        # Bypass 'tsc -b' pour compiler directement le bundle Web
+      - name: Test de compilation Web (Vite)
         run: npx vite build
 
-  # 2. Job Backend
+  # -------------------------------------------------------------
+  # 2. Verification Compilation Backend (NestJS)
+  # -------------------------------------------------------------
   backend:
-    name: Build Backend
+    name: Compilation Backend
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: airline-scheduling-back/back-airline-scheduling
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Récupération du code
+        uses: actions/checkout@v4
 
       - name: Configuration Node.js
         uses: actions/setup-node@v4
@@ -57,18 +59,14 @@ jobs:
       - name: Installation dépendances
         run: npm install
 
-      # Ignorer les erreurs du linter en CI pour laisser passer le build
-      - name: Linter (Optionnel)
-        run: npm run lint || true
-
-      - name: Compilation Backend
+      - name: Test de compilation TypeScript (NestJS)
         run: npm run build
 
   # -------------------------------------------------------------
-  # 3. Job pour le module IA (airline-ia)
+  # 3. Verification Syntaxe Module IA (Python / Node)
   # -------------------------------------------------------------
   ai-module:
-    name: Check Module IA
+    name: Verification Module IA
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -78,19 +76,27 @@ jobs:
       - name: Récupération du code
         uses: actions/checkout@v4
 
-      # Support hybride (Node.js ou Python selon le projet IA)
+      - name: Configuration Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
       - name: Configuration Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - name: Execution des scripts IA (Node.js ou Python)
+      - name: Verification de la syntaxe
         run: |
           if [ -f package.json ]; then
+            echo "-> Verification compilation Node.js pour airline-ia..."
             npm install
             npm run build --if-present
           elif [ -f requirements.txt ]; then
+            echo "-> Verification de la syntaxe Python pour airline-ia..."
+            pip install --upgrade pip
             pip install -r requirements.txt
+            python -m compileall .
           else
-            echo "Avertissement: Aucun package.json ni requirements.txt trouvé dans airline-ia."
+            echo "-> Aucun package.json ni requirements.txt trouve dans airline-ia."
           fi
