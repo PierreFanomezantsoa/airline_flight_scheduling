@@ -135,7 +135,7 @@ export const FlightsPlanning: React.FC = () => {
       'En attente': 'bg-sky-50 text-sky-700 border-sky-200/80',
       'Ponctuel': 'bg-emerald-50 text-emerald-700 border-emerald-200/80',
       'Retardé': 'bg-amber-50 text-amber-700 border-amber-200/80',
-      'En Vol': 'bg-purple-50 text-purple-700 border-purple-200/80',
+      'En Vol': 'bg-teal-50 text-teal-800 border-teal-200/80',
       'Annulé': 'bg-rose-50 text-rose-700 border-rose-200/80 line-through',
     };
     return styles[status] || 'bg-slate-50 text-slate-700 border-slate-200';
@@ -261,7 +261,7 @@ export const FlightsPlanning: React.FC = () => {
     }
 
     return (
-      <div className="inline-flex items-center gap-2 font-mono text-xs bg-slate-50 border border-slate-200/80 px-2.5 py-1 rounded-lg text-slate-700">
+      <div className="inline-flex items-center gap-2 font-mono text-xs bg-teal-50/50 border border-teal-100 px-2.5 py-1 rounded-lg text-slate-700">
         <div className="flex items-center gap-1">
           <span className="text-slate-400 font-sans text-[11px]">
             {depDate.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}
@@ -270,7 +270,7 @@ export const FlightsPlanning: React.FC = () => {
             {depDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </span>
         </div>
-        <ArrowRight className="h-3 w-3 text-slate-400 shrink-0" />
+        <ArrowRight className="h-3 w-3 text-teal-500 shrink-0" />
         <div className="flex items-center gap-1">
           <span className="font-bold text-slate-900">
             {arrDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -283,7 +283,6 @@ export const FlightsPlanning: React.FC = () => {
     );
   };
 
-  // Mapping de FlightStatus vers le statut attendu par le Modal
   const mapStatusToModalFormat = (status?: FlightStatus): FlightFormData['status'] => {
     if (!status) return undefined;
     switch (status) {
@@ -343,16 +342,16 @@ export const FlightsPlanning: React.FC = () => {
             key={toast.id}
             className={`pointer-events-auto flex items-center justify-between p-4 rounded-xl border shadow-lg transition-all transform animate-in slide-in-from-bottom-5 duration-200 ${
               toast.type === 'success'
-                ? 'bg-slate-900 text-white border-emerald-500/30'
+                ? 'bg-emerald-950 text-white border-emerald-500/40'
                 : toast.type === 'error'
-                ? 'bg-rose-900 text-white border-rose-500/30'
-                : 'bg-slate-800 text-white border-slate-700'
+                ? 'bg-rose-950 text-white border-rose-500/40'
+                : 'bg-teal-950 text-white border-teal-500/40'
             }`}
           >
             <div className="flex items-center gap-3">
               {toast.type === 'success' && <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0" />}
               {toast.type === 'error' && <XCircle className="h-5 w-5 text-rose-400 shrink-0" />}
-              {toast.type === 'info' && <AlertCircle className="h-5 w-5 text-sky-400 shrink-0" />}
+              {toast.type === 'info' && <AlertCircle className="h-5 w-5 text-teal-400 shrink-0" />}
               <p className="text-xs font-semibold">{toast.message}</p>
             </div>
             <button
@@ -369,7 +368,7 @@ export const FlightsPlanning: React.FC = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white border border-slate-200/80 p-5 sm:p-6 rounded-2xl gap-4 shadow-xs">
         <div className="space-y-1">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-emerald-50 text-emerald-700 rounded-xl border border-emerald-200/60">
+            <div className="p-2 bg-teal-50 text-teal-700 rounded-xl border border-teal-200/60">
               <CalendarDays className="h-5 w-5" />
             </div>
             <h2 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight uppercase">
@@ -381,11 +380,12 @@ export const FlightsPlanning: React.FC = () => {
           </p>
         </div>
 
+        {/* Bouton principal avec bg-emerald-700 */}
         <button
           onClick={() => { setEditingFlight(null); setIsModalOpen(true); }}
-          className="flex items-center gap-2 rounded-xl bg-slate-900 hover:bg-slate-800 active:scale-[0.98] text-xs font-bold text-white uppercase tracking-wider px-5 py-3 shadow-sm transition-all self-stretch sm:self-auto justify-center cursor-pointer"
+          className="flex items-center gap-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 active:scale-[0.98] text-xs font-bold text-white uppercase tracking-wider px-5 py-3 shadow-md shadow-emerald-700/20 transition-all self-stretch sm:self-auto justify-center cursor-pointer"
         >
-          <Plus className="h-4 w-4 text-emerald-400" /> Planifier une Rotation
+          <Plus className="h-4 w-4 text-emerald-200" /> Planifier une Rotation
         </button>
       </div>
 
@@ -396,7 +396,7 @@ export const FlightsPlanning: React.FC = () => {
             <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Rotations</p>
             <p className="text-2xl font-black text-slate-900 mt-0.5">{stats.total}</p>
           </div>
-          <div className="p-2.5 bg-slate-100 text-slate-600 rounded-xl">
+          <div className="p-2.5 bg-teal-50 text-teal-700 rounded-xl border border-teal-100">
             <Plane className="h-5 w-5" />
           </div>
         </div>
@@ -404,9 +404,9 @@ export const FlightsPlanning: React.FC = () => {
         <div className="bg-white border border-slate-200/80 rounded-2xl p-4 flex items-center justify-between shadow-2xs">
           <div>
             <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">En Vol</p>
-            <p className="text-2xl font-black text-purple-700 mt-0.5">{stats.inFlight}</p>
+            <p className="text-2xl font-black text-teal-800 mt-0.5">{stats.inFlight}</p>
           </div>
-          <div className="p-2.5 bg-purple-50 text-purple-600 rounded-xl">
+          <div className="p-2.5 bg-teal-50 text-teal-700 rounded-xl border border-teal-100">
             <Globe className="h-5 w-5" />
           </div>
         </div>
@@ -416,7 +416,7 @@ export const FlightsPlanning: React.FC = () => {
             <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">En Attente</p>
             <p className="text-2xl font-black text-sky-700 mt-0.5">{stats.pending}</p>
           </div>
-          <div className="p-2.5 bg-sky-50 text-sky-600 rounded-xl">
+          <div className="p-2.5 bg-sky-50 text-sky-600 rounded-xl border border-sky-100">
             <CheckCircle2 className="h-5 w-5" />
           </div>
         </div>
@@ -426,7 +426,7 @@ export const FlightsPlanning: React.FC = () => {
             <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Retardés</p>
             <p className="text-2xl font-black text-amber-700 mt-0.5">{stats.delayed}</p>
           </div>
-          <div className="p-2.5 bg-amber-50 text-amber-600 rounded-xl">
+          <div className="p-2.5 bg-amber-50 text-amber-600 rounded-xl border border-amber-100">
             <AlertCircle className="h-5 w-5" />
           </div>
         </div>
@@ -441,7 +441,7 @@ export const FlightsPlanning: React.FC = () => {
             placeholder="Rechercher vol, appareil, escale..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all"
           />
         </div>
 
@@ -460,8 +460,8 @@ export const FlightsPlanning: React.FC = () => {
               onClick={() => setSelectedStatusFilter(f.id)}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
                 selectedStatusFilter === f.id
-                  ? 'bg-slate-900 text-white shadow-2xs'
-                  : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/60'
+                  ? 'bg-emerald-700 text-white shadow-xs shadow-emerald-700/20'
+                  : 'bg-slate-50 text-slate-600 hover:bg-teal-50/50 hover:text-teal-900 border border-slate-200/60'
               }`}
             >
               {f.label}
@@ -474,7 +474,7 @@ export const FlightsPlanning: React.FC = () => {
       <div className="rounded-2xl border border-slate-200/80 bg-white overflow-hidden shadow-xs">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
           <h3 className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-widest text-slate-500">
-            <Globe className="h-4 w-4 text-slate-400" /> Routes Actives &amp; État Opérationnel
+            <Globe className="h-4 w-4 text-teal-600" /> Routes Actives &amp; État Opérationnel
           </h3>
           <span className="text-xs font-bold text-slate-400">
             {filteredFlights.length} vol{filteredFlights.length > 1 ? 's' : ''} affiché{filteredFlights.length > 1 ? 's' : ''}
@@ -489,7 +489,7 @@ export const FlightsPlanning: React.FC = () => {
           </div>
         ) : filteredFlights.length === 0 ? (
           <div className="py-16 text-center space-y-3">
-            <div className="w-12 h-12 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center mx-auto text-slate-400">
+            <div className="w-12 h-12 rounded-2xl bg-teal-50 border border-teal-100 flex items-center justify-center mx-auto text-teal-600">
               <Plane className="h-6 w-6" />
             </div>
             <p className="text-xs font-bold text-slate-500">Aucune rotation ne correspond à vos critères.</p>
@@ -520,14 +520,14 @@ export const FlightsPlanning: React.FC = () => {
                   return (
                     <tr 
                       key={flight.id} 
-                      className="hover:bg-slate-50/80 transition-colors duration-150"
+                      className="hover:bg-teal-50/20 transition-colors duration-150"
                     >
                       {/* Numéro de Vol */}
                       <td className="py-4 px-6 font-mono font-black text-slate-900 text-sm">
                         <div className="flex items-center gap-2">
                           <div className={`p-1.5 rounded-lg shrink-0 border ${
                             isInFlight 
-                              ? 'bg-purple-50 text-purple-700 border-purple-200' 
+                              ? 'bg-teal-50 text-teal-700 border-teal-200' 
                               : 'bg-slate-100 text-slate-600 border-slate-200/60'
                           }`}>
                             <Plane className={`h-3.5 w-3.5 ${isInFlight ? 'rotate-45' : ''}`} />
@@ -555,7 +555,7 @@ export const FlightsPlanning: React.FC = () => {
                       {/* Statut (Dynamique / Traduit) */}
                       <td className="py-4 px-4">
                         <span className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${getStatusBadge(computedStatus)}`}>
-                          {isInFlight && <span className="h-1.5 w-1.5 rounded-full bg-purple-600 animate-ping" />}
+                          {isInFlight && <span className="h-1.5 w-1.5 rounded-full bg-teal-600 animate-ping" />}
                           {computedStatus}
                         </span>
                       </td>
@@ -567,7 +567,7 @@ export const FlightsPlanning: React.FC = () => {
                             <div 
                               className={`h-full transition-all duration-300 ${
                                 severityPct >= 80 ? 'bg-rose-500' :
-                                severityPct >= 40 ? 'bg-amber-500' : 'bg-emerald-500'
+                                severityPct >= 40 ? 'bg-amber-500' : 'bg-emerald-600'
                               }`}
                               style={{ width: `${severityPct}%` }}
                             />
@@ -591,7 +591,7 @@ export const FlightsPlanning: React.FC = () => {
                         <div className="flex items-center justify-end gap-1">
                           <button 
                             onClick={() => openEditModal(flight)} 
-                            className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-800 transition border border-transparent hover:border-slate-200/80 cursor-pointer"
+                            className="rounded-xl p-2 text-slate-400 hover:bg-teal-50 hover:text-teal-700 transition border border-transparent hover:border-teal-200/80 cursor-pointer"
                             title="Modifier la programmation"
                           >
                             <Edit2 className="h-4 w-4" />
@@ -683,7 +683,7 @@ export const FlightsPlanning: React.FC = () => {
       {isSubmitting && (
         <div className="fixed inset-0 bg-slate-900/30 backdrop-blur-xs flex items-center justify-center z-50 animate-in fade-in duration-200">
           <div className="bg-white p-5 rounded-2xl shadow-xl flex items-center gap-3.5 border border-slate-200">
-            <Loader2 className="h-5 w-5 animate-spin text-emerald-600" />
+            <Loader2 className="h-5 w-5 animate-spin text-emerald-700" />
             <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">Synchronisation réseau en cours...</span>
           </div>
         </div>

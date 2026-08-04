@@ -318,12 +318,12 @@ export const CrewAssignment: React.FC = () => {
           <button
             type="submit"
             disabled={!selectedMemberId || !selectedFlightId || submitting || Boolean(currentSelectedUser?.volAssigne)}
-            className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 py-3 px-4 text-xs sm:text-sm font-bold text-white transition-all duration-200 hover:bg-slate-800 focus:ring-4 focus:ring-slate-200 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm active:scale-[0.99]"
+            className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 py-3 px-4 text-xs sm:text-sm font-bold text-white transition-all duration-200 hover:bg-emerald-800 focus:ring-4 focus:ring-emerald-200 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm active:scale-[0.99]"
           >
             {submitting ? (
-              <Loader2 className="h-4 w-4 animate-spin text-sky-400" />
+              <Loader2 className="h-4 w-4 animate-spin text-emerald-200" />
             ) : (
-              <ShieldCheck className="h-4 w-4 text-emerald-400" />
+              <ShieldCheck className="h-4 w-4 text-emerald-300" />
             )}
             {submitting ? 'Traitement en cours...' : "Valider l'affectation"}
           </button>

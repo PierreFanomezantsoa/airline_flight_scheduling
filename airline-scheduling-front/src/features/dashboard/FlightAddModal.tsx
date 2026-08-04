@@ -1,5 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { X, Calendar, Plane, MapPin, Sun, CloudRain, CloudLightning, Sparkles, Clock, AlertCircle, GitFork } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { 
+  X, 
+  Calendar, 
+  Plane, 
+  MapPin, 
+  Sun, 
+  CloudRain, 
+  CloudLightning, 
+  Sparkles, 
+  Clock, 
+  AlertCircle, 
+  GitFork 
+} from 'lucide-react';
 
 export interface FlightFormData {
   numeroVol: string;
@@ -15,7 +27,16 @@ export interface FlightFormData {
 export interface MaintenanceSlot {
   id?: string;
   aircraftId?: string;
-  aircraft?: { id: string; model?: string };
+  avionId?: string;
+  immatriculation?: string;
+  registration?: string;
+  aircraft?: { 
+    id?: string; 
+    model?: string; 
+    modele?: string;
+    immatriculation?: string;
+    registration?: string;
+  };
   startTime: string;
   endTime: string;
   maintenanceType?: string;
@@ -23,9 +44,12 @@ export interface MaintenanceSlot {
 
 export interface AircraftData {
   id: string;
-  model: string;
+  model?: string;
+  modele?: string;
   registration?: string;
+  immatriculation?: string;
   status?: string;
+  statut?: string;
 }
 
 interface AirportOption {
@@ -73,16 +97,28 @@ const initialFormState: FlightFormData = {
   motifAnnulation: ''
 };
 
+// Helper : Extrait proprement l'immatriculation ou l'ID de l'avion depuis un slot de maintenance
+const getSlotAircraftRef = (slot: MaintenanceSlot): string | undefined => {
+  return (
+    slot.immatriculation ||
+    slot.registration ||
+    slot.aircraft?.immatriculation ||
+    slot.aircraft?.registration ||
+    slot.aircraftId ||
+    slot.avionId ||
+    slot.aircraft?.id
+  );
+};
+
+// Helper : Vérifie si l'appareil est déclaré en maintenance globale
 const isAircraftInMaintenanceStatus = (status?: string): boolean => {
   if (!status) return false;
   const s = status.toLowerCase().trim();
   return s.includes('mainten') || s.includes('immobilis') || s === 'out_of_service';
 };
 
-const checkOverlap = (
-  startA: string, endA: string,
-  startB: string, endB: string
-): boolean => {
+// Helper : Contrôle du chevauchement des plages horaires
+const checkOverlap = (startA: string, endA: string, startB: string, endB: string): boolean => {
   const aStart = new Date(startA).getTime();
   const aEnd = new Date(endA).getTime();
   const bStart = new Date(startB).getTime();
@@ -140,123 +176,121 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
 }) => {
   const [newFlight, setNewFlight] = useState<FlightFormData>(initialFormState);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [simulatedSeverity, setSimulatedSeverity] = useState<number | null>(null);
-  const [isPastDate, setIsPastDate] = useState<boolean>(false);
-  const [validationError, setValidationError] = useState<string | null>(null);
 
   const isEdition = !!initialData;
 
-  const isDirectRoute = Boolean(
-    newFlight.aeroportDepart &&
-    newFlight.aeroportArrivee &&
-    DIRECT_ROUTES_AND_STOPS[newFlight.aeroportDepart]?.[newFlight.aeroportArrivee] !== undefined
-  );
-
-  const suggestedStops = (!isDirectRoute && newFlight.aeroportDepart && newFlight.aeroportArrivee)
-    ? calculateSuggestedStops(newFlight.aeroportDepart, newFlight.aeroportArrivee)
-    : [];
-
+  // Réinitialisation de l'état du formulaire
   useEffect(() => {
     if (isOpen) {
-      setValidationError(null);
-      if (initialData) {
-        setNewFlight(initialData);
-      } else {
-        setNewFlight(initialFormState);
-      }
+      setNewFlight(initialData ? { ...initialData } : { ...initialFormState });
     }
   }, [isOpen, initialData]);
 
+  // Écoute de la touche Échap pour fermer le modal
   useEffect(() => {
-    if (newFlight.aeroportDepart && newFlight.aeroportArrivee && newFlight.heureDepart) {
-      const calculatedArrival = calculateArrivalGMT(
-        newFlight.aeroportDepart,
-        newFlight.aeroportArrivee,
-        newFlight.heureDepart
-      );
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
-      if (calculatedArrival) {
-        setNewFlight((prev) => ({
-          ...prev,
-          heureArrivee: calculatedArrival
-        }));
+  // Recalcul ciblé de l'heure d'arrivée estimée sans boucle de rendu
+  useEffect(() => {
+    const { aeroportDepart, aeroportArrivee, heureDepart } = newFlight;
+    if (aeroportDepart && aeroportArrivee && heureDepart) {
+      const calculatedArrival = calculateArrivalGMT(aeroportDepart, aeroportArrivee, heureDepart);
+      if (calculatedArrival && calculatedArrival !== newFlight.heureArrivee) {
+        setNewFlight((prev) => ({ ...prev, heureArrivee: calculatedArrival }));
       }
     }
   }, [newFlight.aeroportDepart, newFlight.aeroportArrivee, newFlight.heureDepart]);
 
-  useEffect(() => {
-    if (newFlight.aeroportDepart && newFlight.heureDepart) {
-      const seed = newFlight.aeroportDepart.charCodeAt(0) + new Date(newFlight.heureDepart).getDate();
-      const pseudoRandomSeverity = (seed % 100) / 100;
-      setSimulatedSeverity(pseudoRandomSeverity);
+  // Calcul d'itinéraire et d'escales
+  const isDirectRoute = useMemo(() => {
+    return Boolean(
+      newFlight.aeroportDepart &&
+      newFlight.aeroportArrivee &&
+      DIRECT_ROUTES_AND_STOPS[newFlight.aeroportDepart]?.[newFlight.aeroportArrivee] !== undefined
+    );
+  }, [newFlight.aeroportDepart, newFlight.aeroportArrivee]);
 
-      const departureDate = new Date(newFlight.heureDepart);
-      setIsPastDate(departureDate < new Date());
-    } else {
-      setSimulatedSeverity(null);
-      setIsPastDate(false);
+  const suggestedStops = useMemo(() => {
+    if (!isDirectRoute && newFlight.aeroportDepart && newFlight.aeroportArrivee) {
+      return calculateSuggestedStops(newFlight.aeroportDepart, newFlight.aeroportArrivee);
+    }
+    return [];
+  }, [isDirectRoute, newFlight.aeroportDepart, newFlight.aeroportArrivee]);
+
+  // Évaluation de la date passée
+  const isPastDate = useMemo(() => {
+    if (!newFlight.heureDepart) return false;
+    return new Date(newFlight.heureDepart) < new Date();
+  }, [newFlight.heureDepart]);
+
+  // Météo simulée
+  const simulatedSeverity = useMemo(() => {
+    if (!newFlight.aeroportDepart || !newFlight.heureDepart) return null;
+    const seed = newFlight.aeroportDepart.charCodeAt(0) + new Date(newFlight.heureDepart).getDate();
+    return (seed % 100) / 100;
+  }, [newFlight.aeroportDepart, newFlight.heureDepart]);
+
+  // Validations Métiers en temps réel
+  const validationError = useMemo(() => {
+    if (!isDirectRoute && newFlight.aeroportDepart && newFlight.aeroportArrivee) {
+      return `Absence de liaison directe entre ${newFlight.aeroportDepart} et ${newFlight.aeroportArrivee}.`;
     }
 
-    // 1. Validation de l'itinéraire direct
-    if (newFlight.aeroportDepart && newFlight.aeroportArrivee && !isDirectRoute) {
-      const motif = `Absence de liaison directe entre ${newFlight.aeroportDepart} et ${newFlight.aeroportArrivee}.`;
-      setNewFlight((prev) => ({ 
-        ...prev, 
-        status: 'Annulé',
-        motifAnnulation: motif 
-      }));
-      setValidationError(`Bloqué : ${motif}`);
-      return;
-    }
-
-    // 2. Validation de la cohérence horaire Départ / Arrivée
     if (newFlight.heureDepart && newFlight.heureArrivee) {
       const dep = new Date(newFlight.heureDepart);
       const arr = new Date(newFlight.heureArrivee);
       if (arr <= dep) {
-        setValidationError("L'arrivée doit être strictly postérieure au départ.");
-        return;
+        return "L'arrivée doit être strictly postérieure au départ.";
       }
     }
 
-    // 3. Validation stricte de l'appareil sélectionné
     if (newFlight.avionId) {
-      const selectedAircraft = fleetAircrafts.find((ac) => ac.id === newFlight.avionId);
+      const selectedAircraft = fleetAircrafts.find(
+        (ac) => ac.id === newFlight.avionId || (ac.immatriculation || ac.registration) === newFlight.avionId
+      );
 
-      if (selectedAircraft && isAircraftInMaintenanceStatus(selectedAircraft.status)) {
-        setValidationError(
-          `Immobilisation technique : L'appareil ${selectedAircraft.registration || selectedAircraft.model} est en maintenance (${selectedAircraft.status}) et ne peut pas être assigné.`
-        );
-        setNewFlight((prev) => ({ ...prev, avionId: '' }));
-        return;
+      if (selectedAircraft) {
+        const currentStatus = selectedAircraft.statut || selectedAircraft.status;
+        const currentRegistration = selectedAircraft.immatriculation || selectedAircraft.registration || selectedAircraft.modele || selectedAircraft.model || 'Appareil';
+
+        if (isAircraftInMaintenanceStatus(currentStatus)) {
+          return `Immobilisation technique : L'appareil ${currentRegistration} est en maintenance (${currentStatus}).`;
+        }
       }
 
       if (newFlight.heureDepart && newFlight.heureArrivee) {
         const maintenanceConflict = maintenanceSlots.find((slot) => {
-          const slotAircraftId = typeof slot.aircraft === 'object' ? slot.aircraft?.id : (slot.aircraftId || (slot as any).avionId);
-          const isSameAircraft = slotAircraftId === newFlight.avionId;
-          const hasOverlap = checkOverlap(
+          const slotRef = getSlotAircraftRef(slot);
+          const acReg = selectedAircraft?.immatriculation || selectedAircraft?.registration;
+          const acId = selectedAircraft?.id;
+
+          const isMatch = Boolean(
+            (acReg && slotRef === acReg) ||
+            (acId && slotRef === acId) ||
+            slotRef === newFlight.avionId
+          );
+
+          return isMatch && checkOverlap(
             newFlight.heureDepart,
             newFlight.heureArrivee,
             slot.startTime,
             slot.endTime
           );
-          return isSameAircraft && hasOverlap;
         });
 
         if (maintenanceConflict) {
           const typeStr = maintenanceConflict.maintenanceType ? ` (${maintenanceConflict.maintenanceType})` : '';
-          setValidationError(
-            `Conflit de calendrier : L'appareil est réservé pour maintenance${typeStr} du ${new Date(maintenanceConflict.startTime).toLocaleString('fr-FR')} au ${new Date(maintenanceConflict.endTime).toLocaleString('fr-FR')}.`
-          );
-          setNewFlight((prev) => ({ ...prev, avionId: '' }));
-          return;
+          return `Conflit de calendrier : Cet appareil est en maintenance${typeStr} du ${new Date(maintenanceConflict.startTime).toLocaleString('fr-FR')} au ${new Date(maintenanceConflict.endTime).toLocaleString('fr-FR')}.`;
         }
       }
     }
 
-    setValidationError(null);
-    setNewFlight((prev) => ({ ...prev, motifAnnulation: '' }));
+    return null;
   }, [
     newFlight.aeroportDepart,
     newFlight.aeroportArrivee,
@@ -264,58 +298,21 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
     newFlight.heureArrivee,
     newFlight.avionId,
     isDirectRoute,
-    maintenanceSlots,
-    fleetAircrafts
+    fleetAircrafts,
+    maintenanceSlots
   ]);
 
-  if (!isOpen) return null;
-
-  // --- SOUMISSION & VALIDATION STRICTE ---
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Condition 1: Absence de ligne directe
-    if (!isDirectRoute) {
-      alert(
-        `🚨 ALERTE : IMPOSSIBLE D'EFFECTUER L'AJOUT DU VOL\n\n` +
-        `Motif : Aucun vol direct trouvé entre ${newFlight.aeroportDepart} et ${newFlight.aeroportArrivee}.\n` +
-        `Proposition : Prévoyez une escale via ${suggestedStops.length > 0 ? suggestedStops.join(', ') : 'un hub intermédiaire'}.`
-      );
-      return;
-    }
-
-    // Condition 2: Date de départ dans le passé
-    if (isPastDate) {
-      alert(
-        `🚨 ALERTE : AJOUT REFUSÉ\n\n` +
-        `Motif d'annulation : La date de départ (${new Date(newFlight.heureDepart).toLocaleString('fr-FR')}) est déjà passée.\n` +
-        `Le vol ne peut pas être créé avec un statut annulé.`
-      );
-      return;
-    }
-
-    // Condition 3: Alerte Météo Critique (Seuil >= 0.80)
-    if (simulatedSeverity !== null && simulatedSeverity >= 0.80) {
-      alert(
-        `🚨 ALERTE MÉTÉO CRITIQUE : AJOUT REFUSÉ\n\n` +
-        `Motif d'annulation : Conditions météorologiques défavorables à l'aéroport de départ (${newFlight.aeroportDepart}).\n` +
-        `Indice de sévérité estimé : ${simulatedSeverity.toFixed(2)} (Seuil critique : 0.80).\n` +
-        `L'ajout du vol est bloqué pour raisons de sécurité.`
-      );
-      return;
-    }
-
-    // Condition 4: Erreurs de validation résiduelles (ex: Maintenance / Horaires)
-    if (validationError) {
-      alert(`🚨 ALERTE : ${validationError}`);
-      return;
-    }
+    if (!isDirectRoute || validationError) return;
 
     setIsSubmitting(true);
     try {
       const finalFlightData: FlightFormData = {
         ...newFlight,
-        status: newFlight.status || 'Planifié'
+        status: isPastDate ? 'Annulé' : (newFlight.status || 'Planifié'),
+        motifAnnulation: isPastDate ? 'Date de départ dépassée à la création' : newFlight.motifAnnulation
       };
       await onSubmit(finalFlightData);
       setNewFlight(initialFormState);
@@ -331,30 +328,32 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
     if (severity >= 0.8) {
       return {
         icon: <CloudLightning className="h-4 w-4 text-rose-600 animate-pulse" />,
-        text: "ALERTE CRITIQUE : Vol bloqué (Seuil météo ≥ 0.80)",
+        text: "ALERTE CRITIddffdffgbggbgbfgGUE : Risque météo élevé (Seuil ≥ 0.80)",
         bg: "bg-rose-50 border-rose-200 text-rose-950"
       };
-    } else if (severity >= 0.4) {
+    }
+    if (severity >= 0.4) {
       return {
         icon: <CloudRain className="h-4 w-4 text-amber-600" />,
         text: "Météo instable : Risque de perturbation modéré",
         bg: "bg-amber-50 border-amber-200 text-amber-900"
       };
-    } else {
-      return {
-        icon: <Sun className="h-4 w-4 text-emerald-600" />,
-        text: "Conditions nominales optimales",
-        bg: "bg-emerald-50 border-emerald-200 text-emerald-900"
-      };
     }
+    return {
+      icon: <Sun className="h-4 w-4 text-emerald-600" />,
+      text: "Conditions nominales optimales",
+      bg: "bg-emerald-50 border-emerald-200 text-emerald-900"
+    };
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl border border-slate-100 overflow-hidden transform transition-all">
+      <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl border border-slate-100 overflow-hidden transform transition-all max-h-[90vh] flex flex-col">
         
         {/* En-tête */}
-        <div className="flex items-center justify-between bg-slate-50 px-6 py-4 border-b border-slate-100">
+        <div className="flex items-center justify-between bg-slate-50 px-6 py-4 border-b border-slate-100 flex-shrink-0">
           <div className="flex items-center gap-2">
             <Plane className="h-4 w-4 text-slate-500 rotate-45" />
             <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">
@@ -370,8 +369,8 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
           </button>
         </div>
 
-        {/* Formulaire */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 text-xs">
+        {/* Formulaire avec défilement si écran court */}
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 text-xs overflow-y-auto flex-1">
           
           {/* Numéro de vol */}
           <div>
@@ -437,31 +436,31 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
             </div>
           </div>
 
-          {/* ALERTE ITINÉRAIRE NON DIRECT */}
+          {/* Proposition d'escales si route directe absente */}
           {!isDirectRoute && newFlight.aeroportDepart && newFlight.aeroportArrivee && (
             <div className="border border-rose-200 bg-rose-50/90 p-3.5 rounded-xl text-rose-950 space-y-2.5">
               <div className="flex items-start gap-2">
                 <AlertCircle className="h-4 w-4 text-rose-600 flex-shrink-0 mt-0.5" />
                 <div>
                   <p className="font-bold text-[11px] leading-tight uppercase text-rose-700">
-                    Bloqué — Motif d'annulation
+                    Liaison directe indisponible
                   </p>
                   <p className="text-[11px] font-semibold text-rose-900 mt-0.5">
-                    "{newFlight.motifAnnulation}"
+                    Aucune route directe enregistrée entre {newFlight.aeroportDepart} et {newFlight.aeroportArrivee}.
                   </p>
                 </div>
               </div>
 
               <div className="pt-2 border-t border-rose-200">
                 <span className="text-[9px] font-black uppercase tracking-wider text-slate-600 flex items-center gap-1 mb-1.5">
-                  <GitFork className="h-3 w-3 text-slate-500" /> Lieu(x) d'escale proposé(s) :
+                  <GitFork className="h-3 w-3 text-slate-500" /> Escale(s) suggérée(s) :
                 </span>
                 {suggestedStops.length > 0 ? (
                   <div className="flex flex-wrap gap-1.5">
-                    {suggestedStops.map(stopIata => {
-                      const stopAirport = AIRPORTS_LIST.find(a => a.iata === stopIata);
+                    {suggestedStops.map((stopIata) => {
+                      const stopAirport = AIRPORTS_LIST.find((a) => a.iata === stopIata);
                       return (
-                        <div key={stopIata} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-rose-200 text-[10px] font-bold text-slate-800 shadow-3xs">
+                        <div key={stopIata} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-rose-200 text-[10px] font-bold text-slate-800 shadow-sm">
                           <span className="text-rose-600 font-mono">{stopIata}</span>
                           <span className="text-slate-500 text-[9px]">- {stopAirport?.name}</span>
                         </div>
@@ -470,7 +469,7 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
                   </div>
                 ) : (
                   <p className="text-[10px] italic text-rose-600">
-                    Aucun hub d'escale directe disponible pour relier ces 2 destinations.
+                    Aucun hub d'escale disponible dans la base actuelle.
                   </p>
                 )}
               </div>
@@ -513,61 +512,7 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
             </div>
           </div>
 
-          {/* Erreurs de validation (Maintenance / Horaires) */}
-          {validationError && isDirectRoute && (
-            <div className="flex items-start gap-2 border border-rose-200 bg-rose-50/80 p-3 rounded-xl text-rose-900 shadow-3xs">
-              <AlertCircle className="h-4 w-4 text-rose-600 flex-shrink-0 mt-0.5" />
-              <p className="font-semibold text-[11px] leading-snug">{validationError}</p>
-            </div>
-          )}
-
-          {/* Avertissement Date Passée */}
-          {isPastDate && !validationError && isDirectRoute && (
-            <div className="flex items-start gap-3 border border-rose-200 bg-rose-50 p-3 rounded-xl text-rose-950">
-              <Clock className="h-4 w-4 text-rose-600 mt-0.5 flex-shrink-0" />
-              <div>
-                <span className="text-[9px] font-black tracking-wider uppercase text-rose-500">Avis de blocage</span>
-                <p className="font-bold text-[11px] leading-tight">Date de départ dépassée. L'ajout de ce vol sera refusé.</p>
-              </div>
-            </div>
-          )}
-
-          {/* Analyse prédictive météo */}
-          {simulatedSeverity !== null && !isPastDate && !validationError && isDirectRoute && (
-            <div className={`flex items-start gap-3 border p-3 rounded-xl transition-all ${getWeatherSimulationInfo(simulatedSeverity).bg}`}>
-              <div className="mt-0.5 p-1 bg-white rounded-lg shadow-3xs border border-inherit">
-                {getWeatherSimulationInfo(simulatedSeverity).icon}
-              </div>
-              <div className="flex-1">
-                <span className="text-[9px] font-black tracking-wider uppercase text-slate-400 flex items-center gap-1 mb-0.5">
-                  <Sparkles className="h-2.5 w-2.5 text-teal-600 fill-teal-600" /> Analyse Prédictive Météo
-                </span>
-                <p className="font-bold text-[11px] leading-tight">{getWeatherSimulationInfo(simulatedSeverity).text}</p>
-                <span className="text-[10px] font-mono font-medium opacity-80">Indice estimé : {simulatedSeverity.toFixed(2)}</span>
-              </div>
-            </div>
-          )}
-
-          {/* Statut (édition uniquement) */}
-          {isEdition && (
-            <div>
-              <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1.5 text-[10px]">Statut Opérationnel</label>
-              <select
-                value={newFlight.status || 'Planifié'}
-                disabled={!isDirectRoute}
-                onChange={(e) => setNewFlight({ ...newFlight, status: e.target.value as any })}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2.5 text-sm font-semibold text-slate-800 transition focus:border-slate-900 focus:bg-white focus:outline-none cursor-pointer disabled:opacity-50"
-              >
-                <option value="Planifié">Planifié</option>
-                <option value="Retardé">Retardé</option>
-                <option value="En Vol">En Vol</option>
-                <option value="Annulé">Annulé</option>
-                <option value="Effectué">Effectué</option>
-              </select>
-            </div>
-          )}
-
-          {/* Choix Appareil */}
+          {/* Sélection d'aéronef */}
           <div>
             <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1.5 text-[10px]">
               Appareil Assigné
@@ -580,13 +525,28 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
             >
               <option value="">{isLoadingFleet ? 'Chargement de la flotte...' : 'Laisser SANS ASSIGNATION'}</option>
               {fleetAircrafts.map((ac) => {
-                const isGlobalMaint = isAircraftInMaintenanceStatus(ac.status);
+                const currentStatus = ac.statut || ac.status;
+                const registration = ac.immatriculation || ac.registration;
+                const model = ac.modele || ac.model || 'Modèle inconnu';
+
+                const isGlobalMaint = isAircraftInMaintenanceStatus(currentStatus);
+
+                // CORRECTION : Correspondance sur l'immatriculation de l'avion
                 const isSlotMaint = Boolean(
                   newFlight.heureDepart &&
                   newFlight.heureArrivee &&
                   maintenanceSlots.some((slot) => {
-                    const slotAircraftId = typeof slot.aircraft === 'object' ? slot.aircraft?.id : (slot.aircraftId || (slot as any).avionId);
-                    return slotAircraftId === ac.id && checkOverlap(
+                    const slotRef = getSlotAircraftRef(slot);
+                    
+                    const matchRegistration = Boolean(
+                      registration && (
+                        slotRef === registration ||
+                        slot.aircraft?.immatriculation === registration ||
+                        slot.aircraft?.registration === registration
+                      )
+                    );
+
+                    return matchRegistration && checkOverlap(
                       newFlight.heureDepart,
                       newFlight.heureArrivee,
                       slot.startTime,
@@ -599,21 +559,75 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
 
                 let labelSuffix = '';
                 if (isGlobalMaint) {
-                  labelSuffix = ` 🛠️ (EN MAINTENANCE - ${ac.status || 'Immobilisé'})`;
+                  labelSuffix = ` 🛠️ (EN MAINTENANCE - ${currentStatus || 'Immobilisé'})`;
                 } else if (isSlotMaint) {
-                  labelSuffix = ' ⚠️ (Créneau de maintenance prévu)';
+                  labelSuffix = ' ⚠️ (Maintenance sur cette plage horaire)';
                 }
 
                 return (
-                  <option key={ac.id} value={ac.id} disabled={isDisabled}>
-                    {ac.registration ? `${ac.registration} (${ac.model})` : ac.model} {labelSuffix}
+                  <option key={ac.id || registration} value={ac.id || registration} disabled={isDisabled}>
+                    {registration ? `${registration} (${model})` : model} {labelSuffix}
                   </option>
                 );
               })}
             </select>
           </div>
 
-          {/* Boutons d'action */}
+          {/* Affichage explicite des erreurs de validation */}
+          {validationError && isDirectRoute && (
+            <div className="flex items-start gap-2 border border-rose-200 bg-rose-50/80 p-3 rounded-xl text-rose-900">
+              <AlertCircle className="h-4 w-4 text-rose-600 flex-shrink-0 mt-0.5" />
+              <p className="font-semibold text-[11px] leading-snug">{validationError}</p>
+            </div>
+          )}
+
+          {/* Notification si la date est dépassée */}
+          {isPastDate && !validationError && isDirectRoute && (
+            <div className="flex items-start gap-3 border border-amber-200 bg-amber-50 p-3 rounded-xl text-amber-950">
+              <Clock className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+              <div>
+                <span className="text-[9px] font-black tracking-wider uppercase text-amber-600">Avis d'ordonnancement</span>
+                <p className="font-bold text-[11px] leading-tight">La date de départ est passée. Le vol sera créé avec le statut 'Annulé'.</p>
+              </div>
+            </div>
+          )}
+
+          {/* Analyse prédictive météo */}
+          {simulatedSeverity !== null && !isPastDate && !validationError && isDirectRoute && (
+            <div className={`flex items-start gap-3 border p-3 rounded-xl transition-all ${getWeatherSimulationInfo(simulatedSeverity).bg}`}>
+              <div className="mt-0.5 p-1 bg-white rounded-lg border border-inherit">
+                {getWeatherSimulationInfo(simulatedSeverity).icon}
+              </div>
+              <div className="flex-1">
+                <span className="text-[9px] font-black tracking-wider uppercase text-slate-400 flex items-center gap-1 mb-0.5">
+                  <Sparkles className="h-2.5 w-2.5 text-teal-600 fill-teal-600" /> Analyse Prédictive Météo
+                </span>
+                <p className="font-bold text-[11px] leading-tight">{getWeatherSimulationInfo(simulatedSeverity).text}</p>
+                <span className="text-[10px] font-mono font-medium opacity-80">Indice : {simulatedSeverity.toFixed(2)}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Choix du statut (Mode Édition) */}
+          {isEdition && (
+            <div>
+              <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1.5 text-[10px]">Statut Opérationnel</label>
+              <select
+                value={newFlight.status || 'Planifié'}
+                disabled={!isDirectRoute}
+                onChange={(e) => setNewFlight({ ...newFlight, status: e.target.value as FlightFormData['status'] })}
+                className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2.5 text-sm font-semibold text-slate-800 transition focus:border-slate-900 focus:bg-white focus:outline-none cursor-pointer disabled:opacity-50"
+              >
+                <option value="Planifié">Planifié</option>
+                <option value="Retardé">Retardé</option>
+                <option value="En Vol">En Vol</option>
+                <option value="Annulé">Annulé</option>
+                <option value="Effectué">Effectué</option>
+              </select>
+            </div>
+          )}
+
+          {/* Actions */}
           <div className="pt-2 flex justify-end gap-2.5">
             <button
               type="button"
@@ -624,8 +638,8 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
             </button>
             <button
               type="submit"
-              disabled={isSubmitting || !isDirectRoute || isPastDate || (simulatedSeverity !== null && simulatedSeverity >= 0.8) || (!!validationError && isDirectRoute)}
-              className="rounded-xl bg-slate-900 hover:bg-slate-800 disabled:opacity-50 px-5 py-2.5 font-bold uppercase text-white transition shadow-sm"
+              disabled={isSubmitting || !isDirectRoute || Boolean(validationError)}
+              className="rounded-xl bg-slate-900 hover:bg-slate-800 disabled:opacity-50 px-5 py-2.5 font-bold uppercase text-white transition shadow-sm cursor-pointer"
             >
               {isSubmitting ? 'Traitement...' : isEdition ? 'Enregistrer' : 'Confirmer la rotation'}
             </button>

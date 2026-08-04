@@ -104,8 +104,8 @@ export const MaintenancePlanning: React.FC = () => {
     }
     return { 
       label: 'En Atelier', 
-      css: 'bg-teal-50 text-[#0e524b] border-teal-100/60', 
-      iconColor: 'bg-teal-50/60 text-[#0e524b] border border-teal-100/50',
+      css: 'bg-emerald-50 text-emerald-900 border-emerald-100/60', 
+      iconColor: 'bg-emerald-50/60 text-emerald-800 border border-emerald-100/50',
       icon: <Wrench className="h-5 w-5 animate-pulse" />
     };
   };
@@ -175,7 +175,7 @@ export const MaintenancePlanning: React.FC = () => {
   if (loading) {
     return (
       <div className="flex h-56 w-full flex-col items-center justify-center gap-3 text-sm text-slate-500 font-semibold bg-white rounded-2xl border border-slate-100 shadow-sm">
-        <Loader2 className="h-6 w-6 animate-spin text-[#0e524b]" />
+        <Loader2 className="h-6 w-6 animate-spin text-emerald-700" />
         <span>Chargement des plannings de maintenance...</span>
       </div>
     );
@@ -214,7 +214,7 @@ export const MaintenancePlanning: React.FC = () => {
       {/* Formulaire de mise en maintenance */}
       <div className="rounded-2xl border border-slate-100 bg-white p-5 sm:p-6 shadow-sm h-fit">
         <h3 className="flex items-center gap-2.5 text-base sm:text-lg font-black text-slate-900 mb-5 tracking-tight">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-teal-50 text-[#0e524b]">
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
             <Plus className="h-4 w-4 stroke-[2.5]" />
           </div>
           Planifier un blocage technique
@@ -226,7 +226,7 @@ export const MaintenancePlanning: React.FC = () => {
             <select 
               value={selectedAircraftId}
               onChange={(e) => setSelectedAircraftId(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2.5 text-sm font-semibold text-slate-800 transition focus:border-[#0e524b] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0e524b]"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2.5 text-sm font-semibold text-slate-800 transition focus:border-emerald-700 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-700"
             >
               {aircrafts.map((ac: any) => (
                 <option key={ac.id} value={ac.id}>
@@ -242,7 +242,7 @@ export const MaintenancePlanning: React.FC = () => {
             <select 
               value={maintenanceType}
               onChange={(e) => setMaintenanceType(e.target.value as any)}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2.5 text-sm font-semibold text-slate-800 transition focus:border-[#0e524b] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0e524b]"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2.5 text-sm font-semibold text-slate-800 transition focus:border-emerald-700 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-700"
             >
               <option value="Type A">Type A (Vérification en ligne légère)</option>
               <option value="Type C">Type C (Inspection structurelle lourde)</option>
@@ -258,7 +258,7 @@ export const MaintenancePlanning: React.FC = () => {
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
                 required
-                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-800 transition focus:border-[#0e524b] focus:outline-none focus:ring-1 focus:ring-[#0e524b]" 
+                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-800 transition focus:border-emerald-700 focus:outline-none focus:ring-1 focus:ring-emerald-700" 
               />
             </div>
             <div>
@@ -269,7 +269,7 @@ export const MaintenancePlanning: React.FC = () => {
                 value={durationDays}
                 onChange={(e) => setDurationDays(Number(e.target.value))}
                 required
-                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-semibold text-slate-800 transition focus:border-[#0e524b] focus:outline-none focus:ring-1 focus:ring-[#0e524b]" 
+                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-semibold text-slate-800 transition focus:border-emerald-700 focus:outline-none focus:ring-1 focus:ring-emerald-700" 
               />
             </div>
           </div>
@@ -281,19 +281,19 @@ export const MaintenancePlanning: React.FC = () => {
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Raison du blocage, détails travaux..."
               rows={3}
-              className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-800 placeholder-slate-400 transition focus:border-[#0e524b] focus:outline-none focus:ring-1 focus:ring-[#0e524b] resize-none"
+              className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-800 placeholder-slate-400 transition focus:border-emerald-700 focus:outline-none focus:ring-1 focus:ring-emerald-700 resize-none"
             />
           </div>
 
           <button 
             type="submit" 
             disabled={submitting || aircrafts.length === 0}
-            className="w-full mt-2 rounded-xl bg-[#0e524b] py-3 text-sm font-bold text-white shadow-sm hover:bg-[#0a3d38] active:transform active:scale-[0.99] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+            className="w-full mt-2 rounded-xl bg-emerald-700 py-3 text-sm font-bold text-white shadow-sm hover:bg-emerald-800 active:transform active:scale-[0.99] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {submitting ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-              <Wrench className="h-4 w-4 text-[#3ae7a6]" />
+              <Wrench className="h-4 w-4 text-emerald-200" />
             )}
             Bloquer l'appareil (Gantt Lock)
           </button>
