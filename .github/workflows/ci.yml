@@ -1,33 +1,47 @@
 name: Pipeline CI
 
-# 1. Déclencheurs : à chaque push ou Pull Request sur la branche main (ou master)
+# 1. Déclencheurs
 on:
   push:
     branches: [ "main", "master" ]
   pull_request:
     branches: [ "main", "master" ]
 
+# Annule automatiquement les builds obsolètes sur un même commit / PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 # 2. Les tâches à exécuter
 jobs:
   test-and-build:
-    runs-on: ubuntu-latest # Machine virtuelle fournie par GitHub
+    runs-on: ubuntu-latest
 
     steps:
-      # Étape A : Récupérer le code du dépôt
-      - name: Récupération du code
+      # Étape 1 : Récupération du code
+      - name: Récupération du code source
         uses: actions/checkout@v4
 
-      # Étape B : Configurer votre environnement (ex: Node.js, Python, PHP, etc.)
+      # Étape 2 : Configuration du runtime Node.js avec fallback sur le chemin du lockfile
       - name: Configuration de Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: 'npm'
+          cache-dependency-path: '**/package-lock.json'
 
-      # Étape C : Installer les dépendances
+      # Étape 3 : Installation propre des dépendances
       - name: Installation des dépendances
         run: npm ci
 
-      # Étape D : Lancer les tests et le build
-      - name: Exécution du build
+      # Étape 4 : Vérification du linter & formatage (si configuré dans package.json)
+      - name: Vérification du code (Linter)
+        run: npm run lint --if-present
+
+      # Étape 5 : Exécution des tests unitaires et d'intégration
+      - name: Exécution des tests
+        run: npm test --if-present
+
+      # Étape 6 : Build de l'application
+      - name: Compilation du projet (Build)
         run: npm run build
