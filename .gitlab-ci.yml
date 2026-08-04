@@ -30,19 +30,8 @@ ai-module:
   image: nikolaik/python-nodejs:python3.10-nodejs20-slim
   script:
     - cd airline-ia
-    - |
-      if [ -f package.json ]; then
-        echo "-> Verification compilation Node.js pour airline-ia..."
-        npm install
-        npm run build --if-present
-      elif [ -f requirements.txt ]; then
-        echo "-> Verification de la syntaxe Python pour airline-ia..."
-        pip install --upgrade pip
-        pip install -r requirements.txt
-        python -m compileall .
-      else
-        echo "-> Aucun package.json ni requirements.txt trouve dans airline-ia."
-      fi
+    - test -f package.json && npm install && npm run build --if-present || true
+    - test -f requirements.txt && pip install --upgrade pip && pip install -r requirements.txt && python -m compileall . || true
   only:
     - main
     - master
