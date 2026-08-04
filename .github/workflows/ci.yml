@@ -1,4 +1,4 @@
-name: Pipeline CI - Verification et Compilation
+name: Pipeline CI - Verification et Compilation (Mode Avance)
 
 on:
   push:
@@ -6,14 +6,14 @@ on:
   pull_request:
     branches: [ "main", "master" ]
 
-# Annule automatiquement les builds obsolètes si un nouveau commit est poussé
+# Annulation automatique des builds obsolètes sur un même commit/PR
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   # -------------------------------------------------------------
-  # 1. Verification Compilation Frontend (React)
+  # 1. Verification Compilation Frontend (React / Vite)
   # -------------------------------------------------------------
   frontend:
     name: Compilation Frontend
@@ -26,13 +26,18 @@ jobs:
       - name: Récupération du code
         uses: actions/checkout@v4
 
-      - name: Configuration Node.js
+      - name: Configuration Node.js & Cache npm
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: 'npm'
+          cache-dependency-path: airline-scheduling-front/package-lock.json
 
-      - name: Installation dépendances
-        run: npm install
+      - name: Installation ci des dépendances
+        run: npm ci
+
+      - name: Validation du Linter (Optionnel)
+        run: npm run lint --if-present
 
       - name: Test de compilation Web (Vite)
         run: npx vite build
@@ -51,13 +56,15 @@ jobs:
       - name: Récupération du code
         uses: actions/checkout@v4
 
-      - name: Configuration Node.js
+      - name: Configuration Node.js & Cache npm
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: 'npm'
+          cache-dependency-path: airline-scheduling-back/back-airline-scheduling/package-lock.json
 
-      - name: Installation dépendances
-        run: npm install
+      - name: Installation ci des dépendances
+        run: npm ci
 
       - name: Test de compilation TypeScript (NestJS)
         run: npm run build
@@ -76,27 +83,31 @@ jobs:
       - name: Récupération du code
         uses: actions/checkout@v4
 
-      - name: Configuration Python
+      - name: Configuration Python & Cache pip
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
+          cache: 'pip'
+          cache-dependency-path: airline-ia/requirements.txt
 
-      - name: Configuration Node.js
+      - name: Configuration Node.js & Cache npm
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: 'npm'
+          cache-dependency-path: airline-ia/package-lock.json
 
       - name: Verification de la syntaxe
         run: |
           if [ -f package.json ]; then
-            echo "-> Verification compilation Node.js pour airline-ia..."
-            npm install
+            echo "-> Mode Node.js détecté pour airline-ia"
+            if [ -f package-lock.json ]; then npm ci; else npm install; fi
             npm run build --if-present
           elif [ -f requirements.txt ]; then
-            echo "-> Verification de la syntaxe Python pour airline-ia..."
-            pip install --upgrade pip
+            echo "-> Mode Python détecté pour airline-ia"
+            python -m pip install --upgrade pip setuptools wheel
             pip install -r requirements.txt
             python -m compileall .
           else
-            echo "-> Aucun package.json ni requirements.txt trouve dans airline-ia."
+            echo "-> Aucun package.json ni requirements.txt trouvé dans airline-ia."
           fi
