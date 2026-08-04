@@ -5,6 +5,7 @@ frontend:
   stage: build
   image: node:20-alpine
   script:
+    - ls -la # Affiche la racine pour déboguer si besoin
     - cd airline-scheduling-front
     - npm install
     - npx vite build
