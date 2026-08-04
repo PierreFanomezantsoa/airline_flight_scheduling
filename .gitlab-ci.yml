@@ -5,14 +5,12 @@ frontend:
   stage: build
   image: node:20-alpine
   script:
-    - ls -la # Affiche la racine pour déboguer si besoin
     - cd airline-scheduling-front
     - npm install
     - npx vite build
-  only:
-    - main
-    - master
-    - merge_requests
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
 backend:
   stage: build
@@ -21,10 +19,9 @@ backend:
     - cd airline-scheduling-back/back-airline-scheduling
     - npm install
     - npm run build
-  only:
-    - main
-    - master
-    - merge_requests
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
 ai-module:
   stage: build
@@ -33,7 +30,6 @@ ai-module:
     - cd airline-ia
     - test -f package.json && npm install && npm run build --if-present || true
     - test -f requirements.txt && pip install --upgrade pip && pip install -r requirements.txt && python -m compileall . || true
-  only:
-    - main
-    - master
-    - merge_requests
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
