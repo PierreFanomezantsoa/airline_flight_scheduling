@@ -14,8 +14,6 @@ import {
   Plane,
   X,
   AlertTriangle,
-  Users,
-  Calendar,
   Activity,
   ChevronRight
 } from 'lucide-react';
