@@ -1,5 +1,4 @@
-// MaintenancePlanning.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Wrench, Plus, Calendar, Clock, Trash2, Loader2, AlertCircle, CheckCircle2, ShieldAlert, X } from 'lucide-react';
 
 import { fleetService } from '../fleet/fleetService'; 
@@ -7,6 +6,8 @@ import type { Aircraft } from '../fleet/fleetService';
 
 import { maintenanceService } from './maintenanceService';
 import type { MaintenanceSlot } from './maintenanceService';
+
+type MaintenanceType = 'Type A' | 'Type C' | 'Aircraft On Ground';
 
 interface ToastState {
   id: number;
@@ -20,35 +21,88 @@ interface ModalState {
   aircraftRegistration: string | null;
 }
 
+const getStatus = (start: string, end: string, type: string) => {
+  const now = new Date();
+  const startDateObj = new Date(start);
+  const endDateObj = new Date(end);
+
+  if (type === 'Aircraft On Ground') {
+    return { 
+      label: 'Urgence AOG', 
+      css: 'bg-rose-50 text-rose-700 border-rose-100', 
+      iconColor: 'bg-rose-50 text-rose-600 border border-rose-100/50',
+      icon: <ShieldAlert className="h-5 w-5" />
+    };
+  }
+
+  if (now < startDateObj) {
+    return { 
+      label: 'Planifié', 
+      css: 'bg-amber-50 text-amber-700 border-amber-100', 
+      iconColor: 'bg-amber-50 text-amber-600 border border-amber-100/50',
+      icon: <Calendar className="h-5 w-5" />
+    };
+  }
+  if (now > endDateObj) {
+    return { 
+      label: 'Terminé', 
+      css: 'bg-emerald-50 text-emerald-700 border-emerald-100', 
+      iconColor: 'bg-emerald-50 text-emerald-600 border border-emerald-100/50',
+      icon: <CheckCircle2 className="h-5 w-5" />
+    };
+  }
+  return { 
+    label: 'En Atelier', 
+    css: 'bg-emerald-50 text-emerald-900 border-emerald-100/60', 
+    iconColor: 'bg-emerald-50/60 text-emerald-800 border border-emerald-100/50',
+    icon: <Wrench className="h-5 w-5 animate-pulse" />
+  };
+};
+
+const calculateDurationInDays = (start: string, end: string): number => {
+  const diffTime = Math.abs(new Date(end).getTime() - new Date(start).getTime());
+  return Math.max(1, Math.round(diffTime / (1000 * 60 * 60 * 24)));
+};
+
 export const MaintenancePlanning: React.FC = () => {
   const [slots, setSlots] = useState<MaintenanceSlot[]>([]);
   const [aircrafts, setAircrafts] = useState<Aircraft[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
   const [selectedAircraftId, setSelectedAircraftId] = useState<string>('');
-  const [maintenanceType, setMaintenanceType] = useState<'Type A' | 'Type C' | 'Aircraft On Ground'>('Type A');
+  const [maintenanceType, setMaintenanceType] = useState<MaintenanceType>('Type A');
   const [startDate, setStartDate] = useState<string>('');
   const [durationDays, setDurationDays] = useState<number>(1);
   const [description, setDescription] = useState<string>('');
   const [submitting, setSubmitting] = useState<boolean>(false);
 
-  // États pour les Toasts et la Modal de suppression
   const [toasts, setToasts] = useState<ToastState[]>([]);
   const [modal, setModal] = useState<ModalState>({
     isOpen: false,
     slotId: null,
-    aircraftRegistration: null
+    aircraftRegistration: null,
   });
 
-  const showToast = (message: string, type: 'success' | 'error') => {
+  // Type ajusté à `number` pour le navigateur (Browser-safe timer type)
+  const toastTimerRef = useRef<{ [key: number]: number }>({});
+
+  const showToast = useCallback((message: string, type: 'success' | 'error') => {
     const id = Date.now();
     setToasts((prev) => [...prev, { id, message, type }]);
-    setTimeout(() => {
+    
+    toastTimerRef.current[id] = window.setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
+      delete toastTimerRef.current[id];
     }, 4000);
-  };
+  }, []);
 
-  const loadData = async () => {
+  useEffect(() => {
+    return () => {
+      Object.values(toastTimerRef.current).forEach(window.clearTimeout);
+    };
+  }, []);
+
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       const [fetchedSlots, fetchedAircrafts] = await Promise.all([
@@ -57,7 +111,7 @@ export const MaintenancePlanning: React.FC = () => {
       ]);
       setSlots(fetchedSlots);
       setAircrafts(fetchedAircrafts);
-      
+
       if (fetchedAircrafts.length > 0 && !selectedAircraftId) {
         setSelectedAircraftId(fetchedAircrafts[0].id);
       }
@@ -66,49 +120,11 @@ export const MaintenancePlanning: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedAircraftId, showToast]);
 
   useEffect(() => {
     loadData();
-  }, []);
-
-  const getStatus = (start: string, end: string, type: string) => {
-    const now = new Date();
-    const startDateObj = new Date(start);
-    const endDateObj = new Date(end);
-
-    if (type === 'Aircraft On Ground') {
-      return { 
-        label: 'Urgence AOG', 
-        css: 'bg-rose-50 text-rose-700 border-rose-100', 
-        iconColor: 'bg-rose-50 text-rose-600 border border-rose-100/50',
-        icon: <ShieldAlert className="h-5 w-5" />
-      };
-    }
-
-    if (now < startDateObj) {
-      return { 
-        label: 'Planifié', 
-        css: 'bg-amber-50 text-amber-700 border-amber-100', 
-        iconColor: 'bg-amber-50 text-amber-600 border border-amber-100/50',
-        icon: <Calendar className="h-5 w-5" />
-      };
-    }
-    if (now > endDateObj) {
-      return { 
-        label: 'Terminé', 
-        css: 'bg-emerald-50 text-emerald-700 border-emerald-100', 
-        iconColor: 'bg-emerald-50 text-emerald-600 border border-emerald-100/50',
-        icon: <CheckCircle2 className="h-5 w-5" />
-      };
-    }
-    return { 
-      label: 'En Atelier', 
-      css: 'bg-emerald-50 text-emerald-900 border-emerald-100/60', 
-      iconColor: 'bg-emerald-50/60 text-emerald-800 border border-emerald-100/50',
-      icon: <Wrench className="h-5 w-5 animate-pulse" />
-    };
-  };
+  }, [loadData]);
 
   const handleScheduleMaintenance = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -116,16 +132,17 @@ export const MaintenancePlanning: React.FC = () => {
 
     try {
       setSubmitting(true);
-      const start = new Date(startDate);
-      const end = new Date(start);
-      end.setDate(start.getDate() + Number(durationDays));
+      
+      const [year, month, day] = startDate.split('-').map(Number);
+      const start = new Date(year, month - 1, day, 0, 0, 0);
+      const end = new Date(year, month - 1, day + Number(durationDays), 23, 59, 59);
 
       await maintenanceService.create({
         aircraftId: selectedAircraftId,
         maintenanceType,
         startTime: start.toISOString(),
         endTime: end.toISOString(),
-        description: description || undefined
+        description: description.trim() || undefined
       });
 
       showToast("Blocage technique planifié avec succès", "success");
@@ -141,8 +158,8 @@ export const MaintenancePlanning: React.FC = () => {
   };
 
   const openDeleteModal = (slot: MaintenanceSlot) => {
-    const targetAircraft = slot.aircraft as any;
-    const reg = targetAircraft?.immatriculation || targetAircraft?.registration || "Appareil inconnu";
+    const targetAircraft = slot.aircraft;
+    const reg = targetAircraft?.registration || "Appareil inconnu";
     setModal({
       isOpen: true,
       slotId: slot.id,
@@ -158,18 +175,13 @@ export const MaintenancePlanning: React.FC = () => {
     if (!modal.slotId) return;
     try {
       await maintenanceService.remove(modal.slotId);
-      setSlots(slots.filter(slot => slot.id !== modal.slotId));
+      setSlots((prev) => prev.filter((slot) => slot.id !== modal.slotId));
       showToast("Blocage technique annulé avec succès", "success");
     } catch (error) {
       showToast("Erreur lors de la suppression du blocage", "error");
     } finally {
       closeDeleteModal();
     }
-  };
-
-  const calculateDurationInDays = (start: string, end: string): number => {
-    const diffTime = Math.abs(new Date(end).getTime() - new Date(start).getTime());
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
   if (loading) {
@@ -183,13 +195,12 @@ export const MaintenancePlanning: React.FC = () => {
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 p-1 sm:p-0 relative">
-      
-      {/* --- FLUX DE TOASTS --- */}
+      {/* Toast Notification Container */}
       <div className="fixed top-5 right-5 z-50 flex flex-col gap-3 max-w-md w-full pointer-events-none">
         {toasts.map((t) => (
           <div
             key={t.id}
-            className={`pointer-events-auto flex items-start gap-3 rounded-2xl border p-4 shadow-xl transition-all duration-300 transform translate-y-0 animate-fadeIn ${
+            className={`pointer-events-auto flex items-start gap-3 rounded-2xl border p-4 shadow-xl transition-all duration-300 transform translate-y-0 ${
               t.type === 'success' 
                 ? 'border-emerald-100 bg-white text-emerald-900 shadow-emerald-100/40' 
                 : 'border-rose-100 bg-white text-rose-900 shadow-rose-100/40'
@@ -211,7 +222,7 @@ export const MaintenancePlanning: React.FC = () => {
         ))}
       </div>
 
-      {/* Formulaire de mise en maintenance */}
+      {/* Formulaire de réservation */}
       <div className="rounded-2xl border border-slate-100 bg-white p-5 sm:p-6 shadow-sm h-fit">
         <h3 className="flex items-center gap-2.5 text-base sm:text-lg font-black text-slate-900 mb-5 tracking-tight">
           <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
@@ -228,9 +239,9 @@ export const MaintenancePlanning: React.FC = () => {
               onChange={(e) => setSelectedAircraftId(e.target.value)}
               className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2.5 text-sm font-semibold text-slate-800 transition focus:border-emerald-700 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-700"
             >
-              {aircrafts.map((ac: any) => (
+              {aircrafts.map((ac) => (
                 <option key={ac.id} value={ac.id}>
-                  {ac.immatriculation || ac.registration} — {ac.modele || ac.model}
+                  {ac.registration} — {ac.model}
                 </option>
               ))}
               {aircrafts.length === 0 && <option value="">Aucun avion disponible</option>}
@@ -241,7 +252,7 @@ export const MaintenancePlanning: React.FC = () => {
             <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Type d'intervention</label>
             <select 
               value={maintenanceType}
-              onChange={(e) => setMaintenanceType(e.target.value as any)}
+              onChange={(e) => setMaintenanceType(e.target.value as MaintenanceType)}
               className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2.5 text-sm font-semibold text-slate-800 transition focus:border-emerald-700 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-700"
             >
               <option value="Type A">Type A (Vérification en ligne légère)</option>
@@ -267,7 +278,7 @@ export const MaintenancePlanning: React.FC = () => {
                 type="number" 
                 min={1} 
                 value={durationDays}
-                onChange={(e) => setDurationDays(Number(e.target.value))}
+                onChange={(e) => setDurationDays(Math.max(1, Number(e.target.value)))}
                 required
                 className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-semibold text-slate-800 transition focus:border-emerald-700 focus:outline-none focus:ring-1 focus:ring-emerald-700" 
               />
@@ -300,7 +311,7 @@ export const MaintenancePlanning: React.FC = () => {
         </form>
       </div>
 
-      {/* Liste des immobilisations au sol */}
+      {/* Liste des chantiers */}
       <div className="lg:col-span-2 rounded-2xl border border-slate-100 bg-white p-5 sm:p-6 shadow-sm">
         <h3 className="flex items-center gap-2.5 text-base sm:text-lg font-black text-slate-900 mb-5 tracking-tight">
           <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
@@ -310,19 +321,18 @@ export const MaintenancePlanning: React.FC = () => {
         </h3>
 
         <div className="space-y-3.5">
-          {slots.map(slot => {
+          {slots.map((slot) => {
             const statusInfo = getStatus(slot.startTime, slot.endTime, slot.maintenanceType);
             const daysCount = calculateDurationInDays(slot.startTime, slot.endTime);
             
             const isOrphan = !slot.aircraft;
-            const targetAircraft = slot.aircraft as any;
-            const reg = targetAircraft?.immatriculation || targetAircraft?.registration || "Appareil inconnu";
-            const model = targetAircraft?.modele || targetAircraft?.model || "Spécifications indisponibles";
+            const targetAircraft = slot.aircraft;
+            const reg = targetAircraft?.registration || "Appareil inconnu";
+            const model = targetAircraft?.model || "Spécifications indisponibles";
 
             return (
               <div key={slot.id} className="flex flex-col sm:flex-row sm:items-center justify-between rounded-xl border border-slate-100/70 bg-slate-50/30 p-4 hover:bg-slate-50 hover:border-slate-200/60 transition duration-200 gap-4 group">
                 
-                {/* Infos Gauche */}
                 <div className="flex items-start gap-3.5 min-w-0">
                   <div className={`rounded-xl p-3 shrink-0 ${statusInfo.iconColor}`}>
                     {statusInfo.icon}
@@ -354,7 +364,6 @@ export const MaintenancePlanning: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Infos Droite */}
                 <div className="flex items-center justify-between sm:justify-end gap-5 border-t sm:border-t-0 pt-3 sm:pt-0 border-slate-100 sm:border-none">
                   <div className="text-left sm:text-right text-xs">
                     <span className="text-slate-400 font-bold flex items-center gap-1.5 sm:justify-end">
@@ -397,15 +406,15 @@ export const MaintenancePlanning: React.FC = () => {
         </div>
       </div>
 
-      {/* --- MODAL DE CONFIRMATION DE SUPPRESSION --- */}
+      {/* Modal de Confirmation */}
       {modal.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div 
-            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm animate-fadeIn" 
+            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" 
             onClick={closeDeleteModal}
           />
           
-          <div className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl border border-slate-100 animate-scaleIn z-10">
+          <div className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl border border-slate-100 z-10">
             <div className="flex items-start gap-4">
               <div className="p-3 rounded-xl shrink-0 bg-rose-50 text-rose-600">
                 <Trash2 className="h-6 w-6" />
@@ -440,7 +449,6 @@ export const MaintenancePlanning: React.FC = () => {
           </div>
         </div>
       )}
-
     </div>
   );
 };

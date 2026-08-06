@@ -14,7 +14,9 @@ import {
   AlertCircle,
   XCircle,
   Filter,
-  X
+  X,
+  Clock,
+  MapPin
 } from 'lucide-react';
 import { FlightAddModal, type FlightFormData } from '../dashboard/FlightAddModal';
 
@@ -40,6 +42,7 @@ interface Flight {
   flightNumber: string;
   origin: string;
   destination: string;
+  stops?: string[]; // Liste des escales (ex: ['DIE', 'MRU'])
   departure: string;
   arrival: string;
   status: FlightStatus;
@@ -61,6 +64,80 @@ interface Toast {
 
 const API_BASE_URL = 'http://localhost:5000';
 
+// --- HELPER DURÉE DE VOL ---
+const calculateDuration = (departureStr: string, arrivalStr: string): string | null => {
+  const dep = new Date(departureStr);
+  const arr = new Date(arrivalStr);
+  if (isNaN(dep.getTime()) || isNaN(arr.getTime())) return null;
+
+  const diffMs = arr.getTime() - dep.getTime();
+  if (diffMs <= 0) return null;
+
+  const totalMinutes = Math.floor(diffMs / (1000 * 60));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  if (hours === 0) return `${minutes}m`;
+  return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+};
+
+// --- COMPOSANT ITINÉRAIRE AVEC ESCALES ---
+const RouteBadge: React.FC<{ 
+  origin: string; 
+  destination: string; 
+  stops?: string[]; 
+  departure: string; 
+  arrival: string; 
+}> = ({ origin, destination, stops = [], departure, arrival }) => {
+  const duration = calculateDuration(departure, arrival);
+  const hasStops = stops && stops.length > 0;
+
+  return (
+    <div className="flex flex-col gap-1.5 items-start">
+      {/* Container de la route principale et escales */}
+      <div className="inline-flex items-center gap-1.5 bg-slate-900 text-white font-mono font-black text-xs px-3 py-1.5 rounded-xl shadow-xs border border-slate-800 flex-wrap">
+        {/* Origine */}
+        <span className="tracking-widest text-emerald-400">{origin}</span>
+
+        {/* Parcours avec escales */}
+        {hasStops ? (
+          stops.map((stop, index) => (
+            <React.Fragment key={`${stop}-${index}`}>
+              <ArrowRight className="h-3 w-3 text-slate-500 shrink-0" />
+              <span className="inline-flex items-center gap-1 text-[11px] font-extrabold text-amber-300 bg-amber-400/10 px-1.5 py-0.5 rounded border border-amber-400/20">
+                <MapPin className="h-2.5 w-2.5 text-amber-400" />
+                {stop}
+              </span>
+            </React.Fragment>
+          ))
+        ) : null}
+
+        <ArrowRight className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+
+        {/* Destination */}
+        <span className="tracking-widest text-sky-400">{destination}</span>
+      </div>
+
+      {/* Informations complémentaires (Durée + Nombre d'escales) */}
+      <div className="flex items-center gap-2 text-[10px] font-semibold text-slate-500 pl-1">
+        {duration && (
+          <span className="inline-flex items-center gap-1">
+            <Clock className="h-3 w-3 text-slate-400" />
+            {duration}
+          </span>
+        )}
+        {hasStops ? (
+          <span className="text-amber-600 font-bold bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200/60">
+            {stops.length} escale{stops.length > 1 ? 's' : ''} ({stops.join(', ')})
+          </span>
+        ) : (
+          <span className="text-slate-400">Direct</span>
+        )}
+      </div>
+    </div>
+  );
+};
+
 export const FlightsPlanning: React.FC = () => {
   const [flights, setFlights] = useState<Flight[]>([]);
   const [fleet, setFleet] = useState<AircraftData[]>([]);
@@ -70,18 +147,18 @@ export const FlightsPlanning: React.FC = () => {
   const [loadingFleet, setLoadingFleet] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // État Modal de confirmation de suppression
+  // Modal suppression
   const [deletingFlight, setDeletingFlight] = useState<Flight | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Système de Toasts
+  // Toasts
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   // Filtres
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('ALL');
 
-  // --- GESTION DES TOASTS ---
+  // --- TOASTS ---
   const addToast = useCallback((type: 'success' | 'error' | 'info', message: string) => {
     const id = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
     setToasts((prev) => [...prev, { id, type, message }]);
@@ -95,15 +172,13 @@ export const FlightsPlanning: React.FC = () => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  // --- CALCUL DYNAMIQUE ET TRADUCTION DU STATUT ---
+  // --- STATUT ---
   const getCalculatedStatus = useCallback((flight: Flight): NormalizedStatus => {
     const rawStatus = flight.status;
     
-    // 1. Statuts explicites prioritaires
     if (['Cancelled', 'Annulé'].includes(rawStatus)) return 'Annulé';
     if (['Delayed', 'Retardé'].includes(rawStatus)) return 'Retardé';
 
-    // 2. Logique temporelle si dates valides
     const now = new Date();
     const depDate = new Date(flight.departure);
     const arrDate = new Date(flight.arrival);
@@ -114,7 +189,6 @@ export const FlightsPlanning: React.FC = () => {
       if (now > arrDate) return 'Ponctuel';
     }
 
-    // 3. Fallback standard
     const mapFallback: Record<string, NormalizedStatus> = {
       'Scheduled': 'En attente',
       'Planifié': 'En attente',
@@ -129,7 +203,6 @@ export const FlightsPlanning: React.FC = () => {
     return mapFallback[rawStatus] || 'En attente';
   }, []);
 
-  // --- STYLE BADGES ---
   const getStatusBadge = (status: NormalizedStatus) => {
     const styles: Record<NormalizedStatus, string> = {
       'En attente': 'bg-sky-50 text-sky-700 border-sky-200/80',
@@ -141,7 +214,7 @@ export const FlightsPlanning: React.FC = () => {
     return styles[status] || 'bg-slate-50 text-slate-700 border-slate-200';
   };
 
-  // --- REQUÊTES SERVEUR ---
+  // --- REQUÊTES ---
   const fetchFlights = useCallback(async (signal?: AbortSignal) => {
     try {
       setLoadingFlights(true);
@@ -184,7 +257,7 @@ export const FlightsPlanning: React.FC = () => {
     };
   }, [fetchFlights, fetchFleet]);
 
-  // --- SOUMISSION DE FORMULAIRE ---
+  // --- MUTATIONS ---
   const handleFormSubmit = async (formData: FlightFormData) => {
     try {
       setIsSubmitting(true);
@@ -222,7 +295,6 @@ export const FlightsPlanning: React.FC = () => {
     }
   };
 
-  // --- SUPPRESSION DE VOL ---
   const confirmDeleteFlight = async () => {
     if (!deletingFlight) return;
     try {
@@ -251,7 +323,6 @@ export const FlightsPlanning: React.FC = () => {
     setEditingFlight(null);
   };
 
-  // --- FORMATAGE DE LA CHRONOLOGIE ---
   const formatDateRange = (departureStr: string, arrivalStr: string) => {
     const depDate = new Date(departureStr);
     const arrDate = new Date(arrivalStr);
@@ -303,15 +374,20 @@ export const FlightsPlanning: React.FC = () => {
     }
   };
 
-  // --- FILTRES & KPIS MEMOÏSÉS ---
+  // --- FILTRES & KPIS (INCLUT RECHERCHE AVEC ESCALES) ---
   const filteredFlights = useMemo(() => {
     const term = searchTerm.toLowerCase().trim();
     return flights.filter(flight => {
+      const fullRoute = [flight.origin, ...(flight.stops || []), flight.destination].join('-').toLowerCase();
+      const stopsMatch = flight.stops?.some(stop => stop.toLowerCase().includes(term));
+      
       const matchesSearch = 
         !term ||
         flight.flightNumber.toLowerCase().includes(term) ||
         flight.origin.toLowerCase().includes(term) ||
         flight.destination.toLowerCase().includes(term) ||
+        fullRoute.includes(term) ||
+        stopsMatch ||
         flight.aircraftModel?.toLowerCase().includes(term);
 
       const computedStatus = getCalculatedStatus(flight);
@@ -333,9 +409,9 @@ export const FlightsPlanning: React.FC = () => {
   }, [flights, getCalculatedStatus]);
 
   return (
-    <div className="space-y-6 max-w-[1500px] mx-auto pb-8 relative">
+    <div className="space-y-6 max-w-375 mx-auto pb-8 relative">
       
-      {/* TOASTS NOTIFICATIONS */}
+      {/* TOASTS */}
       <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-2.5 max-w-md w-full pointer-events-none">
         {toasts.map((toast) => (
           <div
@@ -380,7 +456,6 @@ export const FlightsPlanning: React.FC = () => {
           </p>
         </div>
 
-        {/* Bouton principal avec bg-emerald-700 */}
         <button
           onClick={() => { setEditingFlight(null); setIsModalOpen(true); }}
           className="flex items-center gap-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 active:scale-[0.98] text-xs font-bold text-white uppercase tracking-wider px-5 py-3 shadow-md shadow-emerald-700/20 transition-all self-stretch sm:self-auto justify-center cursor-pointer"
@@ -432,13 +507,13 @@ export const FlightsPlanning: React.FC = () => {
         </div>
       </div>
 
-      {/* BARRE DE RECHERCHE ET FILTRES */}
+      {/* RECHERCHE ET FILTRES */}
       <div className="flex flex-col md:flex-row items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-2xs">
         <div className="relative w-full md:w-80">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <input
             type="text"
-            placeholder="Rechercher vol, appareil, escale..."
+            placeholder="Rechercher vol, appareil, escale (ex: TNR-DIE-PAR)..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all"
@@ -470,7 +545,7 @@ export const FlightsPlanning: React.FC = () => {
         </div>
       </div>
 
-      {/* TABLEAU DES VOLS */}
+      {/* TABLEAU */}
       <div className="rounded-2xl border border-slate-200/80 bg-white overflow-hidden shadow-xs">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
           <h3 className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-widest text-slate-500">
@@ -504,7 +579,7 @@ export const FlightsPlanning: React.FC = () => {
                 <tr className="border-b border-slate-200/60 bg-slate-50/80 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">
                   <th className="py-3.5 px-6">N° Vol</th>
                   <th className="py-3.5 px-4">Appareil</th>
-                  <th className="py-3.5 px-4">Itinéraire</th>
+                  <th className="py-3.5 px-4">Itinéraire &amp; Escales</th>
                   <th className="py-3.5 px-4">Statut</th>
                   <th className="py-3.5 px-4">Météo</th>
                   <th className="py-3.5 px-4">Chronologie (UTC)</th>
@@ -543,16 +618,18 @@ export const FlightsPlanning: React.FC = () => {
                         </span>
                       </td>
 
-                      {/* Itinéraire */}
-                      <td className="py-4 px-4 font-mono font-bold text-slate-900">
-                        <div className="inline-flex items-center gap-1.5 bg-slate-50 border border-slate-200/60 px-2.5 py-1 rounded-lg">
-                          <span>{flight.origin}</span>
-                          <ArrowRight className="h-3 w-3 text-slate-400 shrink-0" />
-                          <span>{flight.destination}</span>
-                        </div>
+                      {/* Itinéraire avec Escales */}
+                      <td className="py-4 px-4">
+                        <RouteBadge 
+                          origin={flight.origin} 
+                          destination={flight.destination}
+                          stops={flight.stops}
+                          departure={flight.departure}
+                          arrival={flight.arrival}
+                        />
                       </td>
 
-                      {/* Statut (Dynamique / Traduit) */}
+                      {/* Statut */}
                       <td className="py-4 px-4">
                         <span className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${getStatusBadge(computedStatus)}`}>
                           {isInFlight && <span className="h-1.5 w-1.5 rounded-full bg-teal-600 animate-ping" />}
@@ -562,7 +639,7 @@ export const FlightsPlanning: React.FC = () => {
 
                       {/* Météo */}
                       <td className="py-4 px-4">
-                        <div className="flex items-center gap-2 min-w-[100px]">
+                        <div className="flex items-center gap-2 min-w-25">
                           <div className="w-14 h-2 bg-slate-100 rounded-full overflow-hidden border border-slate-200/60 shrink-0">
                             <div 
                               className={`h-full transition-all duration-300 ${
