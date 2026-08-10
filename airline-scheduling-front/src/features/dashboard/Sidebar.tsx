@@ -1,5 +1,5 @@
 // features/dashboard/Sidebar.tsx
-import React from 'react';
+import React, { useState } from 'react';
 import {
   LayoutDashboard,
   Layers,
@@ -11,8 +11,9 @@ import {
   Settings,
   User,
   LogOut,
-  ChevronRight,
   Sparkles,
+  HelpCircle,
+  AlignLeft,
 } from 'lucide-react';
 import type { LucideProps } from 'lucide-react';
 
@@ -75,8 +76,8 @@ const mobileMenuItems: MenuItem[] = [
 ];
 
 const coreMenuItems: MenuItem[] = [
-  { id: 'dashboard', label: 'Tableau de bord (Gantt)', icon: LayoutDashboard },
-  { id: 'scheduling', label: 'Ordonnancement (Matrice)', icon: Layers },
+  { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
+  { id: 'scheduling', label: 'Ordonnancement', icon: Layers },
   { id: 'fleet', label: 'Gestion de la Flotte', icon: Plane },
   { id: 'flights', label: 'Planification des Vols', icon: CalendarDays },
 ];
@@ -120,6 +121,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   user,
   onLogout,
 }) => {
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
   const userDisplayName = user?.nom?.trim() || 'Utilisateur';
   const userInitial = userDisplayName.charAt(0).toUpperCase();
 
@@ -145,33 +148,35 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <button
         key={item.id}
         onClick={() => setActiveScreen(item.id)}
-        className={`group relative flex items-center justify-between w-full px-3.5 py-2.5 rounded-xl
-          transition-all duration-200 text-sm font-bold border-none cursor-pointer select-none outline-none text-white
-          ${isActive 
-            ? 'bg-white/20 shadow-sm' 
-            : 'hover:bg-white/10'}`}
+        title={isCollapsed ? item.label : undefined}
+        className={`group relative flex items-center ${
+          isCollapsed ? 'justify-center px-0' : 'justify-between px-4'
+        } py-2.5 rounded-xl transition-all duration-200 font-semibold text-sm cursor-pointer select-none outline-none border-none text-left w-full
+          ${
+            isActive
+              ? 'bg-emerald-700 text-white shadow-sm shadow-emerald-700/20'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/70'
+          }`}
       >
-        {isActive && (
-          <div className="absolute left-0 top-2 bottom-2 w-1 bg-white rounded-r-full shadow-sm" />
-        )}
-
-        <div className="flex items-center min-w-0">
-          <Icon className="w-5 h-5 mr-3 shrink-0 text-white transition-colors duration-200" />
-          <span className="truncate">{item.label}</span>
+        <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'min-w-0 gap-3'}`}>
+          <Icon
+            className={`w-4 h-4 shrink-0 transition-colors duration-150 ${
+              isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-600'
+            }`}
+          />
+          {!isCollapsed && <span className="truncate transition-all duration-200">{item.label}</span>}
         </div>
 
-        {item.badge && (
-          <span className={`shrink-0 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide transition-all ${
-            isActive
-              ? 'bg-white text-emerald-700 shadow-sm'
-              : 'bg-emerald-700/50 text-white border border-emerald-400/30'
-          }`}>
+        {!isCollapsed && item.badge && (
+          <span
+            className={`shrink-0 text-[10px] px-2 py-0.5 rounded-full font-bold transition-all ${
+              isActive
+                ? 'bg-white text-emerald-700'
+                : 'bg-emerald-100 text-emerald-700'
+            }`}
+          >
             {item.badge}
           </span>
-        )}
-
-        {!item.badge && isActive && (
-          <ChevronRight className="w-4 h-4 text-white shrink-0 ml-1" />
         )}
       </button>
     );
@@ -180,7 +185,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   return (
     <>
       {/* VUE MOBILE */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 h-16 border-t border-emerald-500 bg-emerald-700 px-3 flex items-center gap-1 overflow-x-auto justify-between md:hidden select-none scrollbar-none shadow-lg">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 h-16 border-t border-slate-200 bg-white/95 backdrop-blur-lg px-1 flex items-center gap-1 overflow-x-auto justify-between md:hidden select-none scrollbar-none shadow-lg">
         {visibleMobileMenuItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeScreen === item.id;
@@ -188,99 +193,142 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               key={item.id}
               onClick={() => setActiveScreen(item.id)}
-              className={`relative flex flex-col items-center justify-center min-w-[3.75rem] h-12 rounded-xl transition-all duration-200 shrink-0 outline-none border-none text-white font-bold ${
-                isActive 
-                  ? 'bg-white/20' 
-                  : 'hover:text-white'
+              className={`relative flex flex-col items-center justify-center min-w-14 h-12 rounded-xl transition-all duration-150 shrink-0 outline-none border-none ${
+                isActive
+                  ? 'text-emerald-700 bg-emerald-50 font-bold'
+                  : 'text-slate-500 hover:text-slate-800'
               }`}
             >
-              <Icon className={`w-5 h-5 shrink-0 text-white ${isActive ? 'scale-110' : ''} transition-transform duration-200`} />
-              <span className="text-[10px] mt-1 tracking-tight whitespace-nowrap">{item.label}</span>
-              
+              <Icon
+                className={`w-5 h-5 shrink-0 ${
+                  isActive ? 'scale-110 text-emerald-700' : ''
+                } transition-transform duration-150`}
+              />
+              <span className="text-[10px] mt-1 tracking-tight whitespace-nowrap">
+                {item.label}
+              </span>
+
               {isActive && (
-                <div className="absolute -bottom-1 w-4 h-1 bg-white rounded-full" />
-              )}
-              
-              {item.badge && !isActive && (
-                <span className="absolute top-1.5 right-2 flex h-2 w-2 rounded-full bg-white ring-2 ring-emerald-600" />
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-6 h-0.5 bg-emerald-700 rounded-full" />
               )}
             </button>
           );
         })}
       </nav>
 
-      {/* VUE DESKTOP */}
-      <aside className="hidden md:flex sticky top-0 h-screen w-72 shrink-0 bg-emerald-700 border-r border-emerald-500 text-white flex-col shadow-xl select-none">
-        
-        {/* Header / Logo */}
-        <div className="px-6 py-6 border-b border-emerald-500/80">
-          <div className="flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center shadow-md shrink-0 group">
-              <Plane className="w-5 h-5 text-white rotate-45 transition-transform group-hover:scale-110 duration-200" />
+      {/* VUE DESKTOP (Conteneur arrondi flottant avec transition fluide) */}
+      <div className="hidden md:block p-3 sticky top-0 h-screen shrink-0">
+        <aside
+          className={`${
+            isCollapsed ? 'w-20' : 'w-72'
+          } h-full bg-white rounded-3xl border border-gray-200/80 shadow-xs text-slate-800 flex flex-col select-none justify-between overflow-hidden transition-all duration-300 ease-in-out`}
+        >
+          <div className="overflow-y-auto scrollbar-thin scrollbar-thumb-slate-200">
+            {/* Header / Logo */}
+            <div
+              className={`py-5 border-b border-gray-100 flex items-center ${
+                isCollapsed ? 'justify-center px-0' : 'justify-between px-5'
+              } transition-all duration-300`}
+            >
+              <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'}`}>
+                <div className="w-9 h-9 rounded-2xl bg-emerald-700 flex items-center justify-center shadow-md shadow-emerald-700/20 shrink-0">
+                  <Plane className="w-5 h-5 text-white" />
+                </div>
+                {!isCollapsed && (
+                  <div className="overflow-hidden transition-opacity duration-200">
+                    <h1 className="text-base font-extrabold text-slate-800 tracking-tight m-0 leading-none">
+                      Flight Ops
+                    </h1>
+                    <p className="text-[11px] font-medium text-slate-400 m-0 mt-1 truncate">
+                      Scheduling Center
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <button
+                onClick={() => setIsCollapsed(!isCollapsed)}
+                title={isCollapsed ? 'Agrandir la sidebar' : 'Réduire la sidebar'}
+                className={`text-slate-400 hover:text-slate-600 border-none bg-transparent cursor-pointer p-1.5 rounded-lg hover:bg-slate-100 transition-colors ${
+                  isCollapsed ? 'mt-3' : ''
+                }`}
+              >
+                <AlignLeft className="w-4 h-4" />
+              </button>
             </div>
-            <div className="overflow-hidden">
-              <h1 className="text-sm font-black text-white tracking-wider uppercase m-0 leading-tight">
-                Flight Ops
-              </h1>
-              <span className="text-[10px] font-bold text-white tracking-widest uppercase">
-                Scheduling Center
-              </span>
-            </div>
+
+            {/* Navigation */}
+            <nav className="p-3 space-y-5">
+              {visibleCoreMenuItems.length > 0 && (
+                <div className="space-y-1">
+                  {!isCollapsed && (
+                    <p className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 transition-all">
+                      Overview
+                    </p>
+                  )}
+                  {visibleCoreMenuItems.map(renderDesktopButton)}
+                </div>
+              )}
+
+              {visibleAdvancedMenuItems.length > 0 && (
+                <div className="space-y-1">
+                  {!isCollapsed && (
+                    <p className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 transition-all">
+                      Management
+                    </p>
+                  )}
+                  {visibleAdvancedMenuItems.map(renderDesktopButton)}
+                </div>
+              )}
+            </nav>
           </div>
-        </div>
 
-        {/* Dynamic Navigation */}
-        <nav className="flex-1 px-3 py-4 space-y-6 overflow-y-auto scrollbar-thin scrollbar-thumb-emerald-500">
-          {visibleCoreMenuItems.length > 0 && (
-            <div className="space-y-1">
-              <p className="px-3 text-[10px] font-bold uppercase tracking-widest text-white mb-2">
-                Navigation
-              </p>
-              {visibleCoreMenuItems.map(renderDesktopButton)}
+          {/* Footer / Carte Utilisateur & Déconnexion */}
+          <div className="p-3 border-t border-gray-100 bg-slate-50/50">
+            <div className="mb-2 px-2">
+              <button
+                title={isCollapsed ? 'Aide & Support' : undefined}
+                className={`flex items-center ${
+                  isCollapsed ? 'justify-center' : 'gap-2.5'
+                } text-slate-500 hover:text-slate-800 text-xs font-semibold border-none bg-transparent cursor-pointer py-1.5 w-full`}
+              >
+                <HelpCircle className="w-4 h-4 text-slate-400 shrink-0" />
+                {!isCollapsed && <span>Aide & Support</span>}
+              </button>
             </div>
-          )}
 
-          {visibleAdvancedMenuItems.length > 0 && (
-            <div className="space-y-1">
-              <p className="px-3 text-[10px] font-bold uppercase tracking-widest text-white mb-2">
-                Régulation &amp; Maintenance
-              </p>
-              {visibleAdvancedMenuItems.map(renderDesktopButton)}
-            </div>
-          )}
-        </nav>
-
-        {/* User Card & Logout */}
-        <div className="p-3 border-t border-emerald-500/80 bg-emerald-700/30">
-          <div className="flex items-center justify-between p-2 rounded-xl bg-white/10 border border-white/10 mb-2">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="relative shrink-0">
-                <div className="w-9 h-9 rounded-full bg-white text-emerald-700 flex items-center justify-center text-sm font-bold shadow-sm">
+            <div
+              className={`pt-2 border-t border-gray-200/60 flex items-center ${
+                isCollapsed ? 'flex-col gap-2' : 'justify-between px-2'
+              }`}
+            >
+              <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-2.5 min-w-0'}`}>
+                <div className="w-8 h-8 rounded-full bg-emerald-100 border border-emerald-200 text-emerald-700 flex items-center justify-center font-extrabold text-xs shrink-0 overflow-hidden">
                   {user ? userInitial : <User className="w-4 h-4 text-emerald-700" />}
                 </div>
-                <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-300 border-2 border-emerald-600 rounded-full" />
+                {!isCollapsed && (
+                  <div className="overflow-hidden">
+                    <h3 className="text-xs font-bold text-slate-800 truncate m-0 leading-tight">
+                      {userDisplayName}
+                    </h3>
+                    <p className="text-[10px] text-slate-400 font-medium truncate m-0 mt-0.5">
+                      {userRoleLabel}
+                    </p>
+                  </div>
+                )}
               </div>
-              <div className="overflow-hidden">
-                <h3 className="text-xs font-bold text-white truncate m-0 leading-tight">
-                  {userDisplayName}
-                </h3>
-                <p className="text-[10px] text-white font-bold truncate m-0 mt-0.5">
-                  {userRoleLabel}
-                </p>
-              </div>
+
+              <button
+                onClick={onLogout}
+                title="Déconnexion"
+                className="text-slate-400 hover:text-red-600 bg-transparent border-none cursor-pointer p-1.5 rounded-lg hover:bg-red-50 transition-colors"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
             </div>
           </div>
-
-          <button
-            type="button"
-            onClick={onLogout}
-            className="w-full flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-bold text-white bg-emerald-700/60 hover:bg-rose-600/80 border border-emerald-500/50 hover:border-rose-500 transition-all duration-150 cursor-pointer outline-none"
-          >
-            <LogOut className="w-3.5 h-3.5 text-white" />
-            <span>Déconnexion</span>
-          </button>
-        </div>
-      </aside>
+        </aside>
+      </div>
     </>
   );
 };

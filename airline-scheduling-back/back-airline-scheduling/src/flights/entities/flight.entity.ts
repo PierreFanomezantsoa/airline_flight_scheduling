@@ -14,6 +14,14 @@ export class Flight {
   @Column({ type: 'varchar', length: 10 })
   aeroportDepart!: string;
 
+  // NOUVELLE COLONNE : Aéroport d'escale
+  @Column({ type: 'varchar', length: 100, nullable: true, default: null })
+  aeroportEscale!: string | null;
+
+  // NOUVELLE COLONNE : Durée d'escale en minutes
+  @Column({ type: 'integer', nullable: true, default: null })
+  dureeEscale!: number | null;
+
   @Column({ type: 'varchar', length: 10 })
   aeroportArrivee!: string;
 
@@ -25,12 +33,12 @@ export class Flight {
 
   @Column({
     type: 'enum',
-    enum: ['Scheduled', 'Delayed', 'Cancelled', 'In-Flight','Effectué'],
+    enum: ['Scheduled', 'Delayed', 'Cancelled', 'In-Flight', 'Effectué'],
     default: 'Scheduled',
   })
   statut!: 'Scheduled' | 'Delayed' | 'Cancelled' | 'In-Flight' | 'Effectué';
 
-  // CORRECTION: La relation est maintenant unidirectionnelle (sans le second argument)
+  // Relation unidirectionnelle vers Aircraft
   @ManyToOne(() => Aircraft, { nullable: true, onDelete: 'SET NULL' })
   avion!: Aircraft;
 

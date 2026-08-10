@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, ConflictException, BadRequestException }
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { MaintenanceSlot } from './entities/maintenance-slot.entity';
+import { Aircraft } from '../fleet/entities/aircraft.entity';
 import { CreateMaintenanceSlotDto } from './dto/create-maintenance-slot.dto';
 import { UpdateMaintenanceSlotDto } from './dto/update-maintenance-slot.dto';
 
@@ -10,11 +11,10 @@ export class MaintenanceService {
   constructor(
     @InjectRepository(MaintenanceSlot)
     private readonly maintenanceRepository: Repository<MaintenanceSlot>,
+    @InjectRepository(Aircraft)
+    private readonly aircraftRepository: Repository<Aircraft>,
   ) {}
 
-  /**
-   * Récupère tous les créneaux avec les informations de l'appareil associé (Jointure forcée)
-   */
   async findAll(): Promise<MaintenanceSlot[]> {
     return this.maintenanceRepository.find({
       relations: ['aircraft'],
@@ -22,9 +22,6 @@ export class MaintenanceService {
     });
   }
 
-  /**
-   * Récupère un créneau spécifique par son ID avec son appareil associé
-   */
   async findOne(id: string): Promise<MaintenanceSlot> {
     const slot = await this.maintenanceRepository.findOne({
       where: { id },
@@ -38,41 +35,40 @@ export class MaintenanceService {
   }
 
   /**
-   * Planifie un nouveau blocage technique avec vérification stricte des conflits d'horaires
+   * Planifie une maintenance et bascule le statut de l'avion en 'Maintenance'
    */
   async create(createMaintenanceSlotDto: CreateMaintenanceSlotDto): Promise<MaintenanceSlot> {
     const { aircraftId, startTime, endTime, ...rest } = createMaintenanceSlotDto;
 
-    // 1. Validation de la cohérence chronologique des dates
     const start = new Date(startTime);
     const end = new Date(endTime);
     if (start >= end) {
       throw new BadRequestException("La date de fin doit être strictement supérieure à la date de début.");
     }
 
-    // 2. Vérification des chevauchements de plannings (Conflict Guard)
+    // 1. Vérification des chevauchements
     await this.checkForOverlap(aircraftId, start, end);
 
-    // 3. Création et liaison native via la colonne physique 'aircraftId'
+    // 2. Création du slot
     const slot = this.maintenanceRepository.create({
       ...rest,
       startTime: start,
       endTime: end,
-      aircraftId, // S'appuie sur la colonne exposée explicitement dans l'entité
+      aircraftId,
     });
 
     const savedSlot = await this.maintenanceRepository.save(slot);
-    
-    // 4. Retourne l'entité entièrement rechargée avec sa relation pour le Front-end
+
+    // 3. MISE À JOUR DU STATUT EN BDD : Passer l'avion en 'Maintenance'
+    await this.aircraftRepository.update(aircraftId, {
+      statut: 'Maintenance',
+    });
+
     return this.findOne(savedSlot.id);
   }
 
-  /**
-   * Met à jour un créneau existant avec réévaluation des conflits d'horaires
-   */
   async update(id: string, updateMaintenanceSlotDto: UpdateMaintenanceSlotDto): Promise<MaintenanceSlot> {
-    const slot = await this.findOne(id); // Lève une exception NotFoundException si le slot n'existe pas
-
+    const slot = await this.findOne(id);
     const { aircraftId, startTime, endTime, ...rest } = updateMaintenanceSlotDto;
 
     const start = startTime ? new Date(startTime) : slot.startTime;
@@ -82,13 +78,11 @@ export class MaintenanceService {
       throw new BadRequestException("La date de fin doit être supérieure à la date de début.");
     }
 
-    // Réévaluer les conflits uniquement si l'appareil ou les dates changent
     if (aircraftId || startTime || endTime) {
       const targetAircraftId = aircraftId || slot.aircraftId;
       await this.checkForOverlap(targetAircraftId, start, end, id);
     }
 
-    // Application dynamique des modifications textuelles (description, type, etc.)
     Object.assign(slot, rest);
     slot.startTime = start;
     slot.endTime = end;
@@ -98,22 +92,35 @@ export class MaintenanceService {
     }
 
     await this.maintenanceRepository.save(slot);
+
+    // Assure que l'appareil passe bien en Maintenance
+    await this.aircraftRepository.update(slot.aircraftId, { statut: 'Maintenance' });
+
     return this.findOne(id);
   }
 
   /**
-   * Supprime un créneau de maintenance du hangar
+   * Annule la maintenance et remet l'avion en 'Active' s'il n'a plus d'autres immobilisations
    */
   async remove(id: string): Promise<{ deleted: boolean }> {
     const slot = await this.findOne(id);
+    const aircraftId = slot.aircraftId;
+
     await this.maintenanceRepository.remove(slot);
+
+    // Vérifier si l'appareil a d'autres créneaux de maintenance en cours ou à venir
+    const remainingSlots = await this.maintenanceRepository.count({
+      where: { aircraftId },
+    });
+
+    // S'il n'y a plus aucun créneau planifié/en cours, basculer vers statut 'Active'
+    if (remainingSlots === 0) {
+      await this.aircraftRepository.update(aircraftId, { statut: 'Active' });
+    }
+
     return { deleted: true };
   }
 
-  /**
-   * Algorithme de détection des chevauchements de créneaux (Overlapping)
-   * Formule mathématique : (StartA < EndB) AND (EndA > StartB)
-   */
   private async checkForOverlap(
     aircraftId: string, 
     startTime: Date, 
@@ -121,12 +128,10 @@ export class MaintenanceService {
     excludeSlotId?: string
   ): Promise<void> {
     const query = this.maintenanceRepository.createQueryBuilder('slot')
-      // CORRECTION CRUCIALE : On filtre via l'entité relationnelle 'aircraft' gérée par le mappeur TypeORM
       .where('slot.aircraft = :aircraftId', { aircraftId })
       .andWhere('slot.startTime < :endTime', { endTime })
       .andWhere('slot.endTime > :startTime', { startTime });
 
-    // En cas de mise à jour (update), on ignore le créneau en cours de modification
     if (excludeSlotId) {
       query.andWhere('slot.id != :excludeSlotId', { excludeSlotId });
     }

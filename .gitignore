@@ -1,11 +1,101 @@
-# Environnement virtuel Python
-env/
-venv/
-.venv/
-*.pyc
-__pycache__/
+# =========================
+# Environnement / secrets
+# =========================
+.env
+.env.*
+!.env.example
 
-# Dépendances Node (si pertinent)
+# =========================
+# Python
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Environnements virtuels
+.venv/
+venv/
+env/
+ENV/
+
+# =========================
+# Flask
+# =========================
+instance/
+.webassets-cache
+
+# =========================
+# Machine Learning
+# =========================
+ml_models/
+*.joblib
+*.pkl
+*.pickle
+
+# =========================
+# Base de données locales
+# =========================
+*.db
+*.sqlite
+*.sqlite3
+
+# =========================
+# Logs
+# =========================
+*.log
+logs/
+
+# =========================
+# Tests / cache
+# =========================
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# =========================
+# Build Python
+# =========================
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# =========================
+# Node / React
+# =========================
 node_modules/
 dist/
-.env
+build/
+.vite/
+coverage/
+
+# Variables frontend
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# =========================
+# IDE
+# =========================
+.vscode/
+.idea/
+*.code-workspace
+
+# =========================
+# Windows / macOS
+# =========================
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# =========================
+# Temporaires
+# =========================
+*.tmp
+*.temp
+*.bak
+*.swp

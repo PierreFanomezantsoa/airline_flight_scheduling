@@ -1,27 +1,91 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { 
-  Plane, Filter, Clock, BarChart3, X, Cpu, Activity, 
-  Plus, AlertCircle, RefreshCw, Sun, CloudRain, CloudLightning, 
-  CheckCircle2, ArrowRight, ShieldAlert, Sparkles, AlertTriangle 
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
+
+import {
+  Activity,
+  AlertCircle,
+  AlertTriangle,
+  ArrowRight,
+  BarChart3,
+  CheckCircle2,
+  ChevronRight,
+  Clock,
+  CloudLightning,
+  CloudRain,
+  Cpu,
+  Filter,
+  Gauge,
+  Plane,
+  Plus,
+  RefreshCw,
+  Search,
+  ShieldAlert,
+  Sparkles,
+  Sun,
+  Timer,
+  X,
 } from 'lucide-react';
+
 import { FlightAddModal } from './FlightAddModal';
 
-const API_BASE_URL = 'http://localhost:5000';
+/* ============================================================================
+ * CONFIGURATION
+ * ========================================================================== */
+
+const API_BASE_URL =
+  (import.meta as unknown as { env?: Record<string, string> }).env
+    ?.VITE_API_BASE_URL ?? 'http://localhost:5000';
+
 const UNASSIGNED_AIRCRAFT = 'NON ASSIGNÉ';
 
-type FlightStatus = 'Scheduled' | 'Delayed' | 'Cancelled' | 'In-Flight' | 'Effectué';
+/* ============================================================================
+ * TYPES
+ * ========================================================================== */
+
+type FlightStatus =
+  | 'Scheduled'
+  | 'Delayed'
+  | 'Cancelled'
+  | 'In-Flight'
+  | 'Effectué';
+
+type StatusFilter = 'ALL' | FlightStatus | 'UNASSIGNED';
+
+interface FlightLeg {
+  numeroVol?: string;
+  aeroportDepart: string;
+  aeroportArrivee: string;
+  heureDepart?: string | null;
+  heureArrivee?: string | null;
+}
 
 interface Flight {
   id: string;
   flightNumber: string;
+
   aircraft: string;
   aircraftModel: string;
+
   origin: string;
+  stopover?: string | string[] | null;
+  stopoverDurationMinutes?: number | null;
   destination: string;
+  route?: string;
+
   departure: string;
   arrival: string;
+  localDeparture?: string | null;
+  localArrival?: string | null;
+  durationMinutes?: number | null;
+
   status: FlightStatus;
   weatherSeverity: number;
+
+  legs?: FlightLeg[];
 }
 
 interface Analytics {
@@ -40,6 +104,7 @@ interface Analytics {
 interface AircraftData {
   id: string;
   model: string;
+  immatriculation?: string;
 }
 
 export interface FlightFormData {
@@ -49,27 +114,163 @@ export interface FlightFormData {
   heureDepart: string;
   heureArrivee: string;
   avionId?: string;
+
+  aeroportEscale?: string | string[];
+  dureeEscale?: number;
 }
+
+interface StatusStyle {
+  label: string;
+  dot: string;
+  badge: string;
+  border: string;
+  card: string;
+}
+
+interface WeatherIndicator {
+  label: string;
+  icon: React.ReactNode;
+  badge: string;
+  recommendation: string;
+}
+
+/* ============================================================================
+ * HELPERS
+ * ========================================================================== */
+
+const clampPercentage = (value: number) =>
+  Math.min(100, Math.max(0, Number.isFinite(value) ? value : 0));
+
+const normalizeSeverity = (value: number | null | undefined) =>
+  Math.min(1, Math.max(0, Number(value ?? 0)));
+
+const getErrorMessage = async (
+  response: Response,
+  fallback: string,
+): Promise<string> => {
+  try {
+    const payload = await response.json();
+    return payload?.message || payload?.error || fallback;
+  } catch {
+    return fallback;
+  }
+};
+
+const buildFallbackAnalytics = (flights: Flight[]): Analytics => {
+  const totalFlights = flights.length;
+  const onTimeCount = flights.filter(
+    (flight) => flight.status === 'Scheduled',
+  ).length;
+  const delayedCount = flights.filter(
+    (flight) => flight.status === 'Delayed',
+  ).length;
+  const cancelledCount = flights.filter(
+    (flight) => flight.status === 'Cancelled',
+  ).length;
+  const inFlightCount = flights.filter(
+    (flight) => flight.status === 'In-Flight',
+  ).length;
+  const effectueCount = flights.filter(
+    (flight) => flight.status === 'Effectué',
+  ).length;
+
+  const otpDenominator = Math.max(
+    0,
+    totalFlights - cancelledCount - inFlightCount,
+  );
+
+  const otpRate =
+    otpDenominator > 0
+      ? Number(((onTimeCount / otpDenominator) * 100).toFixed(1))
+      : 0;
+
+  return {
+    metrics: {
+      totalFlights,
+      otpRate,
+      onTimeCount,
+      delayedCount,
+      cancelledCount,
+      inFlightCount,
+      effectueCount,
+    },
+    distributions: {},
+  };
+};
+
+/* ============================================================================
+ * SMALL UI COMPONENTS
+ * ========================================================================== */
+
+const StatusBadge: React.FC<{
+  status: FlightStatus;
+  style: StatusStyle;
+}> = ({ style }) => (
+  <span
+    className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide ${style.badge}`}
+  >
+    <span className={`h-1.5 w-1.5 rounded-full ${style.dot}`} />
+    {style.label}
+  </span>
+);
+
+const LoadingSkeleton = () => (
+  <div className="space-y-3 p-4 sm:p-5">
+    {[1, 2, 3].map((row) => (
+      <div
+        key={row}
+        className="animate-pulse rounded-2xl border border-slate-200 bg-white p-4"
+      >
+        <div className="mb-4 h-4 w-28 rounded bg-slate-200" />
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3].map((item) => (
+            <div key={item} className="rounded-xl bg-slate-100 p-4">
+              <div className="mb-3 h-3 w-20 rounded bg-slate-200" />
+              <div className="mb-2 h-5 w-36 rounded bg-slate-200" />
+              <div className="h-3 w-44 rounded bg-slate-200" />
+            </div>
+          ))}
+        </div>
+      </div>
+    ))}
+  </div>
+);
+
+/* ============================================================================
+ * MAIN COMPONENT
+ * ========================================================================== */
 
 export const DashboardGantt: React.FC = () => {
   const [flights, setFlights] = useState<Flight[]>([]);
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
-  const [filterDelayed, setFilterDelayed] = useState<boolean>(false);
-  const [selectedFlight, setSelectedFlight] = useState<Flight | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [globalError, setGlobalError] = useState<string | null>(null);
-
   const [fleetAircrafts, setFleetAircrafts] = useState<AircraftData[]>([]);
-  const [isLoadingFleet, setIsLoadingFleet] = useState<boolean>(false);
-  const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
 
-  // Formatage propre des dates
-  const formatDateTime = useCallback((dateString: string) => {
+  const [selectedFlight, setSelectedFlight] = useState<Flight | null>(null);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+
+  const [isFetching, setIsFetching] = useState(false);
+  const [isLoadingFleet, setIsLoadingFleet] = useState(false);
+  const [isOptimizing, setIsOptimizing] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+
+  const [globalError, setGlobalError] = useState<string | null>(null);
+  const [globalSuccess, setGlobalSuccess] = useState<string | null>(null);
+
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
+
+  /* --------------------------------------------------------------------------
+   * FORMATTERS
+   * ------------------------------------------------------------------------ */
+
+  const formatDateTime = useCallback((dateString?: string | null) => {
     if (!dateString) return '--/-- --:--';
     if (/^\d{2}:\d{2}$/.test(dateString)) return dateString;
 
     const parsedDate = new Date(dateString);
-    if (isNaN(parsedDate.getTime())) return dateString;
+    if (Number.isNaN(parsedDate.getTime())) return dateString;
 
     return new Intl.DateTimeFormat('fr-FR', {
       day: '2-digit',
@@ -79,52 +280,150 @@ export const DashboardGantt: React.FC = () => {
     }).format(parsedDate);
   }, []);
 
-  // Fermeture des modales avec la touche Échap
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setSelectedFlight(null);
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+  /**
+   * Affiche une ISO locale sans la reconvertir dans le fuseau du navigateur.
+   * Ex : 2026-08-10T14:20:00+03:00 -> 10/08 14:20
+   */
+  const formatLocalIso = useCallback(
+    (dateString?: string | null) => {
+      if (!dateString) return '--/-- --:--';
+
+      const match = dateString.match(
+        /^\d{4}-(\d{2})-(\d{2})T(\d{2}):(\d{2})/,
+      );
+
+      if (!match) return formatDateTime(dateString);
+
+      const [, month, day, hour, minute] = match;
+      return `${day}/${month} ${hour}:${minute}`;
+    },
+    [formatDateTime],
+  );
+
+  const formatDuration = useCallback((minutes?: number | null) => {
+    if (minutes == null || !Number.isFinite(minutes)) return '--';
+
+    const total = Math.max(0, Math.round(minutes));
+    const hours = Math.floor(total / 60);
+    const rest = total % 60;
+
+    if (hours === 0) return `${rest} min`;
+    if (rest === 0) return `${hours} h`;
+    return `${hours} h ${rest.toString().padStart(2, '0')}`;
   }, []);
 
-  // Chargement des données
+  const displayRoute = useCallback((flight: Flight) => {
+    if (flight.route?.trim()) return flight.route;
+
+    const stopovers = Array.isArray(flight.stopover)
+      ? flight.stopover
+      : typeof flight.stopover === 'string'
+        ? flight.stopover
+            .split(',')
+            .map((value) => value.trim())
+            .filter(Boolean)
+        : [];
+
+    return [flight.origin, ...stopovers, flight.destination]
+      .filter(Boolean)
+      .join(' → ');
+  }, []);
+
+  /* --------------------------------------------------------------------------
+   * MODAL ACCESSIBILITY
+   * ------------------------------------------------------------------------ */
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+
+      if (selectedFlight) {
+        setSelectedFlight(null);
+        return;
+      }
+
+      if (isAddModalOpen) {
+        setIsAddModalOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [selectedFlight, isAddModalOpen]);
+
+  /* --------------------------------------------------------------------------
+   * DATA
+   * ------------------------------------------------------------------------ */
+
   const loadData = useCallback(async (signal?: AbortSignal) => {
+    setIsFetching(true);
+    setIsLoadingFleet(true);
+    setGlobalError(null);
+
     try {
-      setLoading(true);
-      setIsLoadingFleet(true);
-      setGlobalError(null);
+      const flightsResponse = await fetch(`${API_BASE_URL}/flights`, {
+        signal,
+      });
 
-      const [resFlights, resAnalytics, aircraftsData] = await Promise.all([
-        fetch(`${API_BASE_URL}/flights`, { signal }).then((res) => {
-          if (!res.ok) throw new Error(`Erreur API Vols : statut ${res.status}`);
-          return res.json();
-        }),
-        fetch(`${API_BASE_URL}/flights/analytics`, { signal }).then((res) => (res.ok ? res.json() : null)),
-        fetch(`${API_BASE_URL}/fleet/aircrafts`, { signal }).then((res) => (res.ok ? res.json() : [])),
-      ]);
+      if (!flightsResponse.ok) {
+        throw new Error(
+          await getErrorMessage(
+            flightsResponse,
+            `Erreur API Vols : statut ${flightsResponse.status}`,
+          ),
+        );
+      }
 
-      const flightsList = Array.isArray(resFlights) ? resFlights : [];
+      const flightsPayload = await flightsResponse.json();
+      const flightsList: Flight[] = Array.isArray(flightsPayload)
+        ? flightsPayload
+        : [];
+
       setFlights(flightsList);
 
-      if (resAnalytics) {
+      const [analyticsResult, fleetResult] = await Promise.allSettled([
+        fetch(`${API_BASE_URL}/flights/analytics`, { signal }),
+        fetch(`${API_BASE_URL}/fleet/aircrafts`, { signal }),
+      ]);
+
+      if (
+        analyticsResult.status === 'fulfilled' &&
+        analyticsResult.value.ok
+      ) {
+        const payload = await analyticsResult.value.json();
+
         setAnalytics({
-          ...resAnalytics,
+          ...payload,
           metrics: {
-            ...resAnalytics.metrics,
-            effectueCount: resAnalytics.metrics.effectueCount ?? 
-              flightsList.filter((f: Flight) => f.status === 'Effectué').length
-          }
+            ...payload.metrics,
+            effectueCount:
+              payload.metrics?.effectueCount ??
+              flightsList.filter((flight) => flight.status === 'Effectué')
+                .length,
+          },
         });
+      } else {
+        setAnalytics(buildFallbackAnalytics(flightsList));
       }
-      setFleetAircrafts(Array.isArray(aircraftsData) ? aircraftsData : []);
-    } catch (e: unknown) {
-      if ((e as Error).name === 'AbortError') return;
-      console.error("Erreur d'appel API :", e);
-      setGlobalError((e as Error).message || "Impossible de se connecter au serveur central.");
-      setFlights([]);
+
+      if (fleetResult.status === 'fulfilled' && fleetResult.value.ok) {
+        const payload = await fleetResult.value.json();
+        setFleetAircrafts(Array.isArray(payload) ? payload : []);
+      } else {
+        setFleetAircrafts([]);
+      }
+
+      setLastUpdatedAt(new Date());
+    } catch (error: unknown) {
+      if ((error as Error).name === 'AbortError') return;
+
+      console.error("Erreur d'appel API :", error);
+      setGlobalError(
+        (error as Error).message ||
+          'Impossible de se connecter au serveur central.',
+      );
     } finally {
-      setLoading(false);
+      setIsFetching(false);
       setIsLoadingFleet(false);
     }
   }, []);
@@ -132,464 +431,1161 @@ export const DashboardGantt: React.FC = () => {
   useEffect(() => {
     const controller = new AbortController();
     loadData(controller.signal);
+
     return () => controller.abort();
   }, [loadData]);
 
-  // Déclencheur IA
-  const triggerPredictionIA = async () => {
-    setLoading(true);
-    setGlobalError(null);
-    try {
-      const response = await fetch(`${API_BASE_URL}/flights/optimize`, { method: 'POST' });
-      if (response.ok) {
-        await loadData();
-      } else {
-        const errData = await response.json();
-        setGlobalError(errData.message || "Le moteur IA a rencontré une anomalie.");
-      }
-    } catch (e) {
-      console.error("Erreur optimisation IA:", e);
-      setGlobalError("Erreur réseau lors de la communication avec le moteur d'optimisation.");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const triggerOptimization = useCallback(async () => {
+    if (isOptimizing) return;
 
-  // Création de vol
-  const handleCreateFlightSubmit = async (formData: FlightFormData) => {
+    setIsOptimizing(true);
+    setGlobalError(null);
+    setGlobalSuccess(null);
+
     try {
-      setGlobalError(null);
-      const response = await fetch(`${API_BASE_URL}/flights`, {
+      const response = await fetch(`${API_BASE_URL}/flights/optimize`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
-          heureDepart: new Date(formData.heureDepart).toISOString(),
-          heureArrivee: new Date(formData.heureArrivee).toISOString(),
-          avionId: formData.avionId || undefined,
-        }),
+        headers: { Accept: 'application/json' },
       });
 
-      if (response.ok) {
-        setIsAddModalOpen(false);
-        await loadData();
-      } else {
-        const errorData = await response.json();
-        setGlobalError(errorData.message || 'Impossible de créer le vol.');
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error(
+            "La route POST /flights/optimize n'est pas disponible dans le backend Flask.",
+          );
+        }
+
+        throw new Error(
+          await getErrorMessage(
+            response,
+            "Le moteur d'optimisation a rencontré une anomalie.",
+          ),
+        );
       }
-    } catch (error) {
-      console.error("Erreur lors de la création du vol", error);
-      setGlobalError("Erreur réseau lors de la création du vol.");
+
+      let message = 'Planning optimisé avec succès.';
+
+      try {
+        const payload = await response.json();
+        message = payload?.message || message;
+      } catch {
+        // Réponse vide autorisée.
+      }
+
+      setGlobalSuccess(message);
+      await loadData();
+    } catch (error: unknown) {
+      console.error('Erreur optimisation :', error);
+      setGlobalError(
+        (error as Error).message ||
+          "Erreur réseau lors de la communication avec le moteur d'optimisation.",
+      );
+    } finally {
+      setIsOptimizing(false);
     }
-  };
+  }, [isOptimizing, loadData]);
+
+  const handleCreateFlightSubmit = useCallback(
+    async (formData: FlightFormData) => {
+      if (isCreating) return;
+
+      setGlobalError(null);
+      setGlobalSuccess(null);
+      setIsCreating(true);
+
+      try {
+        const departure = new Date(formData.heureDepart);
+        const arrival = new Date(formData.heureArrivee);
+
+        if (
+          Number.isNaN(departure.getTime()) ||
+          Number.isNaN(arrival.getTime())
+        ) {
+          throw new Error('Les dates de départ et d’arrivée sont invalides.');
+        }
+
+        if (arrival <= departure) {
+          throw new Error(
+            "L'heure d'arrivée doit être postérieure à l'heure de départ.",
+          );
+        }
+
+        const response = await fetch(`${API_BASE_URL}/flights`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+          },
+          body: JSON.stringify({
+            ...formData,
+            numeroVol: formData.numeroVol.trim().toUpperCase(),
+            aeroportDepart: formData.aeroportDepart.trim().toUpperCase(),
+            aeroportArrivee: formData.aeroportArrivee.trim().toUpperCase(),
+            heureDepart: departure.toISOString(),
+            heureArrivee: arrival.toISOString(),
+            avionId: formData.avionId || undefined,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(
+            await getErrorMessage(
+              response,
+              response.status === 409
+                ? "Conflit d'affectation : cet avion est déjà utilisé sur ce créneau."
+                : 'Impossible de créer le vol.',
+            ),
+          );
+        }
+
+        setIsAddModalOpen(false);
+        setGlobalSuccess('Le vol a été créé avec succès.');
+        await loadData();
+      } catch (error: unknown) {
+        console.error('Erreur création vol :', error);
+        setGlobalError(
+          (error as Error).message ||
+            'Erreur réseau lors de la création du vol.',
+        );
+      } finally {
+        setIsCreating(false);
+      }
+    },
+    [isCreating, loadData],
+  );
+
+  /* --------------------------------------------------------------------------
+   * UI CONFIGURATION
+   * ------------------------------------------------------------------------ */
+
+  const statusStyles: Record<FlightStatus, StatusStyle> = useMemo(
+    () => ({
+      Scheduled: {
+        label: 'Planifié',
+        dot: 'bg-emerald-500',
+        badge: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+        border: 'border-l-emerald-500',
+        card: 'hover:border-emerald-200 hover:shadow-emerald-950/5',
+      },
+      Delayed: {
+        label: 'Retardé',
+        dot: 'bg-amber-500',
+        badge: 'border-amber-200 bg-amber-50 text-amber-700',
+        border: 'border-l-amber-500',
+        card: 'hover:border-amber-200 hover:shadow-amber-950/5',
+      },
+      Cancelled: {
+        label: 'Annulé',
+        dot: 'bg-rose-500',
+        badge: 'border-rose-200 bg-rose-50 text-rose-700',
+        border: 'border-l-rose-500',
+        card: 'hover:border-rose-200 hover:shadow-rose-950/5',
+      },
+      'In-Flight': {
+        label: 'En vol',
+        dot: 'bg-sky-500',
+        badge: 'border-sky-200 bg-sky-50 text-sky-700',
+        border: 'border-l-sky-500',
+        card: 'hover:border-sky-200 hover:shadow-sky-950/5',
+      },
+      Effectué: {
+        label: 'Effectué',
+        dot: 'bg-slate-400',
+        badge: 'border-slate-200 bg-slate-100 text-slate-600',
+        border: 'border-l-slate-400',
+        card: 'opacity-90 hover:opacity-100',
+      },
+    }),
+    [],
+  );
+
+  const weatherConfig = useMemo(
+    () => ({
+      extreme: {
+        label: 'Extrême',
+        icon: <CloudLightning className="h-4 w-4" />,
+        badge: 'border-rose-200 bg-rose-50 text-rose-700',
+        recommendation:
+          'Risque météo extrême. Vérification opérationnelle immédiate requise.',
+      },
+      critical: {
+        label: 'Critique',
+        icon: <AlertTriangle className="h-4 w-4" />,
+        badge: 'border-orange-200 bg-orange-50 text-orange-700',
+        recommendation:
+          'Risque élevé. Une adaptation de l’horaire ou de la route doit être envisagée.',
+      },
+      unstable: {
+        label: 'Instable',
+        icon: <CloudRain className="h-4 w-4" />,
+        badge: 'border-amber-200 bg-amber-50 text-amber-700',
+        recommendation:
+          'Risque modéré de perturbation. Surveillance météo recommandée.',
+      },
+      favorable: {
+        label: 'Favorable',
+        icon: <Sun className="h-4 w-4" />,
+        badge: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+        recommendation:
+          'Conditions favorables. Aucune contrainte météo majeure détectée.',
+      },
+    }),
+    [],
+  );
+
+  const getWeatherIndicator = useCallback(
+    (severity: number): WeatherIndicator => {
+      const value = normalizeSeverity(severity);
+
+      if (value >= 0.8) return weatherConfig.extreme;
+      if (value >= 0.7) return weatherConfig.critical;
+      if (value >= 0.4) return weatherConfig.unstable;
+      return weatherConfig.favorable;
+    },
+    [weatherConfig],
+  );
+
+  /* --------------------------------------------------------------------------
+   * DERIVED DATA
+   * ------------------------------------------------------------------------ */
 
   const filteredFlights = useMemo(() => {
-    return filterDelayed ? flights.filter((f) => f.status === 'Delayed') : flights;
-  }, [flights, filterDelayed]);
+    const needle = searchQuery.trim().toLowerCase();
 
-  const ganttRows = useMemo(() => {
-    return Array.from(new Set(filteredFlights.map((f) => f.aircraft)));
+    return flights
+      .filter((flight) => {
+        if (statusFilter === 'ALL') return true;
+
+        if (statusFilter === 'UNASSIGNED') {
+          return flight.aircraft === UNASSIGNED_AIRCRAFT;
+        }
+
+        return flight.status === statusFilter;
+      })
+      .filter((flight) => {
+        if (!needle) return true;
+
+        return [
+          flight.flightNumber,
+          flight.origin,
+          flight.destination,
+          flight.route,
+          flight.aircraft,
+          flight.aircraftModel,
+        ]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(needle));
+      })
+      .sort(
+        (a, b) =>
+          new Date(a.departure).getTime() - new Date(b.departure).getTime(),
+      );
+  }, [flights, searchQuery, statusFilter]);
+
+  const flightsByAircraft = useMemo(() => {
+    const groups = new Map<string, Flight[]>();
+
+    for (const flight of filteredFlights) {
+      const key = flight.aircraft || UNASSIGNED_AIRCRAFT;
+      const current = groups.get(key) ?? [];
+      current.push(flight);
+      groups.set(key, current);
+    }
+
+    return Array.from(groups.entries()).sort(([a], [b]) => {
+      if (a === UNASSIGNED_AIRCRAFT) return 1;
+      if (b === UNASSIGNED_AIRCRAFT) return -1;
+      return a.localeCompare(b);
+    });
   }, [filteredFlights]);
 
-  const weatherConfig = useMemo(() => ({
-    critical: {
-      icon: <CloudLightning className="h-3.5 w-3.5 text-rose-500 animate-pulse" />,
-      text: "Critique",
-      bg: "bg-rose-50 text-rose-700 border-rose-100"
-    },
-    unstable: {
-      icon: <CloudRain className="h-3.5 w-3.5 text-amber-500" />,
-      text: "Instable",
-      bg: "bg-amber-50 text-amber-700 border-amber-100"
-    },
-    favorable: {
-      icon: <Sun className="h-3.5 w-3.5 text-emerald-500" />,
-      text: "Favorable",
-      bg: "bg-emerald-50 text-emerald-700 border-emerald-100"
-    }
-  }), []);
+  const aircraftLookup = useMemo(
+    () =>
+      new Map(
+        fleetAircrafts.map((aircraft) => [
+          aircraft.id,
+          aircraft.immatriculation || aircraft.model,
+        ]),
+      ),
+    [fleetAircrafts],
+  );
 
-  const getWeatherIndicator = useCallback((severity: number) => {
-    const sev = severity ?? 0.1;
-    if (sev >= 0.7) return weatherConfig.critical;
-    if (sev >= 0.4) return weatherConfig.unstable;
-    return weatherConfig.favorable;
-  }, [weatherConfig]);
+  const effectiveAnalytics = useMemo(
+    () => analytics ?? buildFallbackAnalytics(flights),
+    [analytics, flights],
+  );
 
-  const statusStylesConfig = useMemo(() => ({
-    Delayed: { 
-      bg: 'bg-white border-slate-200 border-l-4 border-l-amber-500 hover:border-slate-300 hover:shadow-lg hover:shadow-amber-500/5', 
-      accent: 'bg-amber-500', 
-      badge: 'bg-amber-50 text-amber-800 border-amber-200', 
-      label: 'Retardé' 
-    },
-    Cancelled: { 
-      bg: 'bg-white border-slate-200 border-l-4 border-l-rose-500 hover:border-slate-300 hover:shadow-lg hover:shadow-rose-500/5', 
-      accent: 'bg-rose-500', 
-      badge: 'bg-rose-50 text-rose-800 border-rose-200', 
-      label: 'Annulé' 
-    },
-    'In-Flight': { 
-      bg: 'bg-white border-slate-200 border-l-4 border-l-blue-500 hover:border-slate-300 hover:shadow-lg hover:shadow-blue-500/5', 
-      accent: 'bg-blue-500', 
-      badge: 'bg-blue-50 text-blue-800 border-blue-200', 
-      label: 'En Vol' 
-    },
-    Scheduled: { 
-      bg: 'bg-white border-slate-200 border-l-4 border-l-emerald-500 hover:border-slate-300 hover:shadow-lg hover:shadow-emerald-500/5', 
-      accent: 'bg-emerald-500', 
-      badge: 'bg-emerald-50 text-emerald-800 border-emerald-200', 
-      label: 'Ponctuel' 
-    },
-    Effectué: { 
-      bg: 'bg-white border-slate-200 border-l-4 border-l-slate-400 hover:border-slate-300 hover:shadow-md opacity-85 hover:opacity-100', 
-      accent: 'bg-slate-400', 
-      badge: 'bg-slate-100 text-slate-700 border-slate-200', 
-      label: 'Effectué' 
-    },
-  }), []);
+  const kpiCards = useMemo(
+    () => [
+      {
+        label: 'Total vols',
+        value: effectiveAnalytics.metrics.totalFlights,
+        icon: <Plane className="h-5 w-5" />,
+        tone: 'bg-emerald-700 text-white',
+        sub: 'Planning actuel',
+      },
+      {
+        label: 'OTP',
+        value: `${clampPercentage(effectiveAnalytics.metrics.otpRate)}%`,
+        icon: <Gauge className="h-5 w-5" />,
+        tone: 'bg-emerald-50 text-emerald-700',
+        sub: 'Ponctualité globale',
+      },
+      {
+        label: 'Retardés',
+        value: effectiveAnalytics.metrics.delayedCount,
+        icon: <Clock className="h-5 w-5" />,
+        tone: 'bg-amber-50 text-amber-700',
+        sub: 'À surveiller',
+      },
+      {
+        label: 'En vol',
+        value: effectiveAnalytics.metrics.inFlightCount,
+        icon: <Activity className="h-5 w-5" />,
+        tone: 'bg-sky-50 text-sky-700',
+        sub: 'Opérations actives',
+      },
+      {
+        label: 'Annulés',
+        value: effectiveAnalytics.metrics.cancelledCount,
+        icon: <AlertCircle className="h-5 w-5" />,
+        tone: 'bg-rose-50 text-rose-700',
+        sub: 'Action requise',
+      },
+    ],
+    [effectiveAnalytics],
+  );
 
-  const getStatusStyles = useCallback((status: FlightStatus) => {
-    return statusStylesConfig[status] || statusStylesConfig.Scheduled;
-  }, [statusStylesConfig]);
+  const activeFilterCount =
+    (statusFilter !== 'ALL' ? 1 : 0) + (searchQuery.trim() ? 1 : 0);
 
-  const kpiItems = useMemo(() => {
-    if (!analytics) return [];
-    return [
-      { label: 'Ponctuels', count: analytics.metrics.onTimeCount, color: 'bg-emerald-500', badgeStyle: 'bg-emerald-50 text-emerald-700 border-emerald-200/50' },
-      { label: 'Effectués', count: analytics.metrics.effectueCount, color: 'bg-slate-400', badgeStyle: 'bg-slate-100 text-slate-700 border-slate-200/60' },
-      { label: 'Retardés', count: analytics.metrics.delayedCount, color: 'bg-amber-500 animate-pulse', badgeStyle: 'bg-amber-50 text-amber-700 border-amber-200/50' },
-      { label: 'En Vol', count: analytics.metrics.inFlightCount, color: 'bg-blue-500', badgeStyle: 'bg-blue-50 text-blue-700 border-blue-200/50' },
-      { label: 'Annulations de Vol', count: analytics.metrics.cancelledCount, color: 'bg-rose-500', badgeStyle: 'bg-rose-50 text-rose-700 border-rose-200/50' },
-    ];
-  }, [analytics]);
+  /* --------------------------------------------------------------------------
+   * RENDER HELPERS
+   * ------------------------------------------------------------------------ */
+
+  const renderFlightCard = (flight: Flight, mode: 'mobile' | 'desktop') => {
+    const statusStyle = statusStyles[flight.status] ?? statusStyles.Scheduled;
+    const weather = getWeatherIndicator(flight.weatherSeverity);
+    const compact = mode === 'desktop';
+
+    return (
+      <button
+        type="button"
+        key={flight.id}
+        onClick={() => setSelectedFlight(flight)}
+        className={[
+          'group w-full rounded-2xl border border-slate-200 border-l-4 bg-white text-left',
+          'transition duration-200 focus:outline-none focus:ring-2 focus:ring-emerald-300',
+          'hover:-translate-y-0.5 hover:shadow-lg',
+          statusStyle.border,
+          statusStyle.card,
+          compact ? 'p-4' : 'p-4 sm:p-5',
+        ].join(' ')}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              {flight.status === 'Effectué' && (
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+              )}
+              <span className="truncate font-mono text-sm font-black tracking-wide text-slate-950">
+                {flight.flightNumber}
+              </span>
+            </div>
+
+            <div className="mt-2 flex min-w-0 items-center gap-2">
+              <span className="truncate font-mono text-sm font-black text-slate-800">
+                {displayRoute(flight)}
+              </span>
+            </div>
+          </div>
+
+          <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-slate-500" />
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <StatusBadge status={flight.status} style={statusStyle} />
+
+          <span
+            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide ${weather.badge}`}
+            title={`Indice météo : ${normalizeSeverity(
+              flight.weatherSeverity,
+            ).toFixed(2)}`}
+          >
+            {weather.icon}
+            {weather.label}
+          </span>
+
+          {flight.aircraft === UNASSIGNED_AIRCRAFT && (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide text-rose-700">
+              <ShieldAlert className="h-3.5 w-3.5" />
+              Non assigné
+            </span>
+          )}
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-3 border-t border-slate-100 pt-3">
+          <div className="min-w-0">
+            <span className="block text-[9px] font-extrabold uppercase tracking-wider text-slate-400">
+              Départ local
+            </span>
+            <span className="mt-1 block truncate font-mono text-[11px] font-bold text-slate-700">
+              {formatLocalIso(flight.localDeparture || flight.departure)}
+            </span>
+          </div>
+
+          <div className="min-w-0 text-right">
+            <span className="block text-[9px] font-extrabold uppercase tracking-wider text-slate-400">
+              Arrivée locale
+            </span>
+            <span className="mt-1 block truncate font-mono text-[11px] font-bold text-slate-700">
+              {formatLocalIso(flight.localArrival || flight.arrival)}
+            </span>
+          </div>
+        </div>
+
+        {(flight.durationMinutes != null || flight.stopover) && (
+          <div className="mt-3 flex flex-wrap items-center gap-3 text-[10px] font-bold text-slate-500">
+            {flight.durationMinutes != null && (
+              <span className="inline-flex items-center gap-1.5">
+                <Timer className="h-3.5 w-3.5" />
+                {formatDuration(flight.durationMinutes)}
+              </span>
+            )}
+
+            {flight.stopover && (
+              <span className="inline-flex items-center gap-1.5">
+                <ArrowRight className="h-3.5 w-3.5" />
+                Escale
+                {flight.stopoverDurationMinutes
+                  ? ` · ${formatDuration(flight.stopoverDurationMinutes)}`
+                  : ''}
+              </span>
+            )}
+          </div>
+        )}
+      </button>
+    );
+  };
+
+  /* ==========================================================================
+   * RENDER
+   * ======================================================================== */
 
   return (
-    <div className="bg-slate-50 p-4 md:p-8 space-y-6 max-w-[1600px] mx-auto antialiased min-h-screen text-slate-800">
-      
-      {/* Dynamic Error Alert */}
-      {globalError && (
-        <div className="flex items-start gap-4 bg-rose-50 border border-rose-200 text-rose-950 px-5 py-4 rounded-2xl text-xs font-semibold shadow-sm transition-all">
-          <AlertCircle className="h-5 w-5 text-rose-600 shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <strong className="text-sm font-black uppercase tracking-wider">Erreur Système</strong>
-            <p className="text-[11px] text-rose-700 font-medium mt-1">{globalError}</p>
+    <div className="min-h-screen bg-slate-100 p-4 text-slate-800 antialiased sm:p-6 lg:p-2">
+      {/* Top navigation / hero */}
+      <div className="mx-auto max-w-[1600px] rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 lg:p-6">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-700 text-white shadow-lg shadow-emerald-950/10 sm:h-12 sm:w-12">
+                <Plane className="h-5 w-5 rotate-45" />
+              </div>
+
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="truncate text-base font-black tracking-tight text-slate-950 sm:text-lg lg:text-xl">
+                    Airline Operations Control
+                  </h1>
+                </div>
+
+                <p className="mt-1 truncate text-[11px] font-semibold text-slate-500 sm:text-xs">
+                  Planification, supervision et optimisation des rotations aériennes
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+              <button
+                type="button"
+                onClick={() => loadData()}
+                disabled={isFetching}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-xs font-extrabold text-slate-700 shadow-sm transition hover:border-emerald-200 hover:bg-emerald-50/50 hover:text-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <RefreshCw
+                  className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`}
+                />
+                <span className="hidden sm:inline">Actualiser</span>
+                <span className="sm:hidden">Sync</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={triggerOptimization}
+                disabled={isOptimizing || isFetching}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-emerald-700 bg-emerald-700 px-4 text-xs font-extrabold text-white shadow-sm transition hover:border-emerald-800 hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Cpu
+                  className={`h-4 w-4 ${isOptimizing ? 'animate-spin' : ''}`}
+                />
+                <span>{isOptimizing ? 'Calcul...' : 'Optimiser'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsAddModalOpen(true)}
+                disabled={isCreating}
+                className="col-span-2 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-emerald-700 bg-emerald-700 px-4 text-xs font-extrabold text-white shadow-sm shadow-emerald-950/10 transition hover:border-emerald-800 hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60 sm:col-span-1"
+              >
+                <Plus className="h-4 w-4" />
+                Nouveau vol
+              </button>
+            </div>
           </div>
-          <button 
-            onClick={() => setGlobalError(null)} 
-            aria-label="Fermer le message d'erreur"
-            className="text-rose-400 hover:text-rose-700 transition p-1 rounded-lg hover:bg-rose-100"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      )}
 
-      {/* Header Panel */}
-      <div className="flex flex-col gap-6 bg-white rounded-2xl border border-slate-200 p-6 md:flex-row md:items-center md:justify-between shadow-xs">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-700 text-white shadow-md shadow-slate-900/10">
-            <Plane className="h-5.5 w-5.5 rotate-45 stroke-2" />
+          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] font-semibold text-slate-400">
+            <span>
+              {effectiveAnalytics.metrics.totalFlights} vol
+              {effectiveAnalytics.metrics.totalFlights > 1 ? 's' : ''} dans le planning
+            </span>
+
+            {lastUpdatedAt && (
+              <>
+                <span className="hidden h-1 w-1 rounded-full bg-slate-300 sm:inline-block" />
+                <span>
+                  Dernière mise à jour{' '}
+                  {lastUpdatedAt.toLocaleTimeString('fr-FR', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                  })}
+                </span>
+              </>
+            )}
           </div>
-          <div>
-            <h1 className="text-lg font-black text-slate-950 uppercase tracking-wider">Centre d'Opérations</h1>
-            <p className="text-[11px] font-bold text-slate-500 mt-0.5 flex items-center gap-1.5 uppercase tracking-wide">
-              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              Synchronisé avec le moteur IA d'optimisation des vols
-            </p>
-          </div>
-        </div>
-
-        {/* Top bar controls */}
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={() => setIsAddModalOpen(true)}
-            className="flex items-center gap-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition-all"
-          >
-            <Plus className="h-4.5 w-4.5" />
-            <span>Nouveau Vol</span>
-          </button>
-
-          <button
-            onClick={triggerPredictionIA}
-            disabled={loading}
-            className="flex items-center gap-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 disabled:opacity-60 px-4 py-2.5 text-xs font-bold text-white transition-all shadow-sm"
-          >
-            <Cpu className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            <span>{loading ? 'Calcul Engine...' : 'Optimisation IA'}</span>
-          </button>
-
-          <button
-            onClick={() => setFilterDelayed(!filterDelayed)}
-            className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 text-xs font-bold transition-all ${
-              filterDelayed 
-                ? 'bg-emerald-700 text-white border-emerald-800 shadow-sm' 
-                : 'bg-emerald-700 text-white border-emerald-800 hover:bg-emerald-800'
-            }`}
-          >
-            <Filter className="h-4 w-4" />
-            <span>Alerte Retards</span>
-          </button>
-        </div>
       </div>
 
-      {/* Main Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-6 items-start">
-        
-        {/* Left Side: Analytics Overview */}
-        <aside className="bg-white rounded-2xl border border-slate-200 p-5 space-y-5 shadow-xs">
-          <div className="flex justify-between items-center border-b border-slate-100 pb-4">
-            <div className="flex items-center gap-2">
-              <Activity className="h-4.5 w-4.5 text-emerald-500 animate-pulse" />
-              <h2 className="text-xs font-black uppercase tracking-wider text-slate-950">Statistiques Live</h2>
+      <div className="mx-auto mt-5 max-w-[1600px] space-y-5">
+        {/* Alerts */}
+        {globalError && (
+          <div
+            role="alert"
+            className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-4 shadow-sm sm:p-5 lg:p-6"
+          >
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-100 text-rose-600">
+              <AlertCircle className="h-4 w-4" />
             </div>
-            <button 
-              onClick={() => loadData()} 
-              disabled={loading} 
-              aria-label="Rafraîchir les données"
-              className="p-1.5 rounded-lg bg-emerald-700 text-white hover:bg-emerald-800 transition disabled:opacity-50"
+
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-black uppercase tracking-wider text-rose-800">
+                Erreur système
+              </p>
+              <p className="mt-1 text-xs font-medium leading-5 text-rose-700">
+                {globalError}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setGlobalError(null)}
+              aria-label="Fermer l'erreur"
+              className="rounded-lg p-2 text-rose-400 transition hover:bg-rose-100 hover:text-rose-700"
             >
-              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              <X className="h-4 w-4" />
             </button>
           </div>
+        )}
 
-          {analytics && (
-            <div className="space-y-6">
-              {/* Progress KPI bar */}
-              <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-                    <BarChart3 className="w-3.5 h-3.5 text-slate-600" /> Taux OTP (Global)
+        {globalSuccess && (
+          <div
+            role="status"
+            className="flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 shadow-sm sm:p-5 lg:p-6"
+          >
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600">
+              <CheckCircle2 className="h-4 w-4" />
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-black uppercase tracking-wider text-emerald-800">
+                Opération réussie
+              </p>
+              <p className="mt-1 text-xs font-medium leading-5 text-emerald-700">
+                {globalSuccess}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setGlobalSuccess(null)}
+              aria-label="Fermer le message"
+              className="rounded-lg p-2 text-emerald-400 transition hover:bg-emerald-100 hover:text-emerald-700"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+
+        {/* KPI responsive grid */}
+        <section
+          aria-label="Indicateurs clés"
+          className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5"
+        >
+          {kpiCards.map((item) => (
+            <div
+              key={item.label}
+              className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 lg:p-6"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <span className="block text-[9px] font-black uppercase tracking-[0.16em] text-slate-400 sm:text-[10px]">
+                    {item.label}
                   </span>
-                  <span className="text-sm font-mono font-black text-slate-900">{analytics.metrics.otpRate}%</span>
+
+                  <strong className="mt-2 block text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">
+                    {item.value}
+                  </strong>
                 </div>
-                <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
-                  <div className="bg-emerald-700 h-full transition-all duration-500" style={{ width: `${analytics.metrics.otpRate}%` }}></div>
+
+                <div
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl sm:h-10 sm:w-10 ${item.tone}`}
+                >
+                  {item.icon}
                 </div>
               </div>
 
-              {/* Vertical KPI List */}
-              <div className="space-y-3">
-                <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Répartition de la Flotte</p>
-                <div className="space-y-2">
-                  {kpiItems.map((item, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-2.5 rounded-xl border border-slate-100 bg-slate-50/30 hover:bg-slate-100/50 transition-all">
-                      <div className="flex items-center gap-2.5">
-                        <span className={`h-2 w-2 rounded-full ${item.color}`}></span>
-                        <span className="text-xs font-bold text-slate-700">{item.label}</span>
-                      </div>
-                      <span className={`text-xs font-mono font-black border px-2.5 py-0.5 rounded-lg ${item.badgeStyle}`}>
-                        {item.count}
-                      </span>
-                    </div>
-                  ))}
+              <p className="mt-2 truncate text-[10px] font-semibold text-slate-400 sm:text-[11px]">
+                {item.sub}
+              </p>
+            </div>
+          ))}
+        </section>
+
+        {/* OTP progress */}
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 lg:p-6">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <BarChart3 className="h-4 w-4 text-emerald-600" />
+                <h2 className="text-xs font-black uppercase tracking-wider text-slate-800">
+                  Ponctualité opérationnelle
+                </h2>
+              </div>
+              <p className="mt-1 text-[10px] font-medium text-slate-400">
+                On-Time Performance du planning courant
+              </p>
+            </div>
+
+            <span className="font-mono text-lg font-black text-slate-950 sm:text-xl">
+              {clampPercentage(effectiveAnalytics.metrics.otpRate)}%
+            </span>
+          </div>
+
+          <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-slate-100">
+            <div
+              className="h-full rounded-full bg-emerald-700 transition-all duration-700"
+              style={{
+                width: `${clampPercentage(
+                  effectiveAnalytics.metrics.otpRate,
+                )}%`,
+              }}
+            />
+          </div>
+        </section>
+
+        {/* Search + filter — no overflow */}
+        <section className="sticky top-2 z-20 overflow-hidden rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-sm backdrop-blur sm:p-5 lg:p-6">
+          <div className="space-y-3">
+            {/* Recherche : toujours contenue dans la bordure */}
+            <div className="relative w-full">
+              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+
+              <input
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Rechercher vol, aéroport, appareil..."
+                aria-label="Rechercher dans le planning"
+                className="h-11 w-full min-w-0 rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-10 text-xs font-semibold text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-emerald-700 focus:bg-white focus:ring-4 focus:ring-emerald-100/70"
+              />
+
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  aria-label="Effacer la recherche"
+                  className="absolute right-2.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-200/70 hover:text-slate-700"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Zone filtres */}
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-3 sm:p-4">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <div className="flex min-w-0 items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                  <Filter className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">Filtres du planning</span>
+
+                  {activeFilterCount > 0 && (
+                    <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 px-1.5 text-[9px] font-black text-emerald-700">
+                      {activeFilterCount}
+                    </span>
+                  )}
                 </div>
+
+                {(statusFilter !== 'ALL' || searchQuery) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStatusFilter('ALL');
+                      setSearchQuery('');
+                    }}
+                    className="shrink-0 rounded-lg px-2.5 py-1.5 text-[9px] font-black uppercase tracking-wide text-slate-500 transition hover:bg-slate-200/70 hover:text-slate-700"
+                  >
+                    Réinitialiser
+                  </button>
+                )}
+              </div>
+
+              {/* 
+                Grille responsive :
+                - mobile : 2 colonnes
+                - tablette : 3 colonnes
+                - desktop : 4 colonnes
+                - grand écran : 7 colonnes
+                Aucun bouton ne peut sortir de la bordure.
+              */}
+              <div className="grid w-full min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-7">
+                {[
+                  ['ALL', 'Tous'],
+                  ['Scheduled', 'Planifiés'],
+                  ['Delayed', 'Retardés'],
+                  ['In-Flight', 'En vol'],
+                  ['Effectué', 'Effectués'],
+                  ['Cancelled', 'Annulés'],
+                  ['UNASSIGNED', 'Non assignés'],
+                ].map(([value, label]) => {
+                  const active = statusFilter === value;
+
+                  return (
+                    <button
+                      type="button"
+                      key={value}
+                      onClick={() => setStatusFilter(value as StatusFilter)}
+                      aria-pressed={active}
+                      className={[
+                        'h-10 w-full min-w-0 rounded-xl border px-2 text-[9px] font-extrabold uppercase tracking-wide transition-all duration-150 sm:px-3 sm:text-[10px]',
+                        'focus:outline-none focus:ring-2 focus:ring-emerald-200',
+                        active
+                          ? 'border-emerald-700 bg-emerald-700 text-white shadow-sm shadow-emerald-950/10'
+                          : 'border-slate-200 bg-white text-slate-600 hover:border-emerald-200 hover:bg-emerald-50/60 hover:text-emerald-800',
+                      ].join(' ')}
+                    >
+                      <span className="block w-full truncate text-center">{label}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
-          )}
-        </aside>
+          </div>
+        </section>
 
-        {/* Right Side: Timeline Rotations */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden flex flex-col">
-          <div className="overflow-x-auto">
-            <div className="min-w-[950px] divide-y divide-slate-100">
-              
-              {/* Table Header */}
-              <div className="grid grid-cols-12 bg-slate-50/70 border-b border-slate-200 px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-wider">
-                <div className="col-span-3 border-r border-slate-200">Aéronef</div>
-                <div className="col-span-9 pl-6">Rotations Horaires Planifiées</div>
+        {/* Main planning */}
+        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="flex items-center justify-between border-b border-slate-200 p-4 sm:p-5 lg:p-6">
+            <div>
+              <div className="flex items-center gap-2">
+                <Activity className="h-4 w-4 text-emerald-600" />
+                <h2 className="text-xs font-black uppercase tracking-wider text-slate-900">
+                  Planning des rotations
+                </h2>
               </div>
+              <p className="mt-1 text-[10px] font-medium text-slate-400">
+                {filteredFlights.length} résultat
+                {filteredFlights.length > 1 ? 's' : ''} affiché
+                {filteredFlights.length > 1 ? 's' : ''}
+              </p>
+            </div>
 
-              {ganttRows.length === 0 ? (
-                <div className="p-20 text-center text-xs font-semibold text-slate-400 italic flex flex-col items-center justify-center gap-2.5">
-                  <AlertCircle className="h-6 w-6 text-slate-300" />
-                  <span>Aucune rotation planifiée correspondant aux filtres.</span>
-                </div>
-              ) : (
-                ganttRows.map((aircraft) => {
-                  const aircraftFlights = filteredFlights.filter((f) => f.aircraft === aircraft);
-                  const immatriculation = fleetAircrafts.find((a) => a.id === aircraft)?.model 
-                    || flights.find((f) => f.aircraft === aircraft)?.aircraftModel 
-                    || 'Cellule Inconnue';
+            {isFetching && (
+              <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-2.5 py-1 text-[9px] font-extrabold uppercase tracking-wide text-slate-500">
+                <RefreshCw className="h-3 w-3 animate-spin" />
+                Sync
+              </span>
+            )}
+          </div>
+
+          {isFetching && flights.length === 0 ? (
+            <LoadingSkeleton />
+          ) : flightsByAircraft.length === 0 ? (
+            <div className="flex min-h-[320px] flex-col items-center justify-center px-6 py-12 text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
+                <Search className="h-5 w-5" />
+              </div>
+              <h3 className="mt-4 text-sm font-black text-slate-700">
+                Aucun vol trouvé
+              </h3>
+              <p className="mt-1 max-w-sm text-xs font-medium leading-5 text-slate-400">
+                Modifiez la recherche ou le filtre pour afficher d’autres rotations.
+              </p>
+            </div>
+          ) : (
+            <>
+              {/* MOBILE / TABLET IHM */}
+              <div className="divide-y divide-slate-100 lg:hidden">
+                {flightsByAircraft.map(([aircraft, aircraftFlights]) => {
+                  const fallbackLabel =
+                    aircraftFlights.find((flight) => flight.aircraftModel)
+                      ?.aircraftModel || 'Cellule inconnue';
+
+                  const aircraftLabel =
+                    aircraftLookup.get(aircraft) || fallbackLabel;
 
                   const isUnassigned = aircraft === UNASSIGNED_AIRCRAFT;
 
                   return (
-                    <div key={aircraft} className="grid grid-cols-12 items-stretch hover:bg-slate-50/20 transition-all duration-150">
-                      {/* Aircraft info */}
-                      <div className={`col-span-3 flex flex-col justify-center border-r border-slate-200 px-6 py-5 ${isUnassigned ? 'bg-rose-50/20' : 'bg-white'}`}>
-                        {isUnassigned ? (
-                          <div className="flex flex-col gap-1.5">
-                            <span className="text-[10px] font-black bg-rose-100 text-rose-800 border border-rose-200 px-2.5 py-1 rounded-lg w-fit flex items-center gap-1 uppercase tracking-wider">
-                              <ShieldAlert className="h-3.5 w-3.5" /> Vol non assigné
+                    <div key={aircraft} className="p-4 sm:p-5">
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <span className="block text-[9px] font-black uppercase tracking-[0.16em] text-slate-400">
+                            Aéronef
+                          </span>
+
+                          {isUnassigned ? (
+                            <span className="mt-1 inline-flex items-center gap-1.5 rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide text-rose-700">
+                              <ShieldAlert className="h-3.5 w-3.5" />
+                              Non assigné
                             </span>
-                            <span className="text-[9px] text-rose-600 font-bold uppercase tracking-wide">Action Requise</span>
-                          </div>
-                        ) : (
-                          <>
-                            <span className="text-xs font-black text-slate-950 font-mono tracking-wider bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-lg w-fit uppercase">
-                              {immatriculation}
+                          ) : (
+                            <span className="mt-1 block truncate font-mono text-sm font-black text-slate-900">
+                              {aircraftLabel}
                             </span>
-                            <span className="text-[9px] text-slate-400 font-mono font-bold mt-2 uppercase tracking-wide">
-                              REF: {aircraft.substring(0, 8)}
-                            </span>
-                          </>
-                        )}
+                          )}
+                        </div>
+
+                        <span className="rounded-full bg-slate-100 px-2.5 py-1 font-mono text-[10px] font-black text-slate-500">
+                          {aircraftFlights.length} vol
+                          {aircraftFlights.length > 1 ? 's' : ''}
+                        </span>
                       </div>
 
-                      {/* Flights List */}
-                      <div className="col-span-9 flex flex-row flex-wrap items-center gap-4 px-6 py-5 bg-white">
-                        {aircraftFlights.map((flight) => {
-                          const styles = getStatusStyles(flight.status);
-                          const weather = getWeatherIndicator(flight.weatherSeverity);
-                          return (
-                            <div
-                              key={flight.id}
-                              onClick={() => setSelectedFlight(flight)}
-                              className={`group relative flex h-[130px] w-[285px] flex-col justify-between rounded-xl border p-4 cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${styles.bg}`}
-                            >
-                              <div>
-                                <div className="flex items-center justify-between">
-                                  <span className="text-xs font-black tracking-wider text-slate-950 flex items-center gap-1.5">
-                                    {flight.status === 'Effectué' && <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />}
-                                    {flight.flightNumber}
-                                  </span>
-                                  <div className="flex items-center gap-1">
-                                    <div className={`flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[9px] font-black ${weather.bg}`}>
-                                      {weather.icon}
-                                      <span>{flight.weatherSeverity ?? 0.1}</span>
-                                    </div>
-                                    <span className={`rounded-md border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide ${styles.badge}`}>
-                                      {styles.label}
-                                    </span>
-                                  </div>
-                                </div>
-                                
-                                <div className="mt-3 flex items-center gap-2 text-[11px] font-black text-slate-950">
-                                  <span className="bg-slate-100 px-2 py-0.5 rounded-md font-mono">{flight.origin}</span>
-                                  <ArrowRight className="h-3 w-3 text-slate-400 shrink-0" />
-                                  <span className="bg-slate-100 px-2 py-0.5 rounded-md font-mono">{flight.destination}</span>
-                                </div>
-                              </div>
-
-                              <div className="mt-2 flex items-center gap-1.5 text-[10px] font-bold text-slate-500 border-t border-slate-100 pt-2 font-mono">
-                                <Clock className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                                <span className="truncate">
-                                  {formatDateTime(flight.departure)} - {formatDateTime(flight.arrival)}
-                                </span>
-                              </div>
-                            </div>
-                          );
-                        })}
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {aircraftFlights.map((flight) =>
+                          renderFlightCard(flight, 'mobile'),
+                        )}
                       </div>
                     </div>
                   );
-                })
-              )}
-            </div>
-          </div>
-        </div>
+                })}
+              </div>
+
+              {/* DESKTOP / LARGE SCREEN IHM */}
+              <div className="hidden lg:block">
+                <div className="m-3 grid grid-cols-[230px_minmax(0,1fr)] rounded-xl border border-slate-200 bg-slate-50 px-5 py-3 text-[9px] font-black uppercase tracking-[0.16em] text-slate-400">
+                  <div className="border-r border-slate-200 pr-5">
+                    Aéronef
+                  </div>
+                  <div className="pl-5">Rotations planifiées</div>
+                </div>
+
+                <div className="divide-y divide-slate-100">
+                  {flightsByAircraft.map(([aircraft, aircraftFlights]) => {
+                    const fallbackLabel =
+                      aircraftFlights.find((flight) => flight.aircraftModel)
+                        ?.aircraftModel || 'Cellule inconnue';
+
+                    const aircraftLabel =
+                      aircraftLookup.get(aircraft) || fallbackLabel;
+
+                    const isUnassigned = aircraft === UNASSIGNED_AIRCRAFT;
+
+                    return (
+                      <div
+                        key={aircraft}
+                        className="grid grid-cols-[230px_minmax(0,1fr)]"
+                      >
+                        <aside
+                          className={[
+                            'border-r border-slate-200 p-6',
+                            isUnassigned ? 'bg-rose-50/40' : 'bg-slate-50/40',
+                          ].join(' ')}
+                        >
+                          <div className="sticky top-24">
+                            <span className="block text-[9px] font-black uppercase tracking-[0.16em] text-slate-400">
+                              Appareil
+                            </span>
+
+                            {isUnassigned ? (
+                              <div className="mt-2">
+                                <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-200 bg-rose-100 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide text-rose-700">
+                                  <ShieldAlert className="h-3.5 w-3.5" />
+                                  Non assigné
+                                </span>
+                                <p className="mt-2 text-[10px] font-semibold leading-4 text-rose-500">
+                                  Affectation d’un aéronef requise.
+                                </p>
+                              </div>
+                            ) : (
+                              <>
+                                <span className="mt-2 block font-mono text-sm font-black text-slate-950">
+                                  {aircraftLabel}
+                                </span>
+
+                                <span className="mt-1 block font-mono text-[9px] font-bold uppercase tracking-wide text-slate-400">
+                                  REF {aircraft.slice(0, 8)}
+                                </span>
+                              </>
+                            )}
+
+                            <div className="mt-4 border-t border-slate-200 pt-3">
+                              <span className="text-[10px] font-bold text-slate-400">
+                                {aircraftFlights.length} rotation
+                                {aircraftFlights.length > 1 ? 's' : ''}
+                              </span>
+                            </div>
+                          </div>
+                        </aside>
+
+                        <div className="grid grid-cols-1 gap-4 p-6 xl:grid-cols-2 2xl:grid-cols-3">
+                          {aircraftFlights.map((flight) =>
+                            renderFlightCard(flight, 'desktop'),
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
+          )}
+        </section>
       </div>
+
+      {/* Mobile floating action button */}
+      <button
+        type="button"
+        onClick={() => setIsAddModalOpen(true)}
+        aria-label="Créer un nouveau vol"
+        className="fixed bottom-5 right-5 z-30 flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-700 text-white shadow-xl shadow-emerald-950/20 transition hover:bg-emerald-800 active:scale-95 sm:hidden"
+      >
+        <Plus className="h-5 w-5" />
+      </button>
 
       <FlightAddModal
         isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
+        onClose={() => {
+          if (!isCreating) setIsAddModalOpen(false);
+        }}
         onSubmit={handleCreateFlightSubmit}
         fleetAircrafts={fleetAircrafts}
-        isLoadingFleet={isLoadingFleet}
+        isLoadingFleet={isLoadingFleet || isCreating}
       />
 
-      {/* Modal d'Inspection Détaillée */}
+      {/* Responsive flight detail modal */}
       {selectedFlight && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm transition-all">
-          <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between bg-slate-50 px-5 py-4 border-b border-slate-200">
-              <span className="text-[10px] font-black text-slate-950 uppercase tracking-wider">Fiche d'Inspection Vol</span>
-              <button 
-                onClick={() => setSelectedFlight(null)} 
-                aria-label="Fermer la modal"
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-200/50 hover:text-slate-600 transition"
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Détails du vol ${selectedFlight.flightNumber}`}
+          onMouseDown={(event) => {
+            if (event.currentTarget === event.target) {
+              setSelectedFlight(null);
+            }
+          }}
+          className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/60 backdrop-blur-sm sm:items-center sm:p-4"
+        >
+          <div className="max-h-[92vh] w-full overflow-y-auto rounded-t-3xl border border-slate-200 bg-white shadow-2xl sm:max-w-xl sm:rounded-3xl">
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white/95 px-4 py-4 backdrop-blur sm:px-5">
+              <div className="min-w-0">
+                <span className="block text-[9px] font-black uppercase tracking-[0.16em] text-slate-400">
+                  Fiche d’inspection
+                </span>
+                <h3 className="mt-0.5 truncate font-mono text-lg font-black text-slate-950">
+                  {selectedFlight.flightNumber}
+                </h3>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSelectedFlight(null)}
+                aria-label="Fermer la fiche"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500 transition hover:bg-slate-200"
               >
-                <X className="h-4.5 w-4.5" />
+                <X className="h-4 w-4" />
               </button>
             </div>
-            
-            <div className="p-5 space-y-4 text-xs">
-              {/* Aircraft & Status Panel */}
-              <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3.5 border border-slate-200/80 rounded-xl">
-                <div>
-                  <span className="text-slate-400 block font-bold uppercase text-[9px] tracking-wide mb-1">Aéronef Connecté</span>
-                  <span className="font-mono font-black text-slate-950 text-xs">
-                    {selectedFlight.aircraft === UNASSIGNED_AIRCRAFT ? 'SANS CELLULE' : selectedFlight.aircraftModel}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-slate-400 block font-bold uppercase text-[9px] tracking-wide mb-1">Statut Courant</span>
-                  <span className={`inline-block border px-2 py-0.5 rounded-md font-bold uppercase text-[9px] ${getStatusStyles(selectedFlight.status).badge}`}>
-                    {getStatusStyles(selectedFlight.status).label}
-                  </span>
-                </div>
-              </div>
 
-              {/* Weather Recommendation Box */}
-              <div className="p-3.5 border border-slate-200 bg-slate-50/50 rounded-xl space-y-2.5">
-                <span className="text-slate-400 block font-bold uppercase text-[9px] tracking-wider">Conditions Météo au Départ ({selectedFlight.origin})</span>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    {getWeatherIndicator(selectedFlight.weatherSeverity).icon}
-                    <span className="font-mono font-black text-slate-950">Indice : {selectedFlight.weatherSeverity ?? 0.1} / 1.0</span>
+            <div className="space-y-4 p-4 sm:p-5">
+              {/* Route hero */}
+              <section className="overflow-hidden rounded-2xl bg-emerald-700 p-5 text-white">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <span className="block text-[9px] font-black uppercase tracking-[0.16em] text-emerald-100">
+                      Origine
+                    </span>
+                    <strong className="mt-1 block font-mono text-2xl font-black">
+                      {selectedFlight.origin}
+                    </strong>
                   </div>
-                  <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase border ${getWeatherIndicator(selectedFlight.weatherSeverity).bg}`}>
-                    {getWeatherIndicator(selectedFlight.weatherSeverity).text}
+
+                  <div className="flex min-w-0 flex-1 items-center px-3">
+                    <div className="h-px flex-1 bg-emerald-500/60" />
+                    <Plane className="mx-2 h-4 w-4 rotate-90 text-white" />
+                    <div className="h-px flex-1 bg-emerald-500/60" />
+                  </div>
+
+                  <div className="text-right">
+                    <span className="block text-[9px] font-black uppercase tracking-[0.16em] text-emerald-100">
+                      Destination
+                    </span>
+                    <strong className="mt-1 block font-mono text-2xl font-black">
+                      {selectedFlight.destination}
+                    </strong>
+                  </div>
+                </div>
+
+                <p className="mt-4 truncate text-center font-mono text-[11px] font-bold text-emerald-100">
+                  {displayRoute(selectedFlight)}
+                </p>
+              </section>
+
+              {/* Status + aircraft */}
+              <section className="grid grid-cols-2 gap-3">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <span className="block text-[9px] font-black uppercase tracking-[0.16em] text-slate-400">
+                    Statut
+                  </span>
+                  <div className="mt-2">
+                    <StatusBadge
+                      status={selectedFlight.status}
+                      style={
+                        statusStyles[selectedFlight.status] ??
+                        statusStyles.Scheduled
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <span className="block text-[9px] font-black uppercase tracking-[0.16em] text-slate-400">
+                    Aéronef
+                  </span>
+                  <strong className="mt-2 block truncate font-mono text-xs font-black text-slate-900">
+                    {selectedFlight.aircraft === UNASSIGNED_AIRCRAFT
+                      ? 'NON ASSIGNÉ'
+                      : selectedFlight.aircraftModel}
+                  </strong>
+                </div>
+              </section>
+
+              {/* Times */}
+              <section className="rounded-2xl border border-slate-200 bg-white p-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <span className="block text-[9px] font-black uppercase tracking-[0.16em] text-slate-400">
+                      Départ local
+                    </span>
+                    <strong className="mt-1 block font-mono text-sm font-black text-slate-900">
+                      {formatLocalIso(
+                        selectedFlight.localDeparture ||
+                          selectedFlight.departure,
+                      )}
+                    </strong>
+                  </div>
+
+                  <div className="text-right">
+                    <span className="block text-[9px] font-black uppercase tracking-[0.16em] text-slate-400">
+                      Arrivée locale
+                    </span>
+                    <strong className="mt-1 block font-mono text-sm font-black text-slate-900">
+                      {formatLocalIso(
+                        selectedFlight.localArrival || selectedFlight.arrival,
+                      )}
+                    </strong>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
+                  <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-slate-400">
+                    <Timer className="h-3.5 w-3.5" />
+                    Durée
+                  </span>
+                  <span className="font-mono text-xs font-black text-slate-700">
+                    {formatDuration(selectedFlight.durationMinutes)}
                   </span>
                 </div>
-                <p className="text-[10px] text-slate-600 font-bold leading-relaxed pt-2 border-t border-slate-200 flex gap-1.5 items-start">
-                  {(selectedFlight.weatherSeverity ?? 0.1) >= 0.7 ? (
-                    <>
-                      <AlertTriangle className="h-4 w-4 text-rose-500 shrink-0" />
-                      <span>Alerte critique. Fortes perturbations météo détectées. L'IA préconise un décalage horaire immédiat.</span>
-                    </>
-                  ) : (selectedFlight.weatherSeverity ?? 0.1) >= 0.4 ? (
-                    <>
-                      <Sparkles className="h-4 w-4 text-amber-500 shrink-0" />
-                      <span>Risque modéré de perturbations climatiques. Monitoring recommandé.</span>
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-                      <span>Excellentes conditions. Vol nominal sans contrainte climatique.</span>
-                    </>
-                  )}
-                </p>
-              </div>
+              </section>
 
-              {/* Ticket Route Design */}
-              <div className="flex items-center justify-between border border-slate-200 bg-white p-4 rounded-xl text-center relative overflow-hidden">
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-2 h-4 bg-slate-50 border-r border-slate-200 rounded-r-full"></div>
-                <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2 h-4 bg-slate-50 border-l border-slate-200 rounded-l-full"></div>
-                
-                <div className="flex-1 px-2">
-                  <span className="text-2xl font-mono font-black text-slate-950">{selectedFlight.origin}</span>
-                  <span className="text-[9px] font-mono font-bold text-slate-400 block mt-1 uppercase tracking-wide">Départ : {formatDateTime(selectedFlight.departure)}</span>
-                </div>
-                <div className="text-slate-300 select-none shrink-0 px-2 flex flex-col items-center">
-                  <span className="text-[10px] font-black text-slate-400 tracking-widest">{selectedFlight.flightNumber}</span>
-                  <div className="w-16 border-t-2 border-dashed border-slate-200 my-1"></div>
-                  <Plane className="h-3.5 w-3.5 rotate-90 text-slate-300" />
-                </div>
-                <div className="flex-1 px-2">
-                  <span className="text-2xl font-mono font-black text-slate-950">{selectedFlight.destination}</span>
-                  <span className="text-[9px] font-mono font-bold text-slate-400 block mt-1 uppercase tracking-wide">Arrivée : {formatDateTime(selectedFlight.arrival)}</span>
-                </div>
-              </div>
-            </div>
-            
-            <div className="p-5 pt-0">
-              <button 
-                onClick={() => setSelectedFlight(null)} 
-                className="w-full bg-emerald-700 hover:bg-emerald-800 py-3 text-white font-bold rounded-xl text-[10px] uppercase tracking-wider transition-all"
+              {/* Weather */}
+              {(() => {
+                const weather = getWeatherIndicator(
+                  selectedFlight.weatherSeverity,
+                );
+
+                return (
+                  <section className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <span className="block text-[9px] font-black uppercase tracking-[0.16em] text-slate-400">
+                          Météo au départ
+                        </span>
+                        <div className="mt-2 flex items-center gap-2">
+                          <span
+                            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide ${weather.badge}`}
+                          >
+                            {weather.icon}
+                            {weather.label}
+                          </span>
+
+                          <span className="font-mono text-[10px] font-black text-slate-500">
+                            {normalizeSeverity(
+                              selectedFlight.weatherSeverity,
+                            ).toFixed(2)}
+                            /1.00
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <p className="mt-3 border-t border-slate-200 pt-3 text-[11px] font-semibold leading-5 text-slate-600">
+                      {weather.recommendation}
+                    </p>
+                  </section>
+                );
+              })()}
+
+              {/* Legs */}
+              {selectedFlight.legs && selectedFlight.legs.length > 0 && (
+                <section className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <div className="mb-3 flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-emerald-600" />
+                    <span className="text-[9px] font-black uppercase tracking-[0.16em] text-slate-500">
+                      Tronçons
+                    </span>
+                  </div>
+
+                  <div className="space-y-2">
+                    {selectedFlight.legs.map((leg, index) => (
+                      <div
+                        key={`${leg.aeroportDepart}-${leg.aeroportArrivee}-${index}`}
+                        className="rounded-xl bg-slate-50 p-3"
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="font-mono text-xs font-black text-slate-900">
+                            {leg.aeroportDepart}
+                          </span>
+                          <ArrowRight className="h-3.5 w-3.5 text-slate-400" />
+                          <span className="font-mono text-xs font-black text-slate-900">
+                            {leg.aeroportArrivee}
+                          </span>
+                        </div>
+
+                        <div className="mt-2 flex items-center justify-between gap-3 border-t border-slate-200 pt-2 font-mono text-[9px] font-bold text-slate-400">
+                          <span>{formatDateTime(leg.heureDepart)}</span>
+                          <span>{formatDateTime(leg.heureArrivee)}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setSelectedFlight(null)}
+                className="min-h-12 w-full rounded-2xl bg-emerald-700 px-4 text-xs font-black uppercase tracking-wider text-white transition hover:bg-emerald-800"
               >
-                Fermer la Fiche
+                Fermer la fiche
               </button>
             </div>
           </div>

@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
   Sparkles,
   Plane,
-  PlusCircle,
   Trash2,
   AlertTriangle,
   CheckCircle2,
@@ -11,22 +10,79 @@ import {
   RefreshCw,
   Clock,
   Layers,
-  ChevronDown,
-  ChevronUp,
   Search,
   Filter,
   ArrowUpDown,
   X
 } from 'lucide-react';
-import { flightsApi, type Flight, type OptimizationResult } from '../Api/flightsApi';
+import { flightsApi, type Flight } from '../Api/flightsApi';
+
+const ML_API_BASE_URL =
+  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL) ||
+  'http://localhost:5000';
+
+type ConflictSeverity = 'CRITICAL' | 'HIGH' | 'MEDIUM';
+
+interface ConflictFlightRef {
+  id: string;
+  numeroVol: string;
+  aeroportDepart: string;
+  aeroportArrivee: string;
+  heureDepart?: string | null;
+  heureArrivee?: string | null;
+  statut?: string;
+  avionId?: string | null;
+  aircraftRegistration?: string | null;
+}
+
+interface FlightConflict {
+  id: string;
+  type:
+    | 'AIRCRAFT_OVERLAP'
+    | 'TURNAROUND_TOO_SHORT'
+    | 'AIRCRAFT_POSITIONING'
+    | 'UNASSIGNED_AIRCRAFT'
+    | 'ML_CONFLICT_RISK'
+    | string;
+  severity: ConflictSeverity;
+  probability: number;
+  detector?: string;
+  aircraftId?: string | null;
+  aircraftRegistration?: string | null;
+  flightA: ConflictFlightRef;
+  flightB?: ConflictFlightRef | null;
+  overlapMinutes?: number;
+  gapMinutes?: number | null;
+  reason: string;
+  recommendation: string;
+}
+
+interface ConflictDetectionResult {
+  timestamp: string;
+  totalConflicts: number;
+  criticalConflicts: number;
+  highConflicts: number;
+  mediumConflicts: number;
+  conflicts: FlightConflict[];
+  model?: {
+    algorithm?: string;
+    version?: string;
+    externalDependencies?: string[];
+  };
+}
+
 
 export const FlightOptimizationDashboard: React.FC = () => {
   const [flights, setFlights] = useState<Flight[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [optimizing, setOptimizing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [optiResult, setOptiResult] = useState<OptimizationResult | null>(null);
-  const [showAddForm, setShowAddForm] = useState<boolean>(false);
+
+  // Détection IA des conflits
+  const [conflictResult, setConflictResult] =
+    useState<ConflictDetectionResult | null>(null);
+  const [loadingConflicts, setLoadingConflicts] = useState<boolean>(false);
+  const [conflictError, setConflictError] = useState<string | null>(null);
+  const [lastConflictScanAt, setLastConflictScanAt] = useState<Date | null>(null);
 
   // État du Modal de Suppression
   const [flightToDelete, setFlightToDelete] = useState<Flight | null>(null);
@@ -36,16 +92,6 @@ export const FlightOptimizationDashboard: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [sortAsc, setSortAsc] = useState<boolean>(true);
-
-  // Formulaire de création
-  const [newFlight, setNewFlight] = useState({
-    numeroVol: '',
-    aeroportDepart: '',
-    aeroportArrivee: '',
-    heureDepart: '',
-    heureArrivee: '',
-    avionId: '',
-  });
 
   const loadFlights = async () => {
     try {
@@ -60,43 +106,85 @@ export const FlightOptimizationDashboard: React.FC = () => {
     }
   };
 
+
+  const loadConflicts = async (silent = false) => {
+    try {
+      setLoadingConflicts(true);
+
+      if (!silent) {
+        setConflictError(null);
+      }
+
+      const response = await fetch(
+        `${ML_API_BASE_URL}/flights/conflicts`,
+        {
+          headers: {
+            Accept: 'application/json',
+          },
+        },
+      );
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(
+          data?.message ||
+            `Erreur détection conflits HTTP ${response.status}`,
+        );
+      }
+
+      setConflictResult(data as ConflictDetectionResult);
+      setLastConflictScanAt(new Date());
+      setConflictError(null);
+    } catch (err: any) {
+      console.error('Erreur détection conflits :', err);
+
+      if (!silent) {
+        setConflictError(
+          err?.message ||
+            'Impossible de détecter les conflits de vols.',
+        );
+      }
+    } finally {
+      setLoadingConflicts(false);
+    }
+  };
+
   useEffect(() => {
-    loadFlights();
+    void Promise.all([
+      loadFlights(),
+      loadConflicts(true),
+    ]);
   }, []);
 
-  const handleOptimize = async () => {
-    try {
-      setOptimizing(true);
-      setError(null);
-      const result = await flightsApi.runOptimization();
-      setOptiResult(result);
-      await loadFlights();
-    } catch (err: any) {
-      setError(err.message || "Erreur lors de l'exécution de l'optimisation.");
-    } finally {
-      setOptimizing(false);
-    }
-  };
+  // Rafraîchissement léger toutes les 60 s uniquement si l'onglet est visible.
+  useEffect(() => {
+    const tick = () => {
+      if (document.visibilityState !== 'visible') return;
+      void loadConflicts(true);
+    };
 
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      setError(null);
-      await flightsApi.create(newFlight);
-      setNewFlight({
-        numeroVol: '',
-        aeroportDepart: '',
-        aeroportArrivee: '',
-        heureDepart: '',
-        heureArrivee: '',
-        avionId: '',
-      });
-      setShowAddForm(false);
-      await loadFlights();
-    } catch (err: any) {
-      setError(err.message || "Erreur lors de la création du vol.");
-    }
-  };
+    const intervalId = window.setInterval(tick, 60_000);
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        tick();
+      }
+    };
+
+    document.addEventListener(
+      'visibilitychange',
+      onVisibilityChange,
+    );
+
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener(
+        'visibilitychange',
+        onVisibilityChange,
+      );
+    };
+  }, []);
 
   // Confirmation et exécution de la suppression
   const confirmDelete = async () => {
@@ -106,6 +194,7 @@ export const FlightOptimizationDashboard: React.FC = () => {
       await flightsApi.delete(flightToDelete.id);
       setFlightToDelete(null);
       await loadFlights();
+      await loadConflicts(true);
     } catch (err: any) {
       setError(err.message || "Erreur lors de la suppression.");
     } finally {
@@ -191,56 +280,94 @@ export const FlightOptimizationDashboard: React.FC = () => {
   const assignedFlightsCount = flights.filter((f) => !!f.avion).length;
   const unassignedFlightsCount = flights.length - assignedFlightsCount;
 
+  const conflictsByFlightId = useMemo(() => {
+    const map = new Map<string, FlightConflict[]>();
+
+    for (const conflict of conflictResult?.conflicts || []) {
+      const ids = [
+        conflict.flightA?.id,
+        conflict.flightB?.id,
+      ].filter(Boolean) as string[];
+
+      for (const id of ids) {
+        const current = map.get(id) || [];
+        current.push(conflict);
+        map.set(id, current);
+      }
+    }
+
+    return map;
+  }, [conflictResult]);
+
+  const getConflictSeverityBadge = (
+    severity: ConflictSeverity,
+  ) => {
+    switch (severity) {
+      case 'CRITICAL':
+        return 'border-rose-200 bg-rose-50 text-rose-700';
+      case 'HIGH':
+        return 'border-orange-200 bg-orange-50 text-orange-700';
+      default:
+        return 'border-amber-200 bg-amber-50 text-amber-700';
+    }
+  };
+
+  const getConflictTypeLabel = (type: string) => {
+    switch (type) {
+      case 'AIRCRAFT_OVERLAP':
+        return 'Chevauchement appareil';
+      case 'TURNAROUND_TOO_SHORT':
+        return 'Rotation trop courte';
+      case 'AIRCRAFT_POSITIONING':
+        return 'Position appareil';
+      case 'UNASSIGNED_AIRCRAFT':
+        return 'Appareil non assigné';
+      case 'ML_CONFLICT_RISK':
+        return 'Risque arbre décision';
+      default:
+        return type;
+    }
+  };
+
+  const conflictCount = conflictResult?.totalConflicts ?? 0;
+
   return (
-    <div className="space-y-6 max-w-7xl mx-auto p-4 sm:p-6 text-slate-900 font-sans">
+    <div className="space-y-6 max-w-7xl mx-auto p-2 sm:p-6 text-slate-900 font-sans">
       {/* HEADER & BOUTONS D'ACTION */}
-      <div className="relative overflow-hidden rounded-2xl bg-white p-6 sm:p-8 text-slate-900 shadow-xs border border-slate-200/80">
+      <div className="relative overflow-hidden rounded-2xl bg-white p-2 sm:p-8 text-slate-900 shadow-xs border border-slate-200/80">
         <div className="absolute -right-12 -top-12 h-64 w-64 rounded-full bg-emerald-500/5 blur-3xl pointer-events-none" />
 
         <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-2 max-w-2xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200/60 text-emerald-700 text-[11px] font-bold uppercase tracking-wider">
-              <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Module Algorithmique IA</span>
-            </div>
 
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 m-0 leading-tight">
-              Optimisation Automatique des Vols
+              Détection  des Conflits de Vols
             </h1>
 
             <p className="text-slate-500 text-sm font-medium leading-relaxed m-0">
-              Résolution en temps réel des chevauchements d'appareils et réaffectation dynamique de la flotte.
+              Analyse des rotations par arbre de décision afin d’identifier les chevauchements, rotations trop courtes et incohérences de positionnement.
             </p>
           </div>
-
           <div className="flex flex-wrap items-center gap-3 shrink-0">
             <button
-              onClick={() => setShowAddForm(!showAddForm)}
-              className="inline-flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 transition-all cursor-pointer select-none"
-            >
-              <PlusCircle className="w-4 h-4 text-slate-500" />
-              <span>{showAddForm ? 'Fermer le formulaire' : 'Nouveau Vol'}</span>
-              {showAddForm ? <ChevronUp className="w-4 h-4 ml-1" /> : <ChevronDown className="w-4 h-4 ml-1" />}
-            </button>
-
-            <button
-              onClick={handleOptimize}
-              disabled={optimizing}
-              className={`inline-flex items-center justify-center gap-2.5 px-6 py-3 rounded-xl text-sm font-bold shadow-sm transition-all duration-200 cursor-pointer border select-none ${
-                optimizing
-                  ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed shadow-none'
-                  : 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-600/20 hover:shadow-emerald-600/20 active:scale-98'
+              type="button"
+              onClick={() => loadConflicts(false)}
+              disabled={loadingConflicts}
+              className={`inline-flex items-center justify-center gap-2.5 rounded-xl border px-6 py-3 text-sm font-bold shadow-sm transition-all duration-200 ${
+                loadingConflicts
+                  ? 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400'
+                  : 'cursor-pointer border-emerald-700 bg-emerald-700 text-white hover:border-emerald-800 hover:bg-emerald-800 active:scale-[0.98]'
               }`}
             >
-              {optimizing ? (
+              {loadingConflicts ? (
                 <>
-                  <RefreshCw className="w-4 h-4 animate-spin text-slate-400" />
-                  <span>Optimisation en cours...</span>
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  <span>Analyse IA en cours...</span>
                 </>
               ) : (
                 <>
-                  <Sparkles className="w-4 h-4" />
-                  <span>Lancer l'optimisation</span>
+                  <Sparkles className="h-4 w-4" />
+                  <span>Analyser les conflits</span>
                 </>
               )}
             </button>
@@ -248,7 +375,7 @@ export const FlightOptimizationDashboard: React.FC = () => {
         </div>
 
         {/* METRICS RAPIDES */}
-        <div className="relative z-10 grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-6 border-t border-slate-100">
+        <div className="relative z-10 grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-4 mt-6 pt-6 border-t border-slate-100">
           <div className="bg-slate-50/70 border border-slate-200/60 hover:border-slate-300 rounded-xl p-4 transition-all">
             <div className="flex items-center justify-between text-slate-500 mb-1">
               <span className="text-[11px] font-bold uppercase tracking-wider">Total Vols</span>
@@ -273,120 +400,267 @@ export const FlightOptimizationDashboard: React.FC = () => {
             <span className="text-2xl font-black text-amber-600 block">{unassignedFlightsCount}</span>
           </div>
 
+          <div
+            className={`rounded-xl p-4 transition-all border ${
+              conflictCount > 0
+                ? 'bg-rose-50/50 border-rose-200 hover:border-rose-300'
+                : 'bg-emerald-50/40 border-emerald-100'
+            }`}
+          >
+            <div
+              className={`flex items-center justify-between mb-1 ${
+                conflictCount > 0
+                  ? 'text-rose-700'
+                  : 'text-emerald-700'
+              }`}
+            >
+              <span className="text-[11px] font-bold uppercase tracking-wider">
+                Conflits IA
+              </span>
+              <AlertTriangle className="w-4 h-4" />
+            </div>
+
+            <div className="flex items-end justify-between gap-2">
+              <span
+                className={`text-2xl font-black ${
+                  conflictCount > 0
+                    ? 'text-rose-700'
+                    : 'text-emerald-700'
+                }`}
+              >
+                {conflictCount}
+              </span>
+
+              {conflictResult && (
+                <span className="text-[9px] font-bold text-slate-400">
+                  {conflictResult.criticalConflicts} critique
+                </span>
+              )}
+            </div>
+          </div>
+
           <div className="bg-slate-50/70 border border-slate-200/60 hover:border-slate-300 rounded-xl p-4 transition-all">
             <div className="flex items-center justify-between text-slate-500 mb-1">
-              <span className="text-[11px] font-bold uppercase tracking-wider">Dernier Run</span>
+              <span className="text-[11px] font-bold uppercase tracking-wider">Dernière analyse IA</span>
               <Clock className="w-4 h-4 text-slate-400" />
             </div>
             <span className="text-sm font-bold text-slate-700 mt-2 block truncate">
-              {optiResult ? new Date(optiResult.timestamp).toLocaleTimeString() : 'Aucun run'}
+              {lastConflictScanAt
+                ? lastConflictScanAt.toLocaleTimeString('fr-FR', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                  })
+                : 'Aucune analyse'}
             </span>
           </div>
         </div>
       </div>
 
-      {/* FORMULAIRE DE CRÉATION DE VOL */}
-      {showAddForm && (
-        <form
-          onSubmit={handleCreate}
-          className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-xs space-y-4 animate-in fade-in duration-200"
-        >
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-            <h3 className="text-base font-bold text-slate-900 flex items-center gap-2 m-0">
-              <PlusCircle className="w-5 h-5 text-emerald-600" />
-              Programmer un nouveau vol
-            </h3>
-            <span className="text-xs text-slate-400">Renseignez les informations de ligne</span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">N° de Vol</label>
-              <input
-                type="text"
-                required
-                placeholder="ex: AF-1420"
-                value={newFlight.numeroVol}
-                onChange={(e) => setNewFlight({ ...newFlight, numeroVol: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-              />
+      {/* DÉTECTION IA DES CONFLITS */}
+      <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-xs">
+        <div className="flex flex-col gap-3 border-b border-slate-100 bg-slate-50/50 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <div className="flex items-center gap-3">
+            <div
+              className={`flex h-10 w-10 items-center justify-center rounded-xl border ${
+                conflictCount > 0
+                  ? 'border-rose-200 bg-rose-50 text-rose-600'
+                  : 'border-emerald-200 bg-emerald-50 text-emerald-600'
+              }`}
+            >
+              {loadingConflicts ? (
+                <RefreshCw className="h-4 w-4 animate-spin" />
+              ) : conflictCount > 0 ? (
+                <AlertTriangle className="h-4 w-4" />
+              ) : (
+                <CheckCircle2 className="h-4 w-4" />
+              )}
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Départ (IATA)</label>
-              <input
-                type="text"
-                required
-                placeholder="ex: CDG"
-                value={newFlight.aeroportDepart}
-                onChange={(e) => setNewFlight({ ...newFlight, aeroportDepart: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm uppercase focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Arrivée (IATA)</label>
-              <input
-                type="text"
-                required
-                placeholder="ex: JFK"
-                value={newFlight.aeroportArrivee}
-                onChange={(e) => setNewFlight({ ...newFlight, aeroportArrivee: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm uppercase focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Heure de Départ</label>
-              <input
-                type="datetime-local"
-                required
-                value={newFlight.heureDepart}
-                onChange={(e) => setNewFlight({ ...newFlight, heureDepart: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Heure d'Arrivée</label>
-              <input
-                type="datetime-local"
-                required
-                value={newFlight.heureArrivee}
-                onChange={(e) => setNewFlight({ ...newFlight, heureArrivee: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Appareil ID (Optionnel)</label>
-              <input
-                type="text"
-                placeholder="ex: A320-01"
-                value={newFlight.avionId}
-                onChange={(e) => setNewFlight({ ...newFlight, avionId: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-              />
+              <h3 className="m-0 text-sm font-black text-slate-900">
+                Analyse des conflits — Arbre de décision
+              </h3>
+              <p className="m-0 mt-0.5 text-[11px] font-medium text-slate-400">
+                Chevauchement appareil, turnaround, positionnement et risque de rotation.
+              </p>
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 pt-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {conflictResult?.model?.algorithm && (
+              <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[9px] font-black uppercase tracking-wide text-slate-500">
+                {conflictResult.model.algorithm}
+              </span>
+            )}
+
+            {lastConflictScanAt && (
+              <span className="text-[10px] font-semibold text-slate-400">
+                Scan {lastConflictScanAt.toLocaleTimeString('fr-FR', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  second: '2-digit',
+                })}
+              </span>
+            )}
+
             <button
               type="button"
-              onClick={() => setShowAddForm(false)}
-              className="px-4 py-2 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer"
+              onClick={() => loadConflicts(false)}
+              disabled={loadingConflicts}
+              className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-[10px] font-bold text-slate-600 transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700 disabled:opacity-50"
             >
-              Annuler
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold cursor-pointer shadow-xs"
-            >
-              Enregistrer le Vol
+              <RefreshCw
+                className={`h-3.5 w-3.5 ${
+                  loadingConflicts ? 'animate-spin' : ''
+                }`}
+              />
+              Relancer l'analyse IA
             </button>
           </div>
-        </form>
-      )}
+        </div>
+
+        {conflictError && (
+          <div className="border-b border-amber-100 bg-amber-50 px-5 py-3 text-[11px] font-semibold text-amber-800">
+            {conflictError}
+          </div>
+        )}
+
+        {loadingConflicts && !conflictResult ? (
+          <div className="space-y-2 p-5">
+            {[1, 2, 3].map((item) => (
+              <div
+                key={item}
+                className="h-16 animate-pulse rounded-xl border border-slate-100 bg-slate-50"
+              />
+            ))}
+          </div>
+        ) : conflictCount === 0 ? (
+          <div className="flex min-h-32 items-center justify-center p-6 text-center">
+            <div>
+              <CheckCircle2 className="mx-auto h-8 w-8 text-emerald-600" />
+              <p className="mt-2 text-sm font-black text-slate-800">
+                Aucun conflit détecté
+              </p>
+              <p className="mt-1 text-[11px] font-medium text-slate-400">
+                Les rotations actuellement chargées sont compatibles avec les règles analysées.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-3 gap-2 border-b border-slate-100 p-4 sm:p-5">
+              <div className="rounded-xl border border-rose-200 bg-rose-50 p-3">
+                <span className="text-[9px] font-black uppercase tracking-wider text-rose-500">
+                  Critiques
+                </span>
+                <strong className="mt-1 block text-xl font-black text-rose-700">
+                  {conflictResult?.criticalConflicts ?? 0}
+                </strong>
+              </div>
+
+              <div className="rounded-xl border border-orange-200 bg-orange-50 p-3">
+                <span className="text-[9px] font-black uppercase tracking-wider text-orange-500">
+                  Élevés
+                </span>
+                <strong className="mt-1 block text-xl font-black text-orange-700">
+                  {conflictResult?.highConflicts ?? 0}
+                </strong>
+              </div>
+
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+                <span className="text-[9px] font-black uppercase tracking-wider text-amber-500">
+                  Modérés
+                </span>
+                <strong className="mt-1 block text-xl font-black text-amber-700">
+                  {conflictResult?.mediumConflicts ?? 0}
+                </strong>
+              </div>
+            </div>
+
+            <div className="max-h-[420px] divide-y divide-slate-100 overflow-y-auto">
+              {(conflictResult?.conflicts || []).map((conflict) => (
+                <article
+                  key={conflict.id}
+                  className="p-4 transition hover:bg-slate-50/70 sm:p-5"
+                >
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span
+                          className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[9px] font-black uppercase tracking-wide ${getConflictSeverityBadge(
+                            conflict.severity,
+                          )}`}
+                        >
+                          {conflict.severity}
+                        </span>
+
+                        <span className="text-[10px] font-black uppercase tracking-wide text-slate-500">
+                          {getConflictTypeLabel(conflict.type)}
+                        </span>
+
+                        <span className="font-mono text-[10px] font-black text-slate-400">
+                          IA {Math.round((conflict.probability || 0) * 100)}%
+                        </span>
+                      </div>
+
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <span className="rounded-lg border border-slate-200 bg-slate-100 px-2 py-1 font-mono text-xs font-black text-slate-800">
+                          {conflict.flightA?.numeroVol}
+                        </span>
+
+                        {conflict.flightB && (
+                          <>
+                            <ArrowRight className="h-3.5 w-3.5 text-slate-400" />
+                            <span className="rounded-lg border border-slate-200 bg-slate-100 px-2 py-1 font-mono text-xs font-black text-slate-800">
+                              {conflict.flightB.numeroVol}
+                            </span>
+                          </>
+                        )}
+
+                        {conflict.aircraftRegistration && (
+                          <span className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[10px] font-bold text-slate-500">
+                            <Plane className="h-3 w-3" />
+                            {conflict.aircraftRegistration}
+                          </span>
+                        )}
+                      </div>
+
+                      <p className="mt-3 text-xs font-semibold leading-5 text-slate-700">
+                        {conflict.reason}
+                      </p>
+
+                      <div className="mt-2 rounded-xl border border-emerald-100 bg-emerald-50/50 px-3 py-2">
+                        <span className="text-[8px] font-black uppercase tracking-wider text-emerald-700">
+                          Recommandation
+                        </span>
+                        <p className="mt-0.5 text-[10px] font-semibold leading-4 text-emerald-900">
+                          {conflict.recommendation}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="shrink-0 text-left lg:text-right">
+                      {conflict.overlapMinutes != null &&
+                        conflict.overlapMinutes > 0 && (
+                          <span className="block font-mono text-[10px] font-black text-rose-600">
+                            Overlap {Math.round(conflict.overlapMinutes)} min
+                          </span>
+                        )}
+
+                      {conflict.gapMinutes != null && (
+                        <span className="mt-1 block font-mono text-[10px] font-bold text-slate-400">
+                          Gap {Math.round(conflict.gapMinutes)} min
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </>
+        )}
+      </section>
 
       {/* ERREUR */}
       {error && (
@@ -394,32 +668,6 @@ export const FlightOptimizationDashboard: React.FC = () => {
           <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
           <div className="text-sm">
             <strong className="font-bold">Erreur du service :</strong> {error}
-          </div>
-        </div>
-      )}
-
-      {/* RÉSULTAT OPTIMISATION */}
-      {optiResult && (
-        <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs space-y-4 animate-in fade-in duration-300">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-              <h3 className="text-base font-bold text-slate-900 m-0">Rapport de Résolution des Conflits</h3>
-            </div>
-            <span className="text-xs text-slate-400 font-medium">
-              Exécuté à {new Date(optiResult.timestamp).toLocaleTimeString()}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-3 text-sm">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200/80 text-emerald-800 font-semibold text-xs">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-              Conflits résolus : <strong>{optiResult.resolvedConflicts}</strong>
-            </div>
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-rose-50 border border-rose-200/80 text-rose-800 font-semibold text-xs">
-              <XCircle className="w-4 h-4 text-rose-600" />
-              Non résolus : <strong>{optiResult.unresolvedConflicts}</strong>
-            </div>
           </div>
         </div>
       )}
@@ -505,19 +753,41 @@ export const FlightOptimizationDashboard: React.FC = () => {
                   </th>
                   <th className="py-3.5 px-4">Durée</th>
                   <th className="py-3.5 px-4">Appareil Assigné</th>
+                  <th className="py-3.5 px-4">Conflit IA</th>
                   <th className="py-3.5 px-9">Statut</th>
                   <th className="py-3.5 px-7 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm">
                 {filteredFlights.map((flight) => {
-                  const duration = calculateDuration(flight.heureDepart, flight.heureArrivee);
+                  const duration = calculateDuration(
+                    flight.heureDepart,
+                    flight.heureArrivee,
+                  );
+
+                  const flightConflicts =
+                    conflictsByFlightId.get(flight.id) || [];
+
+                  const strongestConflict =
+                    flightConflicts.find(
+                      (conflict) => conflict.severity === 'CRITICAL',
+                    ) ||
+                    flightConflicts.find(
+                      (conflict) => conflict.severity === 'HIGH',
+                    ) ||
+                    flightConflicts[0];
 
                   return (
                     <tr 
                       key={flight.id} 
-                      className={`hover:bg-slate-50/70 transition-colors ${
-                        !flight.avion ? 'bg-amber-50/10' : ''
+                      className={`transition-colors hover:bg-slate-50/70 ${
+                        strongestConflict?.severity === 'CRITICAL'
+                          ? 'bg-rose-50/30'
+                          : strongestConflict
+                            ? 'bg-amber-50/20'
+                            : !flight.avion
+                              ? 'bg-amber-50/10'
+                              : ''
                       }`}
                     >
                       {/* N° Vol */}
@@ -592,6 +862,37 @@ export const FlightOptimizationDashboard: React.FC = () => {
                           <span className="inline-flex items-center gap-1 text-xs text-amber-700 bg-amber-50 border border-amber-200/60 px-2 py-0.5 rounded-md font-semibold">
                             <AlertTriangle className="w-3 h-3 text-amber-600" />
                             Non assigné
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Conflit IA */}
+                      <td className="py-3.5 px-4">
+                        {strongestConflict ? (
+                          <div className="min-w-[135px]">
+                            <span
+                              className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-[9px] font-black uppercase tracking-wide ${getConflictSeverityBadge(
+                                strongestConflict.severity,
+                              )}`}
+                              title={strongestConflict.reason}
+                            >
+                              <AlertTriangle className="h-3 w-3" />
+                              {getConflictTypeLabel(
+                                strongestConflict.type,
+                              )}
+                            </span>
+
+                            <span className="mt-1 block font-mono text-[9px] font-bold text-slate-400">
+                              {Math.round(
+                                strongestConflict.probability * 100,
+                              )}
+                              % confiance
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-emerald-600">
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            Aucun
                           </span>
                         )}
                       </td>

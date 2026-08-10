@@ -42,6 +42,11 @@ lerna-debug.log*
 .env.production.local
 .env.local
 
+# Heavy packages / installers
+*.deb
+*.rpm
+*.iso
+
 # temp directory
 .temp
 .tmp

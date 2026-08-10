@@ -295,7 +295,7 @@ export const SchedulingDashboard: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6 p-4 md:p-6 max-w-7xl mx-auto bg-slate-50/50 min-h-screen text-slate-800">
+    <div className="space-y-6 p-2 md:p-6 max-w-7xl mx-auto bg-slate-50/50 min-h-screen text-slate-800">
       
       {/* MODAL SUPPRESSION */}
       {creneauToDelete && (

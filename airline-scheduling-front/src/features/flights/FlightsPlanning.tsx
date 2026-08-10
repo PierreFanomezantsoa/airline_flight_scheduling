@@ -14,7 +14,16 @@ import {
   AlertCircle,
   XCircle,
   Filter,
-  X
+  X,
+  Clock,
+  MapPin,
+  CloudRain,
+  CloudLightning,
+  Sun,
+  RefreshCw,
+  Cpu,
+  Sparkles,
+  AlertTriangle
 } from 'lucide-react';
 import { FlightAddModal, type FlightFormData } from '../dashboard/FlightAddModal';
 
@@ -33,19 +42,86 @@ export type FlightStatus =
   | 'Ponctuel'
   | 'Effectué';
 
-export type NormalizedStatus = 'En attente' | 'Ponctuel' | 'Retardé' | 'En Vol' | 'Annulé';
+export type NormalizedStatus = 'En attente' | 'Ponctuel' | 'Retardé' | 'En Vol' | 'Annulé' | 'Effectué';
+
+type WeatherRiskLevel =
+  | 'LOW'
+  | 'MODERATE'
+  | 'HIGH'
+  | 'SEVERE'
+  | 'EXTREME'
+  | 'UNKNOWN'
+  | 'SKIPPED';
+
+interface WeatherPoint {
+  airport?: string | null;
+  severity?: number | null;
+  available?: boolean;
+  fetchedAt?: string | null;
+  targetTime?: string | null;
+  error?: string | null;
+}
+
+interface WeatherAI {
+  engine?: string;
+  evaluatedAt?: string | null;
+  score?: number | null;
+  riskLevel?: WeatherRiskLevel;
+  riskLabel?: string;
+  confidence?: number | null;
+  dataAvailable?: boolean;
+  persistentSevere?: boolean;
+  minutesToDeparture?: number | null;
+  recommendedAction?: string;
+  recommendedActionLabel?: string;
+  explanation?: string;
+  departure?: WeatherPoint | null;
+  arrival?: WeatherPoint | null;
+  stopovers?: WeatherPoint[];
+}
 
 interface Flight {
   id: string;
   flightNumber: string;
   origin: string;
   destination: string;
+
+  // Compatibilité backend : stopover peut être une chaîne CSV ou une liste.
+  stopover?: string | string[] | null;
+  stops?: string[];
+  stopoverDurationMinutes?: number | null;
+  route?: string;
+
   departure: string;
   arrival: string;
+  localDeparture?: string | null;
+  localArrival?: string | null;
+  durationMinutes?: number | null;
+
   status: FlightStatus;
   aircraft: string;
   aircraftModel: string;
-  weatherSeverity: number;
+
+  weatherSeverity?: number | null;
+  weatherPending?: boolean;
+  weatherAI?: WeatherAI;
+  weatherRiskLevel?: WeatherRiskLevel;
+  weatherRiskLabel?: string;
+  weatherConfidence?: number | null;
+  weatherRecommendedAction?: string;
+  weatherRecommendedActionLabel?: string;
+  weatherUpdatedAt?: string | null;
+}
+
+interface WeatherAlert {
+  flightId: string;
+  weatherAI: WeatherAI;
+}
+
+interface WeatherAlertsResponse {
+  status: string;
+  generatedAt?: string;
+  alerts?: WeatherAlert[];
 }
 
 interface AircraftData {
@@ -59,7 +135,220 @@ interface Toast {
   message: string;
 }
 
-const API_BASE_URL = 'http://localhost:5000';
+const API_BASE_URL =
+  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL) ||
+  (typeof globalThis !== 'undefined' &&
+    (globalThis as any).process?.env?.REACT_APP_API_BASE_URL) ||
+  'http://localhost:5000';
+
+const normalizeStops = (flight: Flight): string[] => {
+  if (Array.isArray(flight.stops)) {
+    return flight.stops.filter(Boolean);
+  }
+
+  if (Array.isArray(flight.stopover)) {
+    return flight.stopover
+      .map((value) => String(value).trim().toUpperCase())
+      .filter(Boolean);
+  }
+
+  if (typeof flight.stopover === 'string') {
+    return flight.stopover
+      .split(',')
+      .map((value) => value.trim().toUpperCase())
+      .filter(Boolean);
+  }
+
+  return [];
+};
+
+const normalizeSeverity = (value?: number | null) => {
+  if (value == null || !Number.isFinite(Number(value))) return null;
+  return Math.max(0, Math.min(1, Number(value)));
+};
+
+const formatWeatherPercent = (value?: number | null) => {
+  const normalized = normalizeSeverity(value);
+  return normalized == null ? '--' : `${Math.round(normalized * 100)}%`;
+};
+
+const getWeatherVisual = (flight: Flight) => {
+  const ai = flight.weatherAI;
+  const level = ai?.riskLevel ?? flight.weatherRiskLevel;
+
+  if (flight.weatherPending && !ai) {
+    return {
+      label: 'Analyse...',
+      icon: <RefreshCw className="h-3.5 w-3.5 animate-spin" />,
+      badge: 'border-slate-200 bg-slate-50 text-slate-500',
+      bar: 'bg-slate-300',
+    };
+  }
+
+  if (ai?.dataAvailable === false || level === 'UNKNOWN') {
+    return {
+      label: 'Indisponible',
+      icon: <AlertCircle className="h-3.5 w-3.5" />,
+      badge: 'border-slate-200 bg-slate-100 text-slate-600',
+      bar: 'bg-slate-400',
+    };
+  }
+
+  if (level === 'EXTREME') {
+    return {
+      label: ai?.riskLabel || 'Extrême',
+      icon: <CloudLightning className="h-3.5 w-3.5" />,
+      badge: 'border-rose-200 bg-rose-50 text-rose-700',
+      bar: 'bg-rose-500',
+    };
+  }
+
+  if (level === 'SEVERE' || level === 'HIGH') {
+    return {
+      label: ai?.riskLabel || 'Élevé',
+      icon: <AlertTriangle className="h-3.5 w-3.5" />,
+      badge: 'border-orange-200 bg-orange-50 text-orange-700',
+      bar: 'bg-orange-500',
+    };
+  }
+
+  if (level === 'MODERATE') {
+    return {
+      label: ai?.riskLabel || 'Modéré',
+      icon: <CloudRain className="h-3.5 w-3.5" />,
+      badge: 'border-amber-200 bg-amber-50 text-amber-700',
+      bar: 'bg-amber-500',
+    };
+  }
+
+  if (level === 'LOW') {
+    return {
+      label: ai?.riskLabel || 'Faible',
+      icon: <Sun className="h-3.5 w-3.5" />,
+      badge: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+      bar: 'bg-emerald-600',
+    };
+  }
+
+  const severity = normalizeSeverity(flight.weatherSeverity);
+
+  if (severity == null) {
+    return {
+      label: 'Non évalué',
+      icon: <Cpu className="h-3.5 w-3.5" />,
+      badge: 'border-slate-200 bg-slate-50 text-slate-500',
+      bar: 'bg-slate-300',
+    };
+  }
+
+  if (severity >= 0.92) {
+    return {
+      label: 'Extrême',
+      icon: <CloudLightning className="h-3.5 w-3.5" />,
+      badge: 'border-rose-200 bg-rose-50 text-rose-700',
+      bar: 'bg-rose-500',
+    };
+  }
+
+  if (severity >= 0.70) {
+    return {
+      label: 'Élevé',
+      icon: <AlertTriangle className="h-3.5 w-3.5" />,
+      badge: 'border-orange-200 bg-orange-50 text-orange-700',
+      bar: 'bg-orange-500',
+    };
+  }
+
+  if (severity >= 0.45) {
+    return {
+      label: 'Modéré',
+      icon: <CloudRain className="h-3.5 w-3.5" />,
+      badge: 'border-amber-200 bg-amber-50 text-amber-700',
+      bar: 'bg-amber-500',
+    };
+  }
+
+  return {
+    label: 'Faible',
+    icon: <Sun className="h-3.5 w-3.5" />,
+    badge: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+    bar: 'bg-emerald-600',
+  };
+};
+
+// --- HELPER DURÉE DE VOL ---
+const calculateDuration = (departureStr: string, arrivalStr: string): string | null => {
+  const dep = new Date(departureStr);
+  const arr = new Date(arrivalStr);
+  if (isNaN(dep.getTime()) || isNaN(arr.getTime())) return null;
+
+  const diffMs = arr.getTime() - dep.getTime();
+  if (diffMs <= 0) return null;
+
+  const totalMinutes = Math.floor(diffMs / (1000 * 60));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  if (hours === 0) return `${minutes}m`;
+  return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+};
+
+// --- COMPOSANT ITINÉRAIRE AVEC ESCALES ---
+const RouteBadge: React.FC<{ 
+  origin: string; 
+  destination: string; 
+  stops?: string[]; 
+  departure: string; 
+  arrival: string; 
+}> = ({ origin, destination, stops = [], departure, arrival }) => {
+  const duration = calculateDuration(departure, arrival);
+  const hasStops = stops && stops.length > 0;
+
+  return (
+    <div className="flex flex-col gap-1.5 items-start">
+      {/* Container de la route principale et escales */}
+      <div className="inline-flex items-center gap-1.5 bg-slate-900 text-white font-mono font-black text-xs px-3 py-1.5 rounded-xl shadow-xs border border-slate-800 flex-wrap">
+        {/* Origine */}
+        <span className="tracking-widest text-emerald-400">{origin}</span>
+
+        {/* Parcours avec escales */}
+        {hasStops ? (
+          stops.map((stop, index) => (
+            <React.Fragment key={`${stop}-${index}`}>
+              <ArrowRight className="h-3 w-3 text-slate-500 shrink-0" />
+              <span className="inline-flex items-center gap-1 text-[11px] font-extrabold text-amber-300 bg-amber-400/10 px-1.5 py-0.5 rounded border border-amber-400/20">
+                <MapPin className="h-2.5 w-2.5 text-amber-400" />
+                {stop}
+              </span>
+            </React.Fragment>
+          ))
+        ) : null}
+
+        <ArrowRight className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+
+        {/* Destination */}
+        <span className="tracking-widest text-sky-400">{destination}</span>
+      </div>
+
+      {/* Informations complémentaires (Durée + Nombre d'escales) */}
+      <div className="flex items-center gap-2 text-[10px] font-semibold text-slate-500 pl-1">
+        {duration && (
+          <span className="inline-flex items-center gap-1">
+            <Clock className="h-3 w-3 text-slate-400" />
+            {duration}
+          </span>
+        )}
+        {hasStops ? (
+          <span className="text-amber-600 font-bold bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200/60">
+            {stops.length} escale{stops.length > 1 ? 's' : ''} ({stops.join(', ')})
+          </span>
+        ) : (
+          <span className="text-slate-400">Direct</span>
+        )}
+      </div>
+    </div>
+  );
+};
 
 export const FlightsPlanning: React.FC = () => {
   const [flights, setFlights] = useState<Flight[]>([]);
@@ -70,18 +359,22 @@ export const FlightsPlanning: React.FC = () => {
   const [loadingFleet, setLoadingFleet] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // État Modal de confirmation de suppression
+  const [isWeatherRefreshing, setIsWeatherRefreshing] = useState(false);
+  const [weatherLastUpdatedAt, setWeatherLastUpdatedAt] = useState<Date | null>(null);
+  const [weatherSyncError, setWeatherSyncError] = useState<string | null>(null);
+
+  // Modal suppression
   const [deletingFlight, setDeletingFlight] = useState<Flight | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Système de Toasts
+  // Toasts
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   // Filtres
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('ALL');
 
-  // --- GESTION DES TOASTS ---
+  // --- TOASTS ---
   const addToast = useCallback((type: 'success' | 'error' | 'info', message: string) => {
     const id = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
     setToasts((prev) => [...prev, { id, type, message }]);
@@ -95,15 +388,19 @@ export const FlightsPlanning: React.FC = () => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  // --- CALCUL DYNAMIQUE ET TRADUCTION DU STATUT ---
+  // --- STATUT ---
   const getCalculatedStatus = useCallback((flight: Flight): NormalizedStatus => {
     const rawStatus = flight.status;
-    
-    // 1. Statuts explicites prioritaires
+
+    // Le backend reste la source de vérité.
     if (['Cancelled', 'Annulé'].includes(rawStatus)) return 'Annulé';
     if (['Delayed', 'Retardé'].includes(rawStatus)) return 'Retardé';
+    if (['In-Flight', 'En Vol'].includes(rawStatus)) return 'En Vol';
+    if (rawStatus === 'Effectué') return 'Effectué';
+    if (['On-Time', 'Ponctuel'].includes(rawStatus)) return 'Ponctuel';
+    if (['Scheduled', 'Planifié', 'En attente'].includes(rawStatus)) return 'En attente';
 
-    // 2. Logique temporelle si dates valides
+    // Fallback temporel uniquement si le serveur renvoie un statut inconnu.
     const now = new Date();
     const depDate = new Date(flight.departure);
     const arrDate = new Date(flight.arrival);
@@ -111,25 +408,12 @@ export const FlightsPlanning: React.FC = () => {
     if (!isNaN(depDate.getTime()) && !isNaN(arrDate.getTime())) {
       if (now < depDate) return 'En attente';
       if (now >= depDate && now <= arrDate) return 'En Vol';
-      if (now > arrDate) return 'Ponctuel';
+      if (now > arrDate) return 'Effectué';
     }
 
-    // 3. Fallback standard
-    const mapFallback: Record<string, NormalizedStatus> = {
-      'Scheduled': 'En attente',
-      'Planifié': 'En attente',
-      'En attente': 'En attente',
-      'On-Time': 'Ponctuel',
-      'Ponctuel': 'Ponctuel',
-      'Effectué': 'Ponctuel',
-      'In-Flight': 'En Vol',
-      'En Vol': 'En Vol'
-    };
-
-    return mapFallback[rawStatus] || 'En attente';
+    return 'En attente';
   }, []);
 
-  // --- STYLE BADGES ---
   const getStatusBadge = (status: NormalizedStatus) => {
     const styles: Record<NormalizedStatus, string> = {
       'En attente': 'bg-sky-50 text-sky-700 border-sky-200/80',
@@ -137,18 +421,40 @@ export const FlightsPlanning: React.FC = () => {
       'Retardé': 'bg-amber-50 text-amber-700 border-amber-200/80',
       'En Vol': 'bg-teal-50 text-teal-800 border-teal-200/80',
       'Annulé': 'bg-rose-50 text-rose-700 border-rose-200/80 line-through',
+      'Effectué': 'bg-slate-100 text-slate-600 border-slate-200/80',
     };
     return styles[status] || 'bg-slate-50 text-slate-700 border-slate-200';
   };
 
-  // --- REQUÊTES SERVEUR ---
+  // --- REQUÊTES ---
   const fetchFlights = useCallback(async (signal?: AbortSignal) => {
     try {
       setLoadingFlights(true);
-      const res = await fetch(`${API_BASE_URL}/flights`, { signal });
-      if (!res.ok) throw new Error('Impossible de récupérer la liste des vols.');
+
+      // Première peinture rapide : aucun appel météo.
+      let res = await fetch(`${API_BASE_URL}/flights/fast`, { signal });
+
+      // Compatibilité si l'ancien backend est encore actif.
+      if (res.status === 404) {
+        res = await fetch(`${API_BASE_URL}/flights?weather=0`, { signal });
+      }
+
+      if (!res.ok) {
+        throw new Error('Impossible de récupérer la liste des vols.');
+      }
+
       const data = await res.json();
-      setFlights(data);
+
+      setFlights(
+        Array.isArray(data)
+          ? data.map((flight: Flight) => ({
+              ...flight,
+              weatherPending:
+                flight.weatherPending ??
+                flight.weatherSeverity == null,
+            }))
+          : [],
+      );
     } catch (err: unknown) {
       if (err instanceof Error && err.name !== 'AbortError') {
         addToast('error', err.message || 'Erreur réseau');
@@ -174,17 +480,169 @@ export const FlightsPlanning: React.FC = () => {
     }
   }, []);
 
+  const refreshWeatherSnapshot = useCallback(
+    async (signal?: AbortSignal, silent = true) => {
+      setIsWeatherRefreshing(true);
+
+      if (!silent) {
+        setWeatherSyncError(null);
+      }
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/flights`, { signal });
+
+        if (!res.ok) {
+          throw new Error(`Météo indisponible (HTTP ${res.status}).`);
+        }
+
+        const data = await res.json();
+
+        if (!Array.isArray(data)) return;
+
+        const enrichedMap = new Map<string, Flight>(
+          data.map((flight: Flight) => [flight.id, flight]),
+        );
+
+        setFlights((current) =>
+          current.map((flight) => {
+            const enriched = enrichedMap.get(flight.id);
+            return enriched
+              ? { ...flight, ...enriched, weatherPending: false }
+              : flight;
+          }),
+        );
+
+        setWeatherLastUpdatedAt(new Date());
+        setWeatherSyncError(null);
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === 'AbortError') return;
+
+        console.error('Erreur météo complète :', err);
+
+        if (!silent) {
+          setWeatherSyncError(
+            err instanceof Error
+              ? err.message
+              : 'Météo indisponible.',
+          );
+        }
+      } finally {
+        setIsWeatherRefreshing(false);
+      }
+    },
+    [],
+  );
+
+  const refreshWeatherAlerts = useCallback(async (signal?: AbortSignal) => {
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/flights/weather-alerts?horizonHours=24`,
+        { signal },
+      );
+
+      if (!res.ok) {
+        throw new Error(`Alertes météo indisponibles (HTTP ${res.status}).`);
+      }
+
+      const payload: WeatherAlertsResponse = await res.json();
+      const alerts = Array.isArray(payload.alerts) ? payload.alerts : [];
+
+      if (alerts.length > 0) {
+        const alertMap = new Map(
+          alerts.map((alert) => [alert.flightId, alert]),
+        );
+
+        setFlights((current) =>
+          current.map((flight) => {
+            const alert = alertMap.get(flight.id);
+            if (!alert) return flight;
+
+            const ai = alert.weatherAI;
+
+            return {
+              ...flight,
+              weatherPending: false,
+              weatherAI: ai,
+              weatherSeverity: ai.score ?? flight.weatherSeverity,
+              weatherRiskLevel: ai.riskLevel ?? flight.weatherRiskLevel,
+              weatherRiskLabel: ai.riskLabel ?? flight.weatherRiskLabel,
+              weatherConfidence: ai.confidence ?? flight.weatherConfidence,
+              weatherRecommendedAction:
+                ai.recommendedAction ?? flight.weatherRecommendedAction,
+              weatherRecommendedActionLabel:
+                ai.recommendedActionLabel ??
+                flight.weatherRecommendedActionLabel,
+              weatherUpdatedAt:
+                ai.evaluatedAt ?? flight.weatherUpdatedAt,
+            };
+          }),
+        );
+      }
+
+      if (payload.generatedAt) {
+        const generatedAt = new Date(payload.generatedAt);
+        if (!Number.isNaN(generatedAt.getTime())) {
+          setWeatherLastUpdatedAt(generatedAt);
+        }
+      }
+
+      setWeatherSyncError(null);
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === 'AbortError') return;
+
+      console.error('Erreur alertes météo :', err);
+      setWeatherSyncError(
+        'Les vols restent disponibles, mais la météo temps réel n’est pas à jour.',
+      );
+    }
+  }, []);
+
   useEffect(() => {
     const controller = new AbortController();
-    fetchFlights(controller.signal);
-    fetchFleet(controller.signal);
+
+    const initialize = async () => {
+      await Promise.all([
+        fetchFlights(controller.signal),
+        fetchFleet(controller.signal),
+      ]);
+
+      if (!controller.signal.aborted) {
+        void refreshWeatherSnapshot(controller.signal, true);
+      }
+    };
+
+    initialize();
+
+    return () => controller.abort();
+  }, [fetchFlights, fetchFleet, refreshWeatherSnapshot]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const tick = () => {
+      if (document.visibilityState !== 'visible') return;
+      void refreshWeatherAlerts(controller.signal);
+    };
+
+    const intervalId = window.setInterval(tick, 60_000);
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') tick();
+    };
+
+    document.addEventListener('visibilitychange', onVisibilityChange);
 
     return () => {
       controller.abort();
+      window.clearInterval(intervalId);
+      document.removeEventListener(
+        'visibilitychange',
+        onVisibilityChange,
+      );
     };
-  }, [fetchFlights, fetchFleet]);
+  }, [refreshWeatherAlerts]);
 
-  // --- SOUMISSION DE FORMULAIRE ---
+  // --- MUTATIONS ---
   const handleFormSubmit = async (formData: FlightFormData) => {
     try {
       setIsSubmitting(true);
@@ -198,11 +656,16 @@ export const FlightsPlanning: React.FC = () => {
         body: JSON.stringify({
           numeroVol: formData.numeroVol,
           aeroportDepart: formData.aeroportDepart,
+          aeroportEscale: formData.aeroportEscale,
+          dureeEscale: formData.dureeEscale,
           aeroportArrivee: formData.aeroportArrivee,
           heureDepart: formData.heureDepart,
           heureArrivee: formData.heureArrivee,
           avionId: formData.avionId || null,
-          status: isEdition ? (formData.status || editingFlight.status) : 'Planifié'
+          legs: formData.legs,
+          status: isEdition
+            ? (formData.status || editingFlight.status)
+            : (formData.status || 'Planifié')
         }),
       });
 
@@ -212,17 +675,28 @@ export const FlightsPlanning: React.FC = () => {
       }
 
       await fetchFlights();
+      void refreshWeatherSnapshot(undefined, true);
       closeModal();
-      addToast('success', isEdition ? 'Vol mis à jour avec succès.' : 'Nouveau vol planifié avec succès.');
+      addToast(
+        'success',
+        isEdition
+          ? 'Vol mis à jour avec succès.'
+          : 'Nouveau vol planifié avec succès.',
+      );
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Erreur inconnue';
+      const message =
+        err instanceof Error ? err.message : 'Erreur inconnue';
+
       addToast('error', `Erreur d'enregistrement : ${message}`);
+
+      // Important : la modale peut personnaliser l'erreur
+      // (numéro de vol dupliqué, conflit avion, etc.).
+      throw err;
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // --- SUPPRESSION DE VOL ---
   const confirmDeleteFlight = async () => {
     if (!deletingFlight) return;
     try {
@@ -251,7 +725,6 @@ export const FlightsPlanning: React.FC = () => {
     setEditingFlight(null);
   };
 
-  // --- FORMATAGE DE LA CHRONOLOGIE ---
   const formatDateRange = (departureStr: string, arrivalStr: string) => {
     const depDate = new Date(departureStr);
     const arrDate = new Date(arrivalStr);
@@ -303,15 +776,30 @@ export const FlightsPlanning: React.FC = () => {
     }
   };
 
-  // --- FILTRES & KPIS MEMOÏSÉS ---
+  // --- FILTRES & KPIS (INCLUT RECHERCHE AVEC ESCALES) ---
   const filteredFlights = useMemo(() => {
     const term = searchTerm.toLowerCase().trim();
     return flights.filter(flight => {
+      const normalizedStops = normalizeStops(flight);
+      const fullRoute = [
+        flight.origin,
+        ...normalizedStops,
+        flight.destination,
+      ]
+        .join('-')
+        .toLowerCase();
+
+      const stopsMatch = normalizedStops.some((stop) =>
+        stop.toLowerCase().includes(term),
+      );
+      
       const matchesSearch = 
         !term ||
         flight.flightNumber.toLowerCase().includes(term) ||
         flight.origin.toLowerCase().includes(term) ||
         flight.destination.toLowerCase().includes(term) ||
+        fullRoute.includes(term) ||
+        stopsMatch ||
         flight.aircraftModel?.toLowerCase().includes(term);
 
       const computedStatus = getCalculatedStatus(flight);
@@ -329,13 +817,14 @@ export const FlightsPlanning: React.FC = () => {
       delayed: computedStatuses.filter(s => s === 'Retardé').length,
       pending: computedStatuses.filter(s => s === 'En attente').length,
       onTime: computedStatuses.filter(s => s === 'Ponctuel').length,
+      completed: computedStatuses.filter(s => s === 'Effectué').length,
     };
   }, [flights, getCalculatedStatus]);
 
   return (
-    <div className="space-y-6 max-w-[1500px] mx-auto pb-8 relative">
+    <div className="space-y-6 max-w-375 mx-auto pb-8 relative">
       
-      {/* TOASTS NOTIFICATIONS */}
+      {/* TOASTS */}
       <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-2.5 max-w-md w-full pointer-events-none">
         {toasts.map((toast) => (
           <div
@@ -378,15 +867,62 @@ export const FlightsPlanning: React.FC = () => {
           <p className="text-xs sm:text-sm text-slate-500 font-medium">
             Gérez vos rotations aériennes, assignations de flotte et contraintes horaires en temps réel.
           </p>
+
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] font-bold text-slate-400">
+            <span className="inline-flex items-center gap-1.5">
+              {isWeatherRefreshing ? (
+                <RefreshCw className="h-3 w-3 animate-spin" />
+              ) : weatherSyncError ? (
+                <AlertTriangle className="h-3 w-3 text-amber-600" />
+              ) : (
+                <CloudRain className="h-3 w-3 text-emerald-700" />
+              )}
+
+              IA météo{' '}
+              {weatherLastUpdatedAt
+                ? weatherLastUpdatedAt.toLocaleTimeString('fr-FR', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })
+                : 'en attente'}
+            </span>
+
+            {weatherSyncError && (
+              <span className="text-amber-600">
+                {weatherSyncError}
+              </span>
+            )}
+          </div>
         </div>
 
-        {/* Bouton principal avec bg-emerald-700 */}
-        <button
-          onClick={() => { setEditingFlight(null); setIsModalOpen(true); }}
-          className="flex items-center gap-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 active:scale-[0.98] text-xs font-bold text-white uppercase tracking-wider px-5 py-3 shadow-md shadow-emerald-700/20 transition-all self-stretch sm:self-auto justify-center cursor-pointer"
-        >
-          <Plus className="h-4 w-4 text-emerald-200" /> Planifier une Rotation
-        </button>
+        <div className="grid w-full grid-cols-2 gap-2 sm:w-auto">
+          <button
+            type="button"
+            onClick={() =>
+              void refreshWeatherSnapshot(undefined, false)
+            }
+            disabled={isWeatherRefreshing}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs font-bold text-slate-700 transition hover:border-emerald-200 hover:bg-emerald-50/60 hover:text-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <RefreshCw
+              className={`h-4 w-4 ${
+                isWeatherRefreshing ? 'animate-spin' : ''
+              }`}
+            />
+            Météo
+          </button>
+
+          <button
+            onClick={() => {
+              setEditingFlight(null);
+              setIsModalOpen(true);
+            }}
+            className="flex items-center justify-center gap-2 rounded-xl bg-emerald-700 px-5 py-3 text-xs font-bold uppercase tracking-wider text-white shadow-md shadow-emerald-700/20 transition-all hover:bg-emerald-800 active:scale-[0.98]"
+          >
+            <Plus className="h-4 w-4 text-emerald-200" />
+            Planifier
+          </button>
+        </div>
       </div>
 
       {/* KPIS */}
@@ -432,13 +968,13 @@ export const FlightsPlanning: React.FC = () => {
         </div>
       </div>
 
-      {/* BARRE DE RECHERCHE ET FILTRES */}
+      {/* RECHERCHE ET FILTRES */}
       <div className="flex flex-col md:flex-row items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-2xs">
         <div className="relative w-full md:w-80">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <input
             type="text"
-            placeholder="Rechercher vol, appareil, escale..."
+            placeholder="Rechercher vol, appareil, escale (ex: TNR-DIE-PAR)..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all"
@@ -470,7 +1006,7 @@ export const FlightsPlanning: React.FC = () => {
         </div>
       </div>
 
-      {/* TABLEAU DES VOLS */}
+      {/* TABLEAU */}
       <div className="rounded-2xl border border-slate-200/80 bg-white overflow-hidden shadow-xs">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
           <h3 className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-widest text-slate-500">
@@ -504,7 +1040,7 @@ export const FlightsPlanning: React.FC = () => {
                 <tr className="border-b border-slate-200/60 bg-slate-50/80 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">
                   <th className="py-3.5 px-6">N° Vol</th>
                   <th className="py-3.5 px-4">Appareil</th>
-                  <th className="py-3.5 px-4">Itinéraire</th>
+                  <th className="py-3.5 px-4">Itinéraire &amp; Escales</th>
                   <th className="py-3.5 px-4">Statut</th>
                   <th className="py-3.5 px-4">Météo</th>
                   <th className="py-3.5 px-4">Chronologie (UTC)</th>
@@ -515,7 +1051,16 @@ export const FlightsPlanning: React.FC = () => {
                 {filteredFlights.map((flight) => {
                   const computedStatus = getCalculatedStatus(flight);
                   const isInFlight = computedStatus === 'En Vol';
-                  const severityPct = Math.min(Math.max((flight.weatherSeverity || 0) * 100, 0), 100);
+                  const weatherVisual = getWeatherVisual(flight);
+                  const weatherScore =
+                    flight.weatherAI?.score ??
+                    flight.weatherSeverity;
+                  const severityPct =
+                    normalizeSeverity(weatherScore) == null
+                      ? null
+                      : Math.round(
+                          normalizeSeverity(weatherScore)! * 100,
+                        );
 
                   return (
                     <tr 
@@ -543,16 +1088,18 @@ export const FlightsPlanning: React.FC = () => {
                         </span>
                       </td>
 
-                      {/* Itinéraire */}
-                      <td className="py-4 px-4 font-mono font-bold text-slate-900">
-                        <div className="inline-flex items-center gap-1.5 bg-slate-50 border border-slate-200/60 px-2.5 py-1 rounded-lg">
-                          <span>{flight.origin}</span>
-                          <ArrowRight className="h-3 w-3 text-slate-400 shrink-0" />
-                          <span>{flight.destination}</span>
-                        </div>
+                      {/* Itinéraire avec Escales */}
+                      <td className="py-4 px-4">
+                        <RouteBadge 
+                          origin={flight.origin} 
+                          destination={flight.destination}
+                          stops={normalizeStops(flight)}
+                          departure={flight.departure}
+                          arrival={flight.arrival}
+                        />
                       </td>
 
-                      {/* Statut (Dynamique / Traduit) */}
+                      {/* Statut */}
                       <td className="py-4 px-4">
                         <span className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${getStatusBadge(computedStatus)}`}>
                           {isInFlight && <span className="h-1.5 w-1.5 rounded-full bg-teal-600 animate-ping" />}
@@ -560,24 +1107,47 @@ export const FlightsPlanning: React.FC = () => {
                         </span>
                       </td>
 
-                      {/* Météo */}
+                      {/* Météo IA */}
                       <td className="py-4 px-4">
-                        <div className="flex items-center gap-2 min-w-[100px]">
-                          <div className="w-14 h-2 bg-slate-100 rounded-full overflow-hidden border border-slate-200/60 shrink-0">
-                            <div 
-                              className={`h-full transition-all duration-300 ${
-                                severityPct >= 80 ? 'bg-rose-500' :
-                                severityPct >= 40 ? 'bg-amber-500' : 'bg-emerald-600'
-                              }`}
-                              style={{ width: `${severityPct}%` }}
+                        <div className="min-w-[155px] space-y-1.5">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-[9px] font-black uppercase tracking-wide ${weatherVisual.badge}`}
+                            >
+                              {weatherVisual.icon}
+                              {weatherVisual.label}
+                            </span>
+
+                            <span className="font-mono text-[10px] font-black text-slate-600">
+                              {formatWeatherPercent(weatherScore)}
+                            </span>
+                          </div>
+
+                          <div className="h-1.5 w-full overflow-hidden rounded-full border border-slate-200/60 bg-slate-100">
+                            <div
+                              className={`h-full transition-all duration-300 ${weatherVisual.bar}`}
+                              style={{
+                                width:
+                                  severityPct == null
+                                    ? '0%'
+                                    : `${severityPct}%`,
+                              }}
                             />
                           </div>
-                          <span className={`font-mono font-bold text-[11px] ${
-                            severityPct >= 80 ? 'text-rose-700' : 
-                            severityPct >= 40 ? 'text-amber-700' : 'text-emerald-700'
-                          }`}>
-                            {severityPct.toFixed(0)}%
-                          </span>
+
+                          {flight.weatherAI?.recommendedAction &&
+                            !['NORMAL', 'NONE'].includes(
+                              flight.weatherAI.recommendedAction,
+                            ) && (
+                              <div className="flex items-start gap-1 text-[9px] font-bold leading-4 text-slate-500">
+                                <Sparkles className="mt-0.5 h-3 w-3 shrink-0 text-emerald-700" />
+                                <span>
+                                  {flight.weatherAI
+                                    .recommendedActionLabel ||
+                                    'Surveillance renforcée'}
+                                </span>
+                              </div>
+                            )}
                         </div>
                       </td>
 
@@ -672,6 +1242,10 @@ export const FlightsPlanning: React.FC = () => {
           numeroVol: editingFlight.flightNumber,
           aeroportDepart: editingFlight.origin,
           aeroportArrivee: editingFlight.destination,
+          aeroportEscale:
+            normalizeStops(editingFlight)[0] || undefined,
+          dureeEscale:
+            editingFlight.stopoverDurationMinutes ?? undefined,
           heureDepart: editingFlight.departure?.slice(0, 16) || '', 
           heureArrivee: editingFlight.arrival?.slice(0, 16) || '',
           avionId: (editingFlight.aircraft !== 'NON ASSIGNÉ' ? editingFlight.aircraft : '') || '',
