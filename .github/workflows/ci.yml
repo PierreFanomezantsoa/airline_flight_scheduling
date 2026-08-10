@@ -6,7 +6,7 @@ on:
   pull_request:
     branches: [ "main", "master" ]
 
-# Annule automatiquement les builds obsolètes si ussé
+# Annule automatiquement les builds obsolètes
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -52,7 +52,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Configuration Node.js
-        uses: actions/setup-node@v41
+        uses: actions/setup-node@v4
         with:
           node-version: 20
 
