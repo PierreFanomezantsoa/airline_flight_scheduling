@@ -1,8 +1,9 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Airport } from './airport.entity';
-import { CreateAirportDto } from './create-airport.dto';
+import { normalizeIata } from '../common/utils/normalizers';
+import { CreateAirportDto } from './dto/create-airport.dto';
+import { Airport } from './entities/airport.entity';
 
 @Injectable()
 export class AirportsService {
@@ -11,33 +12,35 @@ export class AirportsService {
     private readonly airportRepository: Repository<Airport>,
   ) {}
 
-  // Récupérer la liste complète ordonnée par code IATA
-  async findAll(): Promise<Airport[]> {
+  findAll(): Promise<Airport[]> {
     return this.airportRepository.find({ order: { iata: 'ASC' } });
   }
 
-  // Trouver un aéroport par son code IATA
   async findOne(iata: string): Promise<Airport> {
-    const airport = await this.airportRepository.findOneBy({ iata: iata.toUpperCase() });
-    if (!airport) {
-      throw new NotFoundException(`L'aéroport avec le code IATA ${iata.toUpperCase()} est introuvable.`);
-    }
+    const code = normalizeIata(iata);
+    const airport = await this.airportRepository.findOne({ where: { iata: code } });
+    if (!airport) throw new NotFoundException(`Aéroport ${code} introuvable.`);
     return airport;
   }
 
-  // Créer manuellement un aéroport
-  async create(createAirportDto: CreateAirportDto): Promise<Airport> {
-    const iataUpper = createAirportDto.iata.toUpperCase();
-    const existing = await this.airportRepository.findOneBy({ iata: iataUpper });
-    
-    if (existing) {
-      throw new ConflictException(`L'aéroport ${iataUpper} existe déjà.`);
+  async assertExists(iata: string): Promise<void> {
+    await this.findOne(iata);
+  }
+
+  async create(dto: CreateAirportDto): Promise<Airport> {
+    const iata = normalizeIata(dto.iata);
+    if (await this.airportRepository.exists({ where: { iata } })) {
+      throw new ConflictException(`L'aéroport ${iata} existe déjà.`);
     }
 
-    const airport = this.airportRepository.create({
-      ...createAirportDto,
-      iata: iataUpper,
-    });
-    return this.airportRepository.save(airport);
+    return this.airportRepository.save(
+      this.airportRepository.create({
+        iata,
+        name: dto.name.trim(),
+        timezone: dto.timezone.trim(),
+        city: dto.city?.trim() ?? null,
+        country: dto.country?.trim() ?? null,
+      }),
+    );
   }
 }

@@ -13,7 +13,8 @@ import {
   LogOut,
   Sparkles,
   HelpCircle,
-  AlignLeft,
+  PlaneTakeoff,
+  AlignLeft
 } from 'lucide-react';
 import type { LucideProps } from 'lucide-react';
 
@@ -21,6 +22,7 @@ export type ActiveScreen =
   | 'dashboard'
   | 'scheduling'
   | 'fleet'
+  | 'aircraft'
   | 'flights'
   | 'crew'
   | 'maintenance'
@@ -67,7 +69,8 @@ const mobileMenuItems: MenuItem[] = [
   { id: 'dashboard', label: 'Suivi', icon: LayoutDashboard },
   { id: 'scheduling', label: 'Ordonn.', icon: Layers },
   { id: 'optimization', label: 'Auto-Opti', icon: Sparkles },
-  { id: 'fleet', label: 'Avions', icon: Plane },
+  { id: 'fleet', label: 'Flotte', icon: PlaneTakeoff },
+  { id: 'aircraft', label: 'Avions', icon: Plane },
   { id: 'flights', label: 'Vols', icon: CalendarDays },
   { id: 'crew', label: 'Équipes', icon: Users },
   { id: 'maintenance', label: 'Maint.', icon: Wrench },
@@ -78,7 +81,8 @@ const mobileMenuItems: MenuItem[] = [
 const coreMenuItems: MenuItem[] = [
   { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
   { id: 'scheduling', label: 'Ordonnancement', icon: Layers },
-  { id: 'fleet', label: 'Gestion de la Flotte', icon: Plane },
+  { id: 'fleet', label: 'Gestion de la Flotte', icon: PlaneTakeoff },
+  { id: 'aircraft', label: 'Gestion Avion', icon: Plane },
   { id: 'flights', label: 'Planification des Vols', icon: CalendarDays },
 ];
 
@@ -90,12 +94,12 @@ const advancedMenuItems: MenuItem[] = [
 ];
 
 const allowedScreens: Record<AvailableRoles, ActiveScreen[]> = {
-  Admin: ['dashboard', 'scheduling', 'fleet', 'flights', 'crew', 'maintenance', 'disruptions', 'optimization', 'settings'],
-  Planificateur: ['dashboard', 'scheduling', 'fleet', 'flights', 'crew', 'optimization'],
+  Admin: ['dashboard', 'scheduling', 'fleet', 'aircraft', 'flights', 'crew', 'maintenance', 'disruptions', 'optimization', 'settings'],
+  Planificateur: ['dashboard', 'scheduling', 'fleet', 'aircraft', 'flights', 'crew', 'optimization'],
   Regulator: ['dashboard', 'scheduling', 'flights', 'crew', 'disruptions', 'optimization', 'settings'],
   Crew_Member: ['dashboard', 'flights', 'crew'],
-  Maintenance_Engineer: ['dashboard', 'scheduling', 'fleet', 'maintenance', 'optimization'],
-  Product_Owner: ['dashboard', 'scheduling', 'fleet', 'maintenance', 'disruptions', 'optimization', 'settings'],
+  Maintenance_Engineer: ['dashboard', 'scheduling', 'fleet', 'aircraft', 'maintenance', 'optimization'],
+  Product_Owner: ['dashboard', 'scheduling', 'fleet', 'aircraft', 'maintenance', 'disruptions', 'optimization', 'settings'],
 };
 
 const roleLabels: Record<AvailableRoles, UserRoleLabel> = {
@@ -216,7 +220,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         })}
       </nav>
 
-      {/* VUE DESKTOP (Conteneur arrondi flottant avec transition fluide) */}
+      {/* VUE DESKTOP */}
       <div className="hidden md:block p-3 sticky top-0 h-screen shrink-0">
         <aside
           className={`${

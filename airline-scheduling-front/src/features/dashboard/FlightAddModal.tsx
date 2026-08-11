@@ -16,8 +16,7 @@ import {
   Plus,
   Trash2,
   Cpu,
-  RefreshCw,
-  Sparkles
+  RefreshCw
 } from 'lucide-react';
 
 const API_BASE_URL =

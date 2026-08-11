@@ -1,212 +1,179 @@
-import { 
-  Injectable, 
-  NotFoundException, 
-  BadRequestException, 
-  ConflictException 
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Flight } from './entities/flight.entity';
-import { Aircraft } from '../fleet/entities/aircraft.entity';
+import { AirportsService } from '../airports/airports.service';
+import { FlightStatus } from '../common/enums/airline.enums';
+import { normalizeFlightNumber, normalizeIata } from '../common/utils/normalizers';
+import { FleetService } from '../fleet/fleet.service';
+import { AircraftAvailabilityQueryDto } from '../scheduling/dto/aircraft-availability-query.dto';
+import { SchedulingService } from '../scheduling/services/scheduling.service';
 import { CreateFlightDto } from './dto/create-flight.dto';
 import { UpdateFlightDto } from './dto/update-flight.dto';
+import { Flight } from './entities/flight.entity';
 
 @Injectable()
 export class FlightsService {
   constructor(
     @InjectRepository(Flight)
-    private readonly flightsRepository: Repository<Flight>,
-
-    @InjectRepository(Aircraft)
-    private readonly aircraftRepository: Repository<Aircraft>,
+    private readonly flightRepository: Repository<Flight>,
+    private readonly airportsService: AirportsService,
+    private readonly fleetService: FleetService,
+    private readonly schedulingService: SchedulingService,
   ) {}
 
-  /**
-   * 1. Récupérer tous les vols
-   */
-  async findAll(): Promise<Flight[]> {
-    return this.flightsRepository.find({
-      relations: ['avion', 'affectationsEquipage'],
+  findAll(): Promise<Flight[]> {
+    return this.flightRepository.find({
+      relations: ['avion', 'avion.type', 'affectationsEquipage', 'affectationsEquipage.utilisateur'],
       order: { heureDepart: 'ASC' },
     });
   }
 
-  /**
-   * 2. Récupérer un vol unique par son ID
-   */
   async findOne(id: string): Promise<Flight> {
-    const flight = await this.flightsRepository.findOne({
+    const flight = await this.flightRepository.findOne({
       where: { id },
-      relations: ['avion', 'affectationsEquipage'],
+      relations: ['avion', 'avion.type', 'affectationsEquipage', 'affectationsEquipage.utilisateur'],
     });
-
-    if (!flight) {
-      throw new NotFoundException(`Le vol avec l'ID "${id}" n'a pas été trouvé.`);
-    }
-
+    if (!flight) throw new NotFoundException(`Vol "${id}" introuvable.`);
     return flight;
   }
 
-  /**
-   * 3. Créer un vol avec contrôle d'intégrité et de conflit
-   */
   async create(dto: CreateFlightDto): Promise<Flight> {
-    const heureDepart = new Date(dto.heureDepart);
-    const heureArrivee = new Date(dto.heureArrivee);
+    const candidate = await this.prepareCandidate(dto);
+    await this.assertUniqueOccurrence(candidate.numeroVol, candidate.heureDepart);
 
-    if (heureArrivee <= heureDepart) {
-      throw new BadRequestException("L'heure d'arrivée doit être postérieure à l'heure de départ.");
-    }
-
-    const existingFlight = await this.flightsRepository.findOne({
-      where: { numeroVol: dto.numeroVol },
-    });
-    if (existingFlight) {
-      throw new ConflictException(`Le numéro de vol "${dto.numeroVol}" existe déjà.`);
-    }
-
-    let aircraft: Aircraft | null = null;
-
-    if (dto.avionId) {
-      aircraft = await this.aircraftRepository.findOne({
-        where: [{ id: dto.avionId }, { immatriculation: dto.avionId }],
+    const validation = await this.schedulingService.validateCandidate(candidate);
+    if (!validation.valid) {
+      throw new ConflictException({
+        code: 'FLIGHT_SCHEDULING_CONFLICT',
+        message: 'Le vol ne peut pas être planifié avec les ressources proposées.',
+        conflicts: validation.conflicts,
       });
-
-      if (!aircraft) {
-        throw new NotFoundException(`Aucun appareil trouvé pour "${dto.avionId}".`);
-      }
-
-      // Vérification du chevauchement horaire
-      const overlapCount = await this.flightsRepository
-        .createQueryBuilder('f')
-        .where('f.avionId = :aircraftId', { aircraftId: aircraft.id })
-        .andWhere('f.statut != :cancelled', { cancelled: 'Cancelled' })
-        .andWhere('f.heureDepart < :heureArrivee', { heureArrivee })
-        .andWhere('f.heureArrivee > :heureDepart', { heureDepart })
-        .getCount();
-
-      if (overlapCount > 0) {
-        throw new ConflictException(`L'appareil "${aircraft.immatriculation || aircraft.id}" est déjà en vol sur ce créneau.`);
-      }
     }
 
-    const flight = this.flightsRepository.create({
-      numeroVol: dto.numeroVol,
-      aeroportDepart: dto.aeroportDepart,
-      aeroportArrivee: dto.aeroportArrivee,
-      heureDepart,
-      heureArrivee,
-      statut: dto.statut || 'Scheduled',
-      avion: aircraft || undefined,
+    const aircraft = candidate.avionId ? await this.fleetService.findOne(candidate.avionId) : null;
+
+    const flight = this.flightRepository.create({
+      numeroVol: candidate.numeroVol,
+      aeroportDepart: candidate.aeroportDepart,
+      aeroportEscale: dto.aeroportEscale ? this.normalizeStopovers(dto.aeroportEscale) : null,
+      dureeEscale: dto.dureeEscale ?? null,
+      aeroportArrivee: candidate.aeroportArrivee,
+      heureDepart: candidate.heureDepart,
+      heureArrivee: candidate.heureArrivee,
+      statut: dto.statut ?? FlightStatus.SCHEDULED,
+      avionId: aircraft?.id ?? null,
+      avion: aircraft,
     });
 
-    return this.flightsRepository.save(flight);
+    return this.flightRepository.save(flight);
   }
 
-  /**
-   * 4. Mettre à jour un vol
-   */
-  async update(id: string, updateFlightDto: UpdateFlightDto): Promise<Flight> {
+  async update(id: string, dto: UpdateFlightDto): Promise<Flight> {
     const flight = await this.findOne(id);
 
-    if (updateFlightDto.avionId) {
-      const aircraft = await this.aircraftRepository.findOne({
-        where: [{ id: updateFlightDto.avionId }, { immatriculation: updateFlightDto.avionId }],
+    const candidate = {
+      numeroVol: normalizeFlightNumber(dto.numeroVol ?? flight.numeroVol),
+      aeroportDepart: normalizeIata(dto.aeroportDepart ?? flight.aeroportDepart),
+      aeroportArrivee: normalizeIata(dto.aeroportArrivee ?? flight.aeroportArrivee),
+      heureDepart: dto.heureDepart ? new Date(dto.heureDepart) : flight.heureDepart,
+      heureArrivee: dto.heureArrivee ? new Date(dto.heureArrivee) : flight.heureArrivee,
+      avionId: dto.avionId === undefined ? flight.avionId : dto.avionId,
+    };
+
+    await this.validateAirports(candidate.aeroportDepart, candidate.aeroportArrivee, dto.aeroportEscale ?? flight.aeroportEscale);
+    await this.assertUniqueOccurrence(candidate.numeroVol, candidate.heureDepart, id);
+
+    const validation = await this.schedulingService.validateCandidate(candidate, id);
+    if (!validation.valid) {
+      throw new ConflictException({
+        code: 'FLIGHT_SCHEDULING_CONFLICT',
+        message: 'La modification crée un conflit opérationnel.',
+        conflicts: validation.conflicts,
       });
-      if (!aircraft) {
-        throw new NotFoundException(`Appareil "${updateFlightDto.avionId}" non trouvé.`);
-      }
-      flight.avion = aircraft;
     }
 
-    Object.assign(flight, {
-      ...updateFlightDto,
-      heureDepart: updateFlightDto.heureDepart ? new Date(updateFlightDto.heureDepart) : flight.heureDepart,
-      heureArrivee: updateFlightDto.heureArrivee ? new Date(updateFlightDto.heureArrivee) : flight.heureArrivee,
-    });
+    const aircraft = candidate.avionId ? await this.fleetService.findOne(candidate.avionId) : null;
 
-    return this.flightsRepository.save(flight);
+    flight.numeroVol = candidate.numeroVol;
+    flight.aeroportDepart = candidate.aeroportDepart;
+    flight.aeroportArrivee = candidate.aeroportArrivee;
+    flight.heureDepart = candidate.heureDepart;
+    flight.heureArrivee = candidate.heureArrivee;
+    flight.avionId = aircraft?.id ?? null;
+    flight.avion = aircraft;
+    if (dto.statut !== undefined) flight.statut = dto.statut;
+    if (dto.aeroportEscale !== undefined) flight.aeroportEscale = dto.aeroportEscale ? this.normalizeStopovers(dto.aeroportEscale) : null;
+    if (dto.dureeEscale !== undefined) flight.dureeEscale = dto.dureeEscale;
+
+    return this.flightRepository.save(flight);
   }
 
-  /**
-   * 5. Supprimer un vol
-   */
   async remove(id: string): Promise<void> {
     const flight = await this.findOne(id);
-    await this.flightsRepository.remove(flight);
+    await this.flightRepository.softRemove(flight);
   }
 
-  /**
-   * 6. Algorithme d'optimisation automatique et résolution des conflits
-   */
-  async runAutoOptimization(): Promise<{
-    timestamp: Date;
-    resolvedConflicts: number;
-    unresolvedConflicts: number;
-    details: any[];
-  }> {
-    const flights = await this.findAll();
-    const allAircraft = await this.aircraftRepository.find();
 
-    let resolvedCount = 0;
-    let unresolvedCount = 0;
-    const details: any[] = [];
+  detectConflicts() {
+    return this.schedulingService.detectAll();
+  }
 
-    for (const flight of flights) {
-      if (!flight.avion || flight.statut === 'Cancelled') continue;
+  optimize() {
+    return this.schedulingService.optimize();
+  }
 
-      // Détection des chevauchements
-      const hasConflict = flights.some(
-        (other) =>
-          other.id !== flight.id &&
-          other.avion?.id === flight.avion?.id &&
-          other.statut !== 'Cancelled' &&
-          new Date(flight.heureDepart) < new Date(other.heureArrivee) &&
-          new Date(flight.heureArrivee) > new Date(other.heureDepart),
-      );
+  availableAircraft(query: AircraftAvailabilityQueryDto) {
+    return this.schedulingService.findAvailableAircraft(query);
+  }
 
-      if (hasConflict) {
-        // Chercher un avion alternatif libre sur ce créneau
-        const freeAircraft = allAircraft.find((candidate) => {
-          const isBusy = flights.some(
-            (f) =>
-              f.id !== flight.id &&
-              f.avion?.id === candidate.id &&
-              f.statut !== 'Cancelled' &&
-              new Date(flight.heureDepart) < new Date(f.heureArrivee) &&
-              new Date(flight.heureArrivee) > new Date(f.heureDepart),
-          );
-          return !isBusy;
-        });
+  async validate(dto: CreateFlightDto) {
+    const candidate = await this.prepareCandidate(dto);
+    return this.schedulingService.validateCandidate(candidate);
+  }
 
-        if (freeAircraft) {
-          const oldAircraftId = flight.avion.id;
-          flight.avion = freeAircraft;
-          await this.flightsRepository.save(flight);
-
-          resolvedCount++;
-          details.push({
-            flightNumber: flight.numeroVol,
-            status: 'REASSIGNED',
-            from: oldAircraftId,
-            to: freeAircraft.id,
-          });
-        } else {
-          unresolvedCount++;
-          details.push({
-            flightNumber: flight.numeroVol,
-            status: 'UNRESOLVED',
-            reason: 'Aucun appareil libre.',
-          });
-        }
-      }
-    }
-
-    return {
-      timestamp: new Date(),
-      resolvedConflicts: resolvedCount,
-      unresolvedConflicts: unresolvedCount,
-      details,
+  private async prepareCandidate(dto: CreateFlightDto) {
+    const candidate = {
+      numeroVol: normalizeFlightNumber(dto.numeroVol),
+      aeroportDepart: normalizeIata(dto.aeroportDepart),
+      aeroportArrivee: normalizeIata(dto.aeroportArrivee),
+      heureDepart: new Date(dto.heureDepart),
+      heureArrivee: new Date(dto.heureArrivee),
+      avionId: dto.avionId ?? null,
     };
+
+    await this.validateAirports(candidate.aeroportDepart, candidate.aeroportArrivee, dto.aeroportEscale);
+    return candidate;
+  }
+
+  private async validateAirports(departure: string, arrival: string, stopovers?: string | null): Promise<void> {
+    await Promise.all([
+      this.airportsService.assertExists(departure),
+      this.airportsService.assertExists(arrival),
+      ...this.parseStopovers(stopovers).map((iata) => this.airportsService.assertExists(iata)),
+    ]);
+  }
+
+  private parseStopovers(value?: string | null): string[] {
+    if (!value) return [];
+    return value.split(',').map(normalizeIata).filter(Boolean);
+  }
+
+  private normalizeStopovers(value: string): string {
+    return this.parseStopovers(value).join(',');
+  }
+
+  private async assertUniqueOccurrence(numeroVol: string, heureDepart: Date, excludeId?: string): Promise<void> {
+    const qb = this.flightRepository
+      .createQueryBuilder('flight')
+      .where('flight.numeroVol = :numeroVol', { numeroVol })
+      .andWhere('flight.heureDepart = :heureDepart', { heureDepart });
+    if (excludeId) qb.andWhere('flight.id != :excludeId', { excludeId });
+    if (await qb.getExists()) {
+      throw new ConflictException(`Le vol ${numeroVol} existe déjà à cette date/heure.`);
+    }
   }
 }

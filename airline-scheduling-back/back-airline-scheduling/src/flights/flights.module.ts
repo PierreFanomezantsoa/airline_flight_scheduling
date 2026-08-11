@@ -1,29 +1,21 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AirportsModule } from '../airports/airports.module';
+import { FleetModule } from '../fleet/fleet.module';
+import { SchedulingModule } from '../scheduling/scheduling.module';
 import { Flight } from './entities/flight.entity';
-import { CrewAssignment } from './entities/crew-assignment.entity';
 import { FlightsController } from './flights.controller';
 import { FlightsService } from './flights.service';
-import { CrewAssignmentsController } from './crew-assignments.controller';
-import { CrewAssignmentsService } from './crew-assignments.service';
-import { Aircraft } from '../fleet/entities/aircraft.entity';
-import { User } from '../users/entities/user.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Flight, CrewAssignment, Aircraft, User]),
+    TypeOrmModule.forFeature([Flight]),
+    AirportsModule,
+    FleetModule,
+    SchedulingModule,
   ],
-  controllers: [
-    FlightsController, 
-    CrewAssignmentsController,
-  ],
-  providers: [
-    FlightsService, 
-    CrewAssignmentsService,
-  ],
-  exports: [
-    FlightsService, 
-    CrewAssignmentsService,
-  ],
+  controllers: [FlightsController],
+  providers: [FlightsService],
+  exports: [FlightsService, TypeOrmModule],
 })
 export class FlightsModule {}

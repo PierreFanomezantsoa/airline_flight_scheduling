@@ -1,10 +1,24 @@
-import { useEffect, useState, useRef } from 'react';
-import { ShieldCheck, LogOut, User, Bell, ChevronDown } from 'lucide-react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import {
+  Bell,
+  ChevronDown,
+  LogOut,
+  ShieldCheck,
+  User,
+} from 'lucide-react';
+
 import { DashboardGantt } from './features/dashboard/DashboardGantt';
 import { FlightSchedulerDashboard } from './features/dashboard/FlightSchedulerDashboard';
 import { FlightsPlanning } from './features/flights/FlightsPlanning';
 import { CrewAssignment } from './features/crew/CrewAssignment';
 import { FleetManagement } from './features/fleet/FleetManagement';
+import { AircraftManagement } from './features/Aircraft/AircraftManagement';
 import { MaintenancePlanning } from './features/maintenance/MaintenancePlanning';
 import { DisruptionCenter } from './features/disruptions/DisruptionCenter';
 import { NetworkSettings } from './features/settings/NetworkSettings';
@@ -14,70 +28,346 @@ import { Sidebar } from './features/dashboard/Sidebar';
 import type { ActiveScreen } from './features/dashboard/Sidebar';
 import { AuthPage } from './features/auth/AuthPage';
 
+import {
+  clearAuthSession,
+  getAuthSession,
+  type PublicUser,
+  type UserRole,
+} from './features/Api/apiService';
+
+// =============================================================================
+// AUTH / AUTORISATIONS
+// =============================================================================
+
+type AppUser = Pick<
+  PublicUser,
+  'id' | 'nom' | 'email' | 'role'
+> & {
+  avatarUrl?: string;
+};
+
+const ROLE_SCREEN_PERMISSIONS: Record<
+  UserRole,
+  ActiveScreen[]
+> = {
+  Admin: [
+    'dashboard',
+    'scheduling',
+    'fleet',
+    'aircraft',
+    'flights',
+    'crew',
+    'maintenance',
+    'disruptions',
+    'optimization',
+    'settings',
+  ],
+
+  Planificateur: [
+    'dashboard',
+    'scheduling',
+    'fleet',
+    'aircraft',
+    'flights',
+    'crew',
+    'optimization',
+  ],
+
+  Regulator: [
+    'dashboard',
+    'scheduling',
+    'flights',
+    'crew',
+    'disruptions',
+    'optimization',
+    'settings',
+  ],
+
+  Maintenance_Engineer: [
+    'dashboard',
+    'scheduling',
+    'fleet',
+    'aircraft',
+    'maintenance',
+    'optimization',
+  ],
+
+  Crew_Member: [
+    'dashboard',
+    'flights',
+    'crew',
+  ],
+
+  Product_Owner: [
+    'dashboard',
+    'scheduling',
+    'fleet',
+    'aircraft',
+    'maintenance',
+    'disruptions',
+    'optimization',
+    'settings',
+  ],
+};
+
+const ROLE_LABELS: Record<UserRole, string> = {
+  Admin: 'Administrateur',
+  Planificateur: 'Planificateur',
+  Regulator: 'Régulateur',
+  Maintenance_Engineer: 'Ingénieur Maintenance',
+  Crew_Member: "Membre d'équipage",
+  Product_Owner: 'Product Owner',
+};
+
+const SCREEN_META: Record<
+  ActiveScreen,
+  { title: string }
+> = {
+  dashboard: {
+    title: 'Tableau de bord opérationnel',
+  },
+  scheduling: {
+    title: 'Ordonnancement & Matrice',
+  },
+  fleet: {
+    title: 'Flotte — Types d’avion',
+  },
+  aircraft: {
+    title: 'Gestion des Avions',
+  },
+  flights: {
+    title: 'Planification des Vols',
+  },
+  crew: {
+    title: 'Affectation Équipages',
+  },
+  maintenance: {
+    title: 'Planification Maintenance',
+  },
+  disruptions: {
+    title: 'Centre de Crise (IROPS)',
+  },
+  optimization: {
+    title: 'Optimisation Automatique',
+  },
+  settings: {
+    title: 'Configuration Réseau',
+  },
+};
+
+function isUserRole(
+  role: unknown,
+): role is UserRole {
+  return (
+    typeof role === 'string' &&
+    role in ROLE_SCREEN_PERMISSIONS
+  );
+}
+
+function getDefaultScreenForRole(
+  role: UserRole,
+): ActiveScreen {
+  if (role === 'Maintenance_Engineer') {
+    return 'maintenance';
+  }
+
+  if (role === 'Crew_Member') {
+    return 'flights';
+  }
+
+  return 'dashboard';
+}
+
+function isScreenAllowed(
+  role: UserRole,
+  screen: ActiveScreen,
+): boolean {
+  return ROLE_SCREEN_PERMISSIONS[role]?.includes(screen) ?? false;
+}
+
+function getStoredScreen(
+  role: UserRole,
+): ActiveScreen {
+  const stored = localStorage.getItem(
+    'airline.activeScreen',
+  ) as ActiveScreen | null;
+
+  if (
+    stored &&
+    isScreenAllowed(role, stored)
+  ) {
+    return stored;
+  }
+
+  return getDefaultScreenForRole(role);
+}
+
+function normalizeAuthenticatedUser(
+  user: PublicUser,
+): AppUser | null {
+  if (!isUserRole(user.role)) {
+    return null;
+  }
+
+  return {
+    id: user.id,
+    nom: user.nom,
+    email: user.email,
+    role: user.role,
+  };
+}
+
+// =============================================================================
+// FLOTTE : AIRCRAFT vs AIRCRAFT TYPE
+// =============================================================================
+
+type FleetView = 'aircrafts' | 'aircraft-types';
+
+function FleetWorkspace() {
+  const [fleetView, setFleetView] = useState<FleetView>('aircrafts');
+
+  return (
+    <section className="space-y-5">
+      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-xs">
+        <button
+          type="button"
+          onClick={() => setFleetView('aircrafts')}
+          className={`rounded-xl px-4 py-2 text-xs font-bold transition ${
+            fleetView === 'aircrafts'
+              ? 'bg-emerald-700 text-white shadow-xs'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          Avions de la flotte
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setFleetView('aircraft-types')}
+          className={`rounded-xl px-4 py-2 text-xs font-bold transition ${
+            fleetView === 'aircraft-types'
+              ? 'bg-emerald-700 text-white shadow-xs'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          Types d&apos;avion
+        </button>
+      </div>
+
+      {fleetView === 'aircrafts' ? (
+        <AircraftManagement />
+      ) : (
+        <FleetManagement />
+      )}
+    </section>
+  );
+}
+
+// =============================================================================
+// APP
+// =============================================================================
+
 function App() {
-  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
 
-  const roleScreenPermissions: Record<string, ActiveScreen[]> = {
-    Admin: ['dashboard', 'scheduling', 'fleet', 'flights', 'crew', 'maintenance', 'disruptions', 'optimization', 'settings'],
-    Planificateur: ['dashboard', 'scheduling', 'fleet', 'flights', 'crew', 'optimization'],
-    Regulator: ['dashboard', 'scheduling', 'flights', 'crew', 'disruptions', 'optimization', 'settings'],
-    Maintenance_Engineer: ['dashboard', 'scheduling', 'fleet', 'maintenance', 'optimization'],
-    Crew_Member: ['dashboard', 'flights', 'crew'],
-    Product_Owner: ['dashboard', 'scheduling', 'fleet', 'maintenance', 'disruptions', 'optimization', 'settings'],
-  };
+  const initialSession = useMemo(
+    () => getAuthSession(),
+    [],
+  );
 
-  const getDefaultScreenForRole = (role?: string): ActiveScreen => {
-    if (role === 'Maintenance_Engineer') return 'maintenance';
-    if (role === 'Crew_Member') return 'flights';
-    return 'dashboard';
-  };
+  const initialUser = useMemo(() => {
+    return initialSession?.user
+      ? normalizeAuthenticatedUser(initialSession.user)
+      : null;
+  }, [initialSession]);
 
-  const [user, setUser] = useState<{ nom: string; email: string; role?: string; avatarUrl?: string } | null>(() => {
-    const storedUser = localStorage.getItem('airline-user');
-    return storedUser ? JSON.parse(storedUser) : null;
-  });
-
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    return localStorage.getItem('airline-user') !== null;
-  });
+  const [user, setUser] = useState<AppUser | null>(initialUser);
 
   const [activeScreen, setActiveScreenState] = useState<ActiveScreen>(() => {
-    const savedScreen = localStorage.getItem('activeScreen') as ActiveScreen;
-    const storedUser = localStorage.getItem('airline-user');
-
-    if (storedUser) {
-      const parsedUser = JSON.parse(storedUser);
-      if (savedScreen && parsedUser.role && roleScreenPermissions[parsedUser.role]?.includes(savedScreen)) {
-        return savedScreen;
-      }
-      return getDefaultScreenForRole(parsedUser.role);
+    if (!initialUser) {
+      return 'dashboard';
     }
 
-    return savedScreen || 'dashboard';
+    return getStoredScreen(initialUser.role);
   });
 
-  const setActiveScreen = (screen: ActiveScreen) => {
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+
+  const isAuthenticated = user !== null && initialSession !== null;
+
+  const setActiveScreen = useCallback((screen: ActiveScreen) => {
+    if (!user || !isScreenAllowed(user.role, screen)) {
+      return;
+    }
+
     setActiveScreenState(screen);
-    localStorage.setItem('activeScreen', screen);
+    localStorage.setItem('airline.activeScreen', screen);
+  }, [user]);
+
+  // Synchronisation des autorisations
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+
+    if (!isScreenAllowed(user.role, activeScreen)) {
+      const fallback = getDefaultScreenForRole(user.role);
+      setActiveScreenState(fallback);
+      localStorage.setItem('airline.activeScreen', fallback);
+    }
+  }, [user, activeScreen]);
+
+  // Fermeture du menu profil (Clic extérieur + Touche Échap)
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        profileMenuRef.current &&
+        !profileMenuRef.current.contains(event.target as Node)
+      ) {
+        setIsProfileMenuOpen(false);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsProfileMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
+
+  const handleAuthenticate = (nextUser: AppUser) => {
+    if (!isUserRole(nextUser.role)) {
+      clearAuthSession();
+      setUser(null);
+      return;
+    }
+
+    setUser(nextUser);
+    const targetScreen = getStoredScreen(nextUser.role);
+    setActiveScreenState(targetScreen);
   };
 
-  const screenMeta: Record<ActiveScreen, { title: string }> = {
-    dashboard: { title: 'Tableau de bord opérationnel' },
-    scheduling: { title: 'Ordonnancement & Matrice' },
-    fleet: { title: 'Gestion des Avions' },
-    flights: { title: 'Planification des Vols' },
-    crew: { title: 'Affectation Équipages' },
-    maintenance: { title: 'Planification Maintenance' },
-    disruptions: { title: 'Centre de Crise (IROPS)' },
-    optimization: { title: 'Optimisation Automatique' },
-    settings: { title: 'Configuration Réseau' },
-  };
+  const handleLogout = useCallback(() => {
+    clearAuthSession();
+    localStorage.removeItem('airline.activeScreen');
+    setIsProfileMenuOpen(false);
+    setUser(null);
+    setActiveScreenState('dashboard');
+  }, []);
 
   const renderScreen: Record<ActiveScreen, React.ReactNode> = {
     dashboard: <DashboardGantt />,
     scheduling: <FlightSchedulerDashboard />,
-    fleet: <FleetManagement />,
+    fleet: <FleetWorkspace />,
+    aircraft: <AircraftManagement />,
     flights: <FlightsPlanning />,
     crew: <CrewAssignment />,
     maintenance: <MaintenancePlanning />,
@@ -86,90 +376,38 @@ function App() {
     settings: <NetworkSettings />,
   };
 
-  const userRoleLabel = user?.role === 'Regulator'
-    ? 'Régulateur'
-    : user?.role === 'Maintenance_Engineer'
-      ? 'Ingénieur Maintenance'
-      : user?.role === 'Crew_Member'
-        ? 'Membre d’équipe'
-        : user?.role === 'Product_Owner' || user?.role === 'Product Owner'
-          ? 'Product Owner'
-          : user?.role === 'Admin'
-            ? 'Administrateur'
-            : user?.role === 'Planificateur'
-              ? 'Planificateur'
-              : '';
-
-  useEffect(() => {
-    if (user?.role && !roleScreenPermissions[user.role]?.includes(activeScreen)) {
-      setActiveScreen(getDefaultScreenForRole(user.role));
-    }
-  }, [user, activeScreen]);
-
-  // Ferme le menu profil quand on clique en dehors
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
-        setIsProfileMenuOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const handleAuthenticate = (nextUser: { nom: string; email: string; role?: string; avatarUrl?: string }) => {
-    localStorage.setItem('airline-user', JSON.stringify(nextUser));
-    setUser(nextUser);
-    setIsAuthenticated(true);
-
-    const targetScreen = nextUser.role && roleScreenPermissions[nextUser.role]?.includes(activeScreen)
-      ? activeScreen
-      : getDefaultScreenForRole(nextUser.role);
-
-    setActiveScreen(targetScreen);
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem('airline-user');
-    localStorage.removeItem('activeScreen');
-    setUser(null);
-    setIsAuthenticated(false);
-  };
-
-  if (!isAuthenticated) {
+  if (!isAuthenticated || !user) {
     return <AuthPage onAuthenticate={handleAuthenticate} />;
   }
 
+  const userRoleLabel = ROLE_LABELS[user.role] ?? user.role;
+
   return (
-    <div className="min-h-screen bg-gray-100 antialiased selection:bg-emerald-500/20 selection:text-emerald-900 flex flex-col md:flex-row font-sans">
-      <Sidebar 
-        activeScreen={activeScreen} 
-        setActiveScreen={setActiveScreen} 
-        user={user} 
-        onLogout={handleLogout} 
+    <div className="flex min-h-screen flex-col bg-gray-100 font-sans antialiased selection:bg-emerald-500/20 selection:text-emerald-900 md:flex-row">
+      <Sidebar
+        activeScreen={activeScreen}
+        setActiveScreen={setActiveScreen}
+        user={user}
+        onLogout={handleLogout}
       />
 
-      <div className="flex-1 flex flex-col min-w-0 min-h-screen mb-16 md:mb-0">
-        {/* Top bar unifiée en bg-gray-100 */}
-        <header className="sticky top-0 z-30 bg-gray-100/90 backdrop-blur-md border-b border-gray-200 px-4 sm:px-8 py-5 transition-all">
-          <div className="max-w-375 mx-auto flex items-center justify-between gap-4">
-            
-            {/* Titre de l'écran */}
+      <div className="mb-16 flex min-h-screen min-w-0 flex-1 flex-col md:mb-0">
+        <header className="sticky top-0 z-30 border-b border-gray-200 bg-gray-100/90 px-4 py-5 backdrop-blur-md transition-all sm:px-8">
+          <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
             <div className="min-w-0">
-              <h2 className="text-lg sm:text-xl font-extrabold text-slate-800 tracking-tight truncate">
-                {screenMeta[activeScreen]?.title ?? ''}
+              <h2 className="truncate text-lg font-extrabold tracking-tight text-slate-800 sm:text-xl">
+                {SCREEN_META[activeScreen]?.title ?? 'Tableau de bord'}
               </h2>
             </div>
 
-            {/* Actions & Profil à droite */}
-            <div className="flex items-center gap-3 shrink-0">
-              <button 
-                type="button" 
-                className="relative p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-gray-200/80 transition-colors border-none bg-transparent cursor-pointer"
+            <div className="flex shrink-0 items-center gap-3">
+              <button
+                type="button"
+                className="relative cursor-pointer rounded-xl border-none bg-transparent p-2 text-slate-500 transition-colors hover:bg-gray-200/80 hover:text-slate-800"
                 aria-label="Notifications"
               >
-                <Bell className="w-5 h-5" />
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-emerald-600 rounded-full ring-2 ring-gray-100" />
+                <Bell className="h-5 w-5" />
+                <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-emerald-600 ring-2 ring-gray-100" />
               </button>
 
               <div className="h-6 w-px bg-gray-300" />
@@ -177,96 +415,89 @@ function App() {
               <div className="relative shrink-0" ref={profileMenuRef}>
                 <button
                   type="button"
-                  onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+                  onClick={() => setIsProfileMenuOpen((prev) => !prev)}
+                  aria-expanded={isProfileMenuOpen}
                   aria-label="Voir les détails du compte"
-                  className="flex items-center gap-3 p-1.5 rounded-xl hover:bg-gray-200/80 transition-all cursor-pointer border-none bg-transparent outline-none group"
+                  className="group flex cursor-pointer items-center gap-3 rounded-xl border-none bg-transparent p-1.5 outline-hidden transition-all hover:bg-gray-200/80"
                 >
-                  <div className="w-9 h-9 rounded-full overflow-hidden bg-emerald-100 border border-emerald-200 flex items-center justify-center shrink-0 shadow-xs group-hover:scale-105 transition-transform">
-                    {user?.avatarUrl ? (
-                      <img 
-                        src={user.avatarUrl} 
-                        alt={user?.nom ?? 'User'} 
-                        className="w-full h-full object-cover"
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-emerald-200 bg-emerald-100 shadow-xs transition-transform group-hover:scale-105">
+                    {user.avatarUrl ? (
+                      <img
+                        src={user.avatarUrl}
+                        alt={user.nom}
+                        className="h-full w-full object-cover"
                       />
                     ) : (
-                      <span className="text-emerald-700 font-extrabold text-sm">
-                        {user?.nom?.charAt(0).toUpperCase() ?? <User className="w-4 h-4 text-emerald-700" />}
+                      <span className="text-sm font-extrabold text-emerald-700">
+                        {user.nom.charAt(0).toUpperCase() || <User className="h-4 w-4" />}
                       </span>
                     )}
                   </div>
 
-                  <div className="hidden sm:flex flex-col text-left">
-                    <span className="text-xs font-bold text-slate-800 truncate max-w-30 leading-tight">
-                      {user?.nom ?? 'Utilisateur'}
+                  <div className="hidden flex-col text-left sm:flex">
+                    <span className="max-w-[120px] truncate text-xs font-bold leading-tight text-slate-800">
+                      {user.nom}
                     </span>
-                    <span className="text-[10px] font-medium text-slate-500 truncate max-w-30 mt-0.5">
-                      {userRoleLabel || 'Membre'}
+                    <span className="mt-0.5 max-w-[120px] truncate text-[10px] font-medium text-slate-500">
+                      {userRoleLabel}
                     </span>
                   </div>
 
-                  <ChevronDown className="w-4 h-4 text-slate-400 group-hover:text-slate-600 transition-transform duration-200" />
+                  <ChevronDown className="h-4 w-4 text-slate-400 transition-transform duration-200 group-hover:text-slate-600" />
                 </button>
 
                 {isProfileMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-64 bg-white text-slate-900 rounded-2xl shadow-xl border border-gray-200 py-3 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
-                    <div className="px-4 pb-3 pt-1 border-b border-gray-100 flex flex-col items-center text-center">
-                      <div className="w-14 h-14 rounded-full overflow-hidden bg-emerald-100 border-2 border-emerald-200 flex items-center justify-center shadow-xs mb-2.5">
-                        {user?.avatarUrl ? (
-                          <img 
-                            src={user.avatarUrl} 
-                            alt={user?.nom ?? 'User'} 
-                            className="w-full h-full object-cover"
+                  <div className="animate-in fade-in slide-in-from-top-2 absolute right-0 z-50 mt-2 w-64 rounded-2xl border border-gray-200 bg-white py-3 text-slate-900 shadow-xl duration-150">
+                    <div className="flex flex-col items-center border-b border-gray-100 px-4 pb-3 pt-1 text-center">
+                      <div className="mb-2.5 flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border-2 border-emerald-200 bg-emerald-100 shadow-xs">
+                        {user.avatarUrl ? (
+                          <img
+                            src={user.avatarUrl}
+                            alt={user.nom}
+                            className="h-full w-full object-cover"
                           />
                         ) : (
-                          <span className="text-emerald-700 font-black text-xl">
-                            {user?.nom?.charAt(0).toUpperCase() ?? <User className="w-7 h-7 text-emerald-700" />}
+                          <span className="text-xl font-black text-emerald-700">
+                            {user.nom.charAt(0).toUpperCase() || <User className="h-7 w-7" />}
                           </span>
                         )}
                       </div>
 
-                      <p className="text-sm font-bold text-slate-900 truncate max-w-full">
-                        {user?.nom ?? 'Utilisateur'}
+                      <p className="max-w-full truncate text-sm font-bold text-slate-900">
+                        {user.nom}
                       </p>
-                      <p className="text-xs text-slate-500 truncate max-w-full mt-0.5">
-                        {user?.email ?? ''}
+                      <p className="mt-0.5 max-w-full truncate text-xs text-slate-500">
+                        {user.email}
                       </p>
 
-                      {userRoleLabel && (
-                        <span className="inline-flex items-center gap-1 mt-2 text-[10px] font-extrabold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200/60">
-                          <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                          {userRoleLabel}
-                        </span>
-                      )}
+                      <span className="mt-2 inline-flex items-center gap-1 rounded-md border border-emerald-200/60 bg-emerald-50 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider text-emerald-700">
+                        <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+                        {userRoleLabel}
+                      </span>
                     </div>
 
-                    <div className="pt-2 px-2">
+                    <div className="px-2 pt-2">
                       <button
                         type="button"
-                        onClick={() => {
-                          setIsProfileMenuOpen(false);
-                          handleLogout();
-                        }}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer border-none bg-transparent"
+                        onClick={handleLogout}
+                        className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border-none bg-transparent px-4 py-2 text-xs font-semibold text-rose-600 transition-colors hover:bg-rose-50"
                       >
-                        <LogOut className="w-4 h-4" />
-                        <span>Déconnexion</span>
+                        <LogOut className="h-4 w-4" />
+                        Déconnexion
                       </button>
                     </div>
                   </div>
                 )}
               </div>
             </div>
-
           </div>
         </header>
 
-        {/* Zone de contenu principale sur le fond bg-gray-100 */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-375 w-full mx-auto">
+        <main className="mx-auto w-full max-w-7xl flex-1 p-4 sm:p-6 lg:p-8">
           <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-            {renderScreen[activeScreen]}
+            {renderScreen[activeScreen] ?? <DashboardGantt />}
           </div>
         </main>
-        
       </div>
     </div>
   );

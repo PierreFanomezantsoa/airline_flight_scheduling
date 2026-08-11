@@ -1,47 +1,73 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, Index } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  DeleteDateColumn,
+  Entity,
+  Index,
+  JoinColumn,
+  ManyToOne,
+  OneToMany,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+  VersionColumn,
+} from 'typeorm';
+import { FlightStatus } from '../../common/enums/airline.enums';
+import { CrewAssignment } from '../../crew/entities/crew-assignment.entity';
 import { Aircraft } from '../../fleet/entities/aircraft.entity';
-import { CrewAssignment } from './crew-assignment.entity';
 
 @Entity('flights')
-@Index(['avion', 'heureDepart', 'heureArrivee']) // Index PostgreSQL pour optimiser le Gantt
+@Index(['numeroVol', 'heureDepart'], { unique: true })
+@Index(['avionId', 'heureDepart', 'heureArrivee'])
+@Index(['heureDepart'])
+@Index(['statut'])
 export class Flight {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @Column({ type: 'varchar', length: 50, unique: true })
+  @Column({ type: 'varchar', length: 20 })
   numeroVol!: string;
 
-  @Column({ type: 'varchar', length: 10 })
+  @Column({ type: 'varchar', length: 3 })
   aeroportDepart!: string;
 
-  // NOUVELLE COLONNE : Aéroport d'escale
-  @Column({ type: 'varchar', length: 100, nullable: true, default: null })
+  /** Codes IATA séparés par virgule pour compatibilité avec l'IHM actuelle. */
+  @Column({ type: 'varchar', length: 100, nullable: true })
   aeroportEscale!: string | null;
 
-  // NOUVELLE COLONNE : Durée d'escale en minutes
-  @Column({ type: 'integer', nullable: true, default: null })
+  @Column({ type: 'integer', nullable: true })
   dureeEscale!: number | null;
 
-  @Column({ type: 'varchar', length: 10 })
+  @Column({ type: 'varchar', length: 3 })
   aeroportArrivee!: string;
 
-  @Column({ type: 'timestamp with time zone' })
+  @Column({ type: 'timestamptz' })
   heureDepart!: Date;
 
-  @Column({ type: 'timestamp with time zone' })
+  @Column({ type: 'timestamptz' })
   heureArrivee!: Date;
 
-  @Column({
-    type: 'enum',
-    enum: ['Scheduled', 'Delayed', 'Cancelled', 'In-Flight', 'Effectué'],
-    default: 'Scheduled',
-  })
-  statut!: 'Scheduled' | 'Delayed' | 'Cancelled' | 'In-Flight' | 'Effectué';
+  @Column({ type: 'enum', enum: FlightStatus, default: FlightStatus.SCHEDULED })
+  statut!: FlightStatus;
 
-  // Relation unidirectionnelle vers Aircraft
+  @Column({ type: 'uuid', nullable: true })
+  avionId!: string | null;
+
   @ManyToOne(() => Aircraft, { nullable: true, onDelete: 'SET NULL' })
-  avion!: Aircraft;
+  @JoinColumn({ name: 'avionId' })
+  avion!: Aircraft | null;
 
   @OneToMany(() => CrewAssignment, (assignment) => assignment.vol)
   affectationsEquipage!: CrewAssignment[];
+
+  @VersionColumn({ type: 'integer', default: 1 })
+  version!: number;
+
+  @CreateDateColumn({ type: 'timestamptz' })
+  creeA!: Date;
+
+  @UpdateDateColumn({ type: 'timestamptz' })
+  misAJourA!: Date;
+
+  @DeleteDateColumn({ type: 'timestamptz', nullable: true })
+  supprimeA!: Date | null;
 }

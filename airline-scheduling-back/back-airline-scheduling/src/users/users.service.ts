@@ -1,10 +1,17 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import * as bcrypt from 'bcrypt';
 import { Repository } from 'typeorm';
-import { User } from './entities/user.entity';
+import { normalizeEmail } from '../common/utils/normalizers';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import * as bcrypt from 'bcrypt';
+import { User } from './entities/user.entity';
+
+export type PublicUser = Omit<User, 'motDePasse'>;
 
 @Injectable()
 export class UsersService {
@@ -13,74 +20,83 @@ export class UsersService {
     private readonly usersRepository: Repository<User>,
   ) {}
 
-  // Récupérer tous les utilisateurs
-  findAll() {
-    return this.usersRepository.find();
+  async findAll(): Promise<User[]> {
+    return this.usersRepository.find({ order: { nom: 'ASC' } });
   }
 
-  // Trouver un utilisateur par son ID
-  findOne(id: string) {
-    return this.usersRepository.findOne({ where: { id } });
+  async findOne(id: string): Promise<User> {
+    const user = await this.usersRepository.findOne({ where: { id } });
+    if (!user) throw new NotFoundException(`Utilisateur "${id}" introuvable.`);
+    return user;
   }
 
-  // Trouver un utilisateur par son email (utilisé pour l'authentification)
-  findByEmail(email: string) {
-    return this.usersRepository.findOne({ where: { email } });
+  async findByEmailWithPassword(email: string): Promise<User | null> {
+    return this.usersRepository
+      .createQueryBuilder('user')
+      .addSelect('user.motDePasse')
+      .where('LOWER(user.email) = :email', { email: normalizeEmail(email) })
+      .getOne();
   }
 
-  // Création d'un nouvel utilisateur (Inscription / Sign-Up)
-  async create(createUserDto: CreateUserDto) {
-    const { email, password, ...leReste } = createUserDto;
+  async create(dto: CreateUserDto): Promise<PublicUser> {
+    const email = normalizeEmail(dto.email);
+    await this.assertEmailAvailable(email);
 
-    // Vérifier si l'adresse email est déjà prise
-    const existingUser = await this.findByEmail(email);
-    if (existingUser) {
-      throw new ConflictException(`L'utilisateur avec l'email ${email} existe déjà.`);
-    }
-
-    // Hachage sécurisé du mot de passe avec bcrypt
-    const saltOrRounds = 10;
-    const hashedPassword = await bcrypt.hash(password, saltOrRounds);
-
-    // Création de l'entité TypeORM avec les champs francisés requis
     const user = this.usersRepository.create({
-      ...leReste, // Contient déjà la propriété 'nom' et 'role' validées par le DTO
       email,
-      motDePasse: hashedPassword,
+      motDePasse: await bcrypt.hash(dto.password, 12),
+      nom: dto.nom.trim(),
+      role: dto.role,
+      niveauTechnique: dto.niveauTechnique?.trim() ?? 'Intermediate',
+      niveauMetier: dto.niveauMetier?.trim() ?? 'Intermediate',
     });
-    
-    return this.usersRepository.save(user);
+
+    const saved = await this.usersRepository.save(user);
+    return this.toPublicUser(saved);
   }
 
-  // Mise à jour des informations d'un utilisateur
-  async update(id: string, updateUserDto: UpdateUserDto) {
+  async update(id: string, dto: UpdateUserDto): Promise<PublicUser> {
     const user = await this.findOne(id);
-    if (!user) {
-      throw new NotFoundException(`User with id ${id} not found`);
+
+    if (dto.email && normalizeEmail(dto.email) !== user.email) {
+      const email = normalizeEmail(dto.email);
+      await this.assertEmailAvailable(email, id);
+      user.email = email;
     }
 
-    // Extraction du mot de passe pour traitement isolé
-    const { password, ...donneesModification } = updateUserDto;
-    const modificationsPlates: any = { ...donneesModification };
+    if (dto.nom !== undefined) user.nom = dto.nom.trim();
+    if (dto.role !== undefined) user.role = dto.role;
+    if (dto.niveauTechnique !== undefined) user.niveauTechnique = dto.niveauTechnique.trim();
+    if (dto.niveauMetier !== undefined) user.niveauMetier = dto.niveauMetier.trim();
+    if (dto.actif !== undefined) user.actif = dto.actif;
+    if (dto.password) user.motDePasse = await bcrypt.hash(dto.password, 12);
 
-    // Si un nouveau mot de passe est fourni, on le hache avant stockage
-    if (password) {
-      const saltOrRounds = 10;
-      modificationsPlates.motDePasse = await bcrypt.hash(password, saltOrRounds);
-    }
-
-    // Application des modifications sur l'entité existante
-    Object.assign(user, modificationsPlates);
-    return this.usersRepository.save(user);
+    const saved = await this.usersRepository.save(user);
+    return this.toPublicUser(saved);
   }
 
-  // Suppression d'un utilisateur
-  async remove(id: string) {
+  async remove(id: string): Promise<{ deactivated: true; id: string }> {
     const user = await this.findOne(id);
-    if (!user) {
-      throw new NotFoundException(`User with id ${id} not found`);
+    user.actif = false;
+    await this.usersRepository.save(user);
+    return { deactivated: true, id };
+  }
+
+
+  private toPublicUser(user: User): PublicUser {
+    const { motDePasse: _password, ...publicUser } = user;
+    return publicUser as PublicUser;
+  }
+
+  private async assertEmailAvailable(email: string, excludeId?: string): Promise<void> {
+    const qb = this.usersRepository
+      .createQueryBuilder('user')
+      .where('LOWER(user.email) = :email', { email });
+
+    if (excludeId) qb.andWhere('user.id != :excludeId', { excludeId });
+
+    if (await qb.getExists()) {
+      throw new ConflictException(`L'adresse email "${email}" est déjà utilisée.`);
     }
-    await this.usersRepository.remove(user);
-    return { deleted: true };
   }
 }

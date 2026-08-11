@@ -1,9 +1,10 @@
-import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { DataSource, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
-import { Airport } from './airport.entity';
 import * as fs from 'fs';
 import * as path from 'path';
+import { Airport } from './entities/airport.entity';
+import { normalizeIata } from '../common/utils/normalizers';
 
 @Injectable()
 export class AirportsSeederService implements OnModuleInit {
@@ -15,41 +16,40 @@ export class AirportsSeederService implements OnModuleInit {
     private readonly dataSource: DataSource,
   ) {}
 
-  async onModuleInit() {
-    const count = await this.airportRepository.count();
-    if (count > 0) {
-      this.logger.log('✅ Base de données des aéroports déjà initialisée.');
-      return;
-    }
+  async onModuleInit(): Promise<void> {
+    if ((await this.airportRepository.count()) > 0) return;
 
     const filePath = path.join(process.cwd(), 'src', 'config', 'airports-seed.json');
     if (!fs.existsSync(filePath)) {
-      this.logger.warn(`⚠️ Fichier de seed introuvable : ${filePath}`);
+      this.logger.warn(`Seed aéroports introuvable: ${filePath}`);
       return;
     }
 
     try {
-      const rawData = fs.readFileSync(filePath, 'utf-8');
-      const airportsData: Airport[] = JSON.parse(rawData);
+      const parsed = JSON.parse(fs.readFileSync(filePath, 'utf-8')) as Array<Partial<Airport>>;
 
-      this.logger.log(`🌱 Lancement du peuplement dynamique (${airportsData.length} aéroports)...`);
-
-      // Transaction sécurisée
       await this.dataSource.transaction(async (manager) => {
-        for (const data of airportsData) {
-          const airport = manager.create(Airport, {
-            ...data,
-            iata: data.iata.toUpperCase(),
-          });
-          await manager.save(Airport, airport);
-        }
+        const rows = parsed
+          .filter((row): row is Partial<Airport> & { iata: string; name: string; timezone: string } =>
+            Boolean(row.iata && row.name && row.timezone),
+          )
+          .map((row) =>
+            manager.create(Airport, {
+              iata: normalizeIata(row.iata),
+              name: row.name,
+              timezone: row.timezone,
+              city: row.city ?? null,
+              country: row.country ?? null,
+              active: row.active ?? true,
+            }),
+          );
+
+        if (rows.length > 0) await manager.save(Airport, rows);
       });
 
-      this.logger.log('✨ Table des aéroports initialisée avec succès !');
+      this.logger.log(`Aéroports initialisés: ${await this.airportRepository.count()}`);
     } catch (error) {
-      // Gestion propre de l'erreur typée comme 'unknown' par TypeScript
-      const errorMessage = error instanceof Error ? error.message : 'Une erreur inconnue est survenue';
-      this.logger.error(`❌ Échec critique lors du seeding : ${errorMessage}`);
+      this.logger.error(error instanceof Error ? error.message : 'Erreur de seed aéroports');
     }
   }
 }

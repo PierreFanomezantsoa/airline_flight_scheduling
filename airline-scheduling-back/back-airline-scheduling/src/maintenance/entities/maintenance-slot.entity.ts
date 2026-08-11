@@ -1,33 +1,55 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  Index,
+  JoinColumn,
+  ManyToOne,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from 'typeorm';
+import {
+  MaintenanceStatus,
+  MaintenanceType,
+} from '../../common/enums/airline.enums';
 import { Aircraft } from '../../fleet/entities/aircraft.entity';
 
 @Entity('maintenance_slots')
-@Index(['aircraftId', 'startTime', 'endTime']) 
+@Index(['aircraftId', 'startTime', 'endTime'])
+@Index(['status', 'startTime'])
 export class MaintenanceSlot {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  // AJUSTEMENT CRUCIAL : On place la colonne physique AVANT la relation
-  @Column({ type: 'uuid' }) // On spécifie explicitement le type 'uuid' pour correspondre à l'appareil
+  @Column({ type: 'uuid' })
   aircraftId!: string;
 
-  // La relation vient se greffer par-dessus la colonne physique déclarée plus haut
   @ManyToOne(() => Aircraft, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'aircraftId' }) 
+  @JoinColumn({ name: 'aircraftId' })
   aircraft!: Aircraft;
+
+  @Column({ type: 'enum', enum: MaintenanceType })
+  maintenanceType!: MaintenanceType;
 
   @Column({
     type: 'enum',
-    enum: ['Type A', 'Type C', 'Aircraft On Ground'],
+    enum: MaintenanceStatus,
+    default: MaintenanceStatus.PLANNED,
   })
-  maintenanceType!: 'Type A' | 'Type C' | 'Aircraft On Ground';
+  status!: MaintenanceStatus;
 
-  @Column({ type: 'timestamp with time zone' })
+  @Column({ type: 'timestamptz' })
   startTime!: Date;
 
-  @Column({ type: 'timestamp with time zone' })
+  @Column({ type: 'timestamptz' })
   endTime!: Date;
 
   @Column({ type: 'text', nullable: true })
-  description!: string;
+  description!: string | null;
+
+  @CreateDateColumn({ type: 'timestamptz' })
+  creeA!: Date;
+
+  @UpdateDateColumn({ type: 'timestamptz' })
+  misAJourA!: Date;
 }

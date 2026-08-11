@@ -1,25 +1,29 @@
-// src/main.ts
-import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module';
 
-async function bootstrap() {
+async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
-  app.useGlobalPipes(new ValidationPipe());
-  const configService = app.get(ConfigService);
+  const config = app.get(ConfigService);
 
-  // Active le CORS
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+      transformOptions: { enableImplicitConversion: true },
+    }),
+  );
+
   app.enableCors({
-    origin: configService.get('FRONTEND_URL') || 'http://localhost:5173',
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    origin: config.get<string>('FRONTEND_URL', 'http://localhost:5173'),
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     credentials: true,
   });
 
-  const port = parseInt(configService.get('PORT') || '3001', 10);
+  const port = Number(config.get<string>('PORT', '3001'));
   await app.listen(port);
 }
-bootstrap().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+
+void bootstrap();

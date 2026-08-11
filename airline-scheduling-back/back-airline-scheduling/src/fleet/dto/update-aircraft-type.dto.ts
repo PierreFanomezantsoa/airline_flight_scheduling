@@ -1,4 +1,12 @@
-import { IsNumber, IsOptional, IsString, Length } from 'class-validator';
+import {
+  IsInt,
+  IsNumber,
+  IsOptional,
+  IsPositive,
+  IsString,
+  Length,
+  Min,
+} from 'class-validator';
 
 export class UpdateAircraftTypeDto {
   @IsOptional()
@@ -8,26 +16,31 @@ export class UpdateAircraftTypeDto {
 
   @IsOptional()
   @IsString()
-  @Length(1, 50)
+  @Length(1, 80)
   fabricant?: string;
 
   @IsOptional()
-  @IsNumber()
+  @IsInt()
+  @Min(1)
   capaciteMax?: number;
 
   @IsOptional()
   @IsNumber()
+  @IsPositive()
   vitesseCroisiere?: number;
 
   @IsOptional()
   @IsNumber()
+  @IsPositive()
   autonomieMax?: number;
 
   @IsOptional()
   @IsNumber()
+  @Min(0)
   consommationCarburant?: number;
 
   @IsOptional()
   @IsNumber()
+  @IsPositive()
   intervalleMaintenanceHeures?: number;
 }

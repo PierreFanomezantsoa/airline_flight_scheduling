@@ -1,29 +1,44 @@
-import { IsEmail, IsEnum, IsOptional, IsString, Length } from 'class-validator';
-import { UserRole } from '../entities/user.entity'; // Ajustez le chemin selon votre structure
+import {
+  IsBoolean,
+  IsEmail,
+  IsEnum,
+  IsOptional,
+  IsString,
+  Length,
+  MinLength,
+} from 'class-validator';
+import { UserRole } from '../enums/user-role.enum';
 
 export class UpdateUserDto {
   @IsOptional()
-  @IsEmail({}, { message: 'Adresse email invalide' })
+  @IsEmail()
   email?: string;
 
   @IsOptional()
   @IsString()
   @Length(1, 150)
-  name?: string;
+  nom?: string;
 
   @IsOptional()
-  @IsEnum(UserRole, { message: 'Rôle invalide' })
+  @IsEnum(UserRole)
   role?: UserRole;
 
   @IsOptional()
   @IsString()
-  techLevel?: string;
+  @Length(1, 50)
+  niveauTechnique?: string;
 
   @IsOptional()
   @IsString()
-  businessLevel?: string;
+  @Length(1, 50)
+  niveauMetier?: string;
 
   @IsOptional()
   @IsString()
+  @MinLength(8)
   password?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  actif?: boolean;
 }

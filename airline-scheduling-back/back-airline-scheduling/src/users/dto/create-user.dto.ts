@@ -1,23 +1,37 @@
-import { IsEmail, IsEnum, IsNotEmpty, IsString, MinLength } from 'class-validator';
-import { UserRole } from '../entities/user.entity'; // Ajustez le chemin selon votre structure
+import {
+  IsEmail,
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Length,
+  MinLength,
+} from 'class-validator';
+import { UserRole } from '../enums/user-role.enum';
 
 export class CreateUserDto {
-  @IsEmail({}, { message: 'Adresse email invalide' })
-  @IsNotEmpty({ message: 'L\'email est obligatoire' })
+  @IsEmail()
   email!: string;
 
-  @IsString({ message: 'Le mot de passe doit être une chaîne de caractères' })
-  @IsNotEmpty({ message: 'Le mot de passe est obligatoire' })
-  @MinLength(6, { message: 'Le mot de passe doit contenir au moins 6 caractères' })
+  @IsString()
+  @MinLength(8)
   password!: string;
 
-  @IsString({ message: 'Le nom doit être une chaîne de caractères' })
-  @IsNotEmpty({ message: 'Le nom est obligatoire' })
+  @IsString()
+  @IsNotEmpty()
+  @Length(1, 150)
   nom!: string;
 
-  @IsEnum(UserRole, {
-    message: 'Rôle invalide',
-  })
-  @IsNotEmpty({ message: 'Le rôle est obligatoire' })
+  @IsEnum(UserRole)
   role!: UserRole;
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 50)
+  niveauTechnique?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 50)
+  niveauMetier?: string;
 }

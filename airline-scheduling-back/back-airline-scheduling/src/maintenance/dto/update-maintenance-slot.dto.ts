@@ -1,13 +1,27 @@
-import { IsEnum, IsOptional, IsString, IsDateString } from 'class-validator';
+import {
+  IsDateString,
+  IsEnum,
+  IsOptional,
+  IsString,
+  IsUUID,
+} from 'class-validator';
+import {
+  MaintenanceStatus,
+  MaintenanceType,
+} from '../../common/enums/airline.enums';
 
 export class UpdateMaintenanceSlotDto {
   @IsOptional()
-  @IsString()
+  @IsUUID()
   aircraftId?: string;
 
   @IsOptional()
-  @IsEnum(['Type A', 'Type C', 'Aircraft On Ground'])
-  maintenanceType?: 'Type A' | 'Type C' | 'Aircraft On Ground';
+  @IsEnum(MaintenanceType)
+  maintenanceType?: MaintenanceType;
+
+  @IsOptional()
+  @IsEnum(MaintenanceStatus)
+  status?: MaintenanceStatus;
 
   @IsOptional()
   @IsDateString()

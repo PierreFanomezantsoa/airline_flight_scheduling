@@ -1,36 +1,52 @@
-import { IsString, IsNotEmpty, IsDateString, IsEnum, IsOptional, Length } from 'class-validator';
+import {
+  IsDateString,
+  IsEnum,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Length,
+  Matches,
+  Min,
+} from 'class-validator';
+import { FlightStatus } from '../../common/enums/airline.enums';
 
 export class CreateFlightDto {
   @IsString()
-  @IsNotEmpty({ message: 'Le numéro de vol est obligatoire.' })
-  @Length(2, 50, { message: 'Le numéro de vol doit contenir entre 2 et 50 caractères.' })
+  @IsNotEmpty()
+  @Length(2, 20)
   numeroVol!: string;
 
   @IsString()
-  @IsNotEmpty({ message: "L'aéroport de départ est obligatoire." })
-  @Length(3, 10, { message: "Le code de l'aéroport de départ est invalide (ex: CDG, TNR)." })
+  @Matches(/^[A-Za-z]{3}$/)
   aeroportDepart!: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty({ message: "L'aéroport d'arrivée est obligatoire." })
-  @Length(3, 10, { message: "Le code de l'aéroport d'arrivée est invalide (ex: JFK, ORY)." })
+  @Length(3, 100)
+  aeroportEscale?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  dureeEscale?: number;
+
+  @IsString()
+  @Matches(/^[A-Za-z]{3}$/)
   aeroportArrivee!: string;
 
-  @IsDateString({}, { message: "L'heure de départ doit être une date ISO 8601 valide (ex: 2026-07-28T08:00:00Z)." })
-  @IsNotEmpty({ message: "L'heure de départ est obligatoire." })
+  @IsDateString()
   heureDepart!: string;
 
-  @IsDateString({}, { message: "L'heure d'arrivée doit être une date ISO 8601 valide (ex: 2026-07-28T10:30:00Z)." })
-  @IsNotEmpty({ message: "L'heure d'arrivée est obligatoire." })
+  @IsDateString()
   heureArrivee!: string;
 
   @IsOptional()
-  @IsEnum(['Scheduled', 'Delayed', 'Cancelled', 'In-Flight', 'Effectué'], {
-    message: 'Le statut fourni doit être : Scheduled, Delayed, Cancelled, In-Flight ou Effectué.',
-  })
-  statut?: 'Scheduled' | 'Delayed' | 'Cancelled' | 'In-Flight' | 'Effectué';
+  @IsEnum(FlightStatus)
+  statut?: FlightStatus;
 
-  @IsString()
   @IsOptional()
-  avionId?: string; // UUID ou ID de l'avion lié
+  @IsUUID()
+  avionId?: string;
 }

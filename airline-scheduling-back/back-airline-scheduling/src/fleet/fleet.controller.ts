@@ -1,122 +1,88 @@
 import {
-  Controller,
-  Get,
-  Post,
-  Patch,
-  Delete,
-  Body,
-  Param,
-  NotFoundException,
   BadRequestException,
-  HttpCode,
-  HttpStatus,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
 } from '@nestjs/common';
-import { FleetService } from './fleet.service';
-import { CreateAircraftDto } from './dto/create-aircraft.dto';
-import { UpdateAircraftDto } from './dto/update-aircraft.dto';
+import { AircraftStatus } from '../common/enums/airline.enums';
 import { CreateAircraftTypeDto } from './dto/create-aircraft-type.dto';
+import { CreateAircraftDto } from './dto/create-aircraft.dto';
 import { UpdateAircraftTypeDto } from './dto/update-aircraft-type.dto';
+import { UpdateAircraftDto } from './dto/update-aircraft.dto';
+import { FleetService } from './fleet.service';
 
 @Controller('fleet')
 export class FleetController {
   constructor(private readonly fleetService: FleetService) {}
 
-  // ==================== ENDPOINTS AVIONS ====================
-
   @Get('aircrafts')
-  trouverTousLesAvions() {
-    return this.fleetService.trouverTous();
-  }
+  findAll() { return this.fleetService.findAll(); }
 
   @Get('aircrafts/statistics')
-  obtenirStatistiquesFlotte() {
-    return this.fleetService.obtenirStatistiquesFlotte();
-  }
+  statistics() { return this.fleetService.statistics(); }
 
-  @Get('aircrafts/status/:statut')
-  trouverAvionsParStatut(@Param('statut') statut: string) {
-    const statutsValides = ['Active', 'Maintenance', 'Out of Service', 'Retired'];
-    if (!statutsValides.includes(statut)) {
-      throw new BadRequestException(`Statut invalide. Doit etre l'un des suivants : ${statutsValides.join(', ')}`);
+  @Get('aircrafts/status/:status')
+  findByStatus(@Param('status') status: string) {
+    if (!Object.values(AircraftStatus).includes(status as AircraftStatus)) {
+      throw new BadRequestException(`Statut d'avion invalide: ${status}`);
     }
-    return this.fleetService.trouverParStatut(statut as any);
+    return this.fleetService.findByStatus(status as AircraftStatus);
   }
 
-  @Get('aircrafts/home-base/:baseAttache')
-  trouverAvionsParBaseAttache(@Param('baseAttache') baseAttache: string) {
-    return this.fleetService.trouverParBaseAttache(baseAttache);
-  }
+  @Get('aircrafts/home-base/:base')
+  findByHomeBase(@Param('base') base: string) { return this.fleetService.findByHomeBase(base); }
 
-  @Get('aircrafts/registration/:immatriculation')
-  async trouverAvionParImmatriculation(@Param('immatriculation') immatriculation: string) {
-    return this.fleetService.trouverParImmatriculation(immatriculation);
+  @Get('aircrafts/registration/:registration')
+  findByRegistration(@Param('registration') registration: string) {
+    return this.fleetService.findByRegistration(registration);
   }
 
   @Get('aircrafts/:id')
-  async trouverUnAvion(@Param('id') id: string) {
-    const avion = await this.fleetService.trouverUn(id);
-    if (!avion) {
-      throw new NotFoundException(`Avion avec l'id ${id} non trouve`);
-    }
-    return avion;
-  }
+  findOne(@Param('id', ParseUUIDPipe) id: string) { return this.fleetService.findOne(id); }
 
   @Post('aircrafts')
-  @HttpCode(HttpStatus.CREATED)
-  creerAvion(@Body() createAircraftDto: CreateAircraftDto) {
-    return this.fleetService.creer(createAircraftDto);
-  }
+  create(@Body() dto: CreateAircraftDto) { return this.fleetService.create(dto); }
 
   @Patch('aircrafts/:id')
-  modifierAvion(@Param('id') id: string, @Body() updateAircraftDto: UpdateAircraftDto) {
-    return this.fleetService.modifier(id, updateAircraftDto);
+  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateAircraftDto) {
+    return this.fleetService.update(id, dto);
   }
 
   @Delete('aircrafts/:id')
-  @HttpCode(HttpStatus.OK)
-  supprimerAvion(@Param('id') id: string) {
-    return this.fleetService.supprimer(id);
-  }
+  retire(@Param('id', ParseUUIDPipe) id: string) { return this.fleetService.retire(id); }
 
   @Patch('aircrafts/:id/maintenance/reset')
-  reinitialiserMaintenance(@Param('id') id: string) {
-    return this.fleetService.reinitialiserCompteurMaintenance(id);
+  resetMaintenance(@Param('id', ParseUUIDPipe) id: string) {
+    return this.fleetService.resetMaintenanceCounter(id);
   }
 
-  @Patch('aircrafts/:id/maintenance/update')
-  mettreAJourStatutMaintenance(@Param('id') id: string, @Body('heuresVolees') heuresVolees: number) {
-    if (!heuresVolees || heuresVolees <= 0) {
-      throw new BadRequestException('heuresVolees doit etre un nombre positif');
-    }
-    return this.fleetService.mettreAJourStatutMaintenance(id, heuresVolees);
+  @Patch('aircrafts/:id/flight-hours')
+  addFlightHours(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body('heuresVolees') heuresVolees: number,
+  ) {
+    return this.fleetService.addFlightHours(id, heuresVolees);
   }
-
-  // ==================== ENDPOINTS TYPES D'AVION ====================
 
   @Get('types')
-  trouverTousLesTypes() {
-    return this.fleetService.trouverTousLesTypes();
-  }
+  findAllTypes() { return this.fleetService.findAllTypes(); }
 
   @Get('types/:id')
-  async trouverUnType(@Param('id') id: string) {
-    return this.fleetService.trouverUnType(id);
-  }
+  findType(@Param('id', ParseUUIDPipe) id: string) { return this.fleetService.findType(id); }
 
   @Post('types')
-  @HttpCode(HttpStatus.CREATED)
-  creerType(@Body() createAircraftTypeDto: CreateAircraftTypeDto) {
-    return this.fleetService.creerType(createAircraftTypeDto);
-  }
+  createType(@Body() dto: CreateAircraftTypeDto) { return this.fleetService.createType(dto); }
 
   @Patch('types/:id')
-  modifierType(@Param('id') id: string, @Body() updateAircraftTypeDto: UpdateAircraftTypeDto) {
-    return this.fleetService.modifierType(id, updateAircraftTypeDto);
+  updateType(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateAircraftTypeDto) {
+    return this.fleetService.updateType(id, dto);
   }
 
   @Delete('types/:id')
-  @HttpCode(HttpStatus.OK)
-  supprimerType(@Param('id') id: string) {
-    return this.fleetService.supprimerType(id);
-  }
+  deleteType(@Param('id', ParseUUIDPipe) id: string) { return this.fleetService.deleteType(id); }
 }

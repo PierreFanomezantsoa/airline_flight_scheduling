@@ -1,4 +1,11 @@
-import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  OneToMany,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 import { Aircraft } from './aircraft.entity';
 
 @Entity('aircraft_types')
@@ -9,28 +16,31 @@ export class AircraftType {
   @Column({ type: 'varchar', length: 100, unique: true })
   nomModele!: string;
 
-  @Column({ type: 'varchar', length: 50 })
+  @Column({ type: 'varchar', length: 80 })
   fabricant!: string;
 
   @Column({ type: 'int' })
   capaciteMax!: number;
 
+  /** km/h */
   @Column({ type: 'double precision' })
   vitesseCroisiere!: number;
 
+  /** km */
   @Column({ type: 'double precision' })
   autonomieMax!: number;
 
+  /** Unité à définir dans votre référentiel métier, ex. kg/h ou L/h. */
   @Column({ type: 'double precision' })
   consommationCarburant!: number;
 
   @Column({ type: 'double precision' })
   intervalleMaintenanceHeures!: number;
 
-  @Column({ type: 'timestamp with time zone', default: () => 'CURRENT_TIMESTAMP' })
+  @CreateDateColumn({ type: 'timestamptz' })
   creeA!: Date;
 
-  @Column({ type: 'timestamp with time zone', default: () => 'CURRENT_TIMESTAMP', onUpdate: 'CURRENT_TIMESTAMP' })
+  @UpdateDateColumn({ type: 'timestamptz' })
   misAJourA!: Date;
 
   @OneToMany(() => Aircraft, (aircraft) => aircraft.type)

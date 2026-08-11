@@ -1,38 +1,26 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, NotFoundException } from '@nestjs/common';
-import { MaintenanceService } from './maintenance.service';
+import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
 import { CreateMaintenanceSlotDto } from './dto/create-maintenance-slot.dto';
 import { UpdateMaintenanceSlotDto } from './dto/update-maintenance-slot.dto';
+import { MaintenanceService } from './maintenance.service';
 
 @Controller('maintenance')
 export class MaintenanceController {
   constructor(private readonly maintenanceService: MaintenanceService) {}
 
   @Get()
-  findAll() {
-    return this.maintenanceService.findAll();
-  }
+  findAll() { return this.maintenanceService.findAll(); }
 
   @Get(':id')
-  async findOne(@Param('id') id: string) {
-    const slot = await this.maintenanceService.findOne(id);
-    if (!slot) {
-      throw new NotFoundException(`Maintenance slot with id ${id} not found`);
-    }
-    return slot;
-  }
+  findOne(@Param('id', ParseUUIDPipe) id: string) { return this.maintenanceService.findOne(id); }
 
   @Post()
-  create(@Body() createMaintenanceSlotDto: CreateMaintenanceSlotDto) {
-    return this.maintenanceService.create(createMaintenanceSlotDto);
-  }
+  create(@Body() dto: CreateMaintenanceSlotDto) { return this.maintenanceService.create(dto); }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateMaintenanceSlotDto: UpdateMaintenanceSlotDto) {
-    return this.maintenanceService.update(id, updateMaintenanceSlotDto);
+  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateMaintenanceSlotDto) {
+    return this.maintenanceService.update(id, dto);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.maintenanceService.remove(id);
-  }
+  remove(@Param('id', ParseUUIDPipe) id: string) { return this.maintenanceService.remove(id); }
 }

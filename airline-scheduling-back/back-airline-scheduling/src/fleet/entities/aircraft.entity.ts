@@ -1,9 +1,21 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, Index } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  Index,
+  JoinColumn,
+  ManyToOne,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from 'typeorm';
+import { AircraftStatus } from '../../common/enums/airline.enums';
 import { AircraftType } from './aircraft-type.entity';
 
 @Entity('aircrafts')
-@Index(['immatriculation'])
-@Index(['type'])
+@Index(['immatriculation'], { unique: true })
+@Index(['statut'])
+@Index(['baseAttache'])
+@Index(['typeId'])
 export class Aircraft {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
@@ -11,36 +23,44 @@ export class Aircraft {
   @Column({ type: 'varchar', length: 20, unique: true })
   immatriculation!: string;
 
+  /** Copie lisible du modèle, synchronisée avec type.nomModele si typeId existe. */
   @Column({ type: 'varchar', length: 100 })
   modele!: string;
 
   @Column({ type: 'int' })
   capacite!: number;
 
-  @Column({ type: 'double precision', default: 0.0 })
+  @Column({ type: 'double precision', default: 0 })
   heuresDeVolTotales!: number;
 
   @Column({ type: 'double precision' })
   limiteHeuresMaintenance!: number;
 
-  @Column({ type: 'varchar', length: 50, default: 'Active' })
-  statut!: 'Active' | 'Maintenance' | 'Out of Service' | 'Retired';
-
-  @Column({ type: 'timestamp with time zone', nullable: true })
-  dateDerniereMaintenance!: Date | null;
-
-  @Column({ type: 'double precision', default: 0.0 })
+  @Column({ type: 'double precision', default: 0 })
   heuresDepuisDerniereMaintenance!: number;
 
-  @Column({ type: 'varchar', length: 50, nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
+  dateDerniereMaintenance!: Date | null;
+
+  @Column({ type: 'enum', enum: AircraftStatus, default: AircraftStatus.ACTIVE })
+  statut!: AircraftStatus;
+
+  @Column({ type: 'varchar', length: 3, nullable: true })
   baseAttache!: string | null;
 
-  @Column({ type: 'timestamp with time zone', default: () => 'CURRENT_TIMESTAMP' })
+  @Column({ type: 'uuid', nullable: true })
+  typeId!: string | null;
+
+  @ManyToOne(() => AircraftType, (type) => type.avions, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
+  @JoinColumn({ name: 'typeId' })
+  type!: AircraftType | null;
+
+  @CreateDateColumn({ type: 'timestamptz' })
   creeA!: Date;
 
-  @Column({ type: 'timestamp with time zone', default: () => 'CURRENT_TIMESTAMP', onUpdate: 'CURRENT_TIMESTAMP' })
+  @UpdateDateColumn({ type: 'timestamptz' })
   misAJourA!: Date;
-
-  @ManyToOne(() => AircraftType, (type) => type.avions, { nullable: true })
-  type!: AircraftType | null;
 }

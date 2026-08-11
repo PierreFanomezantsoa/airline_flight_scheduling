@@ -1,9 +1,21 @@
-import { IsNumber, IsOptional, IsString, Length, IsEnum } from 'class-validator';
+import {
+  IsEnum,
+  IsInt,
+  IsNumber,
+  IsOptional,
+  IsPositive,
+  IsString,
+  IsUUID,
+  Length,
+  Matches,
+  Min,
+} from 'class-validator';
+import { AircraftStatus } from '../../common/enums/airline.enums';
 
 export class UpdateAircraftDto {
   @IsOptional()
   @IsString()
-  @Length(1, 20)
+  @Length(2, 20)
   immatriculation?: string;
 
   @IsOptional()
@@ -12,31 +24,30 @@ export class UpdateAircraftDto {
   modele?: string;
 
   @IsOptional()
-  @IsNumber()
+  @IsInt()
+  @Min(1)
   capacite?: number;
 
   @IsOptional()
   @IsNumber()
+  @IsPositive()
   limiteHeuresMaintenance?: number;
 
   @IsOptional()
   @IsNumber()
+  @Min(0)
   heuresDeVolTotales?: number;
 
   @IsOptional()
-  @IsEnum(['Active', 'Maintenance', 'Out of Service', 'Retired'])
-  statut?: 'Active' | 'Maintenance' | 'Out of Service' | 'Retired';
+  @IsEnum(AircraftStatus)
+  statut?: AircraftStatus;
 
   @IsOptional()
   @IsString()
-  @Length(1, 50)
-  baseAttache?: string;
+  @Matches(/^[A-Za-z]{3}$/)
+  baseAttache?: string | null;
 
   @IsOptional()
-  @IsNumber()
-  heuresDepuisDerniereMaintenance?: number;
-
-  @IsOptional()
-  @IsString()
-  typeId?: string;
+  @IsUUID()
+  typeId?: string | null;
 }

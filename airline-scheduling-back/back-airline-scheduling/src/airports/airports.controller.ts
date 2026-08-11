@@ -1,24 +1,23 @@
-import { Controller, Get, Post, Body, Param } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { AirportsService } from './airports.service';
-import { CreateAirportDto } from './create-airport.dto';
-import { Airport } from './airport.entity';
+import { CreateAirportDto } from './dto/create-airport.dto';
 
 @Controller('airports')
 export class AirportsController {
   constructor(private readonly airportsService: AirportsService) {}
 
   @Get()
-  async findAll(): Promise<Airport[]> {
+  findAll() {
     return this.airportsService.findAll();
   }
 
   @Get(':iata')
-  async findOne(@Param('iata') iata: string): Promise<Airport> {
+  findOne(@Param('iata') iata: string) {
     return this.airportsService.findOne(iata);
   }
 
   @Post()
-  async create(@Body() createAirportDto: CreateAirportDto): Promise<Airport> {
-    return this.airportsService.create(createAirportDto);
+  create(@Body() dto: CreateAirportDto) {
+    return this.airportsService.create(dto);
   }
 }

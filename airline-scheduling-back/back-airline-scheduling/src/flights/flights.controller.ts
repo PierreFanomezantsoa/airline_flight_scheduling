@@ -1,76 +1,56 @@
-import { 
-  Controller, 
-  Get, 
-  Post, 
-  Patch,
+import {
+  Body,
+  Controller,
   Delete,
-  Param, 
-  Body, 
-  ParseUUIDPipe, 
-  HttpCode, 
-  HttpStatus 
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
 } from '@nestjs/common';
-import { FlightsService } from './flights.service';
-import { Flight } from './entities/flight.entity';
+import { AircraftAvailabilityQueryDto } from '../scheduling/dto/aircraft-availability-query.dto';
 import { CreateFlightDto } from './dto/create-flight.dto';
 import { UpdateFlightDto } from './dto/update-flight.dto';
+import { FlightsService } from './flights.service';
 
 @Controller('flights')
 export class FlightsController {
   constructor(private readonly flightsService: FlightsService) {}
 
-  /**
-   * Récupère la liste de tous les vols
-   */
   @Get()
-  async findAll(): Promise<Flight[]> {
-    return this.flightsService.findAll();
-  }
+  findAll() { return this.flightsService.findAll(); }
 
-  /**
-   * Lance l'optimisation automatique et la résolution de conflits
-   * ⚠️ Placé avant ':id' pour éviter les conflits de routage Express/Nest
-   */
+  @Get('conflicts')
+  detectConflicts() { return this.flightsService.detectConflicts(); }
+
   @Post('optimize')
   @HttpCode(HttpStatus.OK)
-  async triggerOptimization() {
-    return this.flightsService.runAutoOptimization();
+  optimize() { return this.flightsService.optimize(); }
+
+  @Get('availability/aircraft')
+  availableAircraft(@Query() query: AircraftAvailabilityQueryDto) {
+    return this.flightsService.availableAircraft(query);
   }
 
-  /**
-   * Récupère un vol spécifique par son UUID
-   */
+  @Post('validate')
+  @HttpCode(HttpStatus.OK)
+  validate(@Body() dto: CreateFlightDto) { return this.flightsService.validate(dto); }
+
   @Get(':id')
-  async findOne(@Param('id', ParseUUIDPipe) id: string): Promise<Flight> {
-    return this.flightsService.findOne(id);
-  }
+  findOne(@Param('id', ParseUUIDPipe) id: string) { return this.flightsService.findOne(id); }
 
-  /**
-   * Crée un nouveau vol avec détection préventive de conflits
-   */
   @Post()
-  @HttpCode(HttpStatus.CREATED)
-  async create(@Body() createFlightDto: CreateFlightDto): Promise<Flight> {
-    return this.flightsService.create(createFlightDto);
-  }
+  create(@Body() dto: CreateFlightDto) { return this.flightsService.create(dto); }
 
-  /**
-   * Met à jour un vol existant
-   */
   @Patch(':id')
-  async update(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() updateFlightDto: UpdateFlightDto,
-  ): Promise<Flight> {
-    return this.flightsService.update(id, updateFlightDto);
+  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateFlightDto) {
+    return this.flightsService.update(id, dto);
   }
 
-  /**
-   * Supprime un vol de la base de données
-   */
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
-    return this.flightsService.remove(id);
-  }
+  remove(@Param('id', ParseUUIDPipe) id: string) { return this.flightsService.remove(id); }
 }
