@@ -4,6 +4,7 @@ from .airports_routes import airports_bp
 from .flights_routes import flights_bp
 from .fleet_routes import fleet_bp
 from .analytics_routes import analytics_bp
+from .automatic_schedule_routes import auto_schedule_bp
 
 # Nouveau module IA / arbre de décision pour les conflits
 from .ml_conflicts_routes import ml_conflicts_bp
@@ -23,6 +24,7 @@ ALL_BLUEPRINTS = [
     fleet_bp,
     ml_conflicts_bp,
     analytics_bp,
+    auto_schedule_bp,
 ]
 
 

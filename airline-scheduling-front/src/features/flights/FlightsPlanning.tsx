@@ -861,7 +861,7 @@ export const FlightsPlanning: React.FC = () => {
               <CalendarDays className="h-5 w-5" />
             </div>
             <h2 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight uppercase">
-              Ordonnancement &amp; Régulation des Vols
+              Ordonnancement et  Régulation des Vols
             </h2>
           </div>
           <p className="text-xs sm:text-sm text-slate-500 font-medium">
@@ -878,7 +878,7 @@ export const FlightsPlanning: React.FC = () => {
                 <CloudRain className="h-3 w-3 text-emerald-700" />
               )}
 
-              IA météo{' '}
+              météo{' '}
               {weatherLastUpdatedAt
                 ? weatherLastUpdatedAt.toLocaleTimeString('fr-FR', {
                     hour: '2-digit',
@@ -1010,7 +1010,7 @@ export const FlightsPlanning: React.FC = () => {
       <div className="rounded-2xl border border-slate-200/80 bg-white overflow-hidden shadow-xs">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
           <h3 className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-widest text-slate-500">
-            <Globe className="h-4 w-4 text-teal-600" /> Routes Actives &amp; État Opérationnel
+            <Globe className="h-4 w-4 text-teal-600" /> Routes Actives et État Opérationnel
           </h3>
           <span className="text-xs font-bold text-slate-400">
             {filteredFlights.length} vol{filteredFlights.length > 1 ? 's' : ''} affiché{filteredFlights.length > 1 ? 's' : ''}

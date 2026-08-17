@@ -1,20 +1,69 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { 
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie 
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
+
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+  PieChart,
+  Pie,
 } from 'recharts';
-import { 
-  Plane, Cpu, RefreshCw, AlertTriangle, CheckCircle2, Calendar, 
-  BarChart3, Layers, Search, ShieldCheck, Zap, X, Filter
+
+import {
+  Plane,
+  Cpu,
+  RefreshCw,
+  AlertTriangle,
+  CheckCircle2,
+  Calendar,
+  BarChart3,
+  Layers,
+  Search,
+  ShieldCheck,
+  Zap,
+  X,
+  Filter,
+  Play,
+  RotateCcw,
+  SlidersHorizontal,
+  WandSparkles,
 } from 'lucide-react';
 
-// Configuration dynamique de l'URL de l'API
-// Remplacer la constante API_BASE_URL par :
-const API_BASE_URL = 
-  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL) ||
-  (typeof globalThis !== 'undefined' && (globalThis as any).process?.env?.REACT_APP_API_BASE_URL) ||
+/* ============================================================================
+ * CONFIGURATION
+ * ========================================================================== */
+
+const API_BASE_URL =
+  (typeof import.meta !== 'undefined' &&
+    import.meta.env?.VITE_API_BASE_URL) ||
+  (typeof globalThis !== 'undefined' &&
+    (globalThis as any).process?.env?.REACT_APP_API_BASE_URL) ||
   'http://localhost:5000';
 
-export type FlightStatus = 'Planifié' | 'En Vol' | 'Retardé' | 'Annulé' | 'Effectué';
+const AUTO_SCHEDULE_GENERATE_ENDPOINT =
+  '/flights/auto-schedule/generate';
+
+const AUTO_SCHEDULE_GANTT_ENDPOINT =
+  '/flights/auto-schedule/gantt';
+
+/* ============================================================================
+ * TYPES
+ * ========================================================================== */
+
+export type FlightStatus =
+  | 'Planifié'
+  | 'En Vol'
+  | 'Retardé'
+  | 'Annulé'
+  | 'Effectué';
 
 export interface Flight {
   id: string;
@@ -23,10 +72,13 @@ export interface Flight {
   destination: string;
   departure: string;
   arrival: string;
-  status: FlightStatus;
+  localDeparture?: string | null;
+  localArrival?: string | null;
+  durationMinutes?: number | null;
+  status: FlightStatus | string;
   aircraft?: string;
   aircraftModel?: string;
-  weatherSeverity?: number;
+  weatherSeverity?: number | null;
 }
 
 export interface AnalyticsMetrics {
@@ -48,744 +100,2547 @@ interface StatusConfigItem {
   dot: string;
 }
 
+interface GanttRow {
+  aircraftId: string;
+  aircraftRegistration: string;
+  capacity?: number | null;
+  base?: string | null;
+  status?: string | null;
+}
+
+interface GanttItem {
+  id: string;
+  flightId: string;
+  flightNumber?: string | null;
+  rowId: string;
+  aircraftRegistration?: string | null;
+  start: string;
+  end: string;
+  localStart?: string | null;
+  localEnd?: string | null;
+  origin?: string | null;
+  destination?: string | null;
+  durationMinutes?: number | null;
+  label?: string | null;
+  status?: string | null;
+  shiftMinutes?: number;
+}
+
+interface GanttPayload {
+  timezone?: string;
+  rows: GanttRow[];
+  items: GanttItem[];
+}
+
+interface AutoScheduleMetrics {
+  totalFlights: number;
+  assignedFlights: number;
+  unassignedFlights: number;
+  shiftedFlights?: number;
+  directAssignments?: number;
+  operationalAircraft?: number;
+}
+
+interface AutoScheduleAssignment {
+  flightId: string;
+  flightNumber?: string | null;
+  aircraftId: string;
+  aircraftRegistration?: string | null;
+  origin?: string | null;
+  destination?: string | null;
+  originalDeparture?: string;
+  originalArrival?: string;
+  departure: string;
+  arrival: string;
+  localDeparture?: string | null;
+  localArrival?: string | null;
+  durationMinutes?: number;
+  shiftMinutes?: number;
+  reason?: string;
+}
+
+interface AutoScheduleUnassigned {
+  flightId: string;
+  flightNumber?: string | null;
+  origin?: string | null;
+  destination?: string | null;
+  departure?: string;
+  arrival?: string;
+  reason?: string;
+}
+
+interface AutoScheduleResponse {
+  status: string;
+  message?: string;
+  generatedAt?: string;
+  strategy?: string;
+  applied?: boolean;
+  turnaroundMinutes?: number;
+  shiftStepMinutes?: number;
+  maxShiftMinutes?: number;
+  assignments?: AutoScheduleAssignment[];
+  unassigned?: AutoScheduleUnassigned[];
+  metrics: AutoScheduleMetrics;
+  gantt: GanttPayload;
+}
+
+interface AutoScheduleOptions {
+  horizonDays: number;
+  turnaroundMinutes: number;
+  shiftStepMinutes: number;
+  maxShiftMinutes: number;
+}
+
+interface MessageState {
+  text: string;
+  type: 'success' | 'error' | 'info';
+}
+
+/* ============================================================================
+ * STATUS / FORMAT HELPERS
+ * ========================================================================== */
+
 const STATUS_CONFIG: Record<FlightStatus, StatusConfigItem> = {
-  'Planifié': { 
-    bg: 'bg-blue-50/90 hover:bg-blue-100/90', 
-    border: 'border-blue-300', 
-    text: 'text-blue-900', 
+  Planifié: {
+    bg: 'bg-blue-50/90 hover:bg-blue-100/90',
+    border: 'border-blue-300',
+    text: 'text-blue-900',
     bar: '#2563eb',
     badgeBg: 'bg-blue-50 text-blue-700 border-blue-200',
-    dot: 'bg-blue-500'
+    dot: 'bg-blue-500',
   },
-  'En Vol': { 
-    bg: 'bg-amber-50/90 hover:bg-amber-100/90', 
-    border: 'border-amber-300', 
-    text: 'text-amber-900', 
+  'En Vol': {
+    bg: 'bg-amber-50/90 hover:bg-amber-100/90',
+    border: 'border-amber-300',
+    text: 'text-amber-900',
     bar: '#d97706',
     badgeBg: 'bg-amber-50 text-amber-700 border-amber-200',
-    dot: 'bg-amber-500 animate-pulse'
+    dot: 'bg-amber-500 animate-pulse',
   },
-  'Retardé': { 
-    bg: 'bg-orange-50/90 hover:bg-orange-100/90', 
-    border: 'border-orange-300', 
-    text: 'text-orange-900', 
+  Retardé: {
+    bg: 'bg-orange-50/90 hover:bg-orange-100/90',
+    border: 'border-orange-300',
+    text: 'text-orange-900',
     bar: '#ea580c',
     badgeBg: 'bg-orange-50 text-orange-700 border-orange-200',
-    dot: 'bg-orange-500'
+    dot: 'bg-orange-500',
   },
-  'Annulé': { 
-    bg: 'bg-rose-50/90 hover:bg-rose-100/90', 
-    border: 'border-rose-300', 
-    text: 'text-rose-900', 
+  Annulé: {
+    bg: 'bg-rose-50/90 hover:bg-rose-100/90',
+    border: 'border-rose-300',
+    text: 'text-rose-900',
     bar: '#dc2626',
     badgeBg: 'bg-rose-50 text-rose-700 border-rose-200',
-    dot: 'bg-rose-500'
+    dot: 'bg-rose-500',
   },
-  'Effectué': { 
-    bg: 'bg-emerald-50/90 hover:bg-emerald-100/90', 
-    border: 'border-emerald-300', 
-    text: 'text-emerald-900', 
+  Effectué: {
+    bg: 'bg-emerald-50/90 hover:bg-emerald-100/90',
+    border: 'border-emerald-300',
+    text: 'text-emerald-900',
     bar: '#10b981',
     badgeBg: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    dot: 'bg-emerald-500'
+    dot: 'bg-emerald-500',
+  },
+};
+
+const DEFAULT_STATUS_CONFIG =
+  STATUS_CONFIG.Planifié;
+
+const normalizeFlightStatus = (
+  value?: string | null,
+): FlightStatus => {
+  const normalized = String(value ?? '')
+    .trim()
+    .toUpperCase()
+    .replace(/_/g, ' ');
+
+  if (
+    normalized === 'IN-FLIGHT' ||
+    normalized === 'IN FLIGHT' ||
+    normalized === 'EN VOL'
+  ) {
+    return 'En Vol';
   }
+
+  if (
+    normalized === 'DELAYED' ||
+    normalized === 'RETARDÉ' ||
+    normalized === 'RETARDE' ||
+    normalized === 'SHIFTED'
+  ) {
+    return 'Retardé';
+  }
+
+  if (
+    normalized === 'CANCELLED' ||
+    normalized === 'CANCELED' ||
+    normalized === 'ANNULÉ' ||
+    normalized === 'ANNULE'
+  ) {
+    return 'Annulé';
+  }
+
+  if (
+    normalized === 'EFFECTUÉ' ||
+    normalized === 'EFFECTUE' ||
+    normalized === 'DONE' ||
+    normalized === 'COMPLETED' ||
+    normalized === 'LANDED'
+  ) {
+    return 'Effectué';
+  }
+
+  return 'Planifié';
 };
 
-const DEFAULT_STATUS_CONFIG: StatusConfigItem = STATUS_CONFIG['Planifié'];
-
-// Helper pour parser les dates en toute sécurité
-const safeDate = (dateStr?: string): Date | null => {
+const safeDate = (
+  dateStr?: string | null,
+): Date | null => {
   if (!dateStr) return null;
-  const d = new Date(dateStr);
-  return isNaN(d.getTime()) ? null : d;
+
+  const date = new Date(dateStr);
+
+  return Number.isNaN(date.getTime())
+    ? null
+    : date;
 };
 
-// Formateur de date/heure localisé
-const formatDateTime = (dateStr?: string) => {
-  const d = safeDate(dateStr);
-  if (!d) return '--:--';
-  return d.toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
+const formatDateTime = (
+  dateStr?: string | null,
+) => {
+  const date = safeDate(dateStr);
+
+  if (!date) return '--:--';
+
+  return date.toLocaleString(
+    'fr-FR',
+    {
+      dateStyle: 'short',
+      timeStyle: 'short',
+    },
+  );
 };
 
-const formatTimeOnly = (dateStr?: string) => {
-  const d = safeDate(dateStr);
-  if (!d) return '--:--';
-  return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+const formatTimeOnly = (
+  dateStr?: string | null,
+) => {
+  const date = safeDate(dateStr);
+
+  if (!date) return '--:--';
+
+  return date.toLocaleTimeString(
+    'fr-FR',
+    {
+      hour: '2-digit',
+      minute: '2-digit',
+    },
+  );
 };
 
-export const FlightSchedulerDashboard: React.FC = () => {
-  const [flights, setFlights] = useState<Flight[]>([]);
-  const [analytics, setAnalytics] = useState<AnalyticsMetrics | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [optimizing, setOptimizing] = useState<boolean>(false);
-  const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
-  
-  const [searchTerm, setSearchTerm] = useState<string>('');
-  const [selectedStatus, setSelectedStatus] = useState<string>('TOUS');
-  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
+const formatUtcTick = (
+  timestamp: number,
+) =>
+  new Intl.DateTimeFormat(
+    'fr-FR',
+    {
+      timeZone: 'UTC',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    },
+  ).format(
+    new Date(timestamp),
+  );
 
-  // Chargement des données
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [flightsRes, analyticsRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/flights`),
-        fetch(`${API_BASE_URL}/flights/analytics`)
+const formatUtcDay = (
+  timestamp: number,
+) =>
+  new Intl.DateTimeFormat(
+    'fr-FR',
+    {
+      timeZone: 'UTC',
+      day: '2-digit',
+      month: '2-digit',
+    },
+  ).format(
+    new Date(timestamp),
+  );
+
+const getErrorMessage = async (
+  response: Response,
+  fallback: string,
+): Promise<string> => {
+  try {
+    const payload: unknown =
+      await response.json();
+
+    if (
+      payload &&
+      typeof payload === 'object'
+    ) {
+      const data =
+        payload as {
+          message?: string;
+          error?: string;
+        };
+
+      return (
+        data.message ||
+        data.error ||
+        fallback
+      );
+    }
+  } catch {
+    // réponse non JSON
+  }
+
+  return fallback;
+};
+
+const buildFallbackAnalytics = (
+  flights: Flight[],
+): AnalyticsMetrics => {
+  const normalized =
+    flights.map((flight) => ({
+      ...flight,
+      uiStatus:
+        normalizeFlightStatus(
+          flight.status,
+        ),
+    }));
+
+  const onTimeCount =
+    normalized.filter(
+      (flight) =>
+        flight.uiStatus ===
+        'Planifié',
+    ).length;
+
+  const delayedCount =
+    normalized.filter(
+      (flight) =>
+        flight.uiStatus ===
+        'Retardé',
+    ).length;
+
+  const inFlightCount =
+    normalized.filter(
+      (flight) =>
+        flight.uiStatus ===
+        'En Vol',
+    ).length;
+
+  const cancelledCount =
+    normalized.filter(
+      (flight) =>
+        flight.uiStatus ===
+        'Annulé',
+    ).length;
+
+  const completedCount =
+    normalized.filter(
+      (flight) =>
+        flight.uiStatus ===
+        'Effectué',
+    ).length;
+
+  const denominator = Math.max(
+    0,
+    flights.length -
+      cancelledCount -
+      inFlightCount,
+  );
+
+  const otpRate =
+    denominator > 0
+      ? Number(
+          (
+            (onTimeCount /
+              denominator) *
+            100
+          ).toFixed(1),
+        )
+      : 0;
+
+  return {
+    totalFlights: flights.length,
+    otpRate,
+    onTimeCount,
+    delayedCount,
+    inFlightCount,
+    cancelledCount,
+    completedCount,
+  };
+};
+
+/* ============================================================================
+ * COMPONENT
+ * ========================================================================== */
+
+export const FlightSchedulerDashboard: React.FC =
+  () => {
+    const [
+      flights,
+      setFlights,
+    ] = useState<Flight[]>([]);
+
+    const [
+      analytics,
+      setAnalytics,
+    ] =
+      useState<AnalyticsMetrics | null>(
+        null,
+      );
+
+    const [
+      currentGantt,
+      setCurrentGantt,
+    ] =
+      useState<GanttPayload>({
+        rows: [],
+        items: [],
+        timezone: 'UTC',
+      });
+
+    const [
+      currentScheduleMetrics,
+      setCurrentScheduleMetrics,
+    ] =
+      useState<AutoScheduleMetrics>({
+        totalFlights: 0,
+        assignedFlights: 0,
+        unassignedFlights: 0,
+      });
+
+    const [
+      previewScenario,
+      setPreviewScenario,
+    ] =
+      useState<AutoScheduleResponse | null>(
+        null,
+      );
+
+    const [
+      loading,
+      setLoading,
+    ] = useState(false);
+
+    const [
+      generating,
+      setGenerating,
+    ] = useState(false);
+
+    const [
+      applying,
+      setApplying,
+    ] = useState(false);
+
+    const [
+      message,
+      setMessage,
+    ] =
+      useState<MessageState | null>(
+        null,
+      );
+
+    const [
+      searchTerm,
+      setSearchTerm,
+    ] = useState('');
+
+    const [
+      selectedStatus,
+      setSelectedStatus,
+    ] = useState('TOUS');
+
+    const [
+      lastUpdatedAt,
+      setLastUpdatedAt,
+    ] =
+      useState<Date | null>(null);
+
+    const [
+      options,
+      setOptions,
+    ] =
+      useState<AutoScheduleOptions>({
+        horizonDays: 7,
+        turnaroundMinutes: 45,
+        shiftStepMinutes: 15,
+        maxShiftMinutes: 360,
+      });
+
+    /* ------------------------------------------------------------------------
+     * API
+     * ---------------------------------------------------------------------- */
+
+    const fetchData =
+      useCallback(async () => {
+        setLoading(true);
+        setMessage(null);
+
+        try {
+          const ganttUrl =
+            `${API_BASE_URL}${AUTO_SCHEDULE_GANTT_ENDPOINT}` +
+            `?horizonDays=${options.horizonDays}`;
+
+          const [
+            flightsResult,
+            analyticsResult,
+            ganttResult,
+          ] =
+            await Promise.allSettled([
+              fetch(
+                `${API_BASE_URL}/flights`,
+              ),
+              fetch(
+                `${API_BASE_URL}/flights/analytics`,
+              ),
+              fetch(ganttUrl),
+            ]);
+
+          if (
+            flightsResult.status !==
+              'fulfilled' ||
+            !flightsResult.value.ok
+          ) {
+            throw new Error(
+              'Impossible de charger les vols.',
+            );
+          }
+
+          const flightsPayload: unknown =
+            await flightsResult.value.json();
+
+          const flightsList: Flight[] =
+            Array.isArray(
+              flightsPayload,
+            )
+              ? flightsPayload
+              : [];
+
+          setFlights(flightsList);
+
+          if (
+            analyticsResult.status ===
+              'fulfilled' &&
+            analyticsResult.value.ok
+          ) {
+            const payload =
+              await analyticsResult.value.json();
+
+            const metrics =
+              payload?.metrics ?? {};
+
+            setAnalytics({
+              totalFlights:
+                Number(
+                  metrics.totalFlights,
+                ) ||
+                flightsList.length,
+
+              otpRate:
+                Number(
+                  metrics.otpRate,
+                ) || 0,
+
+              onTimeCount:
+                Number(
+                  metrics.onTimeCount,
+                ) || 0,
+
+              delayedCount:
+                Number(
+                  metrics.delayedCount,
+                ) || 0,
+
+              inFlightCount:
+                Number(
+                  metrics.inFlightCount,
+                ) || 0,
+
+              cancelledCount:
+                Number(
+                  metrics.cancelledCount,
+                ) || 0,
+
+              completedCount:
+                Number(
+                  metrics.completedCount ??
+                    metrics.effectueCount,
+                ) || 0,
+            });
+          } else {
+            setAnalytics(
+              buildFallbackAnalytics(
+                flightsList,
+              ),
+            );
+          }
+
+          if (
+            ganttResult.status ===
+              'fulfilled' &&
+            ganttResult.value.ok
+          ) {
+            const payload =
+              await ganttResult.value.json();
+
+            setCurrentGantt(
+              payload?.gantt ?? {
+                rows: [],
+                items: [],
+                timezone: 'UTC',
+              },
+            );
+
+            setCurrentScheduleMetrics(
+              payload?.metrics ?? {
+                totalFlights: 0,
+                assignedFlights: 0,
+                unassignedFlights: 0,
+              },
+            );
+          } else {
+            setCurrentGantt({
+              rows: [],
+              items: [],
+              timezone: 'UTC',
+            });
+          }
+
+          setLastUpdatedAt(
+            new Date(),
+          );
+        } catch (
+          error: unknown
+        ) {
+          setMessage({
+            text:
+              error instanceof Error
+                ? error.message
+                : 'Erreur lors du chargement des données.',
+            type: 'error',
+          });
+        } finally {
+          setLoading(false);
+        }
+      }, [
+        options.horizonDays,
       ]);
 
-      if (!flightsRes.ok || !analyticsRes.ok) {
-        throw new Error("Impossible de récupérer les données du serveur.");
-      }
+    useEffect(() => {
+      void fetchData();
+    }, [fetchData]);
 
-      const flightsData = await flightsRes.json();
-      const analyticsData = await analyticsRes.json();
+    const runAutomaticGeneration =
+      async (
+        apply: boolean,
+      ): Promise<void> => {
+        if (generating || applying) {
+          return;
+        }
 
-      setFlights(Array.isArray(flightsData) ? flightsData : []);
-      setAnalytics(analyticsData.metrics || null);
-      setLastUpdatedAt(new Date());
-    } catch (err: any) {
-      setMessage({ 
-        text: err.message || "Erreur lors du chargement des données", 
-        type: 'error' 
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+        if (apply) {
+          setApplying(true);
+        } else {
+          setGenerating(true);
+        }
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+        setMessage(null);
 
-  // Exécution de l'optimisation
-  const handleRunOptimization = async () => {
-    setOptimizing(true);
-    setMessage(null);
-    try {
-      const response = await fetch(`${API_BASE_URL}/flights/optimize`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
+        try {
+          const response =
+            await fetch(
+              `${API_BASE_URL}${AUTO_SCHEDULE_GENERATE_ENDPOINT}`,
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type':
+                    'application/json',
+                  Accept:
+                    'application/json',
+                },
+                body: JSON.stringify({
+                  ...options,
+                  apply,
+                }),
+              },
+            );
 
-      const result = await response.json();
+          if (!response.ok) {
+            throw new Error(
+              await getErrorMessage(
+                response,
+                'Impossible de générer automatiquement le planning.',
+              ),
+            );
+          }
 
-      if (response.ok) {
-        setMessage({ text: result.message || "Ordonnancement réussi !", type: 'success' });
-        await fetchData();
-      } else {
-        throw new Error(result.message || "Échec de l'optimisation");
-      }
-    } catch (err: any) {
-      setMessage({ text: err.message || "Erreur de communication avec le serveur", type: 'error' });
-    } finally {
-      setOptimizing(false);
-    }
-  };
+          const result: AutoScheduleResponse =
+            await response.json();
 
-  // Filtrage combiné (recherche + statut)
-  const filteredFlights = useMemo(() => {
-    const term = searchTerm.trim().toLowerCase();
-    return flights.filter(flight => {
-      const matchesSearch = !term || 
-        flight.flightNumber.toLowerCase().includes(term) ||
-        flight.origin.toLowerCase().includes(term) ||
-        flight.destination.toLowerCase().includes(term) ||
-        (flight.aircraftModel || flight.aircraft || '').toLowerCase().includes(term);
-      
-      const matchesStatus = selectedStatus === 'TOUS' || flight.status === selectedStatus;
+          if (apply) {
+            setPreviewScenario(null);
 
-      return matchesSearch && matchesStatus;
-    });
-  }, [flights, searchTerm, selectedStatus]);
+            setMessage({
+              text:
+                result.message ||
+                'La programmation générée a été appliquée.',
+              type: 'success',
+            });
 
-  // Calcul des données pour le Diagramme de Gantt
-  const ganttData = useMemo(() => {
-    const defaultResult = {
-      aircrafts: [] as [string, Flight[]][],
-      minTime: 0,
-      maxTime: 0,
-      totalDuration: 1,
-      hourTicks: [] as number[]
-    };
+            await fetchData();
+          } else {
+            setPreviewScenario(
+              result,
+            );
 
-    if (!filteredFlights.length) return defaultResult;
+            const unassigned =
+              result.metrics
+                ?.unassignedFlights ??
+              0;
 
-    const validFlights = filteredFlights.filter(f => {
-      const dep = safeDate(f.departure);
-      const arr = safeDate(f.arrival);
-      return dep && arr && arr.getTime() > dep.getTime();
-    });
+            setMessage({
+              text:
+                unassigned > 0
+                  ? `Scénario généré : ${result.metrics.assignedFlights}/${result.metrics.totalFlights} vols affectés. ${unassigned} vol(s) restent à traiter.`
+                  : result.message ||
+                    'Scénario automatique généré avec succès.',
+              type:
+                unassigned > 0
+                  ? 'info'
+                  : 'success',
+            });
+          }
+        } catch (
+          error: unknown
+        ) {
+          setMessage({
+            text:
+              error instanceof Error
+                ? error.message
+                : 'Erreur de communication avec le générateur automatique.',
+            type: 'error',
+          });
+        } finally {
+          setGenerating(false);
+          setApplying(false);
+        }
+      };
 
-    if (!validFlights.length) return defaultResult;
+    /* ------------------------------------------------------------------------
+     * DATA NORMALIZATION
+     * ---------------------------------------------------------------------- */
 
-    const times = validFlights.flatMap(f => [
-      new Date(f.departure).getTime(),
-      new Date(f.arrival).getTime()
-    ]);
+    const normalizedFlights =
+      useMemo(
+        () =>
+          flights.map(
+            (flight) => ({
+              ...flight,
+              status:
+                normalizeFlightStatus(
+                  flight.status,
+                ),
+            }),
+          ),
+        [flights],
+      );
 
-    const rawMin = Math.min(...times);
-    const rawMax = Math.max(...times);
+    const effectiveAnalytics =
+      useMemo(
+        () =>
+          analytics ??
+          buildFallbackAnalytics(
+            flights,
+          ),
+        [analytics, flights],
+      );
 
-    const minDate = new Date(rawMin);
-    minDate.setHours(0, 0, 0, 0);
-    const minTime = minDate.getTime();
+    const filteredFlights =
+      useMemo(() => {
+        const term =
+          searchTerm
+            .trim()
+            .toLowerCase();
 
-    const maxDate = new Date(rawMax);
-    maxDate.setHours(23, 59, 59, 999);
-    const maxTime = maxDate.getTime();
+        return normalizedFlights.filter(
+          (flight) => {
+            const matchesSearch =
+              !term ||
+              flight.flightNumber
+                .toLowerCase()
+                .includes(term) ||
+              flight.origin
+                .toLowerCase()
+                .includes(term) ||
+              flight.destination
+                .toLowerCase()
+                .includes(term) ||
+              (
+                flight.aircraftModel ||
+                flight.aircraft ||
+                ''
+              )
+                .toLowerCase()
+                .includes(term);
 
-    const totalDuration = Math.max(1, maxTime - minTime);
-    const durationDays = totalDuration / (24 * 3600 * 1000);
+            const matchesStatus =
+              selectedStatus ===
+                'TOUS' ||
+              flight.status ===
+                selectedStatus;
 
-    let stepHours = 6;
-    if (durationDays > 5) stepHours = 12;
-    else if (durationDays > 2) stepHours = 6;
-    else stepHours = 3;
+            return (
+              matchesSearch &&
+              matchesStatus
+            );
+          },
+        );
+      }, [
+        normalizedFlights,
+        searchTerm,
+        selectedStatus,
+      ]);
 
-    const stepMs = stepHours * 3600 * 1000;
+    const activeSchedule =
+      previewScenario?.gantt ??
+      currentGantt;
 
-    const groupedByAircraft = validFlights.reduce((acc: Record<string, Flight[]>, flight) => {
-      const key = flight.aircraftModel || flight.aircraft || 'Non Assigné';
-      if (!acc[key]) acc[key] = [];
-      acc[key].push(flight);
-      return acc;
-    }, {});
+    const activeMetrics =
+      previewScenario?.metrics ??
+      currentScheduleMetrics;
 
-    const hourTicks: number[] = [];
-    for (let t = minTime; t <= maxTime; t += stepMs) {
-      hourTicks.push(t);
-    }
+    const isPreview =
+      previewScenario !== null;
 
-    return {
-      aircrafts: Object.entries(groupedByAircraft),
-      minTime,
-      maxTime,
-      totalDuration,
-      hourTicks
-    };
-  }, [filteredFlights]);
+    const assignmentLookup =
+      useMemo(() => {
+        const map =
+          new Map<
+            string,
+            AutoScheduleAssignment
+          >();
 
-  // Données Donut Chart
-  const pieChartData = useMemo(() => {
-    if (!analytics) return [];
-    return [
-      { name: 'Planifiés', value: analytics.onTimeCount || 0, color: STATUS_CONFIG['Planifié'].bar },
-      { name: 'En Vol', value: analytics.inFlightCount || 0, color: STATUS_CONFIG['En Vol'].bar },
-      { name: 'Retardés', value: analytics.delayedCount || 0, color: STATUS_CONFIG['Retardé'].bar },
-      { name: 'Annulés', value: analytics.cancelledCount || 0, color: STATUS_CONFIG['Annulé'].bar },
-      { name: 'Effectués', value: analytics.completedCount || 0, color: STATUS_CONFIG['Effectué'].bar },
-    ].filter(item => item.value > 0);
-  }, [analytics]);
+        for (
+          const assignment
+          of previewScenario?.assignments ??
+          []
+        ) {
+          map.set(
+            assignment.flightId,
+            assignment,
+          );
+        }
 
-  // Données Bar Chart (Répartition horaire)
-  const barChartData = useMemo(() => {
-    const hourlyData: Record<string, number> = {};
-    
-    filteredFlights.forEach(flight => {
-      const depDate = safeDate(flight.departure);
-      if (!depDate) return;
-      const hourKey = `${depDate.getHours().toString().padStart(2, '0')}h`;
-      hourlyData[hourKey] = (hourlyData[hourKey] || 0) + 1;
-    });
+        return map;
+      }, [
+        previewScenario,
+      ]);
 
-    return Object.keys(hourlyData)
-      .sort((a, b) => parseInt(a, 10) - parseInt(b, 10))
-      .map(hour => ({ hour, vols: hourlyData[hour] }));
-  }, [filteredFlights]);
+    /* ------------------------------------------------------------------------
+     * GANTT DATA — À PARTIR DU BACKEND PYTHON
+     * ---------------------------------------------------------------------- */
 
-  return (
-    <div className="min-h-screen bg-slate-100 p-4 text-slate-800 font-sans antialiased sm:p-6 lg:p-8">
-      <div className="mx-auto max-w-[1600px] space-y-5">
+    const ganttData =
+      useMemo(() => {
+        const term =
+          searchTerm
+            .trim()
+            .toLowerCase();
 
-        {/* EN-TÊTE OCC */}
-        <header className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 lg:p-6">
-          <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
-            <div className="flex min-w-0 items-center gap-3 sm:gap-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-700 text-white shadow-md shadow-emerald-950/15">
-                <Plane className="h-5 w-5 rotate-45" />
-              </div>
+        const filteredItems =
+          (
+            activeSchedule.items ??
+            []
+          ).filter(
+            (item) => {
+              const uiStatus =
+                normalizeFlightStatus(
+                  item.status,
+                );
 
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
+              const matchesStatus =
+                selectedStatus ===
+                  'TOUS' ||
+                uiStatus ===
+                  selectedStatus;
+
+              const matchesSearch =
+                !term ||
+                [
+                  item.flightNumber,
+                  item.origin,
+                  item.destination,
+                  item.aircraftRegistration,
+                  item.label,
+                ]
+                  .filter(Boolean)
+                  .some((value) =>
+                    String(value)
+                      .toLowerCase()
+                      .includes(term),
+                  );
+
+              return (
+                matchesStatus &&
+                matchesSearch
+              );
+            },
+          );
+
+        const itemIdsByRow =
+          new Map<
+            string,
+            GanttItem[]
+          >();
+
+        for (
+          const item
+          of filteredItems
+        ) {
+          const rowItems =
+            itemIdsByRow.get(
+              item.rowId,
+            ) ?? [];
+
+          rowItems.push(item);
+
+          itemIdsByRow.set(
+            item.rowId,
+            rowItems,
+          );
+        }
+
+        const rows =
+          (
+            activeSchedule.rows ??
+            []
+          )
+            .filter((row) =>
+              itemIdsByRow.has(
+                row.aircraftId,
+              ),
+            )
+            .map((row) => ({
+              ...row,
+              items:
+                itemIdsByRow.get(
+                  row.aircraftId,
+                ) ?? [],
+            }));
+
+        const validItems =
+          filteredItems.filter(
+            (item) => {
+              const start =
+                safeDate(item.start);
+
+              const end =
+                safeDate(item.end);
+
+              return Boolean(
+                start &&
+                  end &&
+                  end.getTime() >
+                    start.getTime(),
+              );
+            },
+          );
+
+        if (
+          validItems.length ===
+          0
+        ) {
+          return {
+            rows,
+            minTime: 0,
+            maxTime: 0,
+            totalDuration: 1,
+            hourTicks:
+              [] as number[],
+          };
+        }
+
+        const times =
+          validItems.flatMap(
+            (item) => [
+              new Date(
+                item.start,
+              ).getTime(),
+              new Date(
+                item.end,
+              ).getTime(),
+            ],
+          );
+
+        const rawMin =
+          Math.min(...times);
+
+        const rawMax =
+          Math.max(...times);
+
+        const minDate =
+          new Date(rawMin);
+
+        minDate.setUTCHours(
+          0,
+          0,
+          0,
+          0,
+        );
+
+        const maxDate =
+          new Date(rawMax);
+
+        maxDate.setUTCHours(
+          23,
+          59,
+          59,
+          999,
+        );
+
+        const minTime =
+          minDate.getTime();
+
+        const maxTime =
+          maxDate.getTime();
+
+        const totalDuration =
+          Math.max(
+            1,
+            maxTime - minTime,
+          );
+
+        const durationDays =
+          totalDuration /
+          (24 * 3600 * 1000);
+
+        let stepHours = 3;
+
+        if (
+          durationDays > 7
+        ) {
+          stepHours = 24;
+        } else if (
+          durationDays > 3
+        ) {
+          stepHours = 12;
+        } else if (
+          durationDays > 1
+        ) {
+          stepHours = 6;
+        }
+
+        const stepMs =
+          stepHours *
+          3600 *
+          1000;
+
+        const hourTicks: number[] =
+          [];
+
+        for (
+          let t = minTime;
+          t <= maxTime;
+          t += stepMs
+        ) {
+          hourTicks.push(t);
+        }
+
+        return {
+          rows,
+          minTime,
+          maxTime,
+          totalDuration,
+          hourTicks,
+        };
+      }, [
+        activeSchedule,
+        searchTerm,
+        selectedStatus,
+      ]);
+
+    /* ------------------------------------------------------------------------
+     * CHARTS
+     * ---------------------------------------------------------------------- */
+
+    const pieChartData =
+      useMemo(
+        () =>
+          [
+            {
+              name:
+                'Planifiés',
+              value:
+                effectiveAnalytics.onTimeCount ||
+                0,
+              color:
+                STATUS_CONFIG.Planifié
+                  .bar,
+            },
+            {
+              name: 'En Vol',
+              value:
+                effectiveAnalytics.inFlightCount ||
+                0,
+              color:
+                STATUS_CONFIG[
+                  'En Vol'
+                ].bar,
+            },
+            {
+              name:
+                'Retardés',
+              value:
+                effectiveAnalytics.delayedCount ||
+                0,
+              color:
+                STATUS_CONFIG.Retardé
+                  .bar,
+            },
+            {
+              name: 'Annulés',
+              value:
+                effectiveAnalytics.cancelledCount ||
+                0,
+              color:
+                STATUS_CONFIG.Annulé
+                  .bar,
+            },
+            {
+              name:
+                'Effectués',
+              value:
+                effectiveAnalytics.completedCount ||
+                0,
+              color:
+                STATUS_CONFIG.Effectué
+                  .bar,
+            },
+          ].filter(
+            (item) =>
+              item.value > 0,
+          ),
+        [effectiveAnalytics],
+      );
+
+    const barChartData =
+      useMemo(() => {
+        const hourlyData: Record<
+          string,
+          number
+        > = {};
+
+        filteredFlights.forEach(
+          (flight) => {
+            const departure =
+              safeDate(
+                flight.departure,
+              );
+
+            if (!departure) {
+              return;
+            }
+
+            const hourKey =
+              `${departure
+                .getHours()
+                .toString()
+                .padStart(
+                  2,
+                  '0',
+                )}h`;
+
+            hourlyData[hourKey] =
+              (
+                hourlyData[
+                  hourKey
+                ] || 0
+              ) + 1;
+          },
+        );
+
+        return Object.keys(
+          hourlyData,
+        )
+          .sort(
+            (a, b) =>
+              parseInt(a, 10) -
+              parseInt(b, 10),
+          )
+          .map((hour) => ({
+            hour,
+            vols:
+              hourlyData[
+                hour
+              ],
+          }));
+      }, [
+        filteredFlights,
+      ]);
+
+    const scenarioShifted =
+      previewScenario?.metrics
+        ?.shiftedFlights ?? 0;
+
+    const scenarioUnassigned =
+      previewScenario?.metrics
+        ?.unassignedFlights ??
+      activeMetrics.unassignedFlights ??
+      0;
+
+    /* ------------------------------------------------------------------------
+     * RENDER
+     * ---------------------------------------------------------------------- */
+
+    return (
+      <div className="min-h-screen bg-slate-100 p-4 font-sans text-slate-800 antialiased sm:p-6 lg:p-8">
+        <div className="mx-auto max-w-[1600px] space-y-5">
+          {/* ============================================================= */}
+          {/* HEADER                                                        */}
+          {/* ============================================================= */}
+
+          <header className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 lg:p-6">
+            <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+              <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-700 text-white shadow-md shadow-emerald-950/15">
+                  <Plane className="h-5 w-5 rotate-45" />
+                </div>
+
+                <div className="min-w-0">
                   <h1 className="truncate text-lg font-black tracking-tight text-slate-950 sm:text-xl">
-                    Airline Operations Control
+                    Génération automatique et programmation des vols
                   </h1>
                 </div>
-
-                <p className="mt-1 text-[11px] font-semibold text-slate-500 sm:text-xs">
-                  Supervision temps réel, ponctualité, perturbations et optimisation des rotations
-                </p>
               </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
-              <button
-                onClick={fetchData}
-                disabled={loading || optimizing}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-xs font-black text-slate-700 transition hover:border-emerald-200 hover:bg-emerald-50/60 hover:text-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
-                title="Actualiser les données"
-              >
-                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-                <span>Actualiser</span>
-              </button>
+              <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+                <button
+                  type="button"
+                  onClick={() =>
+                    void fetchData()
+                  }
+                  disabled={
+                    loading ||
+                    generating ||
+                    applying
+                  }
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-xs font-black text-slate-700 transition hover:border-emerald-200 hover:bg-emerald-50/60 hover:text-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <RefreshCw
+                    className={`h-4 w-4 ${
+                      loading
+                        ? 'animate-spin'
+                        : ''
+                    }`}
+                  />
+                  Actualiser
+                </button>
 
-              <button
-                onClick={handleRunOptimization}
-                disabled={optimizing}
-                className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-4 text-xs font-black text-white transition-all shadow-sm ${
-                  optimizing
-                    ? 'cursor-not-allowed border-emerald-400 bg-emerald-400 opacity-80'
-                    : 'cursor-pointer border-emerald-700 bg-emerald-700 hover:border-emerald-800 hover:bg-emerald-800'
-                }`}
-              >
-                <Cpu className={`h-4 w-4 ${optimizing ? 'animate-spin' : ''}`} />
-                {optimizing ? 'Optimisation...' : 'Optimiser'}
-              </button>
-            </div>
-          </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    void runAutomaticGeneration(
+                      false,
+                    )
+                  }
+                  disabled={
+                    generating ||
+                    applying
+                  }
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-emerald-700 bg-emerald-700 px-4 text-xs font-black text-white shadow-sm transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <WandSparkles
+                    className={`h-4 w-4 ${
+                      generating
+                        ? 'animate-pulse'
+                        : ''
+                    }`}
+                  />
 
-          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-slate-100 pt-3 text-[9px] font-bold uppercase tracking-wider text-slate-400">
-            <span>{analytics?.totalFlights || flights.length} vols dans le planning</span>
-            {lastUpdatedAt && (
-              <>
-                <span className="hidden h-1 w-1 rounded-full bg-slate-300 sm:inline-block" />
-                <span>
-                  Dernière synchronisation {lastUpdatedAt.toLocaleTimeString('fr-FR', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    second: '2-digit'
-                  })}
-                </span>
-              </>
-            )}
-          </div>
-        </header>
+                  {generating
+                    ? 'Génération...'
+                    : 'Générer automatiquement'}
+                </button>
 
-        {/* NOTIFICATIONS */}
-        {message && (
-          <div
-            className={`flex items-center justify-between gap-3 rounded-2xl border p-4 shadow-sm transition-all sm:p-5 ${
-              message.type === 'success'
-                ? 'bg-emerald-50/90 border-emerald-200 text-emerald-900'
-                : 'bg-rose-50/90 border-rose-200 text-rose-900'
-            }`}
-          >
-            <div className="flex items-center gap-3 text-xs sm:text-sm font-medium">
-              {message.type === 'success' ? (
-                <CheckCircle2 className="w-5 h-5 text-emerald-700 shrink-0" />
-              ) : (
-                <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
-              )}
-              <span>{message.text}</span>
-            </div>
-            <button 
-              onClick={() => setMessage(null)} 
-              className="text-slate-400 hover:text-slate-600 p-1 rounded-lg transition"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        )}
+                {previewScenario && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        void runAutomaticGeneration(
+                          true,
+                        )
+                      }
+                      disabled={
+                        applying ||
+                        generating
+                      }
+                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-sky-700 bg-sky-700 px-4 text-xs font-black text-white transition hover:bg-sky-800 disabled:opacity-50"
+                    >
+                      <Play
+                        className={`h-4 w-4 ${
+                          applying
+                            ? 'animate-pulse'
+                            : ''
+                        }`}
+                      />
+                      {applying
+                        ? 'Application...'
+                        : 'Appliquer'}
+                    </button>
 
-        {/* INDICATEURS CLÉS (METRICS) */}
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 flex flex-col justify-between">
-            <div className="flex items-center justify-between text-slate-500">
-              <span className="text-xs font-semibold uppercase tracking-wider">Total des Vols</span>
-              <div className="p-2 bg-slate-50 rounded-lg border border-slate-100">
-                <Calendar className="w-4 h-4 text-slate-500" />
-              </div>
-            </div>
-            <div className="mt-3 flex items-baseline justify-between">
-              <span className="text-3xl font-extrabold text-slate-900">{analytics?.totalFlights || 0}</span>
-              <span className="text-xs font-medium text-slate-400">Programmés</span>
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 flex flex-col justify-between">
-            <div className="flex items-center justify-between text-slate-500">
-              <span className="text-xs font-semibold uppercase tracking-wider">Taux OTP</span>
-              <div className="p-2 bg-emerald-50 rounded-lg border border-emerald-100">
-                <ShieldCheck className="w-4 h-4 text-emerald-700" />
-              </div>
-            </div>
-            <div className="mt-3 flex items-baseline justify-between">
-              <span className="text-3xl font-extrabold text-emerald-700">{analytics?.otpRate ?? 100}%</span>
-              <span className="text-xs font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/60">
-                Cible: 95%
-              </span>
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 flex flex-col justify-between">
-            <div className="flex items-center justify-between text-slate-500">
-              <span className="text-xs font-semibold uppercase tracking-wider">Retardés / Annulés</span>
-              <div className="p-2 bg-amber-50 rounded-lg border border-amber-100">
-                <AlertTriangle className="w-4 h-4 text-amber-600" />
-              </div>
-            </div>
-            <div className="mt-3 flex items-baseline justify-between">
-              <span className="text-3xl font-extrabold text-amber-600">
-                {(analytics?.delayedCount || 0) + (analytics?.cancelledCount || 0)}
-              </span>
-              <span className="text-xs font-medium text-slate-400">
-                {analytics?.delayedCount || 0} ret. / {analytics?.cancelledCount || 0} ann.
-              </span>
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 flex flex-col justify-between">
-            <div className="flex items-center justify-between text-slate-500">
-              <span className="text-xs font-semibold uppercase tracking-wider">En Vol</span>
-              <div className="p-2 bg-blue-50 rounded-lg border border-blue-100">
-                <Zap className="w-4 h-4 text-blue-600" />
-              </div>
-            </div>
-            <div className="mt-3 flex items-baseline justify-between">
-              <span className="text-3xl font-extrabold text-blue-600">{analytics?.inFlightCount || 0}</span>
-              <span className="text-xs font-medium text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200/60">
-                En transit
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* FILTRES ET RECHERCHE */}
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-          <div className="grid gap-3 xl:grid-cols-[minmax(280px,420px)_minmax(0,1fr)] xl:items-end">
-            <div>
-              <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.15em] text-slate-400">
-                Recherche opérationnelle
-              </label>
-
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Vol, itinéraire, appareil..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-10 text-xs font-semibold text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-emerald-700 focus:bg-white focus:ring-4 focus:ring-emerald-100/70"
-                />
-
-                {searchTerm && (
-                  <button
-                    type="button"
-                    onClick={() => setSearchTerm('')}
-                    aria-label="Effacer la recherche"
-                    className="absolute right-2.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-200/70 hover:text-slate-700"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setPreviewScenario(
+                          null,
+                        )
+                      }
+                      disabled={
+                        applying
+                      }
+                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-xs font-black text-slate-600 transition hover:bg-slate-50"
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                      Planning actuel
+                    </button>
+                  </>
                 )}
               </div>
             </div>
 
-            <div>
-              <div className="mb-2 flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.15em] text-slate-400">
-                <Filter className="h-3.5 w-3.5" />
-                Statut du vol
-              </div>
+            <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-slate-100 pt-3 text-[9px] font-bold uppercase tracking-wider text-slate-400">
+              <span>
+                Horizon :{' '}
+                {
+                  options.horizonDays
+                }{' '}
+                jour(s)
+              </span>
 
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-                {['TOUS', 'Planifié', 'En Vol', 'Retardé', 'Effectué', 'Annulé'].map((status) => (
-                  <button
-                    key={status}
-                    onClick={() => setSelectedStatus(status)}
-                    className={`h-10 min-w-0 rounded-xl border px-2 text-[9px] font-black uppercase tracking-wide transition sm:text-[10px] ${
-                      selectedStatus === status
-                        ? 'border-emerald-700 bg-emerald-700 text-white shadow-sm'
-                        : 'border-slate-200 bg-white text-slate-600 hover:border-emerald-200 hover:bg-emerald-50/60 hover:text-emerald-800'
+              <span className="hidden h-1 w-1 rounded-full bg-slate-300 sm:inline-block" />
+
+              <span>
+                Turnaround :{' '}
+                {
+                  options.turnaroundMinutes
+                }{' '}
+                min
+              </span>
+
+              <span className="hidden h-1 w-1 rounded-full bg-slate-300 sm:inline-block" />
+
+              <span>
+                Vue :{' '}
+                {isPreview
+                  ? 'Scénario généré'
+                  : 'Planning appliqué'}
+              </span>
+
+              {lastUpdatedAt && (
+                <>
+                  <span className="hidden h-1 w-1 rounded-full bg-slate-300 sm:inline-block" />
+
+                  <span>
+                    Synchronisation{' '}
+                    {lastUpdatedAt.toLocaleTimeString(
+                      'fr-FR',
+                      {
+                        hour: '2-digit',
+                        minute:
+                          '2-digit',
+                        second:
+                          '2-digit',
+                      },
+                    )}
+                  </span>
+                </>
+              )}
+            </div>
+          </header>
+
+          {/* ============================================================= */}
+          {/* MESSAGE                                                       */}
+          {/* ============================================================= */}
+
+          {message && (
+            <div
+              className={[
+                'flex items-center justify-between gap-3 rounded-2xl border p-4 shadow-sm sm:p-5',
+                message.type ===
+                'success'
+                  ? 'border-emerald-200 bg-emerald-50/90 text-emerald-900'
+                  : message.type ===
+                      'info'
+                    ? 'border-sky-200 bg-sky-50/90 text-sky-900'
+                    : 'border-rose-200 bg-rose-50/90 text-rose-900',
+              ].join(' ')}
+            >
+              <div className="flex items-center gap-3 text-xs font-medium sm:text-sm">
+                {message.type ===
+                'success' ? (
+                  <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-700" />
+                ) : (
+                  <AlertTriangle
+                    className={`h-5 w-5 shrink-0 ${
+                      message.type ===
+                      'info'
+                        ? 'text-sky-600'
+                        : 'text-rose-600'
                     }`}
-                  >
-                    <span className="block truncate">
-                      {status === 'TOUS' ? 'Tous' : status}
-                    </span>
-                  </button>
-                ))}
+                  />
+                )}
+
+                <span>
+                  {message.text}
+                </span>
               </div>
-            </div>
-          </div>
-        </section>
 
-        {/* DIAGRAMME DE GANTT OPTIMISÉ */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-5 gap-2">
-            <div>
-              <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-emerald-700" />
-                Rotation Flotte & Ordonnancement
-              </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Diagramme temporel interactif avec suivi des créneaux
-              </p>
-            </div>
-            <div className="flex items-center gap-3 text-xs text-slate-500">
-              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span> Planifié</span>
-              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span> En Vol</span>
-              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Effectué</span>
-            </div>
-          </div>
-
-          {ganttData.aircrafts.length === 0 ? (
-            <div className="m-1 flex min-h-[220px] items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 p-8 text-center text-xs font-semibold text-slate-400">
-              Aucun vol ne correspond aux critères sélectionnés.
-            </div>
-          ) : (
-            <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-slate-50/20">
-              <div className="min-w-[1400px] pb-4">
-                
-                {/* EN-TÊTE CHRONOLOGIQUE */}
-                <div className="flex border-b border-slate-200 bg-white/95 sticky top-0 z-30 py-2.5 shadow-xs">
-                  <div className="w-52 shrink-0 font-bold text-slate-600 text-[11px] uppercase tracking-wider pl-4 flex items-center sticky left-0 bg-white border-r border-slate-200 z-40">
-                    Appareil / Flotte
-                  </div>
-                  <div className="relative flex-1 h-8">
-                    {ganttData.hourTicks?.map((tickTime) => {
-                      const leftPercent = ((tickTime - ganttData.minTime) / ganttData.totalDuration) * 100;
-                      const dateObj = new Date(tickTime);
-                      const hoursStr = `${dateObj.getHours().toString().padStart(2, '0')}h00`;
-                      const dayStr = `${dateObj.getDate()}/${dateObj.getMonth() + 1}`;
-
-                      return (
-                        <div
-                          key={tickTime}
-                          className="absolute transform -translate-x-1/2 flex flex-col items-center border-l border-slate-200/80 pl-1 h-full justify-between"
-                          style={{ left: `${leftPercent}%` }}
-                        >
-                          <span className="text-[10px] font-bold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200/60">
-                            {hoursStr}
-                          </span>
-                          <span className="text-[9px] font-semibold text-slate-400 font-mono">
-                            {dayStr}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* RANGÉES PAR APPAREIL */}
-                <div className="divide-y divide-slate-100">
-                  {ganttData.aircrafts.map(([aircraftModel, aircraftFlights]) => (
-                    <div key={aircraftModel} className="flex items-center hover:bg-slate-50/80 transition group">
-                      
-                      {/* Colonne appareil fixe (Sticky) */}
-                      <div className="w-52 shrink-0 flex items-center gap-2.5 px-4 py-3 sticky left-0 bg-white border-r border-slate-200 z-20 group-hover:bg-slate-50">
-                        <div className="p-1.5 bg-emerald-50 text-emerald-700 rounded-lg border border-emerald-100 shrink-0">
-                          <Plane className="w-3.5 h-3.5" />
-                        </div>
-                        <span className="text-xs font-bold text-slate-800 truncate" title={aircraftModel}>
-                          {aircraftModel}
-                        </span>
-                      </div>
-
-                      {/* Zone de timeline des vols */}
-                      <div className="relative flex-1 h-16 bg-white/40 my-1 mx-2 rounded-lg">
-                        {/* Grille verticale d'arrière-plan */}
-                        {ganttData.hourTicks?.map((tickTime) => {
-                          const leftPercent = ((tickTime - ganttData.minTime) / ganttData.totalDuration) * 100;
-                          return (
-                            <div
-                              key={`grid-${tickTime}`}
-                              className="absolute top-0 bottom-0 border-l border-slate-100"
-                              style={{ left: `${leftPercent}%` }}
-                            />
-                          );
-                        })}
-
-                        {/* Barres de vols */}
-                        {aircraftFlights.map((flight) => {
-                          const depDate = safeDate(flight.departure);
-                          const arrDate = safeDate(flight.arrival);
-                          if (!depDate || !arrDate) return null;
-
-                          const depTime = depDate.getTime();
-                          const arrTime = arrDate.getTime();
-
-                          const left = Math.max(0, ((depTime - ganttData.minTime) / ganttData.totalDuration) * 100);
-                          const widthCalculated = Math.max(0.5, ((arrTime - depTime) / ganttData.totalDuration) * 100);
-                          const config = STATUS_CONFIG[flight.status] || DEFAULT_STATUS_CONFIG;
-
-                          return (
-                            <div
-                              key={flight.id}
-                              className={`absolute top-2 bottom-2 rounded-xl px-3 py-1.5 flex items-center justify-between border shadow-xs transition-all duration-150 hover:z-30 hover:scale-[1.01] hover:shadow-md cursor-pointer ${config.bg} ${config.border}`}
-                              style={{ 
-                                left: `${left}%`, 
-                                width: `${widthCalculated}%`,
-                                minWidth: '120px'
-                              }}
-                              title={`Vol ${flight.flightNumber}\nItinéraire: ${flight.origin} ➔ ${flight.destination}\nDépart: ${formatTimeOnly(flight.departure)}\nArrivée: ${formatTimeOnly(flight.arrival)}`}
-                            >
-                              <div className="flex items-center gap-1.5 min-w-0">
-                                <span className={`w-2 h-2 rounded-full shrink-0 ${config.dot}`} />
-                                <span className={`font-extrabold text-xs tracking-tight truncate ${config.text}`}>
-                                  {flight.flightNumber}
-                                </span>
-                              </div>
-
-                              <div className="flex items-center gap-1 pl-2 text-[10px] font-bold text-slate-600 bg-white/80 px-1.5 py-0.5 rounded border border-slate-200/50 shrink-0">
-                                <span>{flight.origin}</span>
-                                <span className="text-slate-400">➔</span>
-                                <span>{flight.destination}</span>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                    </div>
-                  ))}
-                </div>
-
-              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  setMessage(null)
+                }
+                className="rounded-lg p-1 text-slate-400 transition hover:text-slate-600"
+                aria-label="Fermer"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
           )}
-        </div>
 
-        {/* SECTION GRAPHIQUES */}
-        <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 flex flex-col justify-between">
-            <h3 className="text-sm font-bold text-slate-900 mb-2">Répartition par Statut</h3>
-            <div className="h-60 w-full relative">
-              {pieChartData.length > 0 ? (
-                <>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={pieChartData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={65}
-                        outerRadius={85}
-                        paddingAngle={4}
-                        dataKey="value"
+          {/* ============================================================= */}
+          {/* AUTO-SCHEDULE PARAMETERS                                      */}
+          {/* ============================================================= */}
+
+          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+            <div className="mb-4 flex items-center gap-2">
+              <SlidersHorizontal className="h-4 w-4 text-emerald-700" />
+
+              <div>
+                <h2 className="text-sm font-black text-slate-900">
+                  Paramètres de génération
+                </h2>
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <label className="block">
+                <span className="mb-1.5 block text-[9px] font-black uppercase tracking-wider text-slate-400">
+                  Horizon (jours)
+                </span>
+
+                <input
+                  type="number"
+                  min={1}
+                  max={30}
+                  value={
+                    options.horizonDays
+                  }
+                  onChange={(event) =>
+                    setOptions(
+                      (current) => ({
+                        ...current,
+                        horizonDays:
+                          Math.max(
+                            1,
+                            Math.min(
+                              30,
+                              Number(
+                                event
+                                  .target
+                                  .value,
+                              ) || 1,
+                            ),
+                          ),
+                      }),
+                    )
+                  }
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold outline-none focus:border-emerald-700 focus:bg-white focus:ring-4 focus:ring-emerald-100/60"
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-1.5 block text-[9px] font-black uppercase tracking-wider text-slate-400">
+                  Turnaround (min)
+                </span>
+
+                <input
+                  type="number"
+                  min={0}
+                  max={240}
+                  value={
+                    options.turnaroundMinutes
+                  }
+                  onChange={(event) =>
+                    setOptions(
+                      (current) => ({
+                        ...current,
+                        turnaroundMinutes:
+                          Math.max(
+                            0,
+                            Math.min(
+                              240,
+                              Number(
+                                event
+                                  .target
+                                  .value,
+                              ) || 0,
+                            ),
+                          ),
+                      }),
+                    )
+                  }
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold outline-none focus:border-emerald-700 focus:bg-white focus:ring-4 focus:ring-emerald-100/60"
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-1.5 block text-[9px] font-black uppercase tracking-wider text-slate-400">
+                  Pas de décalage (min)
+                </span>
+
+                <input
+                  type="number"
+                  min={5}
+                  max={60}
+                  value={
+                    options.shiftStepMinutes
+                  }
+                  onChange={(event) =>
+                    setOptions(
+                      (current) => ({
+                        ...current,
+                        shiftStepMinutes:
+                          Math.max(
+                            5,
+                            Math.min(
+                              60,
+                              Number(
+                                event
+                                  .target
+                                  .value,
+                              ) || 15,
+                            ),
+                          ),
+                      }),
+                    )
+                  }
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold outline-none focus:border-emerald-700 focus:bg-white focus:ring-4 focus:ring-emerald-100/60"
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-1.5 block text-[9px] font-black uppercase tracking-wider text-slate-400">
+                  Décalage max. (min)
+                </span>
+
+                <input
+                  type="number"
+                  min={0}
+                  max={1440}
+                  value={
+                    options.maxShiftMinutes
+                  }
+                  onChange={(event) =>
+                    setOptions(
+                      (current) => ({
+                        ...current,
+                        maxShiftMinutes:
+                          Math.max(
+                            0,
+                            Math.min(
+                              1440,
+                              Number(
+                                event
+                                  .target
+                                  .value,
+                              ) || 0,
+                            ),
+                          ),
+                      }),
+                    )
+                  }
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold outline-none focus:border-emerald-700 focus:bg-white focus:ring-4 focus:ring-emerald-100/60"
+                />
+              </label>
+            </div>
+          </section>
+
+          {/* ============================================================= */}
+          {/* AUTO-SCHEDULE KPI                                             */}
+          {/* ============================================================= */}
+
+          <section className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+            <MetricCard
+              label="Vols horizon"
+              value={
+                activeMetrics.totalFlights ??
+                0
+              }
+              icon={
+                <Calendar className="h-4 w-4" />
+              }
+            />
+
+            <MetricCard
+              label="Affectés"
+              value={
+                activeMetrics.assignedFlights ??
+                0
+              }
+              icon={
+                <CheckCircle2 className="h-4 w-4" />
+              }
+            />
+
+            <MetricCard
+              label="Non affectés"
+              value={
+                activeMetrics.unassignedFlights ??
+                0
+              }
+              icon={
+                <AlertTriangle className="h-4 w-4" />
+              }
+            />
+
+            <MetricCard
+              label="Décalés"
+              value={
+                scenarioShifted
+              }
+              icon={
+                <RefreshCw className="h-4 w-4" />
+              }
+            />
+
+            <MetricCard
+              label="Appareils actifs"
+              value={
+                previewScenario
+                  ?.metrics
+                  ?.operationalAircraft ??
+                activeSchedule.rows.filter(
+                  (row) =>
+                    row.aircraftId !==
+                    'UNASSIGNED',
+                ).length
+              }
+              icon={
+                <Plane className="h-4 w-4" />
+              }
+            />
+
+            <MetricCard
+              label="OTP"
+              value={`${effectiveAnalytics.otpRate ?? 0}%`}
+              icon={
+                <ShieldCheck className="h-4 w-4" />
+              }
+            />
+          </section>
+
+          {/* ============================================================= */}
+          {/* SEARCH / FILTERS                                              */}
+          {/* ============================================================= */}
+
+          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+            <div className="grid gap-3 xl:grid-cols-[minmax(280px,420px)_minmax(0,1fr)] xl:items-end">
+              <div>
+                <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.15em] text-slate-400">
+                  Recherche opérationnelle
+                </label>
+
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+
+                  <input
+                    type="text"
+                    placeholder="Vol, itinéraire, appareil..."
+                    value={
+                      searchTerm
+                    }
+                    onChange={(
+                      event,
+                    ) =>
+                      setSearchTerm(
+                        event.target
+                          .value,
+                      )
+                    }
+                    className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-10 text-xs font-semibold text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-emerald-700 focus:bg-white focus:ring-4 focus:ring-emerald-100/70"
+                  />
+
+                  {searchTerm && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSearchTerm(
+                          '',
+                        )
+                      }
+                      className="absolute right-2.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-200/70 hover:text-slate-700"
+                      aria-label="Effacer"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <div className="mb-2 flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.15em] text-slate-400">
+                  <Filter className="h-3.5 w-3.5" />
+                  Statut
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+                  {[
+                    'TOUS',
+                    'Planifié',
+                    'En Vol',
+                    'Retardé',
+                    'Effectué',
+                    'Annulé',
+                  ].map(
+                    (status) => (
+                      <button
+                        type="button"
+                        key={status}
+                        onClick={() =>
+                          setSelectedStatus(
+                            status,
+                          )
+                        }
+                        className={`h-10 min-w-0 rounded-xl border px-2 text-[9px] font-black uppercase tracking-wide transition sm:text-[10px] ${
+                          selectedStatus ===
+                          status
+                            ? 'border-emerald-700 bg-emerald-700 text-white shadow-sm'
+                            : 'border-slate-200 bg-white text-slate-600 hover:border-emerald-200 hover:bg-emerald-50/60 hover:text-emerald-800'
+                        }`}
                       >
-                        {pieChartData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} stroke="#ffffff" strokeWidth={2} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        contentStyle={{ 
-                          backgroundColor: '#ffffff', 
-                          borderColor: '#e2e8f0', 
-                          borderRadius: '12px',
-                          boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
-                          fontSize: '12px'
-                        }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                    <span className="text-2xl font-black text-slate-800">{analytics?.totalFlights || 0}</span>
-                    <span className="text-[10px] font-semibold text-slate-400 uppercase">Vols</span>
+                        <span className="block truncate">
+                          {status ===
+                          'TOUS'
+                            ? 'Tous'
+                            : status}
+                        </span>
+                      </button>
+                    ),
+                  )}
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* ============================================================= */}
+          {/* GANTT FROM PYTHON BACKEND                                     */}
+          {/* ============================================================= */}
+
+          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+            <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <BarChart3 className="h-4 w-4 text-emerald-700" />
+
+                  <h2 className="text-base font-bold text-slate-900">
+                    Programmation graphique des vols
+                  </h2>
+
+                  {isPreview && (
+                    <span className="rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-[9px] font-black uppercase tracking-wide text-sky-700">
+                      Prévisualisation
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3 text-[10px] font-semibold text-slate-500">
+                <LegendDot
+                  className="bg-blue-500"
+                  label="Programmé"
+                />
+
+                <LegendDot
+                  className="bg-orange-500"
+                  label="Décalé / retardé"
+                />
+
+                <LegendDot
+                  className="bg-emerald-500"
+                  label="Effectué"
+                />
+              </div>
+            </div>
+
+            {ganttData.rows.length ===
+            0 ? (
+              <div className="flex min-h-[240px] items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 p-8 text-center">
+                <div>
+                  <Plane className="mx-auto h-7 w-7 text-slate-300" />
+
+                  <p className="mt-3 text-xs font-semibold text-slate-400">
+                    Aucun élément Gantt disponible pour les critères sélectionnés.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-slate-50/20">
+                <div className="min-w-[1450px] pb-4">
+                  {/* Time header */}
+                  <div className="sticky top-0 z-30 flex border-b border-slate-200 bg-white/95 py-2.5 shadow-sm">
+                    <div className="sticky left-0 z-40 flex w-56 shrink-0 items-center border-r border-slate-200 bg-white pl-4 text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                      Appareil / flotte
+                    </div>
+
+                    <div className="relative h-9 flex-1">
+                      {ganttData.hourTicks.map(
+                        (tickTime) => {
+                          const left =
+                            (
+                              (tickTime -
+                                ganttData.minTime) /
+                              ganttData.totalDuration
+                            ) * 100;
+
+                          return (
+                            <div
+                              key={
+                                tickTime
+                              }
+                              className="absolute flex h-full -translate-x-1/2 flex-col items-center justify-between border-l border-slate-200/80 pl-1"
+                              style={{
+                                left: `${left}%`,
+                              }}
+                            >
+                              <span className="rounded border border-slate-200/60 bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-700">
+                                {formatUtcTick(
+                                  tickTime,
+                                )}
+                              </span>
+
+                              <span className="font-mono text-[9px] font-semibold text-slate-400">
+                                {formatUtcDay(
+                                  tickTime,
+                                )}
+                              </span>
+                            </div>
+                          );
+                        },
+                      )}
+                    </div>
                   </div>
-                </>
-              ) : (
-                <div className="h-full flex items-center justify-center text-xs text-slate-400">
-                  Aucune donnée disponible
-                </div>
-              )}
-            </div>
-          </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 flex flex-col justify-between">
-            <h3 className="text-sm font-bold text-slate-900 mb-2">Départs par Tranche Horaire</h3>
-            <div className="h-60 w-full">
-              {barChartData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={barChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <XAxis dataKey="hour" stroke="#94a3b8" tick={{ fill: '#64748b', fontSize: 11 }} tickLine={false} />
-                    <YAxis stroke="#94a3b8" tick={{ fill: '#64748b', fontSize: 11 }} tickLine={false} allowDecimals={false} />
-                    <Tooltip
-                      cursor={{ fill: '#f8fafc' }}
-                      contentStyle={{ 
-                        backgroundColor: '#ffffff', 
-                        borderColor: '#e2e8f0', 
-                        borderRadius: '12px',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
-                        fontSize: '12px'
-                      }}
-                    />
-                    <Bar dataKey="vols" fill="#047857" radius={[6, 6, 0, 0]} barSize={24} />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-full flex items-center justify-center text-xs text-slate-400">
-                  Aucun départ enregistré
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+                  {/* Rows */}
+                  <div className="divide-y divide-slate-100">
+                    {ganttData.rows.map(
+                      (row) => (
+                        <div
+                          key={
+                            row.aircraftId
+                          }
+                          className="group flex items-center transition hover:bg-slate-50/80"
+                        >
+                          <div className="sticky left-0 z-20 flex w-56 shrink-0 items-center gap-2.5 border-r border-slate-200 bg-white px-4 py-3 group-hover:bg-slate-50">
+                            <div
+                              className={`shrink-0 rounded-lg border p-1.5 ${
+                                row.aircraftId ===
+                                'UNASSIGNED'
+                                  ? 'border-rose-100 bg-rose-50 text-rose-600'
+                                  : 'border-emerald-100 bg-emerald-50 text-emerald-700'
+                              }`}
+                            >
+                              <Plane className="h-3.5 w-3.5" />
+                            </div>
 
-        {/* TABLEAU COMPLET */}
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-slate-200 p-4 sm:p-5">
-            <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <Layers className="w-4 h-4 text-emerald-700" />
-              Registre Officiel des Vols
-            </h3>
-            <span className="text-xs font-semibold text-slate-400">
-              {filteredFlights.length} vol(s) trouvé(s)
-            </span>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs sm:text-sm text-slate-600">
-              <thead className="border-b border-slate-200 bg-slate-50 text-[10px] font-black uppercase tracking-wider text-slate-500">
-                <tr>
-                  <th className="py-3 px-4">Vol</th>
-                  <th className="py-3 px-4">Itinéraire</th>
-                  <th className="py-3 px-4">Départ</th>
-                  <th className="py-3 px-4">Arrivée</th>
-                  <th className="py-3 px-4">Appareil</th>
-                  <th className="py-3 px-4 text-right">Statut</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filteredFlights.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="py-8 text-center text-slate-400 text-xs">
-                      Aucun vol trouvé
-                    </td>
-                  </tr>
+                            <div className="min-w-0">
+                              <span
+                                className="block truncate text-xs font-bold text-slate-800"
+                                title={
+                                  row.aircraftRegistration
+                                }
+                              >
+                                {
+                                  row.aircraftRegistration
+                                }
+                              </span>
+
+                              <span className="mt-0.5 block truncate text-[9px] font-semibold text-slate-400">
+                                {row.base
+                                  ? `Base ${row.base}`
+                                  : row.aircraftId ===
+                                      'UNASSIGNED'
+                                    ? 'Affectation requise'
+                                    : 'Base non définie'}
+                                {row.capacity
+                                  ? ` · ${row.capacity} sièges`
+                                  : ''}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="relative mx-2 my-1 h-16 flex-1 rounded-lg bg-white/40">
+                            {ganttData.hourTicks.map(
+                              (tickTime) => {
+                                const left =
+                                  (
+                                    (tickTime -
+                                      ganttData.minTime) /
+                                    ganttData.totalDuration
+                                  ) * 100;
+
+                                return (
+                                  <div
+                                    key={`grid-${row.aircraftId}-${tickTime}`}
+                                    className="absolute bottom-0 top-0 border-l border-slate-100"
+                                    style={{
+                                      left: `${left}%`,
+                                    }}
+                                  />
+                                );
+                              },
+                            )}
+
+                            {row.items.map(
+                              (item) => {
+                                const start =
+                                  safeDate(
+                                    item.start,
+                                  );
+
+                                const end =
+                                  safeDate(
+                                    item.end,
+                                  );
+
+                                if (
+                                  !start ||
+                                  !end
+                                ) {
+                                  return null;
+                                }
+
+                                const startMs =
+                                  start.getTime();
+
+                                const endMs =
+                                  end.getTime();
+
+                                const left =
+                                  Math.max(
+                                    0,
+                                    (
+                                      (startMs -
+                                        ganttData.minTime) /
+                                      ganttData.totalDuration
+                                    ) * 100,
+                                  );
+
+                                const width =
+                                  Math.max(
+                                    0.5,
+                                    (
+                                      (endMs -
+                                        startMs) /
+                                      ganttData.totalDuration
+                                    ) * 100,
+                                  );
+
+                                const uiStatus =
+                                  normalizeFlightStatus(
+                                    item.status,
+                                  );
+
+                                const config =
+                                  STATUS_CONFIG[
+                                    uiStatus
+                                  ] ??
+                                  DEFAULT_STATUS_CONFIG;
+
+                                const assignment =
+                                  assignmentLookup.get(
+                                    item.flightId,
+                                  );
+
+                                const shiftMinutes =
+                                  item.shiftMinutes ??
+                                  assignment
+                                    ?.shiftMinutes ??
+                                  0;
+
+                                const localStart =
+                                  item.localStart ??
+                                  assignment
+                                    ?.localDeparture;
+
+                                const localEnd =
+                                  item.localEnd ??
+                                  assignment
+                                    ?.localArrival;
+
+                                return (
+                                  <div
+                                    key={
+                                      item.id
+                                    }
+                                    className={`absolute bottom-2 top-2 flex min-w-[125px] cursor-pointer items-center justify-between rounded-xl border px-3 py-1.5 shadow-sm transition hover:z-30 hover:scale-[1.01] hover:shadow-md ${config.bg} ${config.border}`}
+                                    style={{
+                                      left: `${left}%`,
+                                      width: `${width}%`,
+                                    }}
+                                    title={[
+                                      `Vol ${item.flightNumber ?? ''}`,
+                                      `${item.origin ?? '?'} → ${item.destination ?? '?'}`,
+                                      `Départ UTC : ${formatDateTime(item.start)}`,
+                                      `Arrivée UTC : ${formatDateTime(item.end)}`,
+                                      localStart
+                                        ? `Départ local : ${formatDateTime(localStart)}`
+                                        : '',
+                                      localEnd
+                                        ? `Arrivée locale : ${formatDateTime(localEnd)}`
+                                        : '',
+                                      shiftMinutes > 0
+                                        ? `Décalage automatique : +${shiftMinutes} min`
+                                        : 'Aucun décalage',
+                                    ]
+                                      .filter(Boolean)
+                                      .join(
+                                        '\n',
+                                      )}
+                                  >
+                                    <div className="flex min-w-0 items-center gap-1.5">
+                                      <span
+                                        className={`h-2 w-2 shrink-0 rounded-full ${config.dot}`}
+                                      />
+
+                                      <span
+                                        className={`truncate text-xs font-extrabold tracking-tight ${config.text}`}
+                                      >
+                                        {
+                                          item.flightNumber
+                                        }
+                                      </span>
+
+                                      {shiftMinutes >
+                                        0 && (
+                                        <span className="shrink-0 rounded-full border border-orange-200 bg-white/80 px-1.5 py-0.5 text-[8px] font-black text-orange-700">
+                                          +
+                                          {
+                                            shiftMinutes
+                                          }
+                                          m
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    <div className="ml-2 flex shrink-0 items-center gap-1 rounded border border-slate-200/50 bg-white/80 px-1.5 py-0.5 text-[10px] font-bold text-slate-600">
+                                      <span>
+                                        {
+                                          item.origin
+                                        }
+                                      </span>
+                                      <span className="text-slate-400">
+                                        ➔
+                                      </span>
+                                      <span>
+                                        {
+                                          item.destination
+                                        }
+                                      </span>
+                                    </div>
+                                  </div>
+                                );
+                              },
+                            )}
+                          </div>
+                        </div>
+                      ),
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </section>
+
+          {/* ============================================================= */}
+          {/* PREVIEW DETAILS                                               */}
+          {/* ============================================================= */}
+
+          {previewScenario && (
+            <section className="grid gap-4 xl:grid-cols-2">
+              <div className="rounded-2xl border border-sky-200 bg-sky-50/50 p-4 sm:p-5">
+                <h3 className="text-sm font-black text-sky-900">
+                  Résultat du générateur
+                </h3>
+
+                <div className="mt-4 grid grid-cols-2 gap-3">
+                  <SmallValue
+                    label="Affectations directes"
+                    value={
+                      previewScenario
+                        .metrics
+                        .directAssignments ??
+                      0
+                    }
+                  />
+
+                  <SmallValue
+                    label="Vols décalés"
+                    value={
+                      previewScenario
+                        .metrics
+                        .shiftedFlights ??
+                      0
+                    }
+                  />
+
+                  <SmallValue
+                    label="Avions opérationnels"
+                    value={
+                      previewScenario
+                        .metrics
+                        .operationalAircraft ??
+                      0
+                    }
+                  />
+
+                  <SmallValue
+                    label="Stratégie"
+                    value={
+                      previewScenario.strategy ??
+                      'deterministic-greedy-v1'
+                    }
+                  />
+                </div>
+              </div>
+
+              <div
+                className={`rounded-2xl border p-4 sm:p-5 ${
+                  scenarioUnassigned >
+                  0
+                    ? 'border-amber-200 bg-amber-50/60'
+                    : 'border-emerald-200 bg-emerald-50/60'
+                }`}
+              >
+                <h3
+                  className={`text-sm font-black ${
+                    scenarioUnassigned >
+                    0
+                      ? 'text-amber-900'
+                      : 'text-emerald-900'
+                  }`}
+                >
+                  Vols non affectés
+                </h3>
+
+                {(
+                  previewScenario.unassigned ??
+                  []
+                ).length === 0 ? (
+                  <p className="mt-3 text-xs font-semibold text-emerald-700">
+                    Tous les vols du scénario ont reçu une affectation.
+                  </p>
                 ) : (
-                  filteredFlights.map((flight) => {
-                    const badgeConfig = STATUS_CONFIG[flight.status] || DEFAULT_STATUS_CONFIG;
-                    return (
-                      <tr key={flight.id} className="hover:bg-slate-50/80 transition">
-                        <td className="py-3.5 px-4 font-bold text-slate-900">{flight.flightNumber}</td>
-                        <td className="py-3.5 px-4 font-semibold text-slate-700">
-                          {flight.origin} ➔ {flight.destination}
-                        </td>
-                        <td className="py-3.5 px-4 text-slate-500">
-                          {formatDateTime(flight.departure)}
-                        </td>
-                        <td className="py-3.5 px-4 text-slate-500">
-                          {formatDateTime(flight.arrival)}
-                        </td>
-                        <td className="py-3.5 px-4 text-slate-600">
-                          {flight.aircraftModel || flight.aircraft || 'Non Assigné'}
-                        </td>
-                        <td className="py-3.5 px-4 text-right">
-                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border ${badgeConfig.badgeBg}`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${badgeConfig.dot}`} />
-                            {flight.status}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                  <div className="mt-3 max-h-44 space-y-2 overflow-y-auto">
+                    {(
+                      previewScenario.unassigned ??
+                      []
+                    ).map(
+                      (item) => (
+                        <div
+                          key={
+                            item.flightId
+                          }
+                          className="flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-white px-3 py-2"
+                        >
+                          <div>
+                            <span className="font-mono text-xs font-black text-slate-900">
+                              {
+                                item.flightNumber
+                              }
+                            </span>
 
+                            <span className="ml-2 text-[10px] font-semibold text-slate-500">
+                              {
+                                item.origin
+                              }{' '}
+                              →{' '}
+                              {
+                                item.destination
+                              }
+                            </span>
+                          </div>
+
+                          <span className="text-[9px] font-black uppercase text-amber-700">
+                            {
+                              item.reason
+                            }
+                          </span>
+                        </div>
+                      ),
+                    )}
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
+
+          {/* ============================================================= */}
+          {/* ANALYTICS CHARTS                                              */}
+          {/* ============================================================= */}
+
+          <section className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+            <div className="flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+              <h3 className="mb-2 text-sm font-bold text-slate-900">
+                Répartition par statut
+              </h3>
+
+              <div className="relative h-60 w-full">
+                {pieChartData.length >
+                0 ? (
+                  <>
+                    <ResponsiveContainer
+                      width="100%"
+                      height="100%"
+                    >
+                      <PieChart>
+                        <Pie
+                          data={
+                            pieChartData
+                          }
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={65}
+                          outerRadius={85}
+                          paddingAngle={4}
+                          dataKey="value"
+                        >
+                          {pieChartData.map(
+                            (
+                              entry,
+                              index,
+                            ) => (
+                              <Cell
+                                key={`cell-${index}`}
+                                fill={
+                                  entry.color
+                                }
+                                stroke="#ffffff"
+                                strokeWidth={
+                                  2
+                                }
+                              />
+                            ),
+                          )}
+                        </Pie>
+
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+
+                    <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                      <span className="text-2xl font-black text-slate-800">
+                        {
+                          effectiveAnalytics.totalFlights
+                        }
+                      </span>
+
+                      <span className="text-[10px] font-semibold uppercase text-slate-400">
+                        Vols
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex h-full items-center justify-center text-xs text-slate-400">
+                    Aucune donnée disponible
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+              <h3 className="mb-2 text-sm font-bold text-slate-900">
+                Départs par tranche horaire
+              </h3>
+
+              <div className="h-60 w-full">
+                {barChartData.length >
+                0 ? (
+                  <ResponsiveContainer
+                    width="100%"
+                    height="100%"
+                  >
+                    <BarChart
+                      data={
+                        barChartData
+                      }
+                      margin={{
+                        top: 10,
+                        right: 10,
+                        left: -20,
+                        bottom: 0,
+                      }}
+                    >
+                      <XAxis
+                        dataKey="hour"
+                        stroke="#94a3b8"
+                        tick={{
+                          fill:
+                            '#64748b',
+                          fontSize: 11,
+                        }}
+                        tickLine={
+                          false
+                        }
+                      />
+
+                      <YAxis
+                        stroke="#94a3b8"
+                        tick={{
+                          fill:
+                            '#64748b',
+                          fontSize: 11,
+                        }}
+                        tickLine={
+                          false
+                        }
+                        allowDecimals={
+                          false
+                        }
+                      />
+
+                      <Tooltip />
+
+                      <Bar
+                        dataKey="vols"
+                        fill="#047857"
+                        radius={[
+                          6,
+                          6,
+                          0,
+                          0,
+                        ]}
+                        barSize={
+                          24
+                        }
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex h-full items-center justify-center text-xs text-slate-400">
+                    Aucun départ enregistré
+                  </div>
+                )}
+              </div>
+            </div>
+          </section>
+
+          {/* ============================================================= */}
+          {/* FLIGHTS TABLE                                                 */}
+          {/* ============================================================= */}
+
+          <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="flex items-center justify-between border-b border-slate-200 p-4 sm:p-5">
+              <h3 className="flex items-center gap-2 text-base font-bold text-slate-900">
+                <Layers className="h-4 w-4 text-emerald-700" />
+                Registre des vols
+              </h3>
+
+              <span className="text-xs font-semibold text-slate-400">
+                {
+                  filteredFlights.length
+                }{' '}
+                vol(s)
+              </span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[900px] text-left text-xs text-slate-600 sm:text-sm">
+                <thead className="border-b border-slate-200 bg-slate-50 text-[10px] font-black uppercase tracking-wider text-slate-500">
+                  <tr>
+                    <th className="px-4 py-3">
+                      Vol
+                    </th>
+                    <th className="px-4 py-3">
+                      Itinéraire
+                    </th>
+                    <th className="px-4 py-3">
+                      Départ
+                    </th>
+                    <th className="px-4 py-3">
+                      Arrivée
+                    </th>
+                    <th className="px-4 py-3">
+                      Appareil
+                    </th>
+                    <th className="px-4 py-3 text-right">
+                      Statut
+                    </th>
+                  </tr>
+                </thead>
+
+                <tbody className="divide-y divide-slate-100">
+                  {filteredFlights.length ===
+                  0 ? (
+                    <tr>
+                      <td
+                        colSpan={6}
+                        className="px-4 py-8 text-center text-xs text-slate-400"
+                      >
+                        Aucun vol trouvé
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredFlights.map(
+                      (flight) => {
+                        const status =
+                          normalizeFlightStatus(
+                            flight.status,
+                          );
+
+                        const config =
+                          STATUS_CONFIG[
+                            status
+                          ] ??
+                          DEFAULT_STATUS_CONFIG;
+
+                        return (
+                          <tr
+                            key={
+                              flight.id
+                            }
+                            className="transition hover:bg-slate-50/80"
+                          >
+                            <td className="px-4 py-3.5 font-bold text-slate-900">
+                              {
+                                flight.flightNumber
+                              }
+                            </td>
+
+                            <td className="px-4 py-3.5 font-semibold text-slate-700">
+                              {
+                                flight.origin
+                              }{' '}
+                              ➔{' '}
+                              {
+                                flight.destination
+                              }
+                            </td>
+
+                            <td className="px-4 py-3.5 text-slate-500">
+                              {formatDateTime(
+                                flight.localDeparture ??
+                                  flight.departure,
+                              )}
+                            </td>
+
+                            <td className="px-4 py-3.5 text-slate-500">
+                              {formatDateTime(
+                                flight.localArrival ??
+                                  flight.arrival,
+                              )}
+                            </td>
+
+                            <td className="px-4 py-3.5 text-slate-600">
+                              {flight.aircraftModel ||
+                                flight.aircraft ||
+                                'Non Assigné'}
+                            </td>
+
+                            <td className="px-4 py-3.5 text-right">
+                              <span
+                                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${config.badgeBg}`}
+                              >
+                                <span
+                                  className={`h-1.5 w-1.5 rounded-full ${config.dot}`}
+                                />
+
+                                {status}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      },
+                    )
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      </div>
+    );
+  };
+
+/* ============================================================================
+ * SMALL COMPONENTS
+ * ========================================================================== */
+
+function MetricCard({
+  label,
+  value,
+  icon,
+}: {
+  label: string;
+  value: string | number;
+  icon: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex items-center justify-between text-slate-400">
+        <span className="text-[9px] font-black uppercase tracking-wider">
+          {label}
+        </span>
+
+        {icon}
+      </div>
+
+      <div className="mt-2 text-2xl font-black tracking-tight text-slate-900">
+        {value}
       </div>
     </div>
   );
-};
+}
+
+function SmallValue({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | number;
+}) {
+  return (
+    <div className="rounded-xl border border-white/80 bg-white p-3">
+      <span className="block text-[9px] font-black uppercase tracking-wider text-slate-400">
+        {label}
+      </span>
+
+      <strong className="mt-1 block truncate text-sm font-black text-slate-800">
+        {value}
+      </strong>
+    </div>
+  );
+}
+
+function LegendDot({
+  className,
+  label,
+}: {
+  className: string;
+  label: string;
+}) {
+  return (
+    <span className="flex items-center gap-1.5">
+      <span
+        className={`h-2.5 w-2.5 rounded-full ${className}`}
+      />
+      {label}
+    </span>
+  );
+}
 
 export default FlightSchedulerDashboard;

@@ -125,6 +125,27 @@ async function requestJson<T>(path: string, options: RequestInit = {}): Promise<
   return response.json() as Promise<T>;
 }
 
+
+async function syncExpiredMaintenances(): Promise<void> {
+  const response = await authFetch(
+    '/maintenance/sync-expired',
+    {
+      method: 'PATCH',
+    },
+  );
+
+  /*
+   * La synchronisation est une opération de fond.
+   * Une erreur ici ne doit pas empêcher l'affichage de la flotte.
+   */
+  if (!response.ok) {
+    console.warn(
+      '[AircraftManagement] Synchronisation automatique des fins atelier impossible.',
+      response.status,
+    );
+  }
+}
+
 function formatNumber(value: number, digits = 1): string {
   return new Intl.NumberFormat('fr-FR', { maximumFractionDigits: digits }).format(
     Number.isFinite(value) ? value : 0,
@@ -176,10 +197,16 @@ export function AircraftManagement() {
   const [hoursAircraft, setHoursAircraft] = useState<Aircraft | null>(null);
   const [flightHours, setFlightHours] = useState('');
 
+  // Modal de confirmation de réinitialisation maintenance
+  const [maintenanceAircraft, setMaintenanceAircraft] = useState<Aircraft | null>(null);
+
   const loadData = useCallback(async (signal?: AbortSignal, silent = false) => {
     if (!silent) setLoading(true);
     try {
       if (!silent) setNotice(null);
+
+      // Finalise d'abord les maintenances dont la date de fin atelier est dépassée.
+      await syncExpiredMaintenances();
 
       const [aircraftResult, typeResult, statisticsResult] = await Promise.allSettled([
         requestJson<Aircraft[]>('/fleet/aircrafts', { signal }),
@@ -214,6 +241,25 @@ export function AircraftManagement() {
     const controller = new AbortController();
     void loadData(controller.signal);
     return () => controller.abort();
+  }, [loadData]);
+
+
+  /**
+   * Mise à jour automatique de AircraftManagement.
+   *
+   * Toutes les 30 secondes :
+   * - finalise les maintenances arrivées à endTime ;
+   * - remet compteur maintenance à 0 ;
+   * - met à jour la date dernière maintenance ;
+   * - repasse l'avion à Active ;
+   * - recharge les statistiques de flotte.
+   */
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      void loadData(undefined, true);
+    }, 30_000);
+
+    return () => window.clearInterval(timer);
   }, [loadData]);
 
   const selectedType = useMemo(
@@ -417,27 +463,54 @@ export function AircraftManagement() {
     }
   };
 
-  const resetMaintenance = async (aircraft: Aircraft) => {
-    const confirmed = window.confirm(
-      `Confirmer la fin de maintenance de ${aircraft.immatriculation} ?\n\nLe compteur sera remis à 0 h et le statut repassera à Active.`,
-    );
-    if (!confirmed) return;
+  const openMaintenanceResetModal = (aircraft: Aircraft) => {
+    if (aircraft.statut === AircraftStatus.RETIRED) return;
+    setMaintenanceAircraft(aircraft);
+    setNotice(null);
+  };
+
+  const closeMaintenanceResetModal = () => {
+    if (
+      maintenanceAircraft &&
+      actionAircraftId === maintenanceAircraft.id
+    ) {
+      return;
+    }
+
+    setMaintenanceAircraft(null);
+  };
+
+  const resetMaintenance = async () => {
+    if (!maintenanceAircraft) return;
+
+    const aircraft = maintenanceAircraft;
 
     setActionAircraftId(aircraft.id);
     setNotice(null);
+
     try {
-      await requestJson<Aircraft>(`/fleet/aircrafts/${aircraft.id}/maintenance/reset`, {
-        method: 'PATCH',
-      });
+      await requestJson<Aircraft>(
+        `/fleet/aircrafts/${aircraft.id}/maintenance/reset`,
+        {
+          method: 'PATCH',
+        },
+      );
+
+      setMaintenanceAircraft(null);
+
       setNotice({
         kind: 'success',
-        message: `Maintenance de ${aircraft.immatriculation} réinitialisée.`,
+        message: `Maintenance de ${aircraft.immatriculation} réinitialisée avec succès.`,
       });
+
       await loadData(undefined, true);
     } catch (error: unknown) {
       setNotice({
         kind: 'error',
-        message: error instanceof Error ? error.message : 'Impossible de réinitialiser la maintenance.',
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Impossible de réinitialiser la maintenance.',
       });
     } finally {
       setActionAircraftId(null);
@@ -493,7 +566,7 @@ export function AircraftManagement() {
   };
 
   return (
-    <div className="mx-auto min-h-screen max-w-[1500px] space-y-6 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm sm:p-6">
+    <div className="mx-auto min-h-screen max-w-375 space-y-6 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm sm:p-6">
       <div className="flex flex-col gap-4 border-b border-slate-100 pb-5 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-3">
           <div className="rounded-xl bg-emerald-50 p-3 text-emerald-700">
@@ -551,7 +624,7 @@ export function AircraftManagement() {
 
       <div className="overflow-hidden rounded-2xl border border-slate-200">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1080px] text-left text-sm">
+          <table className="w-full min-w-270 text-left text-sm">
             <thead className="border-b border-slate-200 bg-slate-50/80 text-[11px] font-bold uppercase tracking-wider text-slate-500">
               <tr>
                 <th className="px-5 py-3.5">Immatriculation</th>
@@ -601,7 +674,15 @@ export function AircraftManagement() {
                     <td className="px-5 py-4 text-right">
                       <div className="flex items-center justify-end gap-1">
                         <button type="button" onClick={() => { setHoursAircraft(aircraft); setFlightHours(''); setNotice(null); }} disabled={busy || aircraft.statut === AircraftStatus.RETIRED} title="Ajouter des heures de vol" className="rounded-lg p-2 text-slate-400 hover:bg-sky-50 hover:text-sky-700 disabled:opacity-35"><Gauge className="h-4 w-4" /></button>
-                        <button type="button" onClick={() => void resetMaintenance(aircraft)} disabled={busy || aircraft.statut === AircraftStatus.RETIRED} title="Réinitialiser la maintenance" className="rounded-lg p-2 text-slate-400 hover:bg-amber-50 hover:text-amber-700 disabled:opacity-35"><RotateCcw className={`h-4 w-4 ${busy ? 'animate-spin' : ''}`} /></button>
+                        <button
+                          type="button"
+                          onClick={() => openMaintenanceResetModal(aircraft)}
+                          disabled={busy || aircraft.statut === AircraftStatus.RETIRED}
+                          title="Réinitialiser la maintenance"
+                          className="rounded-lg p-2 text-slate-400 hover:bg-amber-50 hover:text-amber-700 disabled:opacity-35"
+                        >
+                          <RotateCcw className={`h-4 w-4 ${busy ? 'animate-spin' : ''}`} />
+                        </button>
                         <button type="button" onClick={() => openEdit(aircraft)} disabled={busy} title="Modifier" className="rounded-lg p-2 text-slate-400 hover:bg-emerald-50 hover:text-emerald-700 disabled:opacity-35"><Pencil className="h-4 w-4" /></button>
                         <button type="button" onClick={() => void retireAircraft(aircraft)} disabled={busy || aircraft.statut === AircraftStatus.RETIRED} title={aircraft.statut === AircraftStatus.RETIRED ? 'Avion déjà retiré' : "Retirer l'avion"} className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-35"><Trash2 className="h-4 w-4" /></button>
                       </div>
@@ -677,7 +758,7 @@ export function AircraftManagement() {
 
               {editingAircraft && (
                 <div className="rounded-xl border border-sky-100 bg-sky-50/70 px-4 py-3 text-xs leading-relaxed text-sky-800">
-                  Le compteur « heures depuis dernière maintenance » et la date de maintenance ne sont pas modifiés ici. Utilisez les actions dédiées du backend : ajout d'heures et réinitialisation maintenance.
+                  Le compteur « heures depuis dernière maintenance » et la date de maintenance ne sont pas modifiés ici.
                 </div>
               )}
 
@@ -689,6 +770,134 @@ export function AircraftManagement() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {maintenanceAircraft && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="maintenance-reset-title"
+        >
+          <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-2xl">
+            <div className="flex items-start justify-between border-b border-slate-100 px-5 py-4">
+              <div className="flex items-start gap-3">
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-2.5 text-amber-700">
+                  <RotateCcw className="h-5 w-5" />
+                </div>
+
+                <div>
+                  <h2
+                    id="maintenance-reset-title"
+                    className="font-extrabold text-slate-800"
+                  >
+                    Réinitialiser la maintenance
+                  </h2>
+
+                  <p className="mt-0.5 text-xs text-slate-400">
+                    {maintenanceAircraft.immatriculation} · {maintenanceAircraft.type?.nomModele ?? maintenanceAircraft.modele}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={closeMaintenanceResetModal}
+                disabled={actionAircraftId === maintenanceAircraft.id}
+                className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 disabled:cursor-not-allowed disabled:opacity-40"
+                aria-label="Fermer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 p-5">
+              <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-4">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+
+                  <div>
+                    <p className="text-sm font-bold text-amber-900">
+                      Confirmer la fin de maintenance ?
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                    Compteur actuel
+                  </span>
+                  <p className="mt-1 text-lg font-black text-slate-800">
+                    {formatNumber(maintenanceAircraft.heuresDepuisDerniereMaintenance)} h
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                    Limite maintenance
+                  </span>
+                  <p className="mt-1 text-lg font-black text-slate-800">
+                    {formatNumber(maintenanceAircraft.limiteHeuresMaintenance)} h
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                    Potentiel utilisé
+                  </span>
+                  <p className="mt-1 text-lg font-black text-slate-800">
+                    {maintenanceRatio(maintenanceAircraft)} %
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                    Dernière maintenance
+                  </span>
+                  <p className="mt-1 text-sm font-black text-slate-800">
+                    {formatDate(maintenanceAircraft.dateDerniereMaintenance)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-sky-100 bg-sky-50/70 px-4 py-3 text-xs leading-5 text-sky-800">
+                Après confirmation, les données seront rechargées automatiquement afin de mettre à jour le compteur, la date de maintenance, le statut et les statistiques de flotte.
+              </div>
+
+              <div className="flex flex-col-reverse gap-2 border-t border-slate-100 pt-4 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={closeMaintenanceResetModal}
+                  disabled={actionAircraftId === maintenanceAircraft.id}
+                  className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Annuler
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => void resetMaintenance()}
+                  disabled={actionAircraftId === maintenanceAircraft.id}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {actionAircraftId === maintenanceAircraft.id ? (
+                    <>
+                      <LoaderCircle className="h-4 w-4 animate-spin" />
+                      Réinitialisation...
+                    </>
+                  ) : (
+                    <>
+                      <RotateCcw className="h-4 w-4" />
+                      Confirmer la réinitialisation
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

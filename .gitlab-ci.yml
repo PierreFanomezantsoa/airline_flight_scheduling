@@ -1,35 +1,167 @@
 stages:
+  - verify
   - build
 
-frontend:
-  stage: build
+# Pipeline uniquement sur :
+# - main
+# - master
+# - Merge Request
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_BRANCH == "master"'
+    - when: never
+
+
+# ==========================================================
+# FRONTEND - React / TypeScript
+# ==========================================================
+
+frontend-verify:
+  stage: verify
   image: node:20-alpine
-  script:
+
+  before_script:
     - cd airline-scheduling-front
-    - npm install
-    - npx vite build
-  rules:
-    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master"
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - npm ci
 
-backend:
+  script:
+    - npm run lint --if-present
+    - npm run test --if-present
+
+  cache:
+    key: "frontend-$CI_COMMIT_REF_SLUG"
+    paths:
+      - airline-scheduling-front/.npm/
+
+  variables:
+    npm_config_cache: "$CI_PROJECT_DIR/airline-scheduling-front/.npm"
+
+
+frontend-build:
   stage: build
   image: node:20-alpine
-  script:
-    - cd airline-scheduling-back/back-airline-scheduling
-    - npm install
-    - npm run build
-  rules:
-    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master"
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
-ai-module:
+  before_script:
+    - cd airline-scheduling-front
+    - npm ci
+
+  script:
+    - npm run build
+
+  artifacts:
+    name: "frontend-$CI_COMMIT_SHORT_SHA"
+    paths:
+      - airline-scheduling-front/dist/
+    expire_in: 7 days
+
+
+# ==========================================================
+# BACKEND PRINCIPAL - NestJS / TypeScript
+# ==========================================================
+
+backend-verify:
+  stage: verify
+  image: node:20-alpine
+
+  before_script:
+    - cd airline-scheduling-back/back-airline-scheduling
+    - npm ci
+
+  script:
+    - npm run lint --if-present
+    - npm run test --if-present
+
+  cache:
+    key: "backend-$CI_COMMIT_REF_SLUG"
+    paths:
+      - airline-scheduling-back/back-airline-scheduling/.npm/
+
+  variables:
+    npm_config_cache: "$CI_PROJECT_DIR/airline-scheduling-back/back-airline-scheduling/.npm"
+
+
+backend-build:
+  stage: build
+  image: node:20-alpine
+
+  before_script:
+    - cd airline-scheduling-back/back-airline-scheduling
+    - npm ci
+
+  script:
+    - npm run build
+
+  artifacts:
+    name: "backend-$CI_COMMIT_SHORT_SHA"
+    paths:
+      - airline-scheduling-back/back-airline-scheduling/dist/
+    expire_in: 7 days
+
+
+# ==========================================================
+# MODULE IA / AUTOMATISATION - Python / Flask
+# ==========================================================
+
+ai-module-verify:
+  stage: verify
+  image: nikolaik/python-nodejs:python3.10-nodejs20-slim
+
+  before_script:
+    - cd airline-ia
+    - python -m pip install --upgrade pip
+    - |
+      if [ -f requirements.txt ]; then
+        pip install -r requirements.txt
+      fi
+
+  script:
+    # Vérification syntaxique Python
+    - python -m compileall -q .
+
+    # Tests Python s'ils existent
+    - |
+      if [ -d tests ]; then
+        python -m pytest
+      else
+        echo "Aucun dossier tests Python trouvé."
+      fi
+
+    # Partie Node éventuelle du module IA
+    - |
+      if [ -f package.json ]; then
+        npm ci
+        npm run lint --if-present
+        npm run test --if-present
+      fi
+
+  cache:
+    key: "ai-$CI_COMMIT_REF_SLUG"
+    paths:
+      - airline-ia/.cache/pip/
+      - airline-ia/.npm/
+
+  variables:
+    PIP_CACHE_DIR: "$CI_PROJECT_DIR/airline-ia/.cache/pip"
+    npm_config_cache: "$CI_PROJECT_DIR/airline-ia/.npm"
+
+
+ai-module-build:
   stage: build
   image: nikolaik/python-nodejs:python3.10-nodejs20-slim
-  script:
+
+  before_script:
     - cd airline-ia
-    - test -f package.json && npm install && npm run build --if-present || true
-    - test -f requirements.txt && pip install --upgrade pip && pip install -r requirements.txt && python -m compileall . || true
-  rules:
-    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master"
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - |
+      if [ -f requirements.txt ]; then
+        pip install -r requirements.txt
+      fi
+
+  script:
+    - python -m compileall -q .
+    - |
+      if [ -f package.json ]; then
+        npm ci
+        npm run build --if-present
+      fi
