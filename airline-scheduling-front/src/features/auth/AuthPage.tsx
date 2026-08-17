@@ -1,13 +1,16 @@
 // src/pages/AuthPage.tsx
+
 import {
   memo,
   useState,
 } from 'react';
+
 import type {
   ChangeEvent,
   FormEvent,
   ReactNode,
 } from 'react';
+
 import {
   BookOpen,
   ChevronDown,
@@ -21,8 +24,8 @@ import {
 } from 'lucide-react';
 
 import myImage from '../../assets/avions.png';
+
 import {
-  ApiError,
   logIn,
   saveAuthSession,
   signUp,
@@ -44,11 +47,10 @@ const ROLE_LABELS: Record<UserRole, string> = {
 };
 
 /**
- * Pour une inscription autonome, on n'expose pas les rôles à privilèges
- * élevés dans l'IHM.
+ * Rôles autorisés pour l'inscription publique.
  *
- * IMPORTANT : cette restriction doit également être appliquée côté backend.
- * Une restriction frontend seule n'est jamais une mesure de sécurité.
+ * IMPORTANT :
+ * cette restriction doit également être appliquée côté Backend.
  */
 const SELF_REGISTRATION_ROLES: UserRole[] = [
   'Planificateur',
@@ -56,6 +58,10 @@ const SELF_REGISTRATION_ROLES: UserRole[] = [
   'Crew_Member',
   'Maintenance_Engineer',
 ];
+
+// =============================================================================
+// TYPES
+// =============================================================================
 
 interface AuthenticatedUser {
   id: string;
@@ -73,7 +79,6 @@ interface AuthFormState {
   password: string;
   nom: string;
   role: UserRole;
-  rememberMe: boolean;
 }
 
 const INITIAL_FORM: AuthFormState = {
@@ -81,11 +86,10 @@ const INITIAL_FORM: AuthFormState = {
   password: '',
   nom: '',
   role: 'Regulator',
-  rememberMe: false,
 };
 
 // =============================================================================
-// UI RÉUTILISABLE
+// COMPOSANTS UI
 // =============================================================================
 
 interface InputFieldProps
@@ -122,7 +126,20 @@ const InputField = ({
       <input
         id={id}
         {...props}
-        className={`h-12 w-full rounded-full border border-slate-200 bg-slate-50/50 pl-11 pr-4 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-emerald-600 focus:bg-white focus:ring-4 focus:ring-emerald-600/10 disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
+        className={`
+          h-12 w-full rounded-full border border-slate-200
+          bg-slate-50/50 pl-11 pr-4 text-sm text-slate-700
+          outline-none transition
+          placeholder:text-slate-400
+          hover:border-slate-300
+          focus:border-emerald-600
+          focus:bg-white
+          focus:ring-4
+          focus:ring-emerald-600/10
+          disabled:cursor-not-allowed
+          disabled:opacity-60
+          ${className}
+        `}
       />
 
       {rightElement && (
@@ -149,6 +166,7 @@ const IconSpinner = () => (
       stroke="currentColor"
       strokeWidth="4"
     />
+
     <path
       className="opacity-75"
       fill="currentColor"
@@ -169,7 +187,7 @@ const InfoPanel = memo(() => (
     />
 
     <div
-      className="absolute inset-0 z-10 bg-gradient-to-br from-emerald-700/90 via-slate-800/85 to-slate-900/95"
+      className="absolute inset-0 z-10 bg-linear-to-br from-emerald-700/90 via-slate-800/85 to-slate-900/95"
       aria-hidden="true"
     />
 
@@ -186,9 +204,9 @@ const InfoPanel = memo(() => (
         </h3>
 
         <p className="max-w-xs text-xs font-medium leading-relaxed text-emerald-100/80">
-          Supervisez la flotte, les conflits de planning, les
-          équipages et la maintenance technique depuis un même
-          espace opérationnel.
+          Supervisez la flotte, les conflits de planning,
+          les équipages et la maintenance technique
+          depuis un même espace opérationnel.
         </p>
       </div>
     </div>
@@ -202,7 +220,6 @@ InfoPanel.displayName = 'InfoPanel';
 // =============================================================================
 
 function getFriendlyApiError(error: unknown): string {
-  // Cas d'une erreur API avec status
   if (
     typeof error === 'object' &&
     error !== null &&
@@ -218,7 +235,10 @@ function getFriendlyApiError(error: unknown): string {
         return 'Email ou mot de passe incorrect.';
 
       case 409:
-        return apiError.message || 'Ce compte existe déjà.';
+        return (
+          apiError.message ||
+          'Ce compte existe déjà.'
+        );
 
       case 400:
         return (
@@ -240,12 +260,10 @@ function getFriendlyApiError(error: unknown): string {
     }
   }
 
-  // Erreur JavaScript standard
   if (error instanceof Error) {
     return error.message;
   }
 
-  // Erreur sous forme de chaîne
   if (typeof error === 'string') {
     return error;
   }
@@ -255,44 +273,53 @@ function getFriendlyApiError(error: unknown): string {
   );
 }
 
-function isSelfRegistrationRole(role: UserRole): boolean {
+function isSelfRegistrationRole(
+  role: UserRole,
+): boolean {
   return SELF_REGISTRATION_ROLES.includes(role);
 }
 
 // =============================================================================
-// PAGE
+// PAGE AUTHENTIFICATION
 // =============================================================================
 
 export function AuthPage({
   onAuthenticate,
 }: AuthPageProps) {
-  const [form, setForm] = useState<AuthFormState>(INITIAL_FORM);
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [form, setForm] =
+    useState<AuthFormState>(INITIAL_FORM);
 
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [isSignUp, setIsSignUp] =
+    useState(false);
+
+  const [showPassword, setShowPassword] =
+    useState(false);
+
+  const [isLoading, setIsLoading] =
+    useState(false);
+
+  const [error, setError] =
+    useState('');
+
+  const [success, setSuccess] =
+    useState('');
+
+  // ===========================================================================
+  // CHANGEMENT FORMULAIRE
+  // ===========================================================================
 
   const handleInputChange = (
-    event: ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+    event: ChangeEvent<
+      HTMLInputElement | HTMLSelectElement
+    >,
   ) => {
     const target = event.target;
-    const key = target.id as keyof AuthFormState;
+
+    const key =
+      target.id as keyof AuthFormState;
 
     setError('');
     setSuccess('');
-
-    if (
-      target instanceof HTMLInputElement &&
-      target.type === 'checkbox'
-    ) {
-      setForm((current) => ({
-        ...current,
-        [key]: target.checked,
-      }));
-      return;
-    }
 
     setForm((current) => ({
       ...current,
@@ -300,8 +327,13 @@ export function AuthPage({
     }));
   };
 
+  // ===========================================================================
+  // CONNEXION / INSCRIPTION
+  // ===========================================================================
+
   const switchMode = () => {
     setIsSignUp((current) => !current);
+
     setError('');
     setSuccess('');
     setShowPassword(false);
@@ -312,44 +344,76 @@ export function AuthPage({
     }));
   };
 
-  const validateForm = (): boolean => {
-    const email = form.email.trim().toLowerCase();
-    const nom = form.nom.trim();
+  // ===========================================================================
+  // VALIDATION
+  // ===========================================================================
 
-    if (!email || !form.password) {
+  const validateForm = (): boolean => {
+    const email =
+      form.email.trim().toLowerCase();
+
+    const nom =
+      form.nom.trim();
+
+    if (
+      !email ||
+      !form.password
+    ) {
       setError(
         'Veuillez renseigner votre adresse e-mail et votre mot de passe.',
       );
+
       return false;
     }
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setError('Veuillez saisir une adresse e-mail valide.');
+    if (
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+    ) {
+      setError(
+        'Veuillez saisir une adresse e-mail valide.',
+      );
+
       return false;
     }
 
-    // Aligné sur LoginDto et CreateUserDto du backend NestJS.
-    if (form.password.length < 8) {
+    if (
+      form.password.length < 8
+    ) {
       setError(
         'Le mot de passe doit contenir au moins 8 caractères.',
       );
+
       return false;
     }
 
-    if (isSignUp && !nom) {
-      setError('Veuillez renseigner votre nom complet.');
+    if (
+      isSignUp &&
+      !nom
+    ) {
+      setError(
+        'Veuillez renseigner votre nom complet.',
+      );
+
       return false;
     }
 
-    if (isSignUp && !isSelfRegistrationRole(form.role)) {
+    if (
+      isSignUp &&
+      !isSelfRegistrationRole(form.role)
+    ) {
       setError(
         "Ce rôle ne peut pas être demandé depuis l'inscription publique.",
       );
+
       return false;
     }
 
     return true;
   };
+
+  // ===========================================================================
+  // UTILISATEUR AUTHENTIFIÉ
+  // ===========================================================================
 
   const authenticate = (
     user: PublicUser,
@@ -362,21 +426,39 @@ export function AuthPage({
     });
   };
 
+  // ===========================================================================
+  // SUBMIT
+  // ===========================================================================
+
   const handleSubmit = async (
     event: FormEvent<HTMLFormElement>,
   ) => {
     event.preventDefault();
 
-    if (isLoading || !validateForm()) return;
+    if (
+      isLoading ||
+      !validateForm()
+    ) {
+      return;
+    }
 
-    const email = form.email.trim().toLowerCase();
-    const nom = form.nom.trim();
+    const email =
+      form.email
+        .trim()
+        .toLowerCase();
+
+    const nom =
+      form.nom.trim();
 
     setIsLoading(true);
     setError('');
     setSuccess('');
 
     try {
+      // =======================================================================
+      // INSCRIPTION
+      // =======================================================================
+
       if (isSignUp) {
         await signUp({
           email,
@@ -385,15 +467,12 @@ export function AuthPage({
           role: form.role,
         });
 
-        // Le backend POST /users crée un utilisateur mais ne renvoie
-        // pas de token. On repasse donc proprement en mode connexion.
         setIsSignUp(false);
         setShowPassword(false);
 
         setForm({
           ...INITIAL_FORM,
           email,
-          rememberMe: form.rememberMe,
         });
 
         setSuccess(
@@ -403,49 +482,95 @@ export function AuthPage({
         return;
       }
 
-      const auth = await logIn({
-        email,
-        password: form.password,
-      });
+      // =======================================================================
+      // CONNEXION
+      // =======================================================================
+
+      const auth =
+        await logIn({
+          email,
+          password: form.password,
+        });
+
+      // =======================================================================
+      // LOCAL STORAGE
+      // =======================================================================
+      //
+      // TRUE = sauvegarde persistante dans localStorage.
+      //
+      // La session reste disponible :
+      // - après actualisation de la page
+      // - après fermeture du navigateur
+      // - après réouverture de l'application
+      //
+      // jusqu'à expiration/invalidation du token backend.
+      // =======================================================================
 
       saveAuthSession(
         auth,
-        form.rememberMe,
+        true,
       );
 
-      authenticate(auth.user);
-    } catch (apiError: unknown) {
+      // =======================================================================
+      // CONNEXION RÉUSSIE
+      // =======================================================================
+
+      authenticate(
+        auth.user,
+      );
+    } catch (
+      apiError: unknown
+    ) {
       setError(
-        getFriendlyApiError(apiError),
+        getFriendlyApiError(
+          apiError,
+        ),
       );
     } finally {
       setIsLoading(false);
     }
   };
 
+  // ===========================================================================
+  // RENDER
+  // ===========================================================================
+
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-50 px-4 py-8 font-sans text-slate-900">
+
+      {/* Décoration gauche */}
       <div
         className="pointer-events-none absolute -left-40 -top-40 h-96 w-96 rounded-full bg-emerald-100/40 blur-3xl"
         aria-hidden="true"
       />
+
+      {/* Décoration droite */}
       <div
         className="pointer-events-none absolute -bottom-40 -right-20 h-96 w-96 rounded-full bg-emerald-100/30 blur-3xl"
         aria-hidden="true"
       />
 
       <div className="relative z-20 mx-auto grid w-full max-w-5xl overflow-hidden rounded-[24px] border border-slate-100 bg-white shadow-xl shadow-slate-200/50 lg:grid-cols-[1.15fr_0.85fr]">
+
+        {/* ================================================================ */}
+        {/* FORMULAIRE */}
+        {/* ================================================================ */}
+
         <div className="flex flex-col justify-between bg-white p-8 sm:p-12">
           <div>
+
+            {/* Logo */}
             <div className="flex items-center gap-2.5 font-black tracking-tight text-emerald-700">
               <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50">
                 <BookOpen className="h-4 w-4 stroke-[2.5] text-emerald-700" />
               </div>
+
               <span className="text-sm font-extrabold uppercase tracking-wider text-slate-800">
                 Airline Operations
               </span>
             </div>
 
+            {/* Titre */}
             <div className="mt-8">
               <h1 className="text-2xl font-black tracking-tight text-slate-900 sm:text-3xl">
                 {isSignUp
@@ -460,15 +585,20 @@ export function AuthPage({
               </p>
             </div>
 
+            {/* Formulaire */}
             <form
               className="mt-8 space-y-4"
               onSubmit={handleSubmit}
               noValidate
             >
+
+              {/* Nom */}
               {isSignUp && (
                 <InputField
                   label="Nom complet"
-                  icon={<User className="h-4 w-4" />}
+                  icon={
+                    <User className="h-4 w-4" />
+                  }
                   id="nom"
                   name="nom"
                   type="text"
@@ -481,9 +611,12 @@ export function AuthPage({
                 />
               )}
 
+              {/* Email */}
               <InputField
                 label="Adresse e-mail"
-                icon={<Mail className="h-4 w-4" />}
+                icon={
+                  <Mail className="h-4 w-4" />
+                }
                 id="email"
                 name="email"
                 type="email"
@@ -496,12 +629,19 @@ export function AuthPage({
                 required
               />
 
+              {/* Mot de passe */}
               <InputField
                 label="Mot de passe"
-                icon={<Lock className="h-4 w-4" />}
+                icon={
+                  <Lock className="h-4 w-4" />
+                }
                 id="password"
                 name="password"
-                type={showPassword ? 'text' : 'password'}
+                type={
+                  showPassword
+                    ? 'text'
+                    : 'password'
+                }
                 value={form.password}
                 onChange={handleInputChange}
                 placeholder="8 caractères minimum"
@@ -522,14 +662,19 @@ export function AuthPage({
                         ? 'Masquer le mot de passe'
                         : 'Afficher le mot de passe'
                     }
-                    aria-pressed={showPassword}
+                    aria-pressed={
+                      showPassword
+                    }
                     onClick={() =>
                       setShowPassword(
-                        (current) => !current,
+                        (current) =>
+                          !current,
                       )
                     }
                     className="cursor-pointer text-slate-400 transition hover:text-emerald-700 focus:outline-none focus:text-emerald-700 disabled:opacity-50"
-                    disabled={isLoading}
+                    disabled={
+                      isLoading
+                    }
                   >
                     {showPassword ? (
                       <EyeOff className="h-4 w-4" />
@@ -540,6 +685,7 @@ export function AuthPage({
                 }
               />
 
+              {/* Rôle */}
               {isSignUp && (
                 <div className="space-y-1.5">
                   <label
@@ -554,9 +700,13 @@ export function AuthPage({
                       id="role"
                       name="role"
                       value={form.role}
-                      onChange={handleInputChange}
+                      onChange={
+                        handleInputChange
+                      }
                       className="h-12 w-full cursor-pointer appearance-none rounded-full border border-slate-200 bg-slate-50/50 pl-5 pr-11 text-sm text-slate-600 outline-none transition hover:border-slate-300 focus:border-emerald-600 focus:bg-white focus:ring-4 focus:ring-emerald-600/10 disabled:cursor-not-allowed disabled:opacity-60"
-                      disabled={isLoading}
+                      disabled={
+                        isLoading
+                      }
                     >
                       {SELF_REGISTRATION_ROLES.map(
                         (role) => (
@@ -564,7 +714,11 @@ export function AuthPage({
                             key={role}
                             value={role}
                           >
-                            {ROLE_LABELS[role]}
+                            {
+                              ROLE_LABELS[
+                                role
+                              ]
+                            }
                           </option>
                         ),
                       )}
@@ -578,31 +732,18 @@ export function AuthPage({
                 </div>
               )}
 
+              {/* Information session */}
               {!isSignUp && (
-                <div className="flex items-center justify-between px-2 pt-1 text-xs font-medium text-slate-400">
-                  <label
-                    htmlFor="rememberMe"
-                    className="flex cursor-pointer select-none items-center gap-1.5"
-                  >
-                    <input
-                      id="rememberMe"
-                      name="rememberMe"
-                      type="checkbox"
-                      checked={form.rememberMe}
-                      onChange={handleInputChange}
-                      disabled={isLoading}
-                      className="h-3.5 w-3.5 rounded accent-emerald-700"
-                    />
-                    Se souvenir de moi
-                  </label>
-
+                <div className="flex items-center justify-end px-2 pt-1">
                   <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-400">
                     <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
-                    Session backend : 8 h
+
+                    Session sécurisée et persistante
                   </span>
                 </div>
               )}
 
+              {/* Messages */}
               <div
                 aria-live="polite"
                 className="min-h-0"
@@ -626,13 +767,19 @@ export function AuthPage({
                 )}
               </div>
 
+              {/* Boutons */}
               <div className="flex flex-wrap items-center gap-5 pt-4">
+
                 <button
                   type="submit"
                   className="inline-flex h-11 cursor-pointer items-center justify-center rounded-full bg-emerald-700 px-8 text-xs font-bold uppercase tracking-wider text-white shadow-md shadow-emerald-700/20 transition hover:bg-emerald-800 active:bg-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                  disabled={isLoading}
+                  disabled={
+                    isLoading
+                  }
                 >
-                  {isLoading && <IconSpinner />}
+                  {isLoading && (
+                    <IconSpinner />
+                  )}
 
                   {isLoading
                     ? isSignUp
@@ -645,24 +792,34 @@ export function AuthPage({
 
                 <button
                   type="button"
-                  onClick={switchMode}
+                  onClick={
+                    switchMode
+                  }
                   className="cursor-pointer text-xs font-bold uppercase tracking-wider text-emerald-700 transition hover:text-emerald-800 focus:outline-none focus:underline disabled:cursor-not-allowed disabled:opacity-50"
-                  disabled={isLoading}
+                  disabled={
+                    isLoading
+                  }
                 >
                   {isSignUp
                     ? 'Retour à la connexion'
                     : 'Créer un compte'}
                 </button>
+
               </div>
             </form>
           </div>
 
+          {/* Information sécurité */}
           <div className="mt-8 border-t border-slate-100 pt-5 text-[10px] font-semibold leading-relaxed text-slate-400">
             Les rôles Administrateur et Product Owner ne sont pas
             proposés en inscription autonome. Leur attribution doit
             être gérée par un administrateur côté serveur.
           </div>
         </div>
+
+        {/* ================================================================ */}
+        {/* PANNEAU DROIT */}
+        {/* ================================================================ */}
 
         <InfoPanel />
       </div>

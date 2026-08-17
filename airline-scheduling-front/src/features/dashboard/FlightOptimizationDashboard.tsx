@@ -23,6 +23,39 @@ const ML_API_BASE_URL =
 
 type ConflictSeverity = 'CRITICAL' | 'HIGH' | 'MEDIUM';
 
+type ConflictType =
+  | 'AIRCRAFT_UNAVAILABLE'
+  | 'AIRCRAFT_OVERLAP'
+  | 'TURNAROUND_TOO_SHORT'
+  | 'AIRCRAFT_POSITIONING'
+  | 'AIRCRAFT_MAINTENANCE'
+  | 'MAINTENANCE_DUE'
+  | 'CREW_OVERLAP'
+  | 'CREW_REST'
+  | 'UNASSIGNED_AIRCRAFT'
+  | 'ML_CONFLICT_RISK'
+  | string;
+
+type OccDecision = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+type ProposedAction =
+  | 'REASSIGN_AIRCRAFT'
+  | 'SHIFT_FLIGHT'
+  | 'CANCEL_FLIGHT'
+  | 'KEEP_CURRENT'
+  | 'MANUAL_REVIEW'
+  | string;
+
+interface ConflictProposal {
+  action: ProposedAction;
+  description: string;
+  targetAircraftId?: string | null;
+  targetAircraftRegistration?: string | null;
+  proposedDeparture?: string | null;
+  proposedArrival?: string | null;
+  requiresOccApproval?: boolean;
+}
+
 interface ConflictFlightRef {
   id: string;
   numeroVol: string;
@@ -37,13 +70,7 @@ interface ConflictFlightRef {
 
 interface FlightConflict {
   id: string;
-  type:
-    | 'AIRCRAFT_OVERLAP'
-    | 'TURNAROUND_TOO_SHORT'
-    | 'AIRCRAFT_POSITIONING'
-    | 'UNASSIGNED_AIRCRAFT'
-    | 'ML_CONFLICT_RISK'
-    | string;
+  type: ConflictType;
   severity: ConflictSeverity;
   probability: number;
   detector?: string;
@@ -55,6 +82,9 @@ interface FlightConflict {
   gapMinutes?: number | null;
   reason: string;
   recommendation: string;
+  proposal?: ConflictProposal | null;
+  occDecision?: OccDecision;
+  decision?: OccDecision;
 }
 
 interface ConflictDetectionResult {
@@ -83,6 +113,12 @@ export const FlightOptimizationDashboard: React.FC = () => {
   const [loadingConflicts, setLoadingConflicts] = useState<boolean>(false);
   const [conflictError, setConflictError] = useState<string | null>(null);
   const [lastConflictScanAt, setLastConflictScanAt] = useState<Date | null>(null);
+
+  // Validation humaine OCC des propositions de résolution.
+  // Aucun décalage critique, aucune réaffectation sensible et aucune annulation
+  // ne sont appliqués automatiquement depuis cette interface.
+  const [occDecisions, setOccDecisions] = useState<Record<string, OccDecision>>({});
+  const [processingConflictId, setProcessingConflictId] = useState<string | null>(null);
 
   // État du Modal de Suppression
   const [flightToDelete, setFlightToDelete] = useState<Flight | null>(null);
@@ -133,7 +169,22 @@ export const FlightOptimizationDashboard: React.FC = () => {
         );
       }
 
-      setConflictResult(data as ConflictDetectionResult);
+      const result = data as ConflictDetectionResult;
+      setConflictResult(result);
+
+      setOccDecisions((current) => {
+        const next = { ...current };
+        for (const conflict of result.conflicts || []) {
+          const backendDecision = conflict.occDecision || conflict.decision;
+          if (backendDecision) {
+            next[conflict.id] = backendDecision;
+          } else if (!next[conflict.id]) {
+            next[conflict.id] = 'PENDING';
+          }
+        }
+        return next;
+      });
+
       setLastConflictScanAt(new Date());
       setConflictError(null);
     } catch (err: any) {
@@ -147,6 +198,76 @@ export const FlightOptimizationDashboard: React.FC = () => {
       }
     } finally {
       setLoadingConflicts(false);
+    }
+  };
+
+  const submitOccDecision = async (
+    conflict: FlightConflict,
+    decision: Exclude<OccDecision, 'PENDING'>,
+  ) => {
+    const proposal = conflict.proposal;
+
+    if (
+      decision === 'APPROVED' &&
+      proposal &&
+      ['SHIFT_FLIGHT', 'CANCEL_FLIGHT'].includes(proposal.action)
+    ) {
+      const confirmed = window.confirm(
+        proposal.action === 'CANCEL_FLIGHT'
+          ? 'Confirmer la validation OCC de cette proposition d’annulation ?'
+          : 'Confirmer la validation OCC de ce décalage de vol ?',
+      );
+
+      if (!confirmed) return;
+    }
+
+    try {
+      setProcessingConflictId(conflict.id);
+      setConflictError(null);
+
+      const response = await fetch(
+        `${ML_API_BASE_URL}/flights/conflicts/${encodeURIComponent(conflict.id)}/decision`,
+        {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            decision,
+            source: 'OCC_UI',
+          }),
+        },
+      );
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(
+          data?.message ||
+            `Erreur validation OCC HTTP ${response.status}`,
+        );
+      }
+
+      setOccDecisions((current) => ({
+        ...current,
+        [conflict.id]: decision,
+      }));
+
+      // On recharge les vols et les conflits car une proposition approuvée
+      // peut modifier une affectation ou un horaire côté serveur.
+      await Promise.all([
+        loadFlights(),
+        loadConflicts(true),
+      ]);
+    } catch (err: any) {
+      console.error('Erreur validation OCC :', err);
+      setConflictError(
+        err?.message ||
+          'Impossible d’enregistrer la décision OCC.',
+      );
+    } finally {
+      setProcessingConflictId(null);
     }
   };
 
@@ -314,20 +435,54 @@ export const FlightOptimizationDashboard: React.FC = () => {
 
   const getConflictTypeLabel = (type: string) => {
     switch (type) {
+      case 'AIRCRAFT_UNAVAILABLE':
+        return 'Appareil indisponible';
       case 'AIRCRAFT_OVERLAP':
         return 'Chevauchement appareil';
       case 'TURNAROUND_TOO_SHORT':
         return 'Rotation trop courte';
       case 'AIRCRAFT_POSITIONING':
-        return 'Position appareil';
+        return 'Positionnement appareil';
+      case 'AIRCRAFT_MAINTENANCE':
+        return 'Conflit maintenance';
+      case 'MAINTENANCE_DUE':
+        return 'Maintenance requise';
+      case 'CREW_OVERLAP':
+        return 'Chevauchement équipage';
+      case 'CREW_REST':
+        return 'Repos équipage insuffisant';
       case 'UNASSIGNED_AIRCRAFT':
         return 'Appareil non assigné';
       case 'ML_CONFLICT_RISK':
-        return 'Risque arbre décision';
+        return 'Risque arbre de décision';
       default:
         return type;
     }
   };
+
+  const getProposalActionLabel = (action?: string) => {
+    switch (action) {
+      case 'REASSIGN_AIRCRAFT':
+        return 'Réaffectation appareil';
+      case 'SHIFT_FLIGHT':
+        return 'Décalage du vol';
+      case 'CANCEL_FLIGHT':
+        return 'Annulation proposée';
+      case 'KEEP_CURRENT':
+        return 'Maintenir le planning';
+      case 'MANUAL_REVIEW':
+        return 'Analyse manuelle OCC';
+      default:
+        return action || 'Proposition OCC';
+    }
+  };
+
+  const getOccDecision = (conflict: FlightConflict): OccDecision =>
+    occDecisions[conflict.id] ||
+    conflict.occDecision ||
+    conflict.decision ||
+    'PENDING';
+
 
   const conflictCount = conflictResult?.totalConflicts ?? 0;
 
@@ -345,7 +500,7 @@ export const FlightOptimizationDashboard: React.FC = () => {
             </h1>
 
             <p className="text-slate-500 text-sm font-medium leading-relaxed m-0">
-              Analyse des rotations par arbre de décision afin d’identifier les chevauchements, rotations trop courtes et incohérences de positionnement.
+              Détection globale des conflits : disponibilité, chevauchement, turnaround, positionnement, maintenance et équipage. Les changements critiques restent soumis à validation OCC.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3 shrink-0">
@@ -482,7 +637,7 @@ export const FlightOptimizationDashboard: React.FC = () => {
                 Analyse des conflits — Arbre de décision
               </h3>
               <p className="m-0 mt-0.5 text-[11px] font-medium text-slate-400">
-                Chevauchement appareil, turnaround, positionnement et risque de rotation.
+                Disponibilité, overlap, turnaround, positionnement, maintenance, équipage et recommandations de réaffectation.
               </p>
             </div>
           </div>
@@ -637,6 +792,103 @@ export const FlightOptimizationDashboard: React.FC = () => {
                         <p className="mt-0.5 text-[10px] font-semibold leading-4 text-emerald-900">
                           {conflict.recommendation}
                         </p>
+                      </div>
+
+                      {conflict.proposal && (
+                        <div className="mt-2 rounded-xl border border-sky-100 bg-sky-50/60 px-3 py-2.5">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <span className="text-[8px] font-black uppercase tracking-wider text-sky-700">
+                              Proposition de résolution
+                            </span>
+
+                            <span className="rounded-full border border-sky-200 bg-white px-2 py-0.5 text-[8px] font-black uppercase tracking-wide text-sky-700">
+                              {getProposalActionLabel(conflict.proposal.action)}
+                            </span>
+                          </div>
+
+                          <p className="mt-1 text-[10px] font-semibold leading-4 text-sky-900">
+                            {conflict.proposal.description}
+                          </p>
+
+                          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 font-mono text-[9px] font-bold text-slate-500">
+                            {conflict.proposal.targetAircraftRegistration && (
+                              <span>
+                                Appareil proposé : {conflict.proposal.targetAircraftRegistration}
+                              </span>
+                            )}
+
+                            {conflict.proposal.proposedDeparture && (
+                              <span>
+                                Départ proposé :{' '}
+                                {new Date(
+                                  conflict.proposal.proposedDeparture,
+                                ).toLocaleString('fr-FR')}
+                              </span>
+                            )}
+
+                            {conflict.proposal.proposedArrival && (
+                              <span>
+                                Arrivée proposée :{' '}
+                                {new Date(
+                                  conflict.proposal.proposedArrival,
+                                ).toLocaleString('fr-FR')}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        {getOccDecision(conflict) === 'APPROVED' ? (
+                          <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[9px] font-black uppercase tracking-wide text-emerald-700">
+                            <CheckCircle2 className="h-3 w-3" />
+                            Validé par OCC
+                          </span>
+                        ) : getOccDecision(conflict) === 'REJECTED' ? (
+                          <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-[9px] font-black uppercase tracking-wide text-slate-600">
+                            <XCircle className="h-3 w-3" />
+                            Proposition rejetée
+                          </span>
+                        ) : conflict.proposal ? (
+                          <>
+                            <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[9px] font-black uppercase tracking-wide text-amber-700">
+                              <Clock className="h-3 w-3" />
+                              Validation OCC requise
+                            </span>
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                void submitOccDecision(conflict, 'APPROVED')
+                              }
+                              disabled={processingConflictId === conflict.id}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-600 px-3 py-1.5 text-[9px] font-black uppercase tracking-wide text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              {processingConflictId === conflict.id ? (
+                                <RefreshCw className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <CheckCircle2 className="h-3 w-3" />
+                              )}
+                              Valider OCC
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                void submitOccDecision(conflict, 'REJECTED')
+                              }
+                              disabled={processingConflictId === conflict.id}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[9px] font-black uppercase tracking-wide text-slate-600 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              <XCircle className="h-3 w-3" />
+                              Rejeter
+                            </button>
+                          </>
+                        ) : (
+                          <span className="text-[9px] font-bold text-slate-400">
+                            Recommandation informative — aucune action automatique.
+                          </span>
+                        )}
                       </div>
                     </div>
 
