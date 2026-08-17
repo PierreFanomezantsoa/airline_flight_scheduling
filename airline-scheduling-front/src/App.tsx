@@ -91,7 +91,7 @@ const ROLE_SCREEN_PERMISSIONS: Record<
     'maintenance',
     'optimization',
   ],
-
+// atrribution des droits pour le rôle Crew_Member
   Crew_Member: [
     'dashboard',
     'flights',
