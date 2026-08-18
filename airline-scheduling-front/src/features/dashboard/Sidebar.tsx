@@ -39,10 +39,11 @@ export type ActiveScreen =
   | 'optimization'
   | 'settings';
 
-type LucideComponent = React.ForwardRefExoticComponent<
-  Omit<LucideProps, 'ref'> &
-    React.RefAttributes<SVGSVGElement>
->;
+type LucideComponent =
+  React.ForwardRefExoticComponent<
+    Omit<LucideProps, 'ref'> &
+      React.RefAttributes<SVGSVGElement>
+  >;
 
 interface MenuItem {
   id: ActiveScreen;
@@ -83,7 +84,7 @@ type UserRoleLabel =
   | 'Utilisateur'
   | 'Administrateur Système'
   | 'Planificateur de Vol'
-  | 'Gestionnaire Ops Center'
+  | 'Gestionnaire OCC'
   | 'Membre d’Équipage'
   | 'Ingénieur Maintenance'
   | 'Product Owner';
@@ -101,13 +102,13 @@ const mobileMenuItems: MenuItem[] = [
 
   {
     id: 'scheduling',
-    label: 'Ordonn.',
+    label: 'Planning',
     icon: Layers,
   },
 
   {
     id: 'optimization',
-    label: 'Auto-Opti',
+    label: 'Optim.',
     icon: Sparkles,
   },
 
@@ -137,7 +138,7 @@ const mobileMenuItems: MenuItem[] = [
 
   {
     id: 'crew',
-    label: 'Équipes',
+    label: 'Équipages',
     icon: Users,
   },
 
@@ -185,7 +186,7 @@ const coreMenuItems: MenuItem[] = [
 
   {
     id: 'aircraft',
-    label: 'Gestion Avion',
+    label: 'Gestion des Avions',
     icon: Plane,
   },
 
@@ -215,7 +216,7 @@ const advancedMenuItems: MenuItem[] = [
 
   {
     id: 'crew',
-    label: 'Affectation Équipages',
+    label: 'Affectation des Équipages',
     icon: Users,
   },
 
@@ -223,6 +224,12 @@ const advancedMenuItems: MenuItem[] = [
     id: 'maintenance',
     label: 'Planification Maintenance',
     icon: Wrench,
+  },
+
+  {
+    id: 'disruptions',
+    label: 'Centre de Crise',
+    icon: AlertTriangle,
   },
 
   {
@@ -313,13 +320,14 @@ const roleLabels: Record<
   AvailableRoles,
   UserRoleLabel
 > = {
-  Admin: 'Administrateur Système',
+  Admin:
+    'Administrateur Système',
 
   Planificateur:
     'Planificateur de Vol',
 
   Regulator:
-    'Gestionnaire Ops Center',
+    'Gestionnaire OCC',
 
   Crew_Member:
     'Membre d’Équipage',
@@ -337,7 +345,9 @@ const roleLabels: Record<
 
 const normalizeRole = (
   role?: string,
-): AvailableRoles | undefined => {
+):
+  | AvailableRoles
+  | undefined => {
   if (!role) {
     return undefined;
   }
@@ -394,35 +404,43 @@ export const Sidebar: React.FC<
   const userRoleLabel:
     UserRoleLabel =
       currentRole &&
-      roleLabels[currentRole]
-        ? roleLabels[currentRole]
+      roleLabels[
+        currentRole
+      ]
+        ? roleLabels[
+            currentRole
+          ]
         : 'Utilisateur';
 
   // ===========================================================================
   // FILTRAGE PAR RÔLE
   // ===========================================================================
 
-  const getVisibleItems = (
-    items: MenuItem[],
-  ) => {
-    if (
-      !currentRole ||
-      !allowedScreens[
-        currentRole
-      ]
-    ) {
-      return items;
-    }
-
-    return items.filter(
-      (item) =>
-        allowedScreens[
+  const getVisibleItems =
+    (
+      items:
+        MenuItem[],
+    ) => {
+      if (
+        !currentRole ||
+        !allowedScreens[
           currentRole
-        ].includes(
-          item.id,
-        ),
-    );
-  };
+        ]
+      ) {
+        return items;
+      }
+
+      return items.filter(
+        (
+          item,
+        ) =>
+          allowedScreens[
+            currentRole
+          ].includes(
+            item.id,
+          ),
+      );
+    };
 
   const visibleCoreMenuItems =
     getVisibleItems(
@@ -443,79 +461,93 @@ export const Sidebar: React.FC<
   // BOUTON DESKTOP
   // ===========================================================================
 
-  const renderDesktopButton = (
-    item: MenuItem,
-  ) => {
-    const Icon =
-      item.icon;
+  const renderDesktopButton =
+    (
+      item:
+        MenuItem,
+    ) => {
+      const Icon =
+        item.icon;
 
-    const isActive =
-      activeScreen ===
-      item.id;
+      const isActive =
+        activeScreen ===
+        item.id;
 
-    return (
-      <button
-        key={item.id}
-        type="button"
-        onClick={() =>
-          setActiveScreen(
-            item.id,
-          )
-        }
-        title={
-          isCollapsed
-            ? item.label
-            : undefined
-        }
-        className={`group relative flex w-full cursor-pointer select-none items-center rounded-xl border-none py-2.5 text-left text-sm font-semibold outline-none transition-all duration-200 ${
-          isCollapsed
-            ? 'justify-center px-0'
-            : 'justify-between px-4'
-        } ${
-          isActive
-            ? 'bg-emerald-700 text-white shadow-sm shadow-emerald-700/20'
-            : 'text-slate-600 hover:bg-slate-100/70 hover:text-slate-900'
-        }`}
-      >
-        <div
-          className={`flex items-center ${
+      return (
+        <button
+          key={
+            item.id
+          }
+          type="button"
+          onClick={() =>
+            setActiveScreen(
+              item.id,
+            )
+          }
+          title={
             isCollapsed
-              ? 'justify-center'
-              : 'min-w-0 gap-3'
+              ? item.label
+              : undefined
+          }
+          className={`group relative flex w-full cursor-pointer select-none items-center rounded-xl border-none py-2.5 text-left text-sm font-semibold outline-none transition-all duration-200 ${
+            isCollapsed
+              ? 'justify-center px-0'
+              : 'justify-between px-4'
+          } ${
+            isActive
+              ? 'bg-emerald-700 text-white shadow-sm shadow-emerald-700/20'
+              : 'text-slate-600 hover:bg-slate-100/70 hover:text-slate-900'
           }`}
         >
-          <Icon
-            className={`h-4 w-4 shrink-0 transition-colors duration-150 ${
-              isActive
-                ? 'text-white'
-                : 'text-slate-400 group-hover:text-slate-600'
+
+          <div
+            className={`flex items-center ${
+              isCollapsed
+                ? 'justify-center'
+                : 'min-w-0 gap-3'
             }`}
-          />
+          >
 
-          {!isCollapsed && (
-            <span className="truncate transition-all duration-200">
-              {item.label}
-            </span>
-          )}
-        </div>
-
-        {!isCollapsed &&
-          item.badge && (
-            <span
-              className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold transition-all ${
+            <Icon
+              className={`h-4 w-4 shrink-0 transition-colors duration-150 ${
                 isActive
-                  ? 'bg-white text-emerald-700'
-                  : 'bg-emerald-100 text-emerald-700'
+                  ? 'text-white'
+                  : 'text-slate-400 group-hover:text-slate-600'
               }`}
-            >
-              {
-                item.badge
-              }
-            </span>
-          )}
-      </button>
-    );
-  };
+            />
+
+            {!isCollapsed && (
+
+              <span className="truncate transition-all duration-200">
+                {
+                  item.label
+                }
+              </span>
+
+            )}
+
+          </div>
+
+          {!isCollapsed &&
+            item.badge && (
+
+              <span
+                className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold transition-all ${
+                  isActive
+                    ? 'bg-white text-emerald-700'
+                    : 'bg-emerald-100 text-emerald-700'
+                }`}
+              >
+                {
+                  item.badge
+                }
+              </span>
+
+            )}
+
+        </button>
+      );
+    };
 
   // ===========================================================================
   // RENDER
@@ -523,6 +555,7 @@ export const Sidebar: React.FC<
 
   return (
     <>
+
       {/* =====================================================================
           VUE MOBILE
       ===================================================================== */}
@@ -530,7 +563,9 @@ export const Sidebar: React.FC<
       <nav className="scrollbar-none fixed bottom-0 left-0 right-0 z-50 flex h-16 select-none items-center justify-between gap-1 overflow-x-auto border-t border-slate-200 bg-white/95 px-1 shadow-lg backdrop-blur-lg md:hidden">
 
         {visibleMobileMenuItems.map(
-          (item) => {
+          (
+            item,
+          ) => {
             const Icon =
               item.icon;
 
@@ -539,6 +574,7 @@ export const Sidebar: React.FC<
               item.id;
 
             return (
+
               <button
                 key={
                   item.id
@@ -571,10 +607,13 @@ export const Sidebar: React.FC<
                 </span>
 
                 {isActive && (
+
                   <div className="absolute left-1/2 top-0 h-0.5 w-6 -translate-x-1/2 rounded-full bg-emerald-700" />
+
                 )}
 
               </button>
+
             );
           },
         )}
@@ -602,7 +641,7 @@ export const Sidebar: React.FC<
           <div className="scrollbar-thin scrollbar-thumb-slate-200 overflow-y-auto">
 
             {/* ===============================================================
-                HEADER / LOGO
+                HEADER
             =============================================================== */}
 
             <div
@@ -622,21 +661,25 @@ export const Sidebar: React.FC<
               >
 
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-emerald-700 shadow-md shadow-emerald-700/20">
+
                   <Plane className="h-5 w-5 text-white" />
+
                 </div>
 
                 {!isCollapsed && (
+
                   <div className="overflow-hidden transition-opacity duration-200">
 
                     <h1 className="m-0 text-base font-extrabold leading-none tracking-tight text-slate-800">
-                      Flight Ops
+                      Opérations aériennes
                     </h1>
 
                     <p className="m-0 mt-1 truncate text-[11px] font-medium text-slate-400">
-                      Scheduling Center
+                      Centre de planification des vols
                     </p>
 
                   </div>
+
                 )}
 
               </div>
@@ -650,8 +693,8 @@ export const Sidebar: React.FC<
                 }
                 title={
                   isCollapsed
-                    ? 'Agrandir la sidebar'
-                    : 'Réduire la sidebar'
+                    ? 'Agrandir la barre latérale'
+                    : 'Réduire la barre latérale'
                 }
                 className={`cursor-pointer rounded-lg border-none bg-transparent p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 ${
                   isCollapsed
@@ -659,7 +702,9 @@ export const Sidebar: React.FC<
                     : ''
                 }`}
               >
+
                 <AlignLeft className="h-4 w-4" />
+
               </button>
 
             </div>
@@ -670,18 +715,17 @@ export const Sidebar: React.FC<
 
             <nav className="space-y-5 p-3">
 
-              {/* =============================================================
-                  OVERVIEW
-              ============================================================= */}
-
               {visibleCoreMenuItems.length >
                 0 && (
+
                 <div className="space-y-1">
 
                   {!isCollapsed && (
-                    <p className="mb-1.5 px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 transition-all">
-                      Overview
+
+                    <p className="mb-1.5 px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      Général
                     </p>
+
                   )}
 
                   {visibleCoreMenuItems.map(
@@ -689,20 +733,20 @@ export const Sidebar: React.FC<
                   )}
 
                 </div>
-              )}
 
-              {/* =============================================================
-                  MANAGEMENT
-              ============================================================= */}
+              )}
 
               {visibleAdvancedMenuItems.length >
                 0 && (
+
                 <div className="space-y-1">
 
                   {!isCollapsed && (
-                    <p className="mb-1.5 px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 transition-all">
-                      Management
+
+                    <p className="mb-1.5 px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      Gestion opérationnelle
                     </p>
+
                   )}
 
                   {visibleAdvancedMenuItems.map(
@@ -710,6 +754,7 @@ export const Sidebar: React.FC<
                   )}
 
                 </div>
+
               )}
 
             </nav>
@@ -722,15 +767,13 @@ export const Sidebar: React.FC<
 
           <div className="border-t border-gray-100 bg-slate-50/50 p-3">
 
-            {/* AIDE */}
-
             <div className="mb-2 px-2">
 
               <button
                 type="button"
                 title={
                   isCollapsed
-                    ? 'Aide & Support'
+                    ? 'Aide et support'
                     : undefined
                 }
                 className={`flex w-full cursor-pointer items-center border-none bg-transparent py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 ${
@@ -743,18 +786,18 @@ export const Sidebar: React.FC<
                 <HelpCircle className="h-4 w-4 shrink-0 text-slate-400" />
 
                 {!isCollapsed && (
+
                   <span>
-                    Aide & Support
+                    Aide et support
                   </span>
+
                 )}
 
               </button>
 
             </div>
 
-            {/* ===============================================================
-                UTILISATEUR
-            =============================================================== */}
+            {/* UTILISATEUR */}
 
             <div
               className={`flex items-center border-t border-gray-200/60 pt-2 ${
@@ -772,8 +815,6 @@ export const Sidebar: React.FC<
                 }`}
               >
 
-                {/* AVATAR */}
-
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-emerald-200 bg-emerald-100 text-xs font-extrabold text-emerald-700">
 
                   {user
@@ -785,6 +826,7 @@ export const Sidebar: React.FC<
                 </div>
 
                 {!isCollapsed && (
+
                   <div className="overflow-hidden">
 
                     <h3 className="m-0 truncate text-xs font-bold leading-tight text-slate-800">
@@ -800,13 +842,10 @@ export const Sidebar: React.FC<
                     </p>
 
                   </div>
+
                 )}
 
               </div>
-
-              {/* =============================================================
-                  DÉCONNEXION
-              ============================================================= */}
 
               <button
                 type="button"
@@ -816,7 +855,9 @@ export const Sidebar: React.FC<
                 title="Déconnexion"
                 className="cursor-pointer rounded-lg border-none bg-transparent p-1.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
               >
+
                 <LogOut className="h-4 w-4" />
+
               </button>
 
             </div>
@@ -826,6 +867,7 @@ export const Sidebar: React.FC<
         </aside>
 
       </div>
+
     </>
   );
 };
