@@ -2,46 +2,51 @@ import React, {
   useEffect,
   useMemo,
   useState,
-} from "react";
+} from 'react';
 
 import {
-  Search,
-  RefreshCw,
-  Plane,
-  CalendarDays,
-  MapPin,
   AlertTriangle,
+  ArrowRight,
+  CalendarDays,
   CheckCircle2,
-  XCircle,
-  Timer,
   ChevronDown,
   ChevronUp,
-  History,
-  Cloud,
-  Navigation,
   Clock3,
+  Cloud,
   Gauge,
-} from "lucide-react";
+  History,
+  MapPin,
+  Navigation,
+  Plane,
+  RefreshCw,
+  Search,
+  Timer,
+  X,
+  XCircle,
+} from 'lucide-react';
 
-/* =========================================================
-   TYPES
-========================================================= */
+/* ============================================================================
+ * TYPES
+ * ========================================================================== */
 
 type FlightStatus =
-  | "Scheduled"
-  | "Delayed"
-  | "Cancelled"
-  | "Completed"
-  | "In-Flight"
+  | 'Scheduled'
+  | 'Delayed'
+  | 'Cancelled'
+  | 'Completed'
+  | 'In-Flight'
   | string;
 
 interface WeatherPoint {
   airport?: string | null;
   severity?: number | null;
+
   available?: boolean;
   forecastAvailable?: boolean;
+
   fetchedAt?: string;
   targetTime?: string;
+
   error?: string | null;
 }
 
@@ -142,6 +147,7 @@ interface NormalizedFlight {
 
   origin: string;
   destination: string;
+
   route: string;
 
   departureUtc: string | null;
@@ -158,7 +164,10 @@ interface NormalizedFlight {
   aircraftRegistration: string;
 
   stopover: string | null;
-  stopoverDurationMinutes: number | null;
+
+  stopoverDurationMinutes:
+    | number
+    | null;
 
   weatherAI?: WeatherAI;
 
@@ -166,81 +175,83 @@ interface NormalizedFlight {
 }
 
 type StatusFilter =
-  | "ALL"
-  | "Completed"
-  | "Delayed"
-  | "Cancelled";
+  | 'ALL'
+  | 'Completed'
+  | 'Delayed'
+  | 'Cancelled';
 
 interface FlightHistoryProps {
   apiUrl?: string;
   token?: string | null;
 }
 
-/* =========================================================
-   CONFIG
-========================================================= */
+/* ============================================================================
+ * CONFIGURATION
+ * ========================================================================== */
 
 const DEFAULT_API_URL =
-  "http://localhost:5000/flights";
+  'http://localhost:5000/flights';
 
-/* =========================================================
-   HELPERS
-========================================================= */
+/* ============================================================================
+ * HELPERS
+ * ========================================================================== */
 
 const normalizeStatus = (
   status?: string,
 ): FlightStatus => {
-  const value = String(
-    status ?? "",
-  )
-    .trim()
-    .toLowerCase();
+  const value =
+    String(status ?? '')
+      .trim()
+      .toLowerCase();
 
   if (
-    value === "completed" ||
-    value === "effectué" ||
-    value === "effectue" ||
-    value === "done"
+    value === 'completed' ||
+    value === 'effectué' ||
+    value === 'effectue' ||
+    value === 'done'
   ) {
-    return "Completed";
+    return 'Completed';
   }
 
   if (
-    value === "delayed" ||
-    value === "retardé" ||
-    value === "retarde"
+    value === 'delayed' ||
+    value === 'retardé' ||
+    value === 'retarde'
   ) {
-    return "Delayed";
+    return 'Delayed';
   }
 
   if (
-    value === "cancelled" ||
-    value === "canceled" ||
-    value === "annulé" ||
-    value === "annule"
+    value === 'cancelled' ||
+    value === 'canceled' ||
+    value === 'annulé' ||
+    value === 'annule'
   ) {
-    return "Cancelled";
+    return 'Cancelled';
   }
 
   if (
-    value === "in-flight" ||
-    value === "in flight" ||
-    value === "en vol"
+    value === 'in-flight' ||
+    value === 'in flight' ||
+    value === 'en vol'
   ) {
-    return "In-Flight";
+    return 'In-Flight';
   }
 
   if (
-    value === "scheduled" ||
-    value === "planifié" ||
-    value === "planifie" ||
-    value === "programmé" ||
-    value === "programme"
+    value === 'scheduled' ||
+    value === 'planifié' ||
+    value === 'planifie' ||
+    value === 'programmé' ||
+    value === 'programme'
   ) {
-    return "Scheduled";
+    return 'Scheduled';
   }
 
-  return status || "Unknown";
+  return (
+    status ||
+    'Unknown'
+  );
 };
 
 const normalizeFlight = (
@@ -255,23 +266,21 @@ const normalizeFlight = (
       flight.flightNumber ||
       `VOL-${String(
         flight.id,
-      ).slice(
-        0,
-        8,
-      )}`,
+      ).slice(0, 8)}`,
 
     origin:
       flight.origin ||
-      "—",
+      '—',
 
     destination:
       flight.destination ||
-      "—",
+      '—',
 
     route:
       flight.route ||
-      `${flight.origin || "—"} → ${
-        flight.destination || "—"
+      `${flight.origin || '—'} → ${
+        flight.destination ||
+        '—'
       }`,
 
     departureUtc:
@@ -301,11 +310,11 @@ const normalizeFlight = (
 
     aircraftId:
       flight.aircraft ||
-      "NON ASSIGNÉ",
+      'NON ASSIGNÉ',
 
     aircraftRegistration:
       flight.aircraftModel ||
-      "Sans immatriculation",
+      'Sans immatriculation',
 
     stopover:
       flight.stopover ??
@@ -323,11 +332,15 @@ const normalizeFlight = (
   };
 };
 
+/* ============================================================================
+ * DATE / TIME
+ * ========================================================================== */
+
 const formatDateTime = (
   date?: string | null,
 ): string => {
   if (!date) {
-    return "—";
+    return '—';
   }
 
   const parsed =
@@ -342,24 +355,22 @@ const formatDateTime = (
   }
 
   return new Intl.DateTimeFormat(
-    "fr-FR",
+    'fr-FR',
     {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
     },
-  ).format(
-    parsed,
-  );
+  ).format(parsed);
 };
 
 const formatDate = (
   date?: string | null,
 ): string => {
   if (!date) {
-    return "—";
+    return '—';
   }
 
   const parsed =
@@ -374,22 +385,20 @@ const formatDate = (
   }
 
   return new Intl.DateTimeFormat(
-    "fr-FR",
+    'fr-FR',
     {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
     },
-  ).format(
-    parsed,
-  );
+  ).format(parsed);
 };
 
 const formatTime = (
   date?: string | null,
 ): string => {
   if (!date) {
-    return "—";
+    return '—';
   }
 
   const parsed =
@@ -404,14 +413,12 @@ const formatTime = (
   }
 
   return new Intl.DateTimeFormat(
-    "fr-FR",
+    'fr-FR',
     {
-      hour: "2-digit",
-      minute: "2-digit",
+      hour: '2-digit',
+      minute: '2-digit',
     },
-  ).format(
-    parsed,
-  );
+  ).format(parsed);
 };
 
 const formatDuration = (
@@ -422,7 +429,7 @@ const formatDuration = (
     minutes === undefined ||
     Number.isNaN(minutes)
   ) {
-    return "—";
+    return '—';
   }
 
   const hours =
@@ -439,12 +446,15 @@ const formatDuration = (
     return `${remainingMinutes} min`;
   }
 
+  if (
+    remainingMinutes === 0
+  ) {
+    return `${hours} h`;
+  }
+
   return `${hours} h ${String(
     remainingMinutes,
-  ).padStart(
-    2,
-    "0",
-  )}`;
+  ).padStart(2, '0')}`;
 };
 
 const formatPercentage = (
@@ -455,7 +465,7 @@ const formatPercentage = (
     value === null ||
     Number.isNaN(value)
   ) {
-    return "—";
+    return '—';
   }
 
   return `${Math.round(
@@ -463,16 +473,20 @@ const formatPercentage = (
   )}%`;
 };
 
+/* ============================================================================
+ * HISTORY DETECTION
+ * ========================================================================== */
+
 const isHistoryFlight = (
   flight: NormalizedFlight,
 ): boolean => {
   if (
     flight.status ===
-      "Completed" ||
+      'Completed' ||
     flight.status ===
-      "Delayed" ||
+      'Delayed' ||
     flight.status ===
-      "Cancelled"
+      'Cancelled'
   ) {
     return true;
   }
@@ -499,1733 +513,1922 @@ const isHistoryFlight = (
   return false;
 };
 
-/* =========================================================
-   STATUS BADGE
-========================================================= */
+/* ============================================================================
+ * STATUS BADGE
+ * ========================================================================== */
 
-const StatusBadge: React.FC<{
-  status: FlightStatus;
-}> = ({
-  status,
-}) => {
-  const normalized =
-    normalizeStatus(
-      status,
-    );
+const StatusBadge:
+  React.FC<{
+    status: FlightStatus;
+  }> = ({
+    status,
+  }) => {
+    const normalized =
+      normalizeStatus(
+        status,
+      );
 
-  if (
-    normalized ===
-    "Completed"
-  ) {
+    const config = {
+      Completed: {
+        label:
+          'Effectué',
+
+        icon: (
+          <CheckCircle2 size={13} />
+        ),
+
+        className:
+          'border-emerald-200 bg-emerald-50 text-emerald-700',
+      },
+
+      Delayed: {
+        label:
+          'Retardé',
+
+        icon: (
+          <Timer size={13} />
+        ),
+
+        className:
+          'border-amber-200 bg-amber-50 text-amber-700',
+      },
+
+      Cancelled: {
+        label:
+          'Annulé',
+
+        icon: (
+          <XCircle size={13} />
+        ),
+
+        className:
+          'border-rose-200 bg-rose-50 text-rose-700',
+      },
+
+      'In-Flight': {
+        label:
+          'En vol',
+
+        icon: (
+          <Plane size={13} />
+        ),
+
+        className:
+          'border-sky-200 bg-sky-50 text-sky-700',
+      },
+
+      Scheduled: {
+        label:
+          'Planifié',
+
+        icon: (
+          <Clock3 size={13} />
+        ),
+
+        className:
+          'border-slate-200 bg-slate-50 text-slate-600',
+      },
+    } as const;
+
+    const item =
+      config[
+        normalized as keyof typeof config
+      ];
+
+    if (!item) {
+      return (
+        <span className="inline-flex h-6 items-center rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-[10px] font-bold text-slate-600">
+          {String(status)}
+        </span>
+      );
+    }
+
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-        <CheckCircle2 size={14} />
-        Effectué
+      <span
+        className={`inline-flex h-6 items-center gap-1.5 rounded-lg border px-2.5 text-[10px] font-bold ${item.className}`}
+      >
+        {item.icon}
+
+        {item.label}
       </span>
     );
-  }
+  };
 
-  if (
-    normalized ===
-    "Delayed"
-  ) {
+/* ============================================================================
+ * WEATHER BADGE
+ * ========================================================================== */
+
+const WeatherBadge:
+  React.FC<{
+    weatherAI?: WeatherAI;
+  }> = ({
+    weatherAI,
+  }) => {
+    if (
+      !weatherAI
+    ) {
+      return (
+        <span className="inline-flex h-6 items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-[10px] font-bold text-slate-500">
+          <Cloud size={13} />
+
+          Non disponible
+        </span>
+      );
+    }
+
+    const level =
+      weatherAI.riskLevel;
+
+    if (
+      level ===
+      'SKIPPED'
+    ) {
+      return (
+        <span className="inline-flex h-6 items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-[10px] font-bold text-slate-600">
+          <CheckCircle2 size={13} />
+
+          Analyse clôturée
+        </span>
+      );
+    }
+
+    const className =
+      level ===
+      'EXTREME'
+        ? 'border-rose-200 bg-rose-50 text-rose-700'
+        : level ===
+            'SEVERE'
+          ? 'border-orange-200 bg-orange-50 text-orange-700'
+          : level ===
+              'HIGH'
+            ? 'border-amber-200 bg-amber-50 text-amber-700'
+            : level ===
+                'MODERATE'
+              ? 'border-yellow-200 bg-yellow-50 text-yellow-700'
+              : level ===
+                  'LOW'
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                : 'border-slate-200 bg-slate-50 text-slate-500';
+
+    const label =
+      weatherAI.riskLabel ||
+      level ||
+      'Indéterminé';
+
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
-        <Timer size={14} />
-        Retardé
+      <span
+        className={`inline-flex h-6 items-center gap-1.5 rounded-lg border px-2.5 text-[10px] font-bold ${className}`}
+      >
+        {level ===
+          'EXTREME' ||
+        level ===
+          'SEVERE' ? (
+          <AlertTriangle size={13} />
+        ) : (
+          <Cloud size={13} />
+        )}
+
+        {label}
       </span>
     );
-  }
+  };
 
-  if (
-    normalized ===
-    "Cancelled"
-  ) {
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-700">
-        <XCircle size={14} />
-        Annulé
-      </span>
-    );
-  }
-
-  return (
-    <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-      {
-        status
-      }
-    </span>
-  );
-};
-
-/* =========================================================
-   WEATHER BADGE
-========================================================= */
-
-const WeatherBadge: React.FC<{
-  weatherAI?: WeatherAI;
-}> = ({
-  weatherAI,
-}) => {
-  if (
-    !weatherAI
-  ) {
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-500">
-        <Cloud size={13} />
-        Non disponible
-      </span>
-    );
-  }
-
-  const level =
-    weatherAI.riskLevel;
-
-  if (
-    level === "SKIPPED"
-  ) {
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-        <CheckCircle2 size={13} />
-        Analyse clôturée
-      </span>
-    );
-  }
-
-  if (
-    level === "EXTREME"
-  ) {
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-3 py-1 text-xs font-bold text-red-700">
-        <AlertTriangle size={13} />
-        Extrême
-      </span>
-    );
-  }
-
-  if (
-    level === "SEVERE"
-  ) {
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-3 py-1 text-xs font-bold text-orange-700">
-        <AlertTriangle size={13} />
-        Sévère
-      </span>
-    );
-  }
-
-  if (
-    level === "HIGH"
-  ) {
-    return (
-      <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
-        Élevé
-      </span>
-    );
-  }
-
-  if (
-    level === "MODERATE"
-  ) {
-    return (
-      <span className="rounded-full bg-yellow-100 px-3 py-1 text-xs font-semibold text-yellow-700">
-        Modéré
-      </span>
-    );
-  }
-
-  if (
-    level === "LOW"
-  ) {
-    return (
-      <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
-        Faible
-      </span>
-    );
-  }
-
-  return (
-    <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-500">
-      {
-        weatherAI.riskLabel ||
-        "Indéterminé"
-      }
-    </span>
-  );
-};
-
-/* =========================================================
-   STAT CARD
-========================================================= */
+/* ============================================================================
+ * STAT CARD
+ * ========================================================================== */
 
 interface StatCardProps {
   title: string;
-  value: number | string;
-  icon: React.ReactNode;
-  subtitle?: string;
+
+  value:
+    | number
+    | string;
+
+  icon:
+    React.ReactNode;
+
+  subtitle?:
+    string;
+
+  tone?:
+    string;
+
+  highlight?:
+    boolean;
 }
 
-const StatCard: React.FC<
-  StatCardProps
-> = ({
-  title,
-  value,
-  icon,
-  subtitle,
-}) => {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-sm font-medium text-slate-500">
-            {
-              title
-            }
+const StatCard:
+  React.FC<
+    StatCardProps
+  > = ({
+    title,
+    value,
+    icon,
+    subtitle,
+    tone =
+      'bg-slate-100 text-slate-600',
+    highlight =
+      false,
+  }) => (
+    <article className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-slate-300 hover:shadow-md">
+
+      {highlight && (
+        <div className="absolute inset-x-0 top-0 h-0.5 bg-emerald-700" />
+      )}
+
+      <div className="flex items-start justify-between gap-3">
+
+        <div className="min-w-0">
+
+          <p className="text-[9px] font-black uppercase tracking-[0.14em] text-slate-400">
+            {title}
           </p>
 
-          <p className="mt-2 text-3xl font-bold text-slate-900">
-            {
-              value
-            }
+          <p className="mt-2 text-2xl font-black tabular-nums tracking-tight text-slate-950 sm:text-3xl">
+            {value}
           </p>
 
           {subtitle && (
-            <p className="mt-1 text-xs text-slate-400">
-              {
-                subtitle
-              }
+            <p className="mt-1 truncate text-[10px] font-medium text-slate-400">
+              {subtitle}
             </p>
           )}
+
         </div>
 
-        <div className="rounded-xl bg-slate-100 p-3 text-slate-700">
-          {
-            icon
-          }
+        <div
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${tone}`}
+        >
+          {icon}
         </div>
+
       </div>
-    </div>
-  );
-};
 
-/* =========================================================
-   DETAIL ITEM
-========================================================= */
+    </article>
+  );
+
+/* ============================================================================
+ * DETAIL ITEM
+ * ========================================================================== */
 
 interface DetailItemProps {
   label: string;
   value: React.ReactNode;
 }
 
-const DetailItem: React.FC<
-  DetailItemProps
-> = ({
-  label,
-  value,
-}) => {
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4">
-      <p className="text-xs font-medium text-slate-400">
-        {
-          label
-        }
+const DetailItem:
+  React.FC<
+    DetailItemProps
+  > = ({
+    label,
+    value,
+  }) => (
+    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+
+      <p className="text-[9px] font-black uppercase tracking-wide text-slate-400">
+        {label}
       </p>
 
-      <div className="mt-1 break-words text-sm font-semibold text-slate-800">
-        {
-          value ||
-          "—"
-        }
+      <div className="mt-1.5 wrap-break-word text-xs font-bold text-slate-800">
+        {value || '—'}
       </div>
+
     </div>
   );
-};
 
-/* =========================================================
-   MAIN
-========================================================= */
+/* ============================================================================
+ * MAIN
+ * ========================================================================== */
 
-const FlightHistory: React.FC<
-  FlightHistoryProps
-> = ({
-  apiUrl = DEFAULT_API_URL,
-  token,
-}) => {
-  const [
-    flights,
-    setFlights,
-  ] = useState<
-    NormalizedFlight[]
-  >([]);
+const FlightHistory:
+  React.FC<
+    FlightHistoryProps
+  > = ({
+    apiUrl =
+      DEFAULT_API_URL,
 
-  const [
-    loading,
-    setLoading,
-  ] = useState(
-    true,
-  );
+    token,
+  }) => {
+    /* =========================================================================
+     * STATES
+     * ======================================================================= */
 
-  const [
-    refreshing,
-    setRefreshing,
-  ] = useState(
-    false,
-  );
+    const [
+      flights,
+      setFlights,
+    ] =
+      useState<
+        NormalizedFlight[]
+      >(
+        [],
+      );
 
-  const [
-    error,
-    setError,
-  ] = useState(
-    "",
-  );
+    const [
+      loading,
+      setLoading,
+    ] =
+      useState(
+        true,
+      );
 
-  const [
-    search,
-    setSearch,
-  ] = useState(
-    "",
-  );
+    const [
+      refreshing,
+      setRefreshing,
+    ] =
+      useState(
+        false,
+      );
 
-  const [
-    statusFilter,
-    setStatusFilter,
-  ] =
-    useState<StatusFilter>(
-      "ALL",
-    );
+    const [
+      error,
+      setError,
+    ] =
+      useState('');
 
-  const [
-    dateFrom,
-    setDateFrom,
-  ] = useState(
-    "",
-  );
+    const [
+      search,
+      setSearch,
+    ] =
+      useState('');
 
-  const [
-    dateTo,
-    setDateTo,
-  ] = useState(
-    "",
-  );
+    const [
+      statusFilter,
+      setStatusFilter,
+    ] =
+      useState<
+        StatusFilter
+      >(
+        'ALL',
+      );
 
-  const [
-    expandedId,
-    setExpandedId,
-  ] = useState<
-    string | null
-  >(null);
+    const [
+      dateFrom,
+      setDateFrom,
+    ] =
+      useState('');
 
-  const [
-    selectedFlight,
-    setSelectedFlight,
-  ] =
-    useState<NormalizedFlight | null>(
-      null,
-    );
+    const [
+      dateTo,
+      setDateTo,
+    ] =
+      useState('');
 
-  /* =======================================================
-     FETCH
-  ======================================================= */
+    const [
+      expandedId,
+      setExpandedId,
+    ] =
+      useState<
+        string | null
+      >(
+        null,
+      );
 
-  const fetchFlights =
-    async (
-      showRefresh = false,
-    ) => {
-      try {
-        if (
-          showRefresh
-        ) {
-          setRefreshing(
-            true,
-          );
-        } else {
-          setLoading(
-            true,
-          );
-        }
+    const [
+      selectedFlight,
+      setSelectedFlight,
+    ] =
+      useState<
+        NormalizedFlight | null
+      >(
+        null,
+      );
 
-        setError(
-          "",
-        );
+    /* =========================================================================
+     * FETCH
+     * ======================================================================= */
 
-        const storedToken =
-          token ||
-          localStorage.getItem(
-            "token",
-          ) ||
-          localStorage.getItem(
-            "accessToken",
-          ) ||
-          localStorage.getItem(
-            "authToken",
-          );
-
-        const headers:
-          HeadersInit =
-            {};
-
-        if (
-          storedToken
-        ) {
-          headers.Authorization =
-            `Bearer ${storedToken}`;
-        }
-
-        const response =
-          await fetch(
-            apiUrl,
-            {
-              method:
-                "GET",
-              headers,
-            },
-          );
-
-        if (
-          !response.ok
-        ) {
+    const fetchFlights =
+      async (
+        showRefresh =
+          false,
+      ) => {
+        try {
           if (
-            response.status ===
-            401
+            showRefresh
           ) {
-            throw new Error(
-              "Session expirée ou accès non autorisé.",
+            setRefreshing(
+              true,
+            );
+          } else {
+            setLoading(
+              true,
             );
           }
 
-          if (
-            response.status ===
-            403
-          ) {
-            throw new Error(
-              "Accès à l'historique refusé.",
+          setError('');
+
+          const storedToken =
+            token ||
+            localStorage.getItem(
+              'token',
+            ) ||
+            localStorage.getItem(
+              'accessToken',
+            ) ||
+            localStorage.getItem(
+              'authToken',
             );
+
+          const headers:
+            HeadersInit =
+              {};
+
+          if (
+            storedToken
+          ) {
+            headers.Authorization =
+              `Bearer ${storedToken}`;
           }
 
-          if (
-            response.status ===
-            404
-          ) {
-            throw new Error(
-              "Endpoint historique introuvable.",
-            );
-          }
+          const response =
+            await fetch(
+              apiUrl,
+              {
+                method:
+                  'GET',
 
-          if (
-            response.status >=
-            500
-          ) {
-            throw new Error(
-              "Erreur serveur pendant le chargement de l'historique.",
-            );
-          }
-
-          throw new Error(
-            `Impossible de charger les vols (${response.status}).`,
-          );
-        }
-
-        const data =
-          await response.json();
-
-        const flightArray:
-          Flight[] =
-            Array.isArray(
-              data,
-            )
-              ? data
-              : Array.isArray(
-                    data?.flights,
-                  )
-                ? data.flights
-                : Array.isArray(
-                      data?.data,
-                    )
-                  ? data.data
-                  : Array.isArray(
-                        data?.results,
-                      )
-                    ? data.results
-                    : [];
-
-        const normalized =
-          flightArray
-            .map(
-              normalizeFlight,
-            )
-            .filter(
-              isHistoryFlight,
-            )
-            .sort(
-              (
-                a,
-                b,
-              ) => {
-                const dateA =
-                  new Date(
-                    a.arrivalUtc ||
-                      a.departureUtc ||
-                      0,
-                  ).getTime();
-
-                const dateB =
-                  new Date(
-                    b.arrivalUtc ||
-                      b.departureUtc ||
-                      0,
-                  ).getTime();
-
-                return (
-                  dateB -
-                  dateA
-                );
+                headers,
               },
             );
 
-        setFlights(
-          normalized,
-        );
-      } catch (
-        err
-      ) {
-        console.error(
-          "Erreur historique vols :",
-          err,
-        );
-
-        if (
-          err instanceof TypeError
-        ) {
-          setError(
-            "Impossible de contacter le serveur Flask.",
-          );
-        } else if (
-          err instanceof Error
-        ) {
-          setError(
-            err.message,
-          );
-        } else {
-          setError(
-            "Une erreur inconnue est survenue.",
-          );
-        }
-      } finally {
-        setLoading(
-          false,
-        );
-
-        setRefreshing(
-          false,
-        );
-      }
-    };
-
-  useEffect(
-    () => {
-      fetchFlights();
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [
-      apiUrl,
-    ],
-  );
-
-  /* =======================================================
-     FILTERS
-  ======================================================= */
-
-  const filteredFlights =
-    useMemo(
-      () => {
-        return flights.filter(
-          (
-            flight,
-          ) => {
-            const query =
-              search
-                .trim()
-                .toLowerCase();
-
-            const matchesSearch =
-              !query ||
-              flight.flightNumber
-                .toLowerCase()
-                .includes(
-                  query,
-                ) ||
-              flight.origin
-                .toLowerCase()
-                .includes(
-                  query,
-                ) ||
-              flight.destination
-                .toLowerCase()
-                .includes(
-                  query,
-                ) ||
-              flight.route
-                .toLowerCase()
-                .includes(
-                  query,
-                ) ||
-              flight.aircraftRegistration
-                .toLowerCase()
-                .includes(
-                  query,
-                );
-
-            const matchesStatus =
-              statusFilter ===
-                "ALL" ||
-              flight.status ===
-                statusFilter;
-
-            let matchesFrom =
-              true;
-
-            let matchesTo =
-              true;
+          if (
+            !response.ok
+          ) {
+            if (
+              response.status ===
+              401
+            ) {
+              throw new Error(
+                'Session expirée ou accès non autorisé.',
+              );
+            }
 
             if (
-              flight.departureUtc
+              response.status ===
+              403
             ) {
-              const flightDate =
-                new Date(
-                  flight.departureUtc,
-                );
-
-              if (
-                dateFrom
-              ) {
-                const from =
-                  new Date(
-                    `${dateFrom}T00:00:00`,
-                  );
-
-                matchesFrom =
-                  flightDate >=
-                  from;
-              }
-
-              if (
-                dateTo
-              ) {
-                const to =
-                  new Date(
-                    `${dateTo}T23:59:59`,
-                  );
-
-                matchesTo =
-                  flightDate <=
-                  to;
-              }
+              throw new Error(
+                "Accès à l'historique refusé.",
+              );
             }
 
-            return (
-              matchesSearch &&
-              matchesStatus &&
-              matchesFrom &&
-              matchesTo
+            if (
+              response.status ===
+              404
+            ) {
+              throw new Error(
+                'Endpoint historique introuvable.',
+              );
+            }
+
+            if (
+              response.status >=
+              500
+            ) {
+              throw new Error(
+                "Erreur serveur pendant le chargement de l'historique.",
+              );
+            }
+
+            throw new Error(
+              `Impossible de charger les vols (${response.status}).`,
             );
-          },
-        );
-      },
-      [
-        flights,
-        search,
-        statusFilter,
-        dateFrom,
-        dateTo,
-      ],
-    );
+          }
 
-  /* =======================================================
-     STATS
-  ======================================================= */
+          const data =
+            await response.json();
 
-  const statistics =
-    useMemo(
-      () => {
-        const completed =
-          flights.filter(
-            (
-              flight,
-            ) =>
-              flight.status ===
-              "Completed",
-          ).length;
-
-        const delayed =
-          flights.filter(
-            (
-              flight,
-            ) =>
-              flight.status ===
-              "Delayed",
-          ).length;
-
-        const cancelled =
-          flights.filter(
-            (
-              flight,
-            ) =>
-              flight.status ===
-              "Cancelled",
-          ).length;
-
-        const completionRate =
-          flights.length >
-          0
-            ? Math.round(
-                (completed /
-                  flights.length) *
-                  100,
+          const flightArray:
+            Flight[] =
+              Array.isArray(
+                data,
               )
-            : 0;
+                ? data
+                : Array.isArray(
+                      data?.flights,
+                    )
+                  ? data.flights
+                  : Array.isArray(
+                        data?.data,
+                      )
+                    ? data.data
+                    : Array.isArray(
+                          data?.results,
+                        )
+                      ? data.results
+                      : [];
 
-        return {
-          total:
-            flights.length,
+          const normalized =
+            flightArray
+              .map(
+                normalizeFlight,
+              )
+              .filter(
+                isHistoryFlight,
+              )
+              .sort(
+                (
+                  a,
+                  b,
+                ) => {
+                  const dateA =
+                    new Date(
+                      a.arrivalUtc ||
+                        a.departureUtc ||
+                        0,
+                    ).getTime();
 
-          completed,
+                  const dateB =
+                    new Date(
+                      b.arrivalUtc ||
+                        b.departureUtc ||
+                        0,
+                    ).getTime();
 
-          delayed,
+                  return (
+                    dateB -
+                    dateA
+                  );
+                },
+              );
 
-          cancelled,
+          setFlights(
+            normalized,
+          );
+        } catch (
+          err
+        ) {
+          console.error(
+            'Erreur historique vols :',
+            err,
+          );
 
-          completionRate,
-        };
+          if (
+            err instanceof TypeError
+          ) {
+            setError(
+              'Impossible de contacter le serveur Flask.',
+            );
+          } else if (
+            err instanceof Error
+          ) {
+            setError(
+              err.message,
+            );
+          } else {
+            setError(
+              'Une erreur inconnue est survenue.',
+            );
+          }
+        } finally {
+          setLoading(
+            false,
+          );
+
+          setRefreshing(
+            false,
+          );
+        }
+      };
+
+    useEffect(
+      () => {
+        void fetchFlights();
       },
+      // eslint-disable-next-line react-hooks/exhaustive-deps
       [
-        flights,
+        apiUrl,
       ],
     );
 
-  const resetFilters =
-    () => {
-      setSearch(
-        "",
+    /* =========================================================================
+     * ESC / SCROLL MODAL
+     * ======================================================================= */
+
+    useEffect(() => {
+      if (
+        !selectedFlight
+      ) {
+        return;
+      }
+
+      const previousOverflow =
+        document.body.style
+          .overflow;
+
+      document.body.style.overflow =
+        'hidden';
+
+      const handleKeyDown =
+        (
+          event:
+            KeyboardEvent,
+        ) => {
+          if (
+            event.key ===
+            'Escape'
+          ) {
+            setSelectedFlight(
+              null,
+            );
+          }
+        };
+
+      window.addEventListener(
+        'keydown',
+        handleKeyDown,
       );
 
-      setStatusFilter(
-        "ALL",
-      );
+      return () => {
+        document.body.style.overflow =
+          previousOverflow;
 
-      setDateFrom(
-        "",
-      );
+        window.removeEventListener(
+          'keydown',
+          handleKeyDown,
+        );
+      };
+    }, [
+      selectedFlight,
+    ]);
 
-      setDateTo(
-        "",
-      );
-    };
+    /* =========================================================================
+     * FILTERS
+     * ======================================================================= */
 
-  /* =======================================================
-     LOADING
-  ======================================================= */
+    const filteredFlights =
+      useMemo(
+        () => {
+          return flights.filter(
+            (
+              flight,
+            ) => {
+              const query =
+                search
+                  .trim()
+                  .toLowerCase();
 
-  if (
-    loading
-  ) {
-    return (
-      <div className="flex min-h-[500px] items-center justify-center">
-        <div className="text-center">
-          <RefreshCw
-            size={
-              36
-            }
-            className="mx-auto animate-spin text-emerald-700"
-          />
+              const matchesSearch =
+                !query ||
+                flight.flightNumber
+                  .toLowerCase()
+                  .includes(
+                    query,
+                  ) ||
+                flight.origin
+                  .toLowerCase()
+                  .includes(
+                    query,
+                  ) ||
+                flight.destination
+                  .toLowerCase()
+                  .includes(
+                    query,
+                  ) ||
+                flight.route
+                  .toLowerCase()
+                  .includes(
+                    query,
+                  ) ||
+                flight.aircraftRegistration
+                  .toLowerCase()
+                  .includes(
+                    query,
+                  );
 
-          <p className="mt-4 text-sm font-medium text-slate-600">
-            Chargement de l'historique des vols...
-          </p>
-        </div>
-      </div>
-    );
-  }
+              const matchesStatus =
+                statusFilter ===
+                  'ALL' ||
+                flight.status ===
+                  statusFilter;
 
-  /* =======================================================
-     RENDER
-  ======================================================= */
+              let matchesFrom =
+                true;
 
-  return (
-    <div className="space-y-6">
+              let matchesTo =
+                true;
 
-      {/* ===================================================
-          HEADER
-      =================================================== */}
+              if (
+                flight.departureUtc
+              ) {
+                const flightDate =
+                  new Date(
+                    flight.departureUtc,
+                  );
 
-      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                if (
+                  dateFrom
+                ) {
+                  const from =
+                    new Date(
+                      `${dateFrom}T00:00:00`,
+                    );
 
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-
-          <div className="flex items-start gap-4">
-
-            <div className="rounded-2xl bg-emerald-700 p-3 text-white shadow-sm shadow-emerald-700/20">
-              <History
-                size={
-                  24
+                  matchesFrom =
+                    flightDate >=
+                    from;
                 }
+
+                if (
+                  dateTo
+                ) {
+                  const to =
+                    new Date(
+                      `${dateTo}T23:59:59`,
+                    );
+
+                  matchesTo =
+                    flightDate <=
+                    to;
+                }
+              }
+
+              return (
+                matchesSearch &&
+                matchesStatus &&
+                matchesFrom &&
+                matchesTo
+              );
+            },
+          );
+        },
+        [
+          flights,
+          search,
+          statusFilter,
+          dateFrom,
+          dateTo,
+        ],
+      );
+
+    /* =========================================================================
+     * STATS
+     * ======================================================================= */
+
+    const statistics =
+      useMemo(
+        () => {
+          const completed =
+            flights.filter(
+              (
+                flight,
+              ) =>
+                flight.status ===
+                'Completed',
+            ).length;
+
+          const delayed =
+            flights.filter(
+              (
+                flight,
+              ) =>
+                flight.status ===
+                'Delayed',
+            ).length;
+
+          const cancelled =
+            flights.filter(
+              (
+                flight,
+              ) =>
+                flight.status ===
+                'Cancelled',
+            ).length;
+
+          const completionRate =
+            flights.length >
+            0
+              ? Math.round(
+                  (
+                    completed /
+                    flights.length
+                  ) *
+                    100,
+                )
+              : 0;
+
+          return {
+            total:
+              flights.length,
+
+            completed,
+
+            delayed,
+
+            cancelled,
+
+            completionRate,
+          };
+        },
+        [
+          flights,
+        ],
+      );
+
+    const resetFilters =
+      () => {
+        setSearch('');
+
+        setStatusFilter(
+          'ALL',
+        );
+
+        setDateFrom('');
+
+        setDateTo('');
+      };
+
+    const activeFilterCount =
+      (
+        search.trim()
+          ? 1
+          : 0
+      ) +
+      (
+        statusFilter !==
+        'ALL'
+          ? 1
+          : 0
+      ) +
+      (
+        dateFrom
+          ? 1
+          : 0
+      ) +
+      (
+        dateTo
+          ? 1
+          : 0
+      );
+
+    /* =========================================================================
+     * LOADING
+     * ======================================================================= */
+
+    if (
+      loading
+    ) {
+      return (
+        <div className="flex min-h-125 items-center justify-center">
+
+          <div className="rounded-2xl border border-slate-200 bg-white px-10 py-8 text-center shadow-sm">
+
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+
+              <RefreshCw
+                size={22}
+                className="animate-spin"
               />
+
             </div>
 
-            <div>
+            <p className="mt-4 text-sm font-bold text-slate-700">
+              Chargement de l&apos;historique
+            </p>
 
-              <h1 className="text-xl font-extrabold tracking-tight text-slate-900 sm:text-2xl">
-                Historique des vols
-              </h1>
+            <p className="mt-1 text-xs text-slate-400">
+              Synchronisation des vols archivés...
+            </p>
 
-              <p className="mt-1 max-w-2xl text-sm text-slate-500">
-                Consultation des vols effectués, retardés ou annulés avec horaires locaux, appareil et informations OCC.
+          </div>
+
+        </div>
+      );
+    }
+
+    /* =========================================================================
+     * RENDER
+     * ======================================================================= */
+
+    return (
+      <div className="space-y-4">
+
+        {/* =====================================================================
+            HEADER
+        ===================================================================== */}
+
+        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+
+          <div className="flex flex-col gap-4 p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
+
+            <div className="flex min-w-0 items-center gap-3">
+
+              <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-700 text-white shadow-sm">
+
+                <History size={20} />
+
+                <span className="absolute -bottom-1 -right-1 h-3 w-3 rounded-full border-2 border-white bg-emerald-400" />
+
+              </div>
+
+              <div className="min-w-0">
+
+                <h1 className="truncate text-base font-black tracking-tight text-slate-950 sm:text-lg">
+                  Historique des vols
+                </h1>
+
+                <p className="mt-1 text-[11px] font-medium text-slate-500">
+                  Consultation des opérations clôturées, retardées et annulées
+                </p>
+
+              </div>
+
+            </div>
+
+            <button
+              type="button"
+              onClick={() =>
+                void fetchFlights(
+                  true,
+                )
+              }
+              disabled={
+                refreshing
+              }
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-xs font-bold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+
+              <RefreshCw
+                size={16}
+                className={
+                  refreshing
+                    ? 'animate-spin'
+                    : ''
+                }
+              />
+
+              {refreshing
+                ? 'Actualisation...'
+                : 'Actualiser'}
+
+            </button>
+
+          </div>
+
+        </section>
+
+        {/* =====================================================================
+            ERROR
+        ===================================================================== */}
+
+        {error && (
+
+          <div
+            role="alert"
+            className="flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-3.5 shadow-sm"
+          >
+
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-rose-100 text-rose-600">
+
+              <AlertTriangle size={16} />
+
+            </div>
+
+            <div className="min-w-0 flex-1">
+
+              <p className="text-xs font-bold text-rose-800">
+                Impossible de charger l&apos;historique
+              </p>
+
+              <p className="mt-0.5 text-xs leading-5 text-rose-700">
+                {error}
               </p>
 
             </div>
 
           </div>
 
-          <button
-            type="button"
-            onClick={() =>
-              fetchFlights(
-                true,
-              )
+        )}
+
+        {/* =====================================================================
+            STATS
+        ===================================================================== */}
+
+        <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
+
+          <StatCard
+            title="Historique total"
+            value={
+              statistics.total
             }
-            disabled={
-              refreshing
+            icon={
+              <History size={18} />
             }
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <RefreshCw
-              size={
-                17
-              }
-              className={
-                refreshing
-                  ? "animate-spin"
-                  : ""
-              }
-            />
-
-            {refreshing
-              ? "Actualisation..."
-              : "Actualiser"}
-          </button>
-
-        </div>
-
-      </section>
-
-      {/* ===================================================
-          ERROR
-      =================================================== */}
-
-      {error && (
-        <div className="flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-4">
-
-          <AlertTriangle
-            size={
-              20
-            }
-            className="mt-0.5 shrink-0 text-red-600"
+            subtitle="Vols archivés"
+            tone="bg-slate-100 text-slate-600"
+            highlight
           />
 
-          <div>
+          <StatCard
+            title="Effectués"
+            value={
+              statistics.completed
+            }
+            icon={
+              <CheckCircle2 size={18} />
+            }
+            subtitle={`${statistics.completionRate}% de l'historique`}
+            tone="bg-emerald-50 text-emerald-700"
+          />
 
-            <p className="font-bold text-red-800">
-              Impossible de charger l'historique
-            </p>
+          <StatCard
+            title="Retardés"
+            value={
+              statistics.delayed
+            }
+            icon={
+              <Timer size={18} />
+            }
+            subtitle="Vols avec retard"
+            tone="bg-amber-50 text-amber-700"
+          />
 
-            <p className="mt-1 text-sm text-red-700">
-              {
-                error
-              }
-            </p>
+          <StatCard
+            title="Annulés"
+            value={
+              statistics.cancelled
+            }
+            icon={
+              <XCircle size={18} />
+            }
+            subtitle="Annulations enregistrées"
+            tone="bg-rose-50 text-rose-700"
+          />
 
-          </div>
+        </section>
 
-        </div>
-      )}
+        {/* =====================================================================
+            FILTERS
+        ===================================================================== */}
 
-      {/* ===================================================
-          STATS
-      =================================================== */}
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-3 xl:grid-cols-[minmax(280px,1.5fr)_210px_170px_170px]">
 
-        <StatCard
-          title="Historique total"
-          value={
-            statistics.total
-          }
-          icon={
-            <History size={21} />
-          }
-          subtitle="Vols clôturés ou perturbés"
-        />
+            {/* SEARCH */}
 
-        <StatCard
-          title="Vols effectués"
-          value={
-            statistics.completed
-          }
-          icon={
-            <CheckCircle2 size={21} />
-          }
-          subtitle={`${statistics.completionRate}% de l'historique`}
-        />
+            <div className="relative">
 
-        <StatCard
-          title="Vols retardés"
-          value={
-            statistics.delayed
-          }
-          icon={
-            <Timer size={21} />
-          }
-          subtitle="Vols enregistrés en retard"
-        />
+              <Search
+                size={17}
+                className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+              />
 
-        <StatCard
-          title="Vols annulés"
-          value={
-            statistics.cancelled
-          }
-          icon={
-            <XCircle size={21} />
-          }
-          subtitle="Annulations enregistrées"
-        />
+              <input
+                type="text"
+                value={
+                  search
+                }
+                onChange={(
+                  event,
+                ) =>
+                  setSearch(
+                    event.target.value,
+                  )
+                }
+                placeholder="Vol, route, aéroport ou appareil..."
+                className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-9 text-xs font-semibold text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-100"
+              />
 
-      </div>
+              {search && (
 
-      {/* ===================================================
-          FILTERS
-      =================================================== */}
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSearch('')
+                  }
+                  aria-label="Effacer la recherche"
+                  className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-200"
+                >
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <X size={13} />
 
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
+                </button>
 
-          <div className="relative xl:col-span-2">
+              )}
 
-            <Search
-              size={
-                18
-              }
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-            />
+            </div>
 
-            <input
-              type="text"
+            {/* STATUS */}
+
+            <select
               value={
-                search
+                statusFilter
               }
               onChange={(
                 event,
               ) =>
-                setSearch(
+                setStatusFilter(
+                  event.target
+                    .value as StatusFilter,
+                )
+              }
+              className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+            >
+              <option value="ALL">
+                Tous les statuts
+              </option>
+
+              <option value="Completed">
+                Effectués
+              </option>
+
+              <option value="Delayed">
+                Retardés
+              </option>
+
+              <option value="Cancelled">
+                Annulés
+              </option>
+            </select>
+
+            {/* DATE FROM */}
+
+            <input
+              type="date"
+              value={
+                dateFrom
+              }
+              onChange={(
+                event,
+              ) =>
+                setDateFrom(
                   event.target.value,
                 )
               }
-              placeholder="Vol, trajet, aéroport ou immatriculation..."
-              className="w-full rounded-xl border border-slate-200 py-2.5 pl-10 pr-3 text-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+              className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+              title="Date de début"
+            />
+
+            {/* DATE TO */}
+
+            <input
+              type="date"
+              value={
+                dateTo
+              }
+              onChange={(
+                event,
+              ) =>
+                setDateTo(
+                  event.target.value,
+                )
+              }
+              className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+              title="Date de fin"
             />
 
           </div>
 
-          <select
-            value={
-              statusFilter
-            }
-            onChange={(
-              event,
-            ) =>
-              setStatusFilter(
-                event.target
-                  .value as StatusFilter,
-              )
-            }
-            className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-500"
-          >
-            <option value="ALL">
-              Tous les statuts
-            </option>
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3">
 
-            <option value="Completed">
-              Effectués
-            </option>
+            <p className="text-[10px] font-medium text-slate-400">
 
-            <option value="Delayed">
-              Retardés
-            </option>
+              <span className="font-black text-slate-700">
+                {
+                  filteredFlights.length
+                }
+              </span>{' '}
 
-            <option value="Cancelled">
-              Annulés
-            </option>
-          </select>
+              résultat
+              {filteredFlights.length >
+              1
+                ? 's'
+                : ''}
 
-          <input
-            type="date"
-            value={
-              dateFrom
-            }
-            onChange={(
-              event,
-            ) =>
-              setDateFrom(
-                event.target.value,
-              )
-            }
-            className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500"
-            title="Date de début"
-          />
+              {activeFilterCount >
+                0 && (
+                <>
+                  {' '}•{' '}
+                  {activeFilterCount}{' '}
+                  filtre
+                  {activeFilterCount >
+                  1
+                    ? 's'
+                    : ''}{' '}
+                  actif
+                  {activeFilterCount >
+                  1
+                    ? 's'
+                    : ''}
+                </>
+              )}
 
-          <input
-            type="date"
-            value={
-              dateTo
-            }
-            onChange={(
-              event,
-            ) =>
-              setDateTo(
-                event.target.value,
-              )
-            }
-            className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500"
-            title="Date de fin"
-          />
+            </p>
 
-        </div>
+            {activeFilterCount >
+              0 && (
 
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={
+                  resetFilters
+                }
+                className="rounded-lg px-2.5 py-1.5 text-[10px] font-bold text-emerald-700 transition hover:bg-emerald-50 hover:text-emerald-800"
+              >
+                Réinitialiser
+              </button>
 
-          <p className="text-sm text-slate-500">
-            <span className="font-bold text-slate-800">
+            )}
+
+          </div>
+
+        </section>
+
+        {/* =====================================================================
+            TABLE
+        ===================================================================== */}
+
+        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+
+          {/* TABLE HEADER */}
+
+          <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3.5 sm:px-5">
+
+            <div>
+
+              <h2 className="text-sm font-black text-slate-900">
+                Registre des vols
+              </h2>
+
+              <p className="mt-0.5 text-[10px] text-slate-400">
+                Historique opérationnel par ordre chronologique décroissant
+              </p>
+
+            </div>
+
+            <span className="rounded-lg bg-slate-100 px-2.5 py-1 font-mono text-[10px] font-bold text-slate-500">
               {
                 filteredFlights.length
               }
-            </span>{" "}
-            résultat
-            {
-              filteredFlights.length >
-              1
-                ? "s"
-                : ""
-            }
-          </p>
-
-          <button
-            type="button"
-            onClick={
-              resetFilters
-            }
-            className="text-sm font-bold text-emerald-700 hover:text-emerald-800"
-          >
-            Réinitialiser les filtres
-          </button>
-
-        </div>
-
-      </section>
-
-      {/* ===================================================
-          TABLE
-      =================================================== */}
-
-      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-
-        {filteredFlights.length ===
-        0 ? (
-
-          <div className="flex min-h-[300px] flex-col items-center justify-center p-8 text-center">
-
-            <Plane
-              size={
-                44
-              }
-              className="text-slate-300"
-            />
-
-            <h3 className="mt-4 text-lg font-bold text-slate-800">
-              Aucun vol historique
-            </h3>
-
-            <p className="mt-2 text-sm text-slate-500">
-              Aucun vol ne correspond aux critères sélectionnés.
-            </p>
+            </span>
 
           </div>
 
-        ) : (
+          {filteredFlights.length ===
+          0 ? (
 
-          <div className="overflow-x-auto">
+            <div className="flex min-h-75 flex-col items-center justify-center p-8 text-center">
 
-            <table className="min-w-full">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
 
-              <thead className="border-b border-slate-200 bg-slate-50">
+                <Plane size={21} />
 
-                <tr>
+              </div>
 
-                  <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
-                    Vol
-                  </th>
+              <h3 className="mt-4 text-sm font-black text-slate-700">
+                Aucun vol historique
+              </h3>
 
-                  <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
-                    Trajet
-                  </th>
+              <p className="mt-1 max-w-sm text-xs leading-5 text-slate-400">
+                Aucun vol ne correspond aux critères actuellement sélectionnés.
+              </p>
 
-                  <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
-                    Départ local
-                  </th>
+            </div>
 
-                  <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
-                    Arrivée locale
-                  </th>
+          ) : (
 
-                  <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
-                    Durée
-                  </th>
+            <div className="overflow-x-auto">
 
-                  <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
-                    Avion
-                  </th>
+              <table className="min-w-300 w-full">
 
-                  <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
-                    Statut
-                  </th>
+                <thead className="border-b border-slate-200 bg-slate-50">
 
-                  <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
-                    Météo
-                  </th>
+                  <tr>
 
-                  <th className="px-5 py-4 text-right text-xs font-bold uppercase tracking-wide text-slate-500">
-                    Détails
-                  </th>
+                    {[
+                      'Vol',
+                      'Trajet',
+                      'Départ local',
+                      'Arrivée locale',
+                      'Durée',
+                      'Avion',
+                      'Statut',
+                      'Météo',
+                    ].map(
+                      (
+                        label,
+                      ) => (
 
-                </tr>
+                        <th
+                          key={
+                            label
+                          }
+                          className="px-4 py-3 text-left text-[9px] font-black uppercase tracking-[0.12em] text-slate-400"
+                        >
+                          {
+                            label
+                          }
+                        </th>
 
-              </thead>
+                      ),
+                    )}
 
-              <tbody className="divide-y divide-slate-100">
+                    <th className="px-4 py-3 text-right text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">
+                      Détails
+                    </th>
 
-                {filteredFlights.map(
-                  (
-                    flight,
-                  ) => {
-                    const isExpanded =
-                      expandedId ===
-                      flight.id;
+                  </tr>
 
-                    return (
-                      <React.Fragment
-                        key={
-                          flight.id
-                        }
-                      >
+                </thead>
 
-                        <tr className="transition hover:bg-slate-50">
+                <tbody className="divide-y divide-slate-100">
 
-                          {/* VOL */}
+                  {filteredFlights.map(
+                    (
+                      flight,
+                    ) => {
+                      const isExpanded =
+                        expandedId ===
+                        flight.id;
 
-                          <td className="whitespace-nowrap px-5 py-4">
+                      return (
 
-                            <div className="flex items-center gap-3">
+                        <React.Fragment
+                          key={
+                            flight.id
+                          }
+                        >
 
-                              <div className="rounded-xl bg-emerald-50 p-2 text-emerald-700">
+                          {/* ===================================================
+                              MAIN ROW
+                          =================================================== */}
 
-                                <Plane
-                                  size={
-                                    17
+                          <tr
+                            className={`transition-colors ${
+                              isExpanded
+                                ? 'bg-emerald-50/30'
+                                : 'hover:bg-slate-50/80'
+                            }`}
+                          >
+
+                            {/* VOL */}
+
+                            <td className="whitespace-nowrap px-4 py-3.5">
+
+                              <div className="flex items-center gap-3">
+
+                                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+
+                                  <Plane size={16} />
+
+                                </div>
+
+                                <div>
+
+                                  <p className="font-mono text-sm font-black text-slate-950">
+                                    {
+                                      flight.flightNumber
+                                    }
+                                  </p>
+
+                                  <p className="mt-0.5 font-mono text-[9px] text-slate-400">
+                                    {
+                                      flight.id.slice(
+                                        0,
+                                        8,
+                                      )
+                                    }
+                                  </p>
+
+                                </div>
+
+                              </div>
+
+                            </td>
+
+                            {/* ROUTE */}
+
+                            <td className="whitespace-nowrap px-4 py-3.5">
+
+                              <div className="flex items-center gap-2">
+
+                                <span className="font-mono text-xs font-black text-slate-800">
+                                  {
+                                    flight.origin
                                   }
+                                </span>
+
+                                <Navigation
+                                  size={13}
+                                  className="rotate-90 text-slate-300"
                                 />
 
-                              </div>
-
-                              <div>
-
-                                <p className="font-bold text-slate-900">
+                                <span className="font-mono text-xs font-black text-slate-800">
                                   {
-                                    flight.flightNumber
+                                    flight.destination
                                   }
-                                </p>
-
-                                <p className="mt-1 text-[10px] text-slate-400">
-                                  {
-                                    flight.id.slice(
-                                      0,
-                                      8,
-                                    )
-                                  }
-                                  …
-                                </p>
+                                </span>
 
                               </div>
 
-                            </div>
+                              {flight.stopover && (
 
-                          </td>
+                                <p className="mt-1 text-[9px] font-semibold text-amber-600">
+                                  Escale :{' '}
+                                  {
+                                    flight.stopover
+                                  }
+                                </p>
 
-                          {/* ROUTE */}
-
-                          <td className="whitespace-nowrap px-5 py-4">
-
-                            <div className="flex items-center gap-2">
-
-                              <span className="font-bold text-slate-800">
-                                {
-                                  flight.origin
-                                }
-                              </span>
-
-                              <Navigation
-                                size={
-                                  14
-                                }
-                                className="text-slate-300"
-                              />
-
-                              <span className="font-bold text-slate-800">
-                                {
-                                  flight.destination
-                                }
-                              </span>
-
-                            </div>
-
-                            {flight.stopover && (
-                              <p className="mt-1 text-xs font-medium text-amber-600">
-                                Escale :{" "}
-                                {
-                                  flight.stopover
-                                }
-                              </p>
-                            )}
-
-                          </td>
-
-                          {/* LOCAL DEP */}
-
-                          <td className="whitespace-nowrap px-5 py-4">
-
-                            <p className="text-sm font-bold text-slate-700">
-                              {
-                                formatDate(
-                                  flight.localDeparture,
-                                )
-                              }
-                            </p>
-
-                            <p className="mt-1 text-xs text-slate-400">
-                              {
-                                formatTime(
-                                  flight.localDeparture,
-                                )
-                              }{" "}
-                              local
-                            </p>
-
-                          </td>
-
-                          {/* LOCAL ARR */}
-
-                          <td className="whitespace-nowrap px-5 py-4">
-
-                            <p className="text-sm font-bold text-slate-700">
-                              {
-                                formatDate(
-                                  flight.localArrival,
-                                )
-                              }
-                            </p>
-
-                            <p className="mt-1 text-xs text-slate-400">
-                              {
-                                formatTime(
-                                  flight.localArrival,
-                                )
-                              }{" "}
-                              local
-                            </p>
-
-                          </td>
-
-                          {/* DURATION */}
-
-                          <td className="whitespace-nowrap px-5 py-4">
-
-                            <span className="font-semibold text-slate-700">
-                              {
-                                formatDuration(
-                                  flight.durationMinutes,
-                                )
-                              }
-                            </span>
-
-                          </td>
-
-                          {/* AIRCRAFT */}
-
-                          <td className="whitespace-nowrap px-5 py-4">
-
-                            <p className="font-bold text-slate-800">
-                              {
-                                flight.aircraftRegistration
-                              }
-                            </p>
-
-                            <p
-                              className="mt-1 max-w-[120px] truncate text-[10px] text-slate-400"
-                              title={
-                                flight.aircraftId
-                              }
-                            >
-                              {
-                                flight.aircraftId
-                              }
-                            </p>
-
-                          </td>
-
-                          {/* STATUS */}
-
-                          <td className="whitespace-nowrap px-5 py-4">
-
-                            <StatusBadge
-                              status={
-                                flight.status
-                              }
-                            />
-
-                          </td>
-
-                          {/* WEATHER */}
-
-                          <td className="whitespace-nowrap px-5 py-4">
-
-                            <WeatherBadge
-                              weatherAI={
-                                flight.weatherAI
-                              }
-                            />
-
-                          </td>
-
-                          {/* ACTION */}
-
-                          <td className="whitespace-nowrap px-5 py-4 text-right">
-
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setExpandedId(
-                                  isExpanded
-                                    ? null
-                                    : flight.id,
-                                )
-                              }
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
-                            >
-
-                              {isExpanded ? (
-                                <>
-                                  Masquer
-                                  <ChevronUp
-                                    size={
-                                      16
-                                    }
-                                  />
-                                </>
-                              ) : (
-                                <>
-                                  Voir
-                                  <ChevronDown
-                                    size={
-                                      16
-                                    }
-                                  />
-                                </>
                               )}
 
-                            </button>
+                            </td>
 
-                          </td>
+                            {/* DEP */}
 
-                        </tr>
+                            <td className="whitespace-nowrap px-4 py-3.5">
 
-                        {/* ===================================================
-                            EXPANDED
-                        =================================================== */}
+                              <p className="font-mono text-xs font-bold text-slate-700">
+                                {formatDate(
+                                  flight.localDeparture,
+                                )}
+                              </p>
 
-                        {isExpanded && (
+                              <p className="mt-0.5 font-mono text-[10px] text-slate-400">
+                                {formatTime(
+                                  flight.localDeparture,
+                                )}{' '}
+                                local
+                              </p>
 
-                          <tr>
+                            </td>
 
-                            <td
-                              colSpan={
-                                9
-                              }
-                              className="bg-slate-50 px-5 py-5"
-                            >
+                            {/* ARR */}
 
-                              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+                            <td className="whitespace-nowrap px-4 py-3.5">
 
-                                {/* LOCAL TIMES */}
+                              <p className="font-mono text-xs font-bold text-slate-700">
+                                {formatDate(
+                                  flight.localArrival,
+                                )}
+                              </p>
 
-                                <div className="rounded-xl border border-slate-200 bg-white p-4">
+                              <p className="mt-0.5 font-mono text-[10px] text-slate-400">
+                                {formatTime(
+                                  flight.localArrival,
+                                )}{' '}
+                                local
+                              </p>
 
-                                  <div className="mb-3 flex items-center gap-2 font-bold text-slate-800">
-                                    <Clock3
-                                      size={
-                                        17
-                                      }
-                                    />
-                                    Horaires locaux
-                                  </div>
+                            </td>
 
-                                  <p className="text-xs text-slate-400">
-                                    Départ
-                                  </p>
+                            {/* DURATION */}
 
-                                  <p className="mt-1 text-sm font-semibold text-slate-700">
-                                    {
-                                      formatDateTime(
-                                        flight.localDeparture,
-                                      )
-                                    }
-                                  </p>
+                            <td className="whitespace-nowrap px-4 py-3.5">
 
-                                  <p className="mt-3 text-xs text-slate-400">
-                                    Arrivée
-                                  </p>
+                              <span className="inline-flex items-center gap-1.5 font-mono text-xs font-bold text-slate-700">
 
-                                  <p className="mt-1 text-sm font-semibold text-slate-700">
-                                    {
-                                      formatDateTime(
-                                        flight.localArrival,
-                                      )
-                                    }
-                                  </p>
+                                <Timer
+                                  size={13}
+                                  className="text-slate-400"
+                                />
 
-                                </div>
+                                {formatDuration(
+                                  flight.durationMinutes,
+                                )}
 
-                                {/* UTC */}
+                              </span>
 
-                                <div className="rounded-xl border border-slate-200 bg-white p-4">
+                            </td>
 
-                                  <div className="mb-3 flex items-center gap-2 font-bold text-slate-800">
-                                    <CalendarDays
-                                      size={
-                                        17
-                                      }
-                                    />
-                                    Horaires UTC
-                                  </div>
+                            {/* AIRCRAFT */}
 
-                                  <p className="text-xs text-slate-400">
-                                    Départ UTC
-                                  </p>
+                            <td className="whitespace-nowrap px-4 py-3.5">
 
-                                  <p className="mt-1 text-sm font-semibold text-slate-700">
-                                    {
-                                      formatDateTime(
-                                        flight.departureUtc,
-                                      )
-                                    }
-                                  </p>
+                              <p className="font-mono text-xs font-black text-slate-800">
+                                {
+                                  flight.aircraftRegistration
+                                }
+                              </p>
 
-                                  <p className="mt-3 text-xs text-slate-400">
-                                    Arrivée UTC
-                                  </p>
+                              <p
+                                className="mt-0.5 max-w-30 truncate font-mono text-[9px] text-slate-400"
+                                title={
+                                  flight.aircraftId
+                                }
+                              >
+                                {
+                                  flight.aircraftId
+                                }
+                              </p>
 
-                                  <p className="mt-1 text-sm font-semibold text-slate-700">
-                                    {
-                                      formatDateTime(
-                                        flight.arrivalUtc,
-                                      )
-                                    }
-                                  </p>
+                            </td>
 
-                                </div>
+                            {/* STATUS */}
 
-                                {/* PERFORMANCE */}
+                            <td className="whitespace-nowrap px-4 py-3.5">
 
-                                <div className="rounded-xl border border-slate-200 bg-white p-4">
+                              <StatusBadge
+                                status={
+                                  flight.status
+                                }
+                              />
 
-                                  <div className="mb-3 flex items-center gap-2 font-bold text-slate-800">
-                                    <Timer
-                                      size={
-                                        17
-                                      }
-                                    />
-                                    Durée
-                                  </div>
+                            </td>
 
-                                  <p className="text-xs text-slate-400">
-                                    Durée du vol
-                                  </p>
+                            {/* WEATHER */}
 
-                                  <p className="mt-1 text-lg font-extrabold text-slate-800">
-                                    {
-                                      formatDuration(
-                                        flight.durationMinutes,
-                                      )
-                                    }
-                                  </p>
+                            <td className="whitespace-nowrap px-4 py-3.5">
 
-                                  {flight.stopover && (
-                                    <>
-                                      <p className="mt-3 text-xs text-slate-400">
-                                        Durée escale
-                                      </p>
+                              <WeatherBadge
+                                weatherAI={
+                                  flight.weatherAI
+                                }
+                              />
 
-                                      <p className="mt-1 text-sm font-semibold text-slate-700">
-                                        {
-                                          formatDuration(
-                                            flight.stopoverDurationMinutes,
-                                          )
-                                        }
-                                      </p>
-                                    </>
-                                  )}
+                            </td>
 
-                                </div>
+                            {/* ACTION */}
 
-                                {/* AIRCRAFT */}
+                            <td className="whitespace-nowrap px-4 py-3.5 text-right">
 
-                                <div className="rounded-xl border border-slate-200 bg-white p-4">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setExpandedId(
+                                    isExpanded
+                                      ? null
+                                      : flight.id,
+                                  )
+                                }
+                                className={`inline-flex h-8 items-center gap-1.5 rounded-lg border px-3 text-[10px] font-bold transition ${
+                                  isExpanded
+                                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                                    : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                                }`}
+                              >
 
-                                  <div className="mb-3 flex items-center gap-2 font-bold text-slate-800">
-                                    <Plane
-                                      size={
-                                        17
-                                      }
-                                    />
-                                    Appareil
-                                  </div>
+                                {isExpanded ? (
+                                  <>
+                                    Masquer
 
-                                  <p className="text-xs text-slate-400">
-                                    Immatriculation
-                                  </p>
+                                    <ChevronUp size={14} />
+                                  </>
+                                ) : (
+                                  <>
+                                    Détails
 
-                                  <p className="mt-1 text-sm font-extrabold text-slate-800">
-                                    {
-                                      flight.aircraftRegistration
-                                    }
-                                  </p>
+                                    <ChevronDown size={14} />
+                                  </>
+                                )}
 
-                                  <p className="mt-3 text-xs text-slate-400">
-                                    ID avion
-                                  </p>
+                              </button>
 
-                                  <p className="mt-1 break-all text-xs font-medium text-slate-500">
-                                    {
-                                      flight.aircraftId
-                                    }
-                                  </p>
+                            </td>
 
-                                </div>
+                          </tr>
 
-                              </div>
+                          {/* ===================================================
+                              EXPANDED
+                          =================================================== */}
 
-                              {/* =================================================
-                                  WEATHER + ROUTE
-                              ================================================= */}
+                          {isExpanded && (
 
-                              <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+                            <tr>
 
-                                {/* ROUTE */}
+                              <td
+                                colSpan={
+                                  9
+                                }
+                                className="bg-slate-50/70 px-4 py-4"
+                              >
 
-                                <div className="rounded-xl border border-slate-200 bg-white p-5">
+                                {/* =================================================
+                                    INFO SUMMARY
+                                ================================================= */}
 
-                                  <h4 className="flex items-center gap-2 font-bold text-slate-800">
+                                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
 
-                                    <MapPin
-                                      size={
-                                        17
-                                      }
-                                    />
+                                  {/* LOCAL */}
 
-                                    Informations opérationnelles
+                                  <div className="rounded-xl border border-slate-200 bg-white p-4">
 
-                                  </h4>
+                                    <div className="mb-3 flex items-center gap-2">
 
-                                  <div className="mt-4 space-y-4">
+                                      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-sky-50 text-sky-600">
 
-                                    <div>
+                                        <Clock3 size={14} />
 
-                                      <p className="text-xs text-slate-400">
-                                        Route
-                                      </p>
-
-                                      <p className="mt-1 text-sm font-bold text-slate-700">
-                                        {
-                                          flight.route
-                                        }
-                                      </p>
-
-                                    </div>
-
-                                    <div>
-
-                                      <p className="text-xs text-slate-400">
-                                        Statut final
-                                      </p>
-
-                                      <div className="mt-2">
-                                        <StatusBadge
-                                          status={
-                                            flight.status
-                                          }
-                                        />
                                       </div>
 
+                                      <span className="text-xs font-black text-slate-800">
+                                        Horaires locaux
+                                      </span>
+
                                     </div>
+
+                                    <p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">
+                                      Départ
+                                    </p>
+
+                                    <p className="mt-1 font-mono text-xs font-bold text-slate-700">
+                                      {formatDateTime(
+                                        flight.localDeparture,
+                                      )}
+                                    </p>
+
+                                    <p className="mt-3 text-[9px] font-bold uppercase tracking-wide text-slate-400">
+                                      Arrivée
+                                    </p>
+
+                                    <p className="mt-1 font-mono text-xs font-bold text-slate-700">
+                                      {formatDateTime(
+                                        flight.localArrival,
+                                      )}
+                                    </p>
+
+                                  </div>
+
+                                  {/* UTC */}
+
+                                  <div className="rounded-xl border border-slate-200 bg-white p-4">
+
+                                    <div className="mb-3 flex items-center gap-2">
+
+                                      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
+
+                                        <CalendarDays size={14} />
+
+                                      </div>
+
+                                      <span className="text-xs font-black text-slate-800">
+                                        Horaires UTC
+                                      </span>
+
+                                    </div>
+
+                                    <p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">
+                                      Départ
+                                    </p>
+
+                                    <p className="mt-1 font-mono text-xs font-bold text-slate-700">
+                                      {formatDateTime(
+                                        flight.departureUtc,
+                                      )}
+                                    </p>
+
+                                    <p className="mt-3 text-[9px] font-bold uppercase tracking-wide text-slate-400">
+                                      Arrivée
+                                    </p>
+
+                                    <p className="mt-1 font-mono text-xs font-bold text-slate-700">
+                                      {formatDateTime(
+                                        flight.arrivalUtc,
+                                      )}
+                                    </p>
+
+                                  </div>
+
+                                  {/* DURATION */}
+
+                                  <div className="rounded-xl border border-slate-200 bg-white p-4">
+
+                                    <div className="mb-3 flex items-center gap-2">
+
+                                      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
+
+                                        <Timer size={14} />
+
+                                      </div>
+
+                                      <span className="text-xs font-black text-slate-800">
+                                        Durée
+                                      </span>
+
+                                    </div>
+
+                                    <p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">
+                                      Temps de vol
+                                    </p>
+
+                                    <p className="mt-1 font-mono text-lg font-black text-slate-900">
+                                      {formatDuration(
+                                        flight.durationMinutes,
+                                      )}
+                                    </p>
 
                                     {flight.stopover && (
 
-                                      <div>
+                                      <>
 
-                                        <p className="text-xs text-slate-400">
+                                        <p className="mt-3 text-[9px] font-bold uppercase tracking-wide text-slate-400">
                                           Escale
                                         </p>
 
-                                        <p className="mt-1 text-sm font-semibold text-slate-700">
-                                          {
-                                            flight.stopover
-                                          }
+                                        <p className="mt-1 font-mono text-xs font-bold text-slate-700">
+                                          {formatDuration(
+                                            flight.stopoverDurationMinutes,
+                                          )}
                                         </p>
 
-                                      </div>
+                                      </>
 
                                     )}
 
                                   </div>
 
-                                </div>
+                                  {/* AIRCRAFT */}
 
-                                {/* WEATHER */}
+                                  <div className="rounded-xl border border-slate-200 bg-white p-4">
 
-                                <div className="rounded-xl border border-slate-200 bg-white p-5">
+                                    <div className="mb-3 flex items-center gap-2">
 
-                                  <h4 className="flex items-center gap-2 font-bold text-slate-800">
+                                      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
 
-                                    <Cloud
-                                      size={
-                                        17
-                                      }
-                                    />
-
-                                    Analyse météo OCC
-
-                                  </h4>
-
-                                  <div className="mt-4 space-y-4">
-
-                                    <div>
-
-                                      <p className="text-xs text-slate-400">
-                                        État de l'analyse
-                                      </p>
-
-                                      <div className="mt-2">
-
-                                        <WeatherBadge
-                                          weatherAI={
-                                            flight.weatherAI
-                                          }
-                                        />
+                                        <Plane size={14} />
 
                                       </div>
 
+                                      <span className="text-xs font-black text-slate-800">
+                                        Appareil
+                                      </span>
+
                                     </div>
 
-                                    <div>
+                                    <p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">
+                                      Immatriculation
+                                    </p>
 
-                                      <p className="text-xs text-slate-400">
-                                        Niveau de risque
-                                      </p>
+                                    <p className="mt-1 font-mono text-sm font-black text-slate-900">
+                                      {
+                                        flight.aircraftRegistration
+                                      }
+                                    </p>
 
-                                      <p className="mt-1 text-sm font-bold text-slate-700">
-                                        {
+                                    <p className="mt-3 text-[9px] font-bold uppercase tracking-wide text-slate-400">
+                                      ID
+                                    </p>
+
+                                    <p className="mt-1 break-all font-mono text-[9px] text-slate-500">
+                                      {
+                                        flight.aircraftId
+                                      }
+                                    </p>
+
+                                  </div>
+
+                                </div>
+
+                                {/* =================================================
+                                    OPERATIONAL + WEATHER
+                                ================================================= */}
+
+                                <div className="mt-3 grid gap-3 lg:grid-cols-2">
+
+                                  {/* OPERATIONAL */}
+
+                                  <section className="rounded-xl border border-slate-200 bg-white p-4">
+
+                                    <div className="flex items-center gap-2">
+
+                                      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
+
+                                        <MapPin size={14} />
+
+                                      </div>
+
+                                      <h4 className="text-xs font-black text-slate-800">
+                                        Informations opérationnelles
+                                      </h4>
+
+                                    </div>
+
+                                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+
+                                      <DetailItem
+                                        label="Route"
+                                        value={
+                                          flight.route
+                                        }
+                                      />
+
+                                      <DetailItem
+                                        label="Statut final"
+                                        value={
+                                          <StatusBadge
+                                            status={
+                                              flight.status
+                                            }
+                                          />
+                                        }
+                                      />
+
+                                      {flight.stopover && (
+
+                                        <DetailItem
+                                          label="Escale"
+                                          value={
+                                            flight.stopover
+                                          }
+                                        />
+
+                                      )}
+
+                                      <DetailItem
+                                        label="Numéro de vol"
+                                        value={
+                                          flight.flightNumber
+                                        }
+                                      />
+
+                                    </div>
+
+                                  </section>
+
+                                  {/* WEATHER */}
+
+                                  <section className="rounded-xl border border-slate-200 bg-white p-4">
+
+                                    <div className="flex items-center gap-2">
+
+                                      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-sky-50 text-sky-600">
+
+                                        <Cloud size={14} />
+
+                                      </div>
+
+                                      <h4 className="text-xs font-black text-slate-800">
+                                        Analyse météo OCC
+                                      </h4>
+
+                                    </div>
+
+                                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+
+                                      <DetailItem
+                                        label="État"
+                                        value={
+                                          <WeatherBadge
+                                            weatherAI={
+                                              flight.weatherAI
+                                            }
+                                          />
+                                        }
+                                      />
+
+                                      <DetailItem
+                                        label="Niveau de risque"
+                                        value={
                                           flight.weatherAI
                                             ?.riskLabel ||
-                                          "Non évalué"
+                                          'Non évalué'
                                         }
-                                      </p>
+                                      />
 
-                                    </div>
-
-                                    <div>
-
-                                      <p className="text-xs text-slate-400">
-                                        Score météo
-                                      </p>
-
-                                      <p className="mt-1 text-sm font-bold text-slate-700">
-                                        {
+                                      <DetailItem
+                                        label="Score météo"
+                                        value={
                                           flight.weatherAI
                                             ?.riskLevel ===
-                                          "SKIPPED"
-                                            ? "Analyse clôturée"
+                                          'SKIPPED'
+                                            ? 'Analyse clôturée'
                                             : formatPercentage(
                                                 flight.weatherAI
                                                   ?.score,
                                               )
                                         }
-                                      </p>
+                                      />
 
-                                    </div>
-
-                                    <div>
-
-                                      <p className="text-xs text-slate-400">
-                                        Confiance
-                                      </p>
-
-                                      <p className="mt-1 text-sm font-bold text-slate-700">
-                                        {
+                                      <DetailItem
+                                        label="Confiance"
+                                        value={
                                           flight.weatherAI
                                             ?.riskLevel ===
-                                          "SKIPPED"
-                                            ? "—"
+                                          'SKIPPED'
+                                            ? '—'
                                             : formatPercentage(
                                                 flight.weatherAI
                                                   ?.confidence,
                                               )
                                         }
-                                      </p>
+                                      />
 
-                                    </div>
+                                      <div className="sm:col-span-2">
 
-                                    <div>
+                                        <DetailItem
+                                          label="Recommandation"
+                                          value={
+                                            flight.weatherAI
+                                              ?.recommendedActionLabel ||
+                                            'Aucune recommandation'
+                                          }
+                                        />
 
-                                      <p className="text-xs text-slate-400">
-                                        Recommandation
-                                      </p>
-
-                                      <p className="mt-1 text-sm font-semibold text-slate-700">
-                                        {
-                                          flight.weatherAI
-                                            ?.recommendedActionLabel ||
-                                          "Aucune recommandation"
-                                        }
-                                      </p>
+                                      </div>
 
                                     </div>
 
                                     {flight.weatherAI
                                       ?.explanation && (
 
-                                      <div>
+                                      <div className="mt-3 rounded-xl border border-slate-100 bg-slate-50 p-3">
 
-                                        <p className="text-xs text-slate-400">
+                                        <p className="text-[9px] font-black uppercase tracking-wide text-slate-400">
                                           Explication
                                         </p>
 
-                                        <p className="mt-1 text-sm leading-6 text-slate-600">
+                                        <p className="mt-1.5 text-[11px] leading-5 text-slate-600">
                                           {
                                             flight.weatherAI
                                               .explanation
@@ -2236,298 +2439,399 @@ const FlightHistory: React.FC<
 
                                     )}
 
-                                  </div>
+                                  </section>
 
                                 </div>
 
-                              </div>
+                                {/* ACTION */}
 
-                              <div className="mt-4 flex justify-end">
+                                <div className="mt-3 flex justify-end">
 
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setSelectedFlight(
-                                      flight,
-                                    )
-                                  }
-                                  className="rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-800"
-                                >
-                                  Fiche complète
-                                </button>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setSelectedFlight(
+                                        flight,
+                                      )
+                                    }
+                                    className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-emerald-700 px-4 text-[10px] font-bold text-white shadow-sm transition hover:bg-emerald-800"
+                                  >
+                                    Fiche complète
 
-                              </div>
+                                    <ArrowRight size={13} />
+                                  </button>
 
-                            </td>
+                                </div>
 
-                          </tr>
+                              </td>
 
-                        )}
+                            </tr>
 
-                      </React.Fragment>
-                    );
-                  },
-                )}
+                          )}
 
-              </tbody>
+                        </React.Fragment>
 
-            </table>
+                      );
+                    },
+                  )}
+
+                </tbody>
+
+              </table>
+
+            </div>
+
+          )}
+
+        </section>
+
+        {/* =====================================================================
+            COMPLETE MODAL
+        ===================================================================== */}
+
+        {selectedFlight && (
+
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Historique du vol ${selectedFlight.flightNumber}`}
+            onMouseDown={(
+              event,
+            ) => {
+              if (
+                event.currentTarget ===
+                event.target
+              ) {
+                setSelectedFlight(
+                  null,
+                );
+              }
+            }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-[2px]"
+          >
+
+            <div className="w-full max-w-190 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
+
+              {/* ===============================================================
+                  MODAL HEADER
+              =============================================================== */}
+
+              <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+
+                <div className="min-w-0">
+
+                  <span className="block text-[9px] font-black uppercase tracking-[0.14em] text-emerald-700">
+                    Fiche historique OCC
+                  </span>
+
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
+
+                    <h2 className="font-mono text-xl font-black text-slate-950">
+                      {
+                        selectedFlight.flightNumber
+                      }
+                    </h2>
+
+                    <StatusBadge
+                      status={
+                        selectedFlight.status
+                      }
+                    />
+
+                  </div>
+
+                  <p className="mt-1 truncate font-mono text-[11px] font-semibold text-slate-500">
+                    {
+                      selectedFlight.route
+                    }
+                  </p>
+
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSelectedFlight(
+                      null,
+                    )
+                  }
+                  aria-label="Fermer"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500 transition hover:bg-slate-200 hover:text-slate-700"
+                >
+
+                  <X size={16} />
+
+                </button>
+
+              </div>
+
+              {/* ===============================================================
+                  BODY
+              =============================================================== */}
+
+              <div className="space-y-3 p-4">
+
+                {/* ROUTE HERO */}
+
+                <section className="overflow-hidden rounded-2xl bg-emerald-700 px-5 py-4 text-white">
+
+                  <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4">
+
+                    <div>
+
+                      <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-100">
+                        Origine
+                      </span>
+
+                      <strong className="mt-1 block font-mono text-2xl font-black">
+                        {
+                          selectedFlight.origin
+                        }
+                      </strong>
+
+                    </div>
+
+                    <div className="flex items-center">
+
+                      <div className="h-px w-7 bg-emerald-400/80" />
+
+                      <Plane className="mx-2 h-4 w-4 rotate-90" />
+
+                      <div className="h-px w-7 bg-emerald-400/80" />
+
+                    </div>
+
+                    <div className="text-right">
+
+                      <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-100">
+                        Destination
+                      </span>
+
+                      <strong className="mt-1 block font-mono text-2xl font-black">
+                        {
+                          selectedFlight.destination
+                        }
+                      </strong>
+
+                    </div>
+
+                  </div>
+
+                </section>
+
+                {/* MAIN INFO */}
+
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+
+                  <DetailItem
+                    label="Numéro de vol"
+                    value={
+                      selectedFlight.flightNumber
+                    }
+                  />
+
+                  <DetailItem
+                    label="Immatriculation"
+                    value={
+                      selectedFlight.aircraftRegistration
+                    }
+                  />
+
+                  <DetailItem
+                    label="Durée"
+                    value={
+                      formatDuration(
+                        selectedFlight.durationMinutes,
+                      )
+                    }
+                  />
+
+                  <DetailItem
+                    label="Départ local"
+                    value={
+                      formatDateTime(
+                        selectedFlight.localDeparture,
+                      )
+                    }
+                  />
+
+                  <DetailItem
+                    label="Arrivée locale"
+                    value={
+                      formatDateTime(
+                        selectedFlight.localArrival,
+                      )
+                    }
+                  />
+
+                  <DetailItem
+                    label="Statut"
+                    value={
+                      <StatusBadge
+                        status={
+                          selectedFlight.status
+                        }
+                      />
+                    }
+                  />
+
+                </div>
+
+                {/* UTC */}
+
+                <section className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+
+                  <div className="mb-3 flex items-center gap-2">
+
+                    <CalendarDays
+                      size={15}
+                      className="text-slate-500"
+                    />
+
+                    <h3 className="text-xs font-black text-slate-800">
+                      Références UTC
+                    </h3>
+
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+
+                    <DetailItem
+                      label="Départ UTC"
+                      value={
+                        formatDateTime(
+                          selectedFlight.departureUtc,
+                        )
+                      }
+                    />
+
+                    <DetailItem
+                      label="Arrivée UTC"
+                      value={
+                        formatDateTime(
+                          selectedFlight.arrivalUtc,
+                        )
+                      }
+                    />
+
+                  </div>
+
+                </section>
+
+                {/* WEATHER */}
+
+                <section className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+
+                  <div className="mb-3 flex items-center justify-between gap-3">
+
+                    <div className="flex items-center gap-2">
+
+                      <Gauge
+                        size={15}
+                        className="text-emerald-700"
+                      />
+
+                      <h3 className="text-xs font-black text-slate-800">
+                        Données météo / OCC
+                      </h3>
+
+                    </div>
+
+                    <WeatherBadge
+                      weatherAI={
+                        selectedFlight.weatherAI
+                      }
+                    />
+
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+
+                    <DetailItem
+                      label="Niveau de risque"
+                      value={
+                        selectedFlight.weatherAI
+                          ?.riskLabel ||
+                        'Non évalué'
+                      }
+                    />
+
+                    <DetailItem
+                      label="Phase météo"
+                      value={
+                        selectedFlight.weatherAI
+                          ?.forecastPhaseLabel ||
+                        '—'
+                      }
+                    />
+
+                    <DetailItem
+                      label="Action recommandée"
+                      value={
+                        selectedFlight.weatherAI
+                          ?.recommendedActionLabel ||
+                        'Aucune'
+                      }
+                    />
+
+                    <DetailItem
+                      label="Analyse effectuée"
+                      value={
+                        formatDateTime(
+                          selectedFlight.weatherAI
+                            ?.evaluatedAt,
+                        )
+                      }
+                    />
+
+                  </div>
+
+                  {selectedFlight.weatherAI
+                    ?.explanation && (
+
+                    <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
+
+                      <p className="text-[9px] font-black uppercase tracking-wide text-slate-400">
+                        Explication du moteur
+                      </p>
+
+                      <p className="mt-1.5 text-[11px] leading-5 text-slate-600">
+                        {
+                          selectedFlight.weatherAI
+                            .explanation
+                        }
+                      </p>
+
+                    </div>
+
+                  )}
+
+                </section>
+
+                {/* FOOTER */}
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSelectedFlight(
+                      null,
+                    )
+                  }
+                  className="h-10 w-full rounded-xl bg-emerald-700 text-xs font-black text-white shadow-sm transition hover:bg-emerald-800"
+                >
+                  Fermer la fiche
+                </button>
+
+              </div>
+
+            </div>
 
           </div>
 
         )}
 
-      </section>
-
-      {/* ===================================================
-          MODAL
-      =================================================== */}
-
-      {selectedFlight && (
-
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
-          onClick={() =>
-            setSelectedFlight(
-              null,
-            )
-          }
-        >
-
-          <div
-            className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-3xl bg-white shadow-2xl"
-            onClick={(
-              event,
-            ) =>
-              event.stopPropagation()
-            }
-          >
-
-            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-6 py-5">
-
-              <div>
-
-                <p className="text-xs font-bold uppercase tracking-wider text-emerald-700">
-                  Fiche historique OCC
-                </p>
-
-                <h2 className="mt-1 text-2xl font-extrabold text-slate-900">
-                  {
-                    selectedFlight.flightNumber
-                  }
-                </h2>
-
-                <p className="mt-1 text-sm text-slate-500">
-                  {
-                    selectedFlight.route
-                  }
-                </p>
-
-              </div>
-
-              <button
-                type="button"
-                onClick={() =>
-                  setSelectedFlight(
-                    null,
-                  )
-                }
-                className="rounded-xl bg-slate-100 p-2 text-slate-600 transition hover:bg-slate-200"
-              >
-                <XCircle
-                  size={
-                    22
-                  }
-                />
-              </button>
-
-            </div>
-
-            <div className="space-y-6 p-6">
-
-              <div className="flex flex-wrap items-center gap-3">
-
-                <StatusBadge
-                  status={
-                    selectedFlight.status
-                  }
-                />
-
-                <WeatherBadge
-                  weatherAI={
-                    selectedFlight.weatherAI
-                  }
-                />
-
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-
-                <DetailItem
-                  label="Numéro de vol"
-                  value={
-                    selectedFlight.flightNumber
-                  }
-                />
-
-                <DetailItem
-                  label="Route"
-                  value={
-                    selectedFlight.route
-                  }
-                />
-
-                <DetailItem
-                  label="Immatriculation"
-                  value={
-                    selectedFlight.aircraftRegistration
-                  }
-                />
-
-                <DetailItem
-                  label="Départ local"
-                  value={
-                    formatDateTime(
-                      selectedFlight.localDeparture,
-                    )
-                  }
-                />
-
-                <DetailItem
-                  label="Arrivée locale"
-                  value={
-                    formatDateTime(
-                      selectedFlight.localArrival,
-                    )
-                  }
-                />
-
-                <DetailItem
-                  label="Durée"
-                  value={
-                    formatDuration(
-                      selectedFlight.durationMinutes,
-                    )
-                  }
-                />
-
-                <DetailItem
-                  label="Départ UTC"
-                  value={
-                    formatDateTime(
-                      selectedFlight.departureUtc,
-                    )
-                  }
-                />
-
-                <DetailItem
-                  label="Arrivée UTC"
-                  value={
-                    formatDateTime(
-                      selectedFlight.arrivalUtc,
-                    )
-                  }
-                />
-
-                <DetailItem
-                  label="ID appareil"
-                  value={
-                    selectedFlight.aircraftId
-                  }
-                />
-
-              </div>
-
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-
-                <div className="flex items-center gap-2">
-
-                  <Gauge
-                    size={
-                      18
-                    }
-                    className="text-emerald-700"
-                  />
-
-                  <h3 className="font-extrabold text-slate-800">
-                    Données météo / OCC
-                  </h3>
-
-                </div>
-
-                <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-
-                  <DetailItem
-                    label="Niveau de risque"
-                    value={
-                      selectedFlight.weatherAI
-                        ?.riskLabel ||
-                      "Non évalué"
-                    }
-                  />
-
-                  <DetailItem
-                    label="Phase météo"
-                    value={
-                      selectedFlight.weatherAI
-                        ?.forecastPhaseLabel ||
-                      "—"
-                    }
-                  />
-
-                  <DetailItem
-                    label="Action recommandée"
-                    value={
-                      selectedFlight.weatherAI
-                        ?.recommendedActionLabel ||
-                      "Aucune"
-                    }
-                  />
-
-                  <DetailItem
-                    label="Analyse effectuée le"
-                    value={
-                      formatDateTime(
-                        selectedFlight.weatherAI
-                          ?.evaluatedAt,
-                      )
-                    }
-                  />
-
-                </div>
-
-                {selectedFlight.weatherAI
-                  ?.explanation && (
-
-                  <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4">
-
-                    <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                      Explication du moteur
-                    </p>
-
-                    <p className="mt-2 text-sm leading-6 text-slate-600">
-                      {
-                        selectedFlight.weatherAI
-                          .explanation
-                      }
-                    </p>
-
-                  </div>
-
-                )}
-
-              </div>
-
-            </div>
-
-          </div>
-
-        </div>
-
-      )}
-
-    </div>
-  );
-};
+      </div>
+    );
+  };
 
 export default FlightHistory;

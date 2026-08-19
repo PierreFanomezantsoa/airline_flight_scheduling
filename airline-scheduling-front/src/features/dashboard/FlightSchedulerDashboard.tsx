@@ -31,7 +31,6 @@ import {
   Filter,
   Play,
   RotateCcw,
-  SlidersHorizontal,
   WandSparkles,
   MapPin,
 } from 'lucide-react';
@@ -901,7 +900,7 @@ export const FlightSchedulerDashboard:
       useState<Date | null>(
         null,
       );
-    const [ options, setOptions ] =
+    const [ options ] =
       useState<AutoScheduleOptions>({
         horizonDays: 7,
         turnaroundMinutes: 45,
@@ -2362,7 +2361,7 @@ export const FlightSchedulerDashboard:
             {ganttData.rows.length ===
             0 ? (
 
-              <div className="flex min-h-[240px] items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 p-8 text-center">
+              <div className="flex min-h-60 items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 p-8 text-center">
 
                 <div>
 
@@ -2380,7 +2379,7 @@ export const FlightSchedulerDashboard:
 
               <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-slate-50/20">
 
-                <div className="min-w-[1450px] pb-4">
+                <div className="min-w-362.5 pb-4">
 
                   {/* ------------------------------------------------------- */}
                   {/* TIME HEADER                                             */}
@@ -2691,7 +2690,7 @@ export const FlightSchedulerDashboard:
                                     key={
                                       item.id
                                     }
-                                    className={`absolute bottom-2 top-2 flex min-w-[125px] cursor-pointer items-center justify-between rounded-xl border px-3 py-1.5 shadow-sm transition hover:z-30 hover:scale-[1.01] hover:shadow-md ${config.bg} ${config.border}`}
+                                    className={`absolute bottom-2 top-2 flex min-w-31.25 cursor-pointer items-center justify-between rounded-xl border px-3 py-1.5 shadow-sm transition hover:z-30 hover:scale-[1.01] hover:shadow-md ${config.bg} ${config.border}`}
                                     style={{
                                       left:
                                         `${left}%`,
@@ -3185,7 +3184,7 @@ export const FlightSchedulerDashboard:
 
             <div className="overflow-x-auto">
 
-              <table className="w-full min-w-[900px] text-left text-xs text-slate-600 sm:text-sm">
+              <table className="w-full min-w-225 text-left text-xs text-slate-600 sm:text-sm">
 
                 <thead className="border-b border-slate-200 bg-slate-50 text-[10px] font-black uppercase tracking-wider text-slate-500">
 

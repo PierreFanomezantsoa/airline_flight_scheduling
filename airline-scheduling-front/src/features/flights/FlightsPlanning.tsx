@@ -1109,7 +1109,7 @@ export const FlightsPlanning: React.FC = () => {
 
                       {/* Météo IA */}
                       <td className="py-4 px-4">
-                        <div className="min-w-[155px] space-y-1.5">
+                        <div className="min-w-38.75 space-y-1.5">
                           <div className="flex items-center gap-2">
                             <span
                               className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-[9px] font-black uppercase tracking-wide ${weatherVisual.badge}`}

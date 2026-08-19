@@ -30,7 +30,8 @@ const API_BASE_URL =
     import.meta.env?.VITE_API_BASE_URL) ||
   'http://localhost:3001';
 
-const CREW_ENDPOINT = '/crew-assignments';
+const CREW_ENDPOINT =
+  '/crew-assignments';
 
 /* ============================================================================
  * TYPES
@@ -38,28 +39,36 @@ const CREW_ENDPOINT = '/crew-assignments';
 
 type CrewRole =
   | 'Captain'
-  | 'FirstOfficer'
+  | 'First Officer'
   | 'Purser'
-  | 'CabinCrew'
-  | 'Dispatcher'
-  | 'Other'
-  | string;
+  | 'Cabin Crew'
+  | 'Other';
 
 interface Flight {
   id: string;
+
   numeroVol?: string;
+
   aeroportDepart?: string;
+
   aeroportArrivee?: string;
+
   heureDepart?: string;
+
   heureArrivee?: string;
+
   statut?: string;
 }
 
 interface User {
   id: string;
+
   nom?: string;
+
   email?: string;
+
   role?: string;
+
   actif?: boolean;
 }
 
@@ -67,87 +76,139 @@ interface CrewAssignment {
   id: string;
 
   volId: string;
+
   vol?: Flight;
 
   utilisateurId: string;
+
   utilisateur?: User;
 
   fonction: CrewRole;
 
-  heuresReposAvant?: number | null;
+  heuresReposAvant?:
+    | number
+    | null;
 }
 
 interface CrewForm {
   volId: string;
+
   utilisateurId: string;
+
   fonction: CrewRole;
 }
 
 interface MessageState {
-  type: 'success' | 'error' | 'info';
+  type:
+    | 'success'
+    | 'error'
+    | 'info';
+
   text: string;
 }
+
+/* ============================================================================
+ * ROLES
+ * ========================================================================== */
+
+const CREW_ROLES:
+  CrewRole[] = [
+    'Captain',
+    'First Officer',
+    'Purser',
+    'Cabin Crew',
+    'Other',
+  ];
+
+const roleLabels:
+  Record<
+    CrewRole,
+    string
+  > = {
+    Captain:
+      'Commandant de bord',
+
+    'First Officer':
+      'Copilote',
+
+    Purser:
+      'Chef de cabine',
+
+    'Cabin Crew':
+      'Personnel de cabine',
+
+    Other:
+      'Autre',
+  };
 
 /* ============================================================================
  * HELPERS
  * ========================================================================== */
 
-const CREW_ROLES: CrewRole[] = [
-  'Captain',
-  'FirstOfficer',
-  'Purser',
-  'CabinCrew',
-  'Dispatcher',
-  'Other',
-];
-
-const roleLabels: Record<string, string> = {
-  Captain: 'Commandant',
-  FirstOfficer: 'Copilote',
-  Purser: 'Chef de cabine',
-  CabinCrew: 'Personnel cabine',
-  Dispatcher: 'Agent opérations',
-  Other: 'Autre',
-};
-
 const formatRole = (
-  role?: string | null,
+  role?:
+    | string
+    | null,
 ) => {
-  if (!role) return 'Non défini';
+  if (!role) {
+    return 'Non défini';
+  }
 
-  return roleLabels[role] ?? role;
+  return (
+    roleLabels[
+      role as CrewRole
+    ] ?? role
+  );
 };
 
 const safeDate = (
-  value?: string | null,
+  value?:
+    | string
+    | null,
 ) => {
-  if (!value) return null;
+  if (!value) {
+    return null;
+  }
 
-  const date = new Date(value);
+  const date =
+    new Date(value);
 
-  return Number.isNaN(date.getTime())
+  return Number.isNaN(
+    date.getTime(),
+  )
     ? null
     : date;
 };
 
 const formatDateTime = (
-  value?: string | null,
+  value?:
+    | string
+    | null,
 ) => {
-  const date = safeDate(value);
+  const date =
+    safeDate(value);
 
-  if (!date) return '--';
+  if (!date) {
+    return '--';
+  }
 
   return date.toLocaleString(
     'fr-FR',
     {
-      dateStyle: 'short',
-      timeStyle: 'short',
+      dateStyle:
+        'short',
+
+      timeStyle:
+        'short',
     },
   );
 };
 
 const getErrorPayload =
-  async (response: Response) => {
+  async (
+    response:
+      Response,
+  ) => {
     try {
       return await response.json();
     } catch {
@@ -155,55 +216,156 @@ const getErrorPayload =
     }
   };
 
-const getApiErrorMessage =
-  async (
-    response: Response,
-    fallback: string,
-  ): Promise<string> => {
-    const payload =
-      await getErrorPayload(response);
+const extractApiError = (
+  payload: any,
+  fallback: string,
+) => {
+  if (!payload) {
+    return fallback;
+  }
 
-    if (!payload) {
-      return fallback;
-    }
+  if (
+    Array.isArray(
+      payload.message,
+    )
+  ) {
+    return payload.message.join(
+      ' | ',
+    );
+  }
 
-    const message =
-      payload.message ??
-      payload.error ??
-      fallback;
+  if (
+    payload.code ===
+    'CREW_OVERLAP'
+  ) {
+    return (
+      payload.message ||
+      'Ce membre est déjà affecté à un autre vol pendant cette période.'
+    );
+  }
 
+  if (
+    payload.code ===
+    'CREW_REST'
+  ) {
+    return (
+      payload.message ||
+      'Le temps minimal de repos équipage n’est pas respecté.'
+    );
+  }
+
+  if (
+    typeof payload.message ===
+      'object' &&
+    payload.message !==
+      null
+  ) {
     if (
-      typeof message === 'object' &&
-      message !== null
+      payload.message
+        .code ===
+      'CREW_OVERLAP'
     ) {
-      if (
-        message.code ===
-        'CREW_OVERLAP'
-      ) {
-        return (
-          message.message ??
-          'Ce membre est déjà affecté à un autre vol sur cette période.'
-        );
-      }
-
-      if (
-        message.code ===
-        'CREW_REST'
-      ) {
-        return (
-          message.message ??
-          'Le temps minimal de repos équipage n’est pas respecté.'
-        );
-      }
-
       return (
-        message.message ??
-        fallback
+        payload.message
+          .message ||
+        'Ce membre est déjà affecté à un autre vol pendant cette période.'
       );
     }
 
-    return String(message);
+    if (
+      payload.message
+        .code ===
+      'CREW_REST'
+    ) {
+      return (
+        payload.message
+          .message ||
+        'Le temps minimal de repos équipage n’est pas respecté.'
+      );
+    }
+
+    return (
+      payload.message
+        .message ||
+      fallback
+    );
+  }
+
+  if (
+    typeof payload.message ===
+    'string'
+  ) {
+    return payload.message;
+  }
+
+  if (
+    payload.error
+  ) {
+    return String(
+      payload.error,
+    );
+  }
+
+  return fallback;
+};
+
+const getApiErrorMessage =
+  async (
+    response:
+      Response,
+
+    fallback:
+      string,
+  ): Promise<string> => {
+    const payload =
+      await getErrorPayload(
+        response,
+      );
+
+    return extractApiError(
+      payload,
+      fallback,
+    );
   };
+
+/* ============================================================================
+ * METRIC CARD
+ * ========================================================================== */
+
+function MetricCard({
+  label,
+  value,
+  icon,
+}: {
+  label: string;
+
+  value:
+    | string
+    | number;
+
+  icon:
+    React.ReactNode;
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+
+      <div className="flex items-center justify-between text-slate-400">
+
+        <span className="text-[9px] font-black uppercase tracking-wider">
+          {label}
+        </span>
+
+        {icon}
+
+      </div>
+
+      <div className="mt-2 text-2xl font-black text-slate-900">
+        {value}
+      </div>
+
+    </div>
+  );
+}
 
 /* ============================================================================
  * COMPONENT
@@ -211,6 +373,10 @@ const getApiErrorMessage =
 
 export const CrewAssignmentsPage:
   React.FC = () => {
+    /* =========================================================================
+     * STATES
+     * ======================================================================= */
+
     const [
       assignments,
       setAssignments,
@@ -223,31 +389,41 @@ export const CrewAssignmentsPage:
       flights,
       setFlights,
     ] =
-      useState<Flight[]>([]);
+      useState<
+        Flight[]
+      >([]);
 
     const [
       users,
       setUsers,
     ] =
-      useState<User[]>([]);
+      useState<
+        User[]
+      >([]);
 
     const [
       loading,
       setLoading,
     ] =
-      useState(false);
+      useState(
+        false,
+      );
 
     const [
       saving,
       setSaving,
     ] =
-      useState(false);
+      useState(
+        false,
+      );
 
     const [
       deletingId,
       setDeletingId,
     ] =
-      useState<string | null>(
+      useState<
+        string | null
+      >(
         null,
       );
 
@@ -255,7 +431,9 @@ export const CrewAssignmentsPage:
       editingId,
       setEditingId,
     ] =
-      useState<string | null>(
+      useState<
+        string | null
+      >(
         null,
       );
 
@@ -263,7 +441,9 @@ export const CrewAssignmentsPage:
       modalOpen,
       setModalOpen,
     ] =
-      useState(false);
+      useState(
+        false,
+      );
 
     const [
       searchTerm,
@@ -275,19 +455,25 @@ export const CrewAssignmentsPage:
       selectedFlightId,
       setSelectedFlightId,
     ] =
-      useState('TOUS');
+      useState(
+        'TOUS',
+      );
 
     const [
       selectedUserId,
       setSelectedUserId,
     ] =
-      useState('TOUS');
+      useState(
+        'TOUS',
+      );
 
     const [
       message,
       setMessage,
     ] =
-      useState<MessageState | null>(
+      useState<
+        MessageState | null
+      >(
         null,
       );
 
@@ -295,20 +481,28 @@ export const CrewAssignmentsPage:
       form,
       setForm,
     ] =
-      useState<CrewForm>({
+      useState<
+        CrewForm
+      >({
         volId: '',
-        utilisateurId: '',
-        fonction: 'Other',
+
+        utilisateurId:
+          '',
+
+        fonction:
+          'Other',
       });
 
-    /* ======================================================================
+    /* =========================================================================
      * LOAD
-     * ==================================================================== */
+     * ======================================================================= */
 
     const loadData =
       useCallback(
         async () => {
-          setLoading(true);
+          setLoading(
+            true,
+          );
 
           try {
             const [
@@ -316,19 +510,21 @@ export const CrewAssignmentsPage:
               flightsResponse,
               usersResponse,
             ] =
-              await Promise.all([
-                fetch(
-                  `${API_BASE_URL}${CREW_ENDPOINT}`,
-                ),
+              await Promise.all(
+                [
+                  fetch(
+                    `${API_BASE_URL}${CREW_ENDPOINT}`,
+                  ),
 
-                fetch(
-                  `${API_BASE_URL}/flights`,
-                ),
+                  fetch(
+                    `${API_BASE_URL}/flights`,
+                  ),
 
-                fetch(
-                  `${API_BASE_URL}/users`,
-                ),
-              ]);
+                  fetch(
+                    `${API_BASE_URL}/users`,
+                  ),
+                ],
+              );
 
             if (
               !assignmentsResponse.ok
@@ -338,6 +534,10 @@ export const CrewAssignmentsPage:
               );
             }
 
+            /* ===============================================================
+             * ASSIGNMENTS
+             * ============================================================= */
+
             const assignmentPayload =
               await assignmentsResponse.json();
 
@@ -346,8 +546,16 @@ export const CrewAssignmentsPage:
                 assignmentPayload,
               )
                 ? assignmentPayload
-                : [],
+                : Array.isArray(
+                      assignmentPayload?.data,
+                    )
+                  ? assignmentPayload.data
+                  : [],
             );
+
+            /* ===============================================================
+             * FLIGHTS
+             * ============================================================= */
 
             if (
               flightsResponse.ok
@@ -356,11 +564,21 @@ export const CrewAssignmentsPage:
                 await flightsResponse.json();
 
               setFlights(
-                Array.isArray(payload)
+                Array.isArray(
+                  payload,
+                )
                   ? payload
-                  : [],
+                  : Array.isArray(
+                        payload?.data,
+                      )
+                    ? payload.data
+                    : [],
               );
             }
+
+            /* ===============================================================
+             * USERS
+             * ============================================================= */
 
             if (
               usersResponse.ok
@@ -368,23 +586,40 @@ export const CrewAssignmentsPage:
               const payload =
                 await usersResponse.json();
 
+              const userList:
+                User[] =
+                  Array.isArray(
+                    payload,
+                  )
+                    ? payload
+                    : Array.isArray(
+                          payload?.data,
+                        )
+                      ? payload.data
+                      : [];
+
               setUsers(
-                Array.isArray(payload)
-                  ? payload.filter(
-                      (
-                        user: User,
-                      ) =>
-                        user.actif !==
-                        false,
-                    )
-                  : [],
+                userList.filter(
+                  (
+                    user,
+                  ) =>
+                    user.actif !==
+                    false,
+                ),
               );
             }
           } catch (
-            error: unknown
+            error:
+              unknown
           ) {
+            console.error(
+              'Erreur chargement Crew :',
+              error,
+            );
+
             setMessage({
-              type: 'error',
+              type:
+                'error',
 
               text:
                 error instanceof Error
@@ -392,7 +627,9 @@ export const CrewAssignmentsPage:
                   : 'Erreur de chargement.',
             });
           } finally {
-            setLoading(false);
+            setLoading(
+              false,
+            );
           }
         },
         [],
@@ -407,9 +644,66 @@ export const CrewAssignmentsPage:
       ],
     );
 
-    /* ======================================================================
+    /* =========================================================================
+     * MODAL SCROLL
+     * ======================================================================= */
+
+    useEffect(() => {
+      if (
+        !modalOpen
+      ) {
+        return;
+      }
+
+      const previousOverflow =
+        document.body.style
+          .overflow;
+
+      document.body.style.overflow =
+        'hidden';
+
+      const handleEscape =
+        (
+          event:
+            KeyboardEvent,
+        ) => {
+          if (
+            event.key ===
+              'Escape' &&
+            !saving
+          ) {
+            setModalOpen(
+              false,
+            );
+
+            setEditingId(
+              null,
+            );
+          }
+        };
+
+      window.addEventListener(
+        'keydown',
+        handleEscape,
+      );
+
+      return () => {
+        document.body.style.overflow =
+          previousOverflow;
+
+        window.removeEventListener(
+          'keydown',
+          handleEscape,
+        );
+      };
+    }, [
+      modalOpen,
+      saving,
+    ]);
+
+    /* =========================================================================
      * FILTER
-     * ==================================================================== */
+     * ======================================================================= */
 
     const filteredAssignments =
       useMemo(
@@ -508,23 +802,34 @@ export const CrewAssignmentsPage:
         ],
       );
 
-    /* ======================================================================
-     * FORM
-     * ==================================================================== */
+    /* =========================================================================
+     * CREATE / EDIT
+     * ======================================================================= */
 
     const openCreateModal =
       () => {
-        setEditingId(null);
+        setEditingId(
+          null,
+        );
 
         setForm({
-          volId: '',
-          utilisateurId: '',
-          fonction: 'Other',
+          volId:
+            '',
+
+          utilisateurId:
+            '',
+
+          fonction:
+            'Other',
         });
 
-        setModalOpen(true);
+        setModalOpen(
+          true,
+        );
 
-        setMessage(null);
+        setMessage(
+          null,
+        );
       };
 
     const openEditModal =
@@ -547,25 +852,35 @@ export const CrewAssignmentsPage:
             assignment.fonction,
         });
 
-        setModalOpen(true);
+        setModalOpen(
+          true,
+        );
 
-        setMessage(null);
+        setMessage(
+          null,
+        );
       };
 
     const closeModal =
       () => {
-        if (saving) {
+        if (
+          saving
+        ) {
           return;
         }
 
-        setModalOpen(false);
+        setModalOpen(
+          false,
+        );
 
-        setEditingId(null);
+        setEditingId(
+          null,
+        );
       };
 
-    /* ======================================================================
+    /* =========================================================================
      * SAVE
-     * ==================================================================== */
+     * ======================================================================= */
 
     const handleSubmit =
       async (
@@ -580,7 +895,9 @@ export const CrewAssignmentsPage:
           !form.fonction
         ) {
           setMessage({
-            type: 'error',
+            type:
+              'error',
+
             text:
               'Veuillez renseigner le vol, le membre d’équipage et la fonction.',
           });
@@ -588,9 +905,13 @@ export const CrewAssignmentsPage:
           return;
         }
 
-        setSaving(true);
+        setSaving(
+          true,
+        );
 
-        setMessage(null);
+        setMessage(
+          null,
+        );
 
         try {
           const isEdit =
@@ -603,58 +924,88 @@ export const CrewAssignmentsPage:
               ? `${API_BASE_URL}${CREW_ENDPOINT}/${editingId}`
               : `${API_BASE_URL}${CREW_ENDPOINT}`;
 
-     const response = await fetch(
-  `${API_BASE_URL}/crew-assignments`,
-  {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    },
-    body: JSON.stringify({
-      volId: form.volId,
-      utilisateurId: form.utilisateurId,
-      fonction: form.fonction,
-    }),
-  },
-);
+          const method =
+            isEdit
+              ? 'PATCH'
+              : 'POST';
 
-const responseBody = await response
-  .json()
-  .catch(() => null);
+          const payload = {
+            volId:
+              form.volId,
 
-console.log(
-  'POST /crew-assignments',
-  {
-    volId: form.volId,
-    utilisateurId: form.utilisateurId,
-    fonction: form.fonction,
-  },
-);
+            utilisateurId:
+              form.utilisateurId,
 
-console.log(
-  'Réponse backend crew:',
-  response.status,
-  responseBody,
-);
+            fonction:
+              form.fonction,
+          };
 
-if (!response.ok) {
-  const backendMessage =
-    Array.isArray(responseBody?.message)
-      ? responseBody.message.join(' | ')
-      : typeof responseBody?.message === 'string'
-        ? responseBody.message
-        : responseBody?.message?.message ||
-          responseBody?.error ||
-          `Erreur HTTP ${response.status}`;
+          console.log(
+            `${method} ${url}`,
+            payload,
+          );
 
-  throw new Error(backendMessage);
-}
+          const response =
+            await fetch(
+              url,
+              {
+                method,
 
-          setModalOpen(false);
-          setEditingId(null);
+                headers: {
+                  'Content-Type':
+                    'application/json',
+
+                  Accept:
+                    'application/json',
+                },
+
+                body:
+                  JSON.stringify(
+                    payload,
+                  ),
+              },
+            );
+
+          const responseBody =
+            await response
+              .json()
+              .catch(
+                () =>
+                  null,
+              );
+
+          console.log(
+            'Réponse backend crew :',
+            response.status,
+            responseBody,
+          );
+
+          if (
+            !response.ok
+          ) {
+            const backendMessage =
+              extractApiError(
+                responseBody,
+                `Erreur HTTP ${response.status}`,
+              );
+
+            throw new Error(
+              backendMessage,
+            );
+          }
+
+          setModalOpen(
+            false,
+          );
+
+          setEditingId(
+            null,
+          );
+
           setMessage({
-            type: 'success',
+            type:
+              'success',
+
             text:
               isEdit
                 ? 'Affectation équipage modifiée avec succès.'
@@ -663,10 +1014,17 @@ if (!response.ok) {
 
           await loadData();
         } catch (
-          error: unknown
+          error:
+            unknown
         ) {
+          console.error(
+            'Erreur affectation équipage :',
+            error,
+          );
+
           setMessage({
-            type: 'error',
+            type:
+              'error',
 
             text:
               error instanceof Error
@@ -674,13 +1032,15 @@ if (!response.ok) {
                 : 'Erreur lors de l’enregistrement.',
           });
         } finally {
-          setSaving(false);
+          setSaving(
+            false,
+          );
         }
       };
 
-    /* ======================================================================
+    /* =========================================================================
      * DELETE
-     * ==================================================================== */
+     * ======================================================================= */
 
     const handleDelete =
       async (
@@ -712,7 +1072,9 @@ if (!response.ok) {
           assignment.id,
         );
 
-        setMessage(null);
+        setMessage(
+          null,
+        );
 
         try {
           const response =
@@ -736,7 +1098,8 @@ if (!response.ok) {
           }
 
           setMessage({
-            type: 'success',
+            type:
+              'success',
 
             text:
               'Affectation supprimée avec succès.',
@@ -744,10 +1107,17 @@ if (!response.ok) {
 
           await loadData();
         } catch (
-          error: unknown
+          error:
+            unknown
         ) {
+          console.error(
+            'Erreur suppression Crew :',
+            error,
+          );
+
           setMessage({
-            type: 'error',
+            type:
+              'error',
 
             text:
               error instanceof Error
@@ -761,9 +1131,9 @@ if (!response.ok) {
         }
       };
 
-    /* ======================================================================
+    /* =========================================================================
      * KPI
-     * ==================================================================== */
+     * ======================================================================= */
 
     const uniqueCrewCount =
       useMemo(
@@ -798,26 +1168,34 @@ if (!response.ok) {
       );
 
     const withRestInfo =
-      assignments.filter(
-        (
-          item,
-        ) =>
-          item.heuresReposAvant !==
-            null &&
-          item.heuresReposAvant !==
-            undefined,
-      ).length;
+      useMemo(
+        () =>
+          assignments.filter(
+            (
+              item,
+            ) =>
+              item.heuresReposAvant !==
+                null &&
+              item.heuresReposAvant !==
+                undefined,
+          ).length,
+        [
+          assignments,
+        ],
+      );
 
-    /* ======================================================================
+    /* =========================================================================
      * RENDER
-     * ==================================================================== */
+     * ======================================================================= */
 
     return (
       <div className="min-h-screen bg-slate-100 p-4 text-slate-800 sm:p-6 lg:p-8">
 
         <div className="mx-auto max-w-[1500px] space-y-5">
 
-          {/* HEADER */}
+          {/* ===================================================================
+              HEADER
+          =================================================================== */}
 
           <header className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
 
@@ -855,7 +1233,7 @@ if (!response.ok) {
                   disabled={
                     loading
                   }
-                  className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-xs font-black text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                  className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-xs font-black text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
 
                   <RefreshCw
@@ -875,7 +1253,7 @@ if (!response.ok) {
                   onClick={
                     openCreateModal
                   }
-                  className="inline-flex h-11 items-center gap-2 rounded-xl bg-emerald-700 px-4 text-xs font-black text-white hover:bg-emerald-800"
+                  className="inline-flex h-11 items-center gap-2 rounded-xl bg-emerald-700 px-4 text-xs font-black text-white transition hover:bg-emerald-800"
                 >
 
                   <UserPlus className="h-4 w-4" />
@@ -890,12 +1268,14 @@ if (!response.ok) {
 
           </header>
 
-          {/* MESSAGE */}
+          {/* ===================================================================
+              MESSAGE
+          =================================================================== */}
 
           {message && (
 
             <div
-              className={`flex items-center justify-between rounded-2xl border p-4 ${
+              className={`flex items-start justify-between gap-3 rounded-2xl border p-4 ${
                 message.type ===
                 'success'
                   ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
@@ -906,22 +1286,24 @@ if (!response.ok) {
               }`}
             >
 
-              <div className="flex items-center gap-2 text-sm font-semibold">
+              <div className="flex items-start gap-2 text-sm font-semibold">
 
                 {message.type ===
                 'success' ? (
 
-                  <CheckCircle2 className="h-5 w-5" />
+                  <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" />
 
                 ) : (
 
-                  <AlertTriangle className="h-5 w-5" />
+                  <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
 
                 )}
 
-                {
-                  message.text
-                }
+                <span>
+                  {
+                    message.text
+                  }
+                </span>
 
               </div>
 
@@ -932,6 +1314,7 @@ if (!response.ok) {
                     null,
                   )
                 }
+                className="shrink-0 rounded-lg p-1 hover:bg-black/5"
               >
 
                 <X className="h-4 w-4" />
@@ -942,7 +1325,9 @@ if (!response.ok) {
 
           )}
 
-          {/* KPI */}
+          {/* ===================================================================
+              KPI
+          =================================================================== */}
 
           <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
 
@@ -988,15 +1373,19 @@ if (!response.ok) {
 
           </section>
 
-          {/* FILTERS */}
+          {/* ===================================================================
+              FILTERS
+          =================================================================== */}
 
           <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
 
             <div className="grid gap-3 md:grid-cols-3">
 
+              {/* SEARCH */}
+
               <div className="relative">
 
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
 
                 <input
                   type="text"
@@ -1011,10 +1400,12 @@ if (!response.ok) {
                       event.target.value,
                     )
                   }
-                  className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-3 text-xs font-semibold outline-none focus:border-emerald-700 focus:bg-white"
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-3 text-xs font-semibold outline-none transition focus:border-emerald-700 focus:bg-white"
                 />
 
               </div>
+
+              {/* FLIGHT FILTER */}
 
               <select
                 value={
@@ -1027,7 +1418,7 @@ if (!response.ok) {
                     event.target.value,
                   )
                 }
-                className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-semibold outline-none focus:border-emerald-700"
+                className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-semibold outline-none transition focus:border-emerald-700 focus:bg-white"
               >
 
                 <option value="TOUS">
@@ -1047,17 +1438,24 @@ if (!response.ok) {
                         flight.id
                       }
                     >
+
                       {flight.numeroVol ??
-                        flight.id}{' '}
+                        flight.id}
+
+                      {' '}
+
                       {flight.aeroportDepart
                         ? `— ${flight.aeroportDepart} → ${flight.aeroportArrivee ?? '?'}`
                         : ''}
+
                     </option>
 
                   ),
                 )}
 
               </select>
+
+              {/* USER FILTER */}
 
               <select
                 value={
@@ -1070,7 +1468,7 @@ if (!response.ok) {
                     event.target.value,
                   )
                 }
-                className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-semibold outline-none focus:border-emerald-700"
+                className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-semibold outline-none transition focus:border-emerald-700 focus:bg-white"
               >
 
                 <option value="TOUS">
@@ -1104,17 +1502,27 @@ if (!response.ok) {
 
           </section>
 
-          {/* TABLE */}
+          {/* ===================================================================
+              TABLE
+          =================================================================== */}
 
           <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
 
             <div className="flex items-center justify-between border-b border-slate-200 p-5">
 
-              <h2 className="text-base font-black text-slate-900">
-                Affectations équipage
-              </h2>
+              <div>
 
-              <span className="text-xs font-semibold text-slate-400">
+                <h2 className="text-base font-black text-slate-900">
+                  Affectations équipage
+                </h2>
+
+                <p className="mt-1 text-[10px] font-semibold text-slate-400">
+                  Vols, membres, fonctions et temps de repos
+                </p>
+
+              </div>
+
+              <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-[10px] font-black text-slate-500">
                 {
                   filteredAssignments.length
                 }{' '}
@@ -1173,9 +1581,17 @@ if (!response.ok) {
                         colSpan={
                           7
                         }
-                        className="px-4 py-10 text-center text-slate-400"
+                        className="px-4 py-12 text-center text-slate-400"
                       >
-                        Chargement...
+
+                        <div className="flex items-center justify-center gap-2">
+
+                          <RefreshCw className="h-4 w-4 animate-spin" />
+
+                          Chargement...
+
+                        </div>
+
                       </td>
 
                     </tr>
@@ -1189,7 +1605,7 @@ if (!response.ok) {
                         colSpan={
                           7
                         }
-                        className="px-4 py-10 text-center text-slate-400"
+                        className="px-4 py-12 text-center text-slate-400"
                       >
                         Aucune affectation trouvée
                       </td>
@@ -1202,7 +1618,6 @@ if (!response.ok) {
                       (
                         assignment,
                       ) => {
-
                         const flight =
                           assignment.vol;
 
@@ -1215,25 +1630,51 @@ if (!response.ok) {
                             key={
                               assignment.id
                             }
-                            className="hover:bg-slate-50"
+                            className="transition hover:bg-slate-50"
                           >
 
-                            <td className="px-4 py-4 font-black text-slate-900">
+                            {/* VOL */}
 
-                              {flight?.numeroVol ??
-                                assignment.volId}
+                            <td className="px-4 py-4">
+
+                              <div className="flex items-center gap-2">
+
+                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
+
+                                  <Plane className="h-4 w-4" />
+
+                                </div>
+
+                                <span className="font-black text-slate-900">
+
+                                  {flight?.numeroVol ??
+                                    assignment.volId}
+
+                                </span>
+
+                              </div>
 
                             </td>
+
+                            {/* ROUTE */}
 
                             <td className="px-4 py-4 font-semibold text-slate-600">
 
                               {flight?.aeroportDepart ??
-                                '--'}{' '}
-                              ➔{' '}
+                                '--'}
+
+                              {' '}
+
+                              ➔
+
+                              {' '}
+
                               {flight?.aeroportArrivee ??
                                 '--'}
 
                             </td>
+
+                            {/* USER */}
 
                             <td className="px-4 py-4">
 
@@ -1253,9 +1694,11 @@ if (!response.ok) {
 
                             </td>
 
+                            {/* ROLE */}
+
                             <td className="px-4 py-4">
 
-                              <span className="rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-[10px] font-black text-sky-700">
+                              <span className="inline-flex rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1 text-[10px] font-black text-sky-700">
 
                                 {formatRole(
                                   assignment.fonction,
@@ -1265,13 +1708,17 @@ if (!response.ok) {
 
                             </td>
 
-                            <td className="px-4 py-4 text-xs text-slate-500">
+                            {/* DEPARTURE */}
+
+                            <td className="px-4 py-4 text-xs font-medium text-slate-500">
 
                               {formatDateTime(
                                 flight?.heureDepart,
                               )}
 
                             </td>
+
+                            {/* REST */}
 
                             <td className="px-4 py-4">
 
@@ -1280,26 +1727,29 @@ if (!response.ok) {
                               assignment.heuresReposAvant ===
                                 undefined ? (
 
-                                <span className="text-xs text-slate-400">
+                                <span className="text-xs font-medium text-slate-400">
                                   Premier vol
                                 </span>
 
                               ) : (
 
-                                <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-black text-emerald-700">
+                                <span className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-black text-emerald-700">
 
                                   <Clock3 className="h-3 w-3" />
 
                                   {assignment.heuresReposAvant.toFixed(
                                     1,
-                                  )}{' '}
-                                  h
+                                  )}
+
+                                  {' '}h
 
                                 </span>
 
                               )}
 
                             </td>
+
+                            {/* ACTIONS */}
 
                             <td className="px-4 py-4">
 
@@ -1312,7 +1762,8 @@ if (!response.ok) {
                                       assignment,
                                     )
                                   }
-                                  className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-600 hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700"
+                                  title="Modifier"
+                                  className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-600 transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700"
                                 >
 
                                   <Pencil className="h-4 w-4" />
@@ -1330,10 +1781,20 @@ if (!response.ok) {
                                       assignment,
                                     )
                                   }
-                                  className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 disabled:opacity-50"
+                                  title="Supprimer"
+                                  className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
                                 >
 
-                                  <Trash2 className="h-4 w-4" />
+                                  {deletingId ===
+                                  assignment.id ? (
+
+                                    <RefreshCw className="h-4 w-4 animate-spin" />
+
+                                  ) : (
+
+                                    <Trash2 className="h-4 w-4" />
+
+                                  )}
 
                                 </button>
 
@@ -1359,15 +1820,34 @@ if (!response.ok) {
 
         </div>
 
-        {/* ================================================================ */}
-        {/* MODAL                                                           */}
-        {/* ================================================================ */}
+        {/* =====================================================================
+            MODAL
+        ===================================================================== */}
 
         {modalOpen && (
 
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm">
+          <div
+            role="dialog"
+            aria-modal="true"
+            onMouseDown={(
+              event,
+            ) => {
+              if (
+                event.currentTarget ===
+                  event.target &&
+                !saving
+              ) {
+                closeModal();
+              }
+            }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm"
+          >
 
-            <div className="w-full max-w-xl rounded-2xl border border-slate-200 bg-white shadow-2xl">
+            <div className="w-full max-w-xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+
+              {/* ===============================================================
+                  MODAL HEADER
+              =============================================================== */}
 
               <div className="flex items-center justify-between border-b border-slate-200 p-5">
 
@@ -1381,10 +1861,8 @@ if (!response.ok) {
 
                   </h2>
 
-                  <p className="mt-1 text-xs text-slate-400">
-
-                    Le backend vérifiera automatiquement les chevauchements et le repos minimal.
-
+                  <p className="mt-1 max-w-md text-xs leading-5 text-slate-400">
+                    Le système contrôle automatiquement les chevauchements de vols et le temps minimal de repos.
                   </p>
 
                 </div>
@@ -1394,7 +1872,11 @@ if (!response.ok) {
                   onClick={
                     closeModal
                   }
-                  className="rounded-xl p-2 text-slate-400 hover:bg-slate-100"
+                  disabled={
+                    saving
+                  }
+                  aria-label="Fermer"
+                  className="rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 disabled:opacity-50"
                 >
 
                   <X className="h-5 w-5" />
@@ -1403,6 +1885,10 @@ if (!response.ok) {
 
               </div>
 
+              {/* ===============================================================
+                  FORM
+              =============================================================== */}
+
               <form
                 onSubmit={
                   handleSubmit
@@ -1410,9 +1896,11 @@ if (!response.ok) {
                 className="space-y-4 p-5"
               >
 
+                {/* VOL */}
+
                 <label className="block">
 
-                  <span className="mb-1.5 block text-[10px] font-black uppercase text-slate-400">
+                  <span className="mb-1.5 block text-[10px] font-black uppercase tracking-wide text-slate-400">
                     Vol *
                   </span>
 
@@ -1435,7 +1923,7 @@ if (!response.ok) {
                         }),
                       )
                     }
-                    className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold outline-none focus:border-emerald-700"
+                    className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-emerald-700 focus:bg-white"
                   >
 
                     <option value="">
@@ -1455,14 +1943,20 @@ if (!response.ok) {
                             flight.id
                           }
                         >
+
                           {flight.numeroVol ??
-                            flight.id}{' '}
-                          —{' '}
+                            flight.id}
+
+                          {' — '}
+
                           {flight.aeroportDepart ??
-                            '?'}{' '}
-                          →{' '}
+                            '?'}
+
+                          {' → '}
+
                           {flight.aeroportArrivee ??
                             '?'}
+
                         </option>
 
                       ),
@@ -1472,9 +1966,11 @@ if (!response.ok) {
 
                 </label>
 
+                {/* USER */}
+
                 <label className="block">
 
-                  <span className="mb-1.5 block text-[10px] font-black uppercase text-slate-400">
+                  <span className="mb-1.5 block text-[10px] font-black uppercase tracking-wide text-slate-400">
                     Membre d’équipage *
                   </span>
 
@@ -1497,7 +1993,7 @@ if (!response.ok) {
                         }),
                       )
                     }
-                    className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold outline-none focus:border-emerald-700"
+                    className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-emerald-700 focus:bg-white"
                   >
 
                     <option value="">
@@ -1517,12 +2013,15 @@ if (!response.ok) {
                             user.id
                           }
                         >
+
                           {user.nom ??
                             user.email ??
                             user.id}
+
                           {user.role
                             ? ` — ${user.role}`
                             : ''}
+
                         </option>
 
                       ),
@@ -1532,9 +2031,11 @@ if (!response.ok) {
 
                 </label>
 
+                {/* ROLE */}
+
                 <label className="block">
 
-                  <span className="mb-1.5 block text-[10px] font-black uppercase text-slate-400">
+                  <span className="mb-1.5 block text-[10px] font-black uppercase tracking-wide text-slate-400">
                     Fonction *
                   </span>
 
@@ -1553,11 +2054,11 @@ if (!response.ok) {
                           ...current,
 
                           fonction:
-                            event.target.value,
+                            event.target.value as CrewRole,
                         }),
                       )
                     }
-                    className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold outline-none focus:border-emerald-700"
+                    className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-emerald-700 focus:bg-white"
                   >
 
                     {CREW_ROLES.map(
@@ -1585,20 +2086,27 @@ if (!response.ok) {
 
                 </label>
 
+                {/* =============================================================
+                    VALIDATION INFO
+                ============================================================= */}
+
                 <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
 
-                  <div className="flex gap-2 text-xs font-semibold text-amber-800">
+                  <div className="flex items-start gap-2 text-xs font-semibold leading-5 text-amber-800">
 
                     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
 
                     <span>
-                      Lors de l’enregistrement, le système vérifie automatiquement
-                      les conflits d’équipage et le temps minimal de repos avant le vol.
+                      Lors de l’enregistrement, le système vérifie les conflits d’équipage, les chevauchements de vols et le repos minimal avant la prochaine rotation.
                     </span>
 
                   </div>
 
                 </div>
+
+                {/* =============================================================
+                    ACTIONS
+                ============================================================= */}
 
                 <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
 
@@ -1610,7 +2118,7 @@ if (!response.ok) {
                     disabled={
                       saving
                     }
-                    className="h-11 rounded-xl border border-slate-200 px-4 text-xs font-black text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                    className="h-11 rounded-xl border border-slate-200 px-4 text-xs font-black text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Annuler
                   </button>
@@ -1620,10 +2128,18 @@ if (!response.ok) {
                     disabled={
                       saving
                     }
-                    className="inline-flex h-11 items-center gap-2 rounded-xl bg-emerald-700 px-5 text-xs font-black text-white hover:bg-emerald-800 disabled:opacity-50"
+                    className="inline-flex h-11 min-w-[130px] items-center justify-center gap-2 rounded-xl bg-emerald-700 px-5 text-xs font-black text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
                   >
 
-                    <Save className="h-4 w-4" />
+                    {saving ? (
+
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+
+                    ) : (
+
+                      <Save className="h-4 w-4" />
+
+                    )}
 
                     {saving
                       ? 'Enregistrement...'
@@ -1646,39 +2162,5 @@ if (!response.ok) {
       </div>
     );
   };
-
-/* ============================================================================
- * SMALL COMPONENT
- * ========================================================================== */
-
-function MetricCard({
-  label,
-  value,
-  icon,
-}: {
-  label: string;
-  value: string | number;
-  icon: React.ReactNode;
-}) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-
-      <div className="flex items-center justify-between text-slate-400">
-
-        <span className="text-[9px] font-black uppercase tracking-wider">
-          {label}
-        </span>
-
-        {icon}
-
-      </div>
-
-      <div className="mt-2 text-2xl font-black text-slate-900">
-        {value}
-      </div>
-
-    </div>
-  );
-}
 
 export default CrewAssignmentsPage;
