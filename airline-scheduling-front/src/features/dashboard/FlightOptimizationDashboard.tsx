@@ -482,23 +482,17 @@ export const FlightOptimizationDashboard: React.FC = () => {
     conflict.occDecision ||
     conflict.decision ||
     'PENDING';
-
-
   const conflictCount = conflictResult?.totalConflicts ?? 0;
-
   return (
     <div className="space-y-6 max-w-7xl mx-auto p-2 sm:p-6 text-slate-900 font-sans">
       {/* HEADER & BOUTONS D'ACTION */}
       <div className="relative overflow-hidden rounded-2xl bg-white p-2 sm:p-8 text-slate-900 shadow-xs border border-slate-200/80">
         <div className="absolute -right-12 -top-12 h-64 w-64 rounded-full bg-emerald-500/5 blur-3xl pointer-events-none" />
-
         <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-2 max-w-2xl">
-
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 m-0 leading-tight">
               Détection  des Conflits de Vols
             </h1>
-
             <p className="text-slate-500 text-sm font-medium leading-relaxed m-0">
               Détection globale des conflits : disponibilité, chevauchement, turnaround, positionnement, maintenance et équipage. Les changements critiques restent soumis à validation OCC.
             </p>
@@ -528,7 +522,6 @@ export const FlightOptimizationDashboard: React.FC = () => {
             </button>
           </div>
         </div>
-
         {/* METRICS RAPIDES */}
         <div className="relative z-10 grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-4 mt-6 pt-6 border-t border-slate-100">
           <div className="bg-slate-50/70 border border-slate-200/60 hover:border-slate-300 rounded-xl p-4 transition-all">
@@ -538,7 +531,6 @@ export const FlightOptimizationDashboard: React.FC = () => {
             </div>
             <span className="text-2xl font-black text-slate-900 block">{flights.length}</span>
           </div>
-
           <div className="bg-emerald-50/40 border border-emerald-100 hover:border-emerald-200 rounded-xl p-4 transition-all">
             <div className="flex items-center justify-between text-emerald-700 mb-1">
               <span className="text-[11px] font-bold uppercase tracking-wider">Appareils Assignés</span>
@@ -546,7 +538,6 @@ export const FlightOptimizationDashboard: React.FC = () => {
             </div>
             <span className="text-2xl font-black text-emerald-700 block">{assignedFlightsCount}</span>
           </div>
-
           <div className="bg-amber-50/40 border border-amber-100 hover:border-amber-200 rounded-xl p-4 transition-all">
             <div className="flex items-center justify-between text-amber-700 mb-1">
               <span className="text-[11px] font-bold uppercase tracking-wider">Non Assignés</span>
@@ -554,7 +545,6 @@ export const FlightOptimizationDashboard: React.FC = () => {
             </div>
             <span className="text-2xl font-black text-amber-600 block">{unassignedFlightsCount}</span>
           </div>
-
           <div
             className={`rounded-xl p-4 transition-all border ${
               conflictCount > 0
@@ -574,7 +564,6 @@ export const FlightOptimizationDashboard: React.FC = () => {
               </span>
               <AlertTriangle className="w-4 h-4" />
             </div>
-
             <div className="flex items-end justify-between gap-2">
               <span
                 className={`text-2xl font-black ${
@@ -585,7 +574,6 @@ export const FlightOptimizationDashboard: React.FC = () => {
               >
                 {conflictCount}
               </span>
-
               {conflictResult && (
                 <span className="text-[9px] font-bold text-slate-400">
                   {conflictResult.criticalConflicts} critique
@@ -593,7 +581,6 @@ export const FlightOptimizationDashboard: React.FC = () => {
               )}
             </div>
           </div>
-
           <div className="bg-slate-50/70 border border-slate-200/60 hover:border-slate-300 rounded-xl p-4 transition-all">
             <div className="flex items-center justify-between text-slate-500 mb-1">
               <span className="text-[11px] font-bold uppercase tracking-wider">Dernière analyse IA</span>
@@ -611,7 +598,6 @@ export const FlightOptimizationDashboard: React.FC = () => {
           </div>
         </div>
       </div>
-
       {/* DÉTECTION IA DES CONFLITS */}
       <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-xs">
         <div className="flex flex-col gap-3 border-b border-slate-100 bg-slate-50/50 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
@@ -631,7 +617,6 @@ export const FlightOptimizationDashboard: React.FC = () => {
                 <CheckCircle2 className="h-4 w-4" />
               )}
             </div>
-
             <div>
               <h3 className="m-0 text-sm font-black text-slate-900">
                 Analyse des conflits — Arbre de décision
@@ -641,14 +626,12 @@ export const FlightOptimizationDashboard: React.FC = () => {
               </p>
             </div>
           </div>
-
           <div className="flex flex-wrap items-center gap-2">
             {conflictResult?.model?.algorithm && (
               <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[9px] font-black uppercase tracking-wide text-slate-500">
                 {conflictResult.model.algorithm}
               </span>
             )}
-
             {lastConflictScanAt && (
               <span className="text-[10px] font-semibold text-slate-400">
                 Scan {lastConflictScanAt.toLocaleTimeString('fr-FR', {
@@ -658,7 +641,6 @@ export const FlightOptimizationDashboard: React.FC = () => {
                 })}
               </span>
             )}
-
             <button
               type="button"
               onClick={() => loadConflicts(false)}
@@ -674,13 +656,11 @@ export const FlightOptimizationDashboard: React.FC = () => {
             </button>
           </div>
         </div>
-
         {conflictError && (
           <div className="border-b border-amber-100 bg-amber-50 px-5 py-3 text-[11px] font-semibold text-amber-800">
             {conflictError}
           </div>
         )}
-
         {loadingConflicts && !conflictResult ? (
           <div className="space-y-2 p-5">
             {[1, 2, 3].map((item) => (
@@ -713,7 +693,6 @@ export const FlightOptimizationDashboard: React.FC = () => {
                   {conflictResult?.criticalConflicts ?? 0}
                 </strong>
               </div>
-
               <div className="rounded-xl border border-orange-200 bg-orange-50 p-3">
                 <span className="text-[9px] font-black uppercase tracking-wider text-orange-500">
                   Élevés
@@ -722,7 +701,6 @@ export const FlightOptimizationDashboard: React.FC = () => {
                   {conflictResult?.highConflicts ?? 0}
                 </strong>
               </div>
-
               <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
                 <span className="text-[9px] font-black uppercase tracking-wider text-amber-500">
                   Modérés
@@ -732,8 +710,7 @@ export const FlightOptimizationDashboard: React.FC = () => {
                 </strong>
               </div>
             </div>
-
-            <div className="max-h-[420px] divide-y divide-slate-100 overflow-y-auto">
+            <div className="max-h-105 divide-y divide-slate-100 overflow-y-auto">
               {(conflictResult?.conflicts || []).map((conflict) => (
                 <article
                   key={conflict.id}
@@ -749,21 +726,17 @@ export const FlightOptimizationDashboard: React.FC = () => {
                         >
                           {conflict.severity}
                         </span>
-
                         <span className="text-[10px] font-black uppercase tracking-wide text-slate-500">
                           {getConflictTypeLabel(conflict.type)}
                         </span>
-
                         <span className="font-mono text-[10px] font-black text-slate-400">
                           IA {Math.round((conflict.probability || 0) * 100)}%
                         </span>
                       </div>
-
                       <div className="mt-3 flex flex-wrap items-center gap-2">
                         <span className="rounded-lg border border-slate-200 bg-slate-100 px-2 py-1 font-mono text-xs font-black text-slate-800">
                           {conflict.flightA?.numeroVol}
                         </span>
-
                         {conflict.flightB && (
                           <>
                             <ArrowRight className="h-3.5 w-3.5 text-slate-400" />
@@ -772,7 +745,6 @@ export const FlightOptimizationDashboard: React.FC = () => {
                             </span>
                           </>
                         )}
-
                         {conflict.aircraftRegistration && (
                           <span className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[10px] font-bold text-slate-500">
                             <Plane className="h-3 w-3" />
@@ -780,11 +752,9 @@ export const FlightOptimizationDashboard: React.FC = () => {
                           </span>
                         )}
                       </div>
-
                       <p className="mt-3 text-xs font-semibold leading-5 text-slate-700">
                         {conflict.reason}
                       </p>
-
                       <div className="mt-2 rounded-xl border border-emerald-100 bg-emerald-50/50 px-3 py-2">
                         <span className="text-[8px] font-black uppercase tracking-wider text-emerald-700">
                           Recommandation
@@ -793,30 +763,25 @@ export const FlightOptimizationDashboard: React.FC = () => {
                           {conflict.recommendation}
                         </p>
                       </div>
-
                       {conflict.proposal && (
                         <div className="mt-2 rounded-xl border border-sky-100 bg-sky-50/60 px-3 py-2.5">
                           <div className="flex flex-wrap items-center justify-between gap-2">
                             <span className="text-[8px] font-black uppercase tracking-wider text-sky-700">
                               Proposition de résolution
                             </span>
-
                             <span className="rounded-full border border-sky-200 bg-white px-2 py-0.5 text-[8px] font-black uppercase tracking-wide text-sky-700">
                               {getProposalActionLabel(conflict.proposal.action)}
                             </span>
                           </div>
-
                           <p className="mt-1 text-[10px] font-semibold leading-4 text-sky-900">
                             {conflict.proposal.description}
                           </p>
-
                           <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 font-mono text-[9px] font-bold text-slate-500">
                             {conflict.proposal.targetAircraftRegistration && (
                               <span>
                                 Appareil proposé : {conflict.proposal.targetAircraftRegistration}
                               </span>
                             )}
-
                             {conflict.proposal.proposedDeparture && (
                               <span>
                                 Départ proposé :{' '}
@@ -825,7 +790,6 @@ export const FlightOptimizationDashboard: React.FC = () => {
                                 ).toLocaleString('fr-FR')}
                               </span>
                             )}
-
                             {conflict.proposal.proposedArrival && (
                               <span>
                                 Arrivée proposée :{' '}
@@ -837,7 +801,6 @@ export const FlightOptimizationDashboard: React.FC = () => {
                           </div>
                         </div>
                       )}
-
                       <div className="mt-3 flex flex-wrap items-center gap-2">
                         {getOccDecision(conflict) === 'APPROVED' ? (
                           <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[9px] font-black uppercase tracking-wide text-emerald-700">
@@ -855,7 +818,6 @@ export const FlightOptimizationDashboard: React.FC = () => {
                               <Clock className="h-3 w-3" />
                               Validation OCC requise
                             </span>
-
                             <button
                               type="button"
                               onClick={() =>
@@ -871,7 +833,6 @@ export const FlightOptimizationDashboard: React.FC = () => {
                               )}
                               Valider OCC
                             </button>
-
                             <button
                               type="button"
                               onClick={() =>
@@ -891,7 +852,6 @@ export const FlightOptimizationDashboard: React.FC = () => {
                         )}
                       </div>
                     </div>
-
                     <div className="shrink-0 text-left lg:text-right">
                       {conflict.overlapMinutes != null &&
                         conflict.overlapMinutes > 0 && (
@@ -899,7 +859,6 @@ export const FlightOptimizationDashboard: React.FC = () => {
                             Overlap {Math.round(conflict.overlapMinutes)} min
                           </span>
                         )}
-
                       {conflict.gapMinutes != null && (
                         <span className="mt-1 block font-mono text-[10px] font-bold text-slate-400">
                           Gap {Math.round(conflict.gapMinutes)} min
@@ -913,7 +872,6 @@ export const FlightOptimizationDashboard: React.FC = () => {
           </>
         )}
       </section>
-
       {/* ERREUR */}
       {error && (
         <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 flex items-start gap-3 text-rose-800 animate-in fade-in duration-200">
@@ -923,7 +881,6 @@ export const FlightOptimizationDashboard: React.FC = () => {
           </div>
         </div>
       )}
-
       {/* BARRE DE RECHERCHE ET FILTRES */}
       <div className="bg-white border border-slate-200/80 rounded-2xl shadow-xs overflow-hidden">
         <div className="p-4 sm:p-5 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -934,7 +891,6 @@ export const FlightOptimizationDashboard: React.FC = () => {
               {filteredFlights.length}
             </span>
           </div>
-
           <div className="flex flex-wrap items-center gap-3">
             {/* Recherche */}
             <div className="relative flex-1 sm:w-64">
@@ -947,7 +903,6 @@ export const FlightOptimizationDashboard: React.FC = () => {
                 className="w-full pl-9 pr-3 py-1.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
               />
             </div>
-
             {/* Filtre statut */}
             <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200/80 rounded-xl px-2 py-1">
               <Filter className="w-3.5 h-3.5 text-slate-400 ml-1" />
@@ -964,7 +919,6 @@ export const FlightOptimizationDashboard: React.FC = () => {
                 <option value="RETARDE">Retardé</option>
               </select>
             </div>
-
             {/* Recharger */}
             <button
               onClick={loadFlights}
@@ -974,7 +928,6 @@ export const FlightOptimizationDashboard: React.FC = () => {
             </button>
           </div>
         </div>
-
         {/* TABLEAU ENRICHI */}
         {loading ? (
           <div className="p-12 text-center text-slate-400 space-y-3">
@@ -1016,10 +969,8 @@ export const FlightOptimizationDashboard: React.FC = () => {
                     flight.heureDepart,
                     flight.heureArrivee,
                   );
-
                   const flightConflicts =
                     conflictsByFlightId.get(flight.id) || [];
-
                   const strongestConflict =
                     flightConflicts.find(
                       (conflict) => conflict.severity === 'CRITICAL',
@@ -1028,7 +979,6 @@ export const FlightOptimizationDashboard: React.FC = () => {
                       (conflict) => conflict.severity === 'HIGH',
                     ) ||
                     flightConflicts[0];
-
                   return (
                     <tr 
                       key={flight.id} 
@@ -1049,7 +999,6 @@ export const FlightOptimizationDashboard: React.FC = () => {
                           {flight.numeroVol}
                         </span>
                       </td>
-
                       {/* Ligne & Trajet */}
                       <td className="py-3.5 px-4">
                         <div className="flex items-center gap-2 font-bold text-slate-800 font-mono text-xs">
@@ -1062,7 +1011,6 @@ export const FlightOptimizationDashboard: React.FC = () => {
                           </span>
                         </div>
                       </td>
-
                       {/* Horaires */}
                       <td className="py-3.5 px-4">
                         <div className="text-xs space-y-1 text-slate-600">
@@ -1090,7 +1038,6 @@ export const FlightOptimizationDashboard: React.FC = () => {
                           </div>
                         </div>
                       </td>
-
                       {/* Durée */}
                       <td className="py-3.5 px-4">
                         {duration ? (
@@ -1102,7 +1049,6 @@ export const FlightOptimizationDashboard: React.FC = () => {
                           <span className="text-xs text-slate-300">—</span>
                         )}
                       </td>
-
                       {/* Appareil Assigné */}
                       <td className="py-3.5 px-4">
                         {flight.avion ? (
@@ -1117,7 +1063,6 @@ export const FlightOptimizationDashboard: React.FC = () => {
                           </span>
                         )}
                       </td>
-
                       {/* Conflit IA */}
                       <td className="py-3.5 px-4">
                         {strongestConflict ? (
@@ -1133,7 +1078,6 @@ export const FlightOptimizationDashboard: React.FC = () => {
                                 strongestConflict.type,
                               )}
                             </span>
-
                             <span className="mt-1 block font-mono text-[9px] font-bold text-slate-400">
                               {Math.round(
                                 strongestConflict.probability * 100,
@@ -1148,10 +1092,8 @@ export const FlightOptimizationDashboard: React.FC = () => {
                           </span>
                         )}
                       </td>
-
                       {/* Statut */}
                       <td className="py-3.5 px-4">{renderStatusBadge(flight.statut)}</td>
-
                       {/* Actions */}
                       <td className="py-2.5 px-8 text-right">
                         <button
@@ -1170,7 +1112,6 @@ export const FlightOptimizationDashboard: React.FC = () => {
           </div>
         )}
       </div>
-
       {/* MODAL DE SUPPRESSION PERSONNALISÉ */}
       {flightToDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
@@ -1183,7 +1124,6 @@ export const FlightOptimizationDashboard: React.FC = () => {
             >
               <X className="w-4 h-4" />
             </button>
-
             <div className="flex items-start gap-4">
               <div className="p-3 bg-rose-50 text-rose-600 rounded-xl border border-rose-100 shrink-0">
                 <Trash2 className="w-6 h-6" />
@@ -1195,7 +1135,6 @@ export const FlightOptimizationDashboard: React.FC = () => {
                 </p>
               </div>
             </div>
-
             {/* Récapitulatif du vol sélectionné */}
             <div className="mt-4 p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 flex items-center justify-between">
               <div className="flex items-center gap-2 font-mono text-xs font-bold text-slate-800">
@@ -1206,7 +1145,6 @@ export const FlightOptimizationDashboard: React.FC = () => {
                 {flightToDelete.aeroportDepart} ➔ {flightToDelete.aeroportArrivee}
               </div>
             </div>
-
             {/* Actions du Modal */}
             <div className="mt-6 flex items-center justify-end gap-3">
               <button
@@ -1217,7 +1155,6 @@ export const FlightOptimizationDashboard: React.FC = () => {
               >
                 Annuler
               </button>
-
               <button
                 type="button"
                 onClick={confirmDelete}

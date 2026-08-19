@@ -1040,7 +1040,7 @@ export const FlightsPlanning: React.FC = () => {
                 <tr className="border-b border-slate-200/60 bg-slate-50/80 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">
                   <th className="py-3.5 px-6">N° Vol</th>
                   <th className="py-3.5 px-4">Appareil</th>
-                  <th className="py-3.5 px-4">Itinéraire &amp; Escales</th>
+                  <th className="py-3.5 px-4">Itinéraire et Escales</th>
                   <th className="py-3.5 px-4">Statut</th>
                   <th className="py-3.5 px-4">Météo</th>
                   <th className="py-3.5 px-4">Chronologie (UTC)</th>

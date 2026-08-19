@@ -8,7 +8,6 @@ interface CrewMember {
   restTimeHours: number;
   assignedFlight: string | null;
 }
-
 export const CrewAssignment: React.FC = () => {
   const [crew] = useState<CrewMember[]>([
     { id: '1', name: 'R. Toky', role: 'Commandant', restTimeHours: 14, assignedFlight: 'MD050' },
@@ -16,7 +15,6 @@ export const CrewAssignment: React.FC = () => {
     { id: '3', name: 'M. Bialy', role: 'Cabine', restTimeHours: 8, assignedFlight: null },
     { id: '4', name: 'J. Nicole', role: 'Commandant', restTimeHours: 4, assignedFlight: null },
   ]);
-
   return (
     <div className="space-y-4 sm:space-y-6 p-2 sm:p-0">
       {/* Zone d'alerte réglementaire */}
@@ -26,7 +24,6 @@ export const CrewAssignment: React.FC = () => {
           <span className="font-bold">Réglementation ACM / Aviation Civile :</span> Un temps de repos minimum de 11 heures est obligatoire entre deux rotations de vol. Le système bloque automatiquement toute assignation non conforme.
         </div>
       </div>
-
       <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3">
         {/* Liste du personnel disponible */}
         <div className="lg:col-span-2 rounded-2xl border border-slate-200 bg-white p-4 sm:p-6 shadow-sm">
@@ -34,7 +31,6 @@ export const CrewAssignment: React.FC = () => {
             <Users className="h-5 w-5 text-sky-600 shrink-0" />
             <span className="truncate">Registre d'Équipage & Statut Réglementaire</span>
           </h3>
-
           <div className="divide-y divide-slate-100">
             {crew.map(member => {
               const isRestOk = member.restTimeHours >= 11;
@@ -51,7 +47,6 @@ export const CrewAssignment: React.FC = () => {
                       <span className="text-[11px] font-medium text-slate-400">{member.role}</span>
                     </div>
                   </div>
-
                   {/* Section Métriques (Optimisée pour Mobile) */}
                   <div className="flex items-center justify-between sm:justify-end gap-6 sm:gap-8 border-t border-slate-50 pt-2.5 sm:border-t-0 sm:pt-0 text-xs">
                     <div className="text-left sm:text-right">
@@ -60,7 +55,6 @@ export const CrewAssignment: React.FC = () => {
                         {member.restTimeHours}h / 11h
                       </span>
                     </div>
-                    
                     <div className="w-28 text-right">
                       <span className="text-slate-400 block font-medium text-[11px] sm:text-xs">Affectation</span>
                       {member.assignedFlight ? (
@@ -79,7 +73,6 @@ export const CrewAssignment: React.FC = () => {
             })}
           </div>
         </div>
-
         {/* Panneau d'affectation rapide */}
         <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-6 shadow-sm flex flex-col justify-between">
           <div>
@@ -87,7 +80,6 @@ export const CrewAssignment: React.FC = () => {
               <UserCheck className="h-5 w-5 text-sky-600 shrink-0" />
               Assignation Vol
             </h3>
-            
             <div className="space-y-4 text-xs">
               <div>
                 <label className="block font-bold uppercase text-slate-500 mb-1">Sélectionner un Vol actif</label>
@@ -96,7 +88,6 @@ export const CrewAssignment: React.FC = () => {
                   <option>AF006 (CDG ➔ JFK)</option>
                 </select>
               </div>
-
               <div>
                 <label className="block font-bold uppercase text-slate-500 mb-1">Sélectionner un Personnel qualifié</label>
                 <select className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm focus:border-sky-500 focus:outline-none">
@@ -106,7 +97,6 @@ export const CrewAssignment: React.FC = () => {
               </div>
             </div>
           </div>
-
           <button className="mt-6 w-full rounded-xl bg-slate-900 py-3 text-sm font-bold text-white shadow-md hover:bg-slate-800 transition flex items-center justify-center gap-2 active:scale-[0.99]">
             <ShieldCheck className="h-4 w-4 text-emerald-400" />
             Valider l'équipage

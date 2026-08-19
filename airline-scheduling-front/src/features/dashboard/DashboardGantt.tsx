@@ -1670,30 +1670,24 @@ export const DashboardGantt:
           flights,
         ],
       );
-
     const kpiCards =
       useMemo(
         () => [
           {
             label:
               'Total vols',
-
             value:
               effectiveAnalytics
                 .metrics
                 .totalFlights,
-
             icon: (
               <Plane className="h-5 w-5" />
             ),
-
             tone:
               'bg-emerald-700 text-white',
-
             sub:
               'Planning actuel',
           },
-
           {
             label:
               'OTP',
@@ -1703,58 +1697,44 @@ export const DashboardGantt:
                 .metrics
                 .otpRate,
             )}%`,
-
             icon: (
               <Gauge className="h-5 w-5" />
             ),
-
             tone:
               'bg-emerald-50 text-emerald-700',
-
             sub:
               'Ponctualité globale',
           },
-
           {
             label:
               'Retardés',
-
             value:
               effectiveAnalytics
                 .metrics
                 .delayedCount,
-
             icon: (
               <Clock className="h-5 w-5" />
             ),
-
             tone:
               'bg-amber-50 text-amber-700',
-
             sub:
               'À surveiller',
           },
-
           {
             label:
               'En vol',
-
             value:
               effectiveAnalytics
                 .metrics
                 .inFlightCount,
-
             icon: (
               <Activity className="h-5 w-5" />
             ),
-
             tone:
               'bg-sky-50 text-sky-700',
-
             sub:
               'Opérations actives',
           },
-
           {
             label:
               'Annulés',
@@ -1779,7 +1759,6 @@ export const DashboardGantt:
           effectiveAnalytics,
         ],
       );
-
     const activeFilterCount =
       (
         statusFilter !==
@@ -1792,11 +1771,9 @@ export const DashboardGantt:
           ? 1
           : 0
       );
-
     /* =========================================================================
      * FLIGHT CARD
      * ======================================================================= */
-
     const renderFlightCard =
       (
         flight:
@@ -1810,16 +1787,13 @@ export const DashboardGantt:
             flight.status
           ] ??
           statusStyles.Scheduled;
-
         const weather =
           getWeatherIndicator(
             flight.weatherSeverity,
           );
-
         const compact =
           mode ===
           'desktop';
-
         return (
           <button
             type="button"
@@ -1843,7 +1817,6 @@ export const DashboardGantt:
               ' ',
             )}
           >
-
             <span
               className={`absolute inset-y-0 left-0 w-1 ${
                 flight.status ===
@@ -1861,41 +1834,24 @@ export const DashboardGantt:
                         : 'bg-slate-400'
               }`}
             />
-
             <div className="pl-1">
-
               <div className="flex items-start justify-between gap-3">
-
                 <div className="min-w-0">
-
                   <div className="flex flex-wrap items-center gap-2">
-
                     {flight.status ===
                       'Effectué' && (
                       <CheckCircle2 className="h-4 w-4 text-emerald-600" />
                     )}
-
                     <span className="font-mono text-sm font-black tracking-wide text-slate-950">
-                      {
-                        flight.flightNumber
-                      }
+                      {  flight.flightNumber}
                     </span>
-
                     <StatusBadge
-                      status={
-                        flight.status
-                      }
-                      style={
-                        statusStyle
-                      }
+                      status={  flight.status}
+                      style={  statusStyle}
                     />
-
                   </div>
-
                   <div className="mt-2 flex items-center gap-2">
-
                     <Plane className="h-3.5 w-3.5 shrink-0 rotate-45 text-emerald-600" />
-
                     <span className="truncate font-mono text-xs font-bold text-slate-700">
                       {
                         displayRoute(
@@ -1903,179 +1859,108 @@ export const DashboardGantt:
                         )
                       }
                     </span>
-
                   </div>
-
                 </div>
-
                 <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-slate-300 transition-all group-hover:translate-x-0.5 group-hover:text-emerald-600" />
-
               </div>
-
               <div className="mt-4 grid grid-cols-[1fr_auto_1fr] items-center gap-2 rounded-xl border border-slate-100 bg-slate-50 px-3 py-3">
-
                 <div>
-
                   <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-400">
                     Départ
                   </span>
-
                   <span className="mt-1 block font-mono text-xs font-black text-slate-800">
                     {formatLocalIso(
                       flight.localDeparture ||
                         flight.departure,
                     )}
                   </span>
-
                 </div>
-
                 <div className="flex items-center gap-1">
-
                   <div className="h-px w-3 bg-slate-300" />
-
                   <Plane className="h-3.5 w-3.5 rotate-90 text-slate-400" />
-
                   <div className="h-px w-3 bg-slate-300" />
-
                 </div>
-
                 <div className="text-right">
-
                   <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-400">
                     Arrivée
                   </span>
-
                   <span className="mt-1 block font-mono text-xs font-black text-slate-800">
                     {formatLocalIso(
                       flight.localArrival ||
                         flight.arrival,
                     )}
                   </span>
-
                 </div>
-
               </div>
-
               <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
-
                 <span
                   className={`inline-flex h-6 items-center gap-1 rounded-lg border px-2 text-[10px] font-bold ${weather.badge}`}
                 >
-                  {
-                    weather.icon
-                  }
-
-                  {
-                    weather.label
-                  }
+                  {  weather.icon}
+                  {  weather.label}
                 </span>
-
                 {flight.durationMinutes !=
                   null && (
-
                   <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-slate-500">
-
                     <Timer className="h-3.5 w-3.5 text-slate-400" />
-
                     {formatDuration(
                       flight.durationMinutes,
                     )}
-
                   </span>
-
                 )}
-
                 {flight.stopover && (
-
                   <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-slate-500">
-
                     <ArrowRight className="h-3.5 w-3.5 text-slate-400" />
-
                     Escale
-
                     {flight.stopoverDurationMinutes
                       ? ` · ${formatDuration(
                           flight.stopoverDurationMinutes,
                         )}`
                       : ''}
-
                   </span>
-
                 )}
-
                 {flight.aircraft ===
                   UNASSIGNED_AIRCRAFT && (
-
                   <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-rose-600">
-
                     <ShieldAlert className="h-3.5 w-3.5" />
-
                     Affectation requise
-
                   </span>
-
                 )}
-
               </div>
-
             </div>
-
           </button>
         );
       };
-
     /* =========================================================================
      * RENDER
      * ======================================================================= */
-
     return (
       <div className="min-h-screen bg-slate-100 p-2 text-slate-800 antialiased sm:p-3">
-
         <div className="mx-auto max-w-[1600px] space-y-4">
-
           {/* HEADER */}
-
           <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-
             <div className="flex flex-col gap-4 p-4 sm:p-5 xl:flex-row xl:items-center xl:justify-between">
-
               <div className="flex min-w-0 items-center gap-3">
-
                 <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-700 text-white shadow-sm">
-
                   <Plane className="h-5 w-5 rotate-45" />
-
                   <span className="absolute -bottom-1 -right-1 h-3 w-3 rounded-full border-2 border-white bg-emerald-400" />
-
                 </div>
-
                 <div className="min-w-0">
-
                   <h1 className="truncate text-base font-black tracking-tight text-slate-950 sm:text-lg">
                     Airline Operations Control
                   </h1>
-
                   <p className="mt-1 truncate text-[11px] font-medium text-slate-500">
                     Supervision des vols, rotations et ressources opérationnelles
                   </p>
-
                 </div>
-
               </div>
-
               <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-
                 <button
                   type="button"
-                  onClick={() =>
-                    void loadData()
-                  }
-                  disabled={
-                    isFetching
-                  }
+                  onClick={() =>  void loadData()}
+                  disabled={  isFetching}
                   className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-xs font-bold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 disabled:opacity-50"
                 >
-
                   <RefreshCw
                     className={`h-4 w-4 ${
                       isFetching
@@ -2083,11 +1968,8 @@ export const DashboardGantt:
                         : ''
                     }`}
                   />
-
                   Actualiser
-
                 </button>
-
                 <button
                   type="button"
                   onClick={
@@ -2099,7 +1981,6 @@ export const DashboardGantt:
                   }
                   className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 text-xs font-bold text-emerald-700 transition hover:bg-emerald-100 disabled:opacity-50"
                 >
-
                   <Cpu
                     className={`h-4 w-4 ${
                       isOptimizing
@@ -2107,60 +1988,36 @@ export const DashboardGantt:
                         : ''
                     }`}
                   />
-
                   {isOptimizing
                     ? 'Analyse...'
                     : 'Optimiser'}
-
                 </button>
-
                 <button
                   type="button"
                   onClick={() =>
-                    setIsAddModalOpen(
-                      true,
-                    )
+                    setIsAddModalOpen(  true,)
                   }
-                  disabled={
-                    isCreating
-                  }
+                  disabled={  isCreating}
                   className="col-span-2 inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-800 disabled:opacity-50 sm:col-span-1"
                 >
-
                   <Plus className="h-4 w-4" />
-
                   Nouveau vol
-
                 </button>
-
               </div>
-
             </div>
-
           </section>
-
           {/* ALERTES */}
-
           {globalError && (
-
             <div className="flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-3.5 shadow-sm">
-
               <AlertCircle className="mt-1 h-4 w-4 text-rose-600" />
-
               <div className="flex-1">
-
                 <p className="text-xs font-bold text-rose-800">
                   Erreur système
                 </p>
-
                 <p className="mt-0.5 text-xs text-rose-700">
-                  {
-                    globalError
-                  }
+                  {  globalError}
                 </p>
-
               </div>
-
               <button
                 type="button"
                 onClick={() =>
@@ -2171,31 +2028,19 @@ export const DashboardGantt:
               >
                 <X className="h-4 w-4 text-rose-500" />
               </button>
-
             </div>
-
           )}
-
           {globalSuccess && (
-
             <div className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 shadow-sm">
-
               <CheckCircle2 className="mt-1 h-4 w-4 text-emerald-600" />
-
               <div className="flex-1">
-
                 <p className="text-xs font-bold text-emerald-800">
                   Opération réussie
                 </p>
-
                 <p className="mt-0.5 text-xs text-emerald-700">
-                  {
-                    globalSuccess
-                  }
+                  {  globalSuccess}
                 </p>
-
               </div>
-
               <button
                 type="button"
                 onClick={() =>
@@ -2206,102 +2051,58 @@ export const DashboardGantt:
               >
                 <X className="h-4 w-4 text-emerald-500" />
               </button>
-
             </div>
-
           )}
-
           {/* KPI */}
-
           <section className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
-
             {kpiCards.map(
-              (
-                item,
-                index,
-              ) => (
-
+              (  item,  index,) => (
                 <article
-                  key={
-                    item.label
-                  }
+                  key={  item.label}
                   className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-slate-300 hover:shadow-md"
                 >
-
                   {index ===
                     0 && (
                     <div className="absolute inset-x-0 top-0 h-0.5 bg-emerald-700" />
                   )}
-
                   <div className="flex items-start justify-between gap-3">
-
                     <div>
-
                       <span className="block text-[9px] font-black uppercase tracking-[0.14em] text-slate-400">
-                        {
-                          item.label
-                        }
+                        {  item.label}
                       </span>
-
                       <strong className="mt-2 block text-2xl font-black text-slate-950 sm:text-3xl">
-                        {
-                          item.value
-                        }
+                        {  item.value}
                       </strong>
-
                     </div>
-
                     <div
                       className={`flex h-9 w-9 items-center justify-center rounded-xl ${item.tone}`}
                     >
-                      {
-                        item.icon
-                      }
+                      {  item.icon}
                     </div>
-
                   </div>
-
                   <p className="mt-2 text-[10px] text-slate-400">
-                    {
-                      item.sub
-                    }
+                    {  item.sub}
                   </p>
-
                 </article>
-
               ),
             )}
-
           </section>
-
           {/* OTP */}
-
           <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-
             <div className="flex items-center justify-between">
-
               <div className="flex items-center gap-3">
-
                 <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
-
                   <BarChart3 className="h-4 w-4" />
-
                 </div>
-
                 <div>
-
                   <h2 className="text-xs font-black text-slate-800">
                     Ponctualité opérationnelle
                   </h2>
-
                   <p className="text-[10px] text-slate-400">
                     On-Time Performance du planning
                   </p>
-
                 </div>
-
               </div>
-
               <span className="font-mono text-xl font-black text-slate-950">
                 {clampPercentage(
                   effectiveAnalytics
@@ -2310,11 +2111,8 @@ export const DashboardGantt:
                 )}
                 %
               </span>
-
             </div>
-
             <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100">
-
               <div
                 className="h-full rounded-full bg-emerald-700"
                 style={{
@@ -2325,21 +2123,13 @@ export const DashboardGantt:
                   )}%`,
                 }}
               />
-
             </div>
-
           </section>
-
           {/* RECHERCHE / FILTRES */}
-
           <section className="sticky top-2 z-20 rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-sm backdrop-blur">
-
             <div className="grid gap-3 xl:grid-cols-[360px_minmax(0,1fr)]">
-
               <div className="relative">
-
                 <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-
                 <input
                   value={
                     searchQuery
@@ -2354,9 +2144,7 @@ export const DashboardGantt:
                   placeholder="Rechercher vol, aéroport, appareil..."
                   className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-9 text-xs font-semibold text-slate-700 outline-none focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-100"
                 />
-
                 {searchQuery && (
-
                   <button
                     type="button"
                     onClick={() =>
@@ -2368,21 +2156,13 @@ export const DashboardGantt:
                   >
                     <X className="h-3.5 w-3.5 text-slate-400" />
                   </button>
-
                 )}
-
               </div>
-
               <div className="flex flex-wrap items-center gap-2">
-
                 <div className="flex items-center gap-1.5 text-[10px] font-black uppercase text-slate-400">
-
                   <Filter className="h-3.5 w-3.5" />
-
                   Statut
-
                 </div>
-
                 {[
                   [
                     'ALL',
@@ -2422,7 +2202,6 @@ export const DashboardGantt:
                     const active =
                       statusFilter ===
                       value;
-
                     return (
                       <button
                         type="button"
@@ -2447,10 +2226,8 @@ export const DashboardGantt:
                     );
                   },
                 )}
-
                 {activeFilterCount >
                   0 && (
-
                   <button
                     type="button"
                     onClick={() => {
@@ -2466,81 +2243,49 @@ export const DashboardGantt:
                   >
                     Réinitialiser
                   </button>
-
                 )}
-
               </div>
-
             </div>
-
           </section>
-
           {/* PLANNING */}
-
           <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-
             <div className="flex items-center justify-between border-b border-slate-200 px-4 py-4">
-
               <div className="flex items-center gap-3">
-
                 <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
-
                   <Activity className="h-4 w-4" />
-
                 </div>
-
                 <div>
-
                   <h2 className="text-sm font-black text-slate-900">
                     Planning des rotations
                   </h2>
-
                   <p className="text-[10px] text-slate-400">
                     {
                       filteredFlights.length
                     }{' '}
                     vol(s) affiché(s)
                   </p>
-
                 </div>
-
               </div>
-
               {isFetching && (
-
                 <RefreshCw className="h-4 w-4 animate-spin text-slate-400" />
-
               )}
-
             </div>
-
             {isFetching &&
             flights.length ===
               0 ? (
-
               <LoadingSkeleton />
-
             ) : flightsByAircraft.length ===
               0 ? (
-
-              <div className="flex min-h-[280px] flex-col items-center justify-center p-6">
-
+              <div className="flex min-h-70 flex-col items-center justify-center p-6">
                 <Search className="h-6 w-6 text-slate-300" />
-
                 <p className="mt-2 text-sm font-bold text-slate-700">
                   Aucun vol trouvé
                 </p>
-
               </div>
-
             ) : (
-
               <>
-
                 {/* MOBILE */}
-
                 <div className="divide-y divide-slate-100 lg:hidden">
-
                   {flightsByAircraft.map(
                     (
                       [
@@ -2563,18 +2308,14 @@ export const DashboardGantt:
                           aircraft,
                         ) ||
                         fallbackLabel;
-
                       return (
-
                         <div
                           key={
                             aircraft
                           }
                           className="p-4"
                         >
-
                           <div className="mb-3 flex justify-between">
-
                             <span className="font-mono text-sm font-black text-slate-900">
                               {
                                 aircraft ===
@@ -2583,18 +2324,14 @@ export const DashboardGantt:
                                   : aircraftLabel
                               }
                             </span>
-
                             <span className="text-xs text-slate-500">
                               {
                                 aircraftFlights.length
                               }{' '}
                               vol(s)
                             </span>
-
                           </div>
-
                           <div className="grid gap-3 sm:grid-cols-2">
-
                             {aircraftFlights.map(
                               (
                                 flight,
@@ -2604,35 +2341,23 @@ export const DashboardGantt:
                                   'mobile',
                                 ),
                             )}
-
                           </div>
-
                         </div>
-
                       );
                     },
                   )}
-
                 </div>
-
                 {/* DESKTOP */}
-
                 <div className="hidden lg:block">
-
                   <div className="grid grid-cols-[220px_minmax(0,1fr)] border-b border-slate-200 bg-slate-50">
-
                     <div className="border-r border-slate-200 px-5 py-3 text-[9px] font-black uppercase text-slate-400">
                       Aéronef
                     </div>
-
                     <div className="px-5 py-3 text-[9px] font-black uppercase text-slate-400">
                       Rotations affectées
                     </div>
-
                   </div>
-
                   <div className="divide-y divide-slate-100">
-
                     {flightsByAircraft.map(
                       (
                         [
@@ -2649,26 +2374,21 @@ export const DashboardGantt:
                           )
                             ?.aircraftModel ||
                           'Appareil inconnu';
-
                         const aircraftLabel =
                           aircraftLookup.get(
                             aircraft,
                           ) ||
                           fallbackLabel;
-
                         const isUnassigned =
                           aircraft ===
                           UNASSIGNED_AIRCRAFT;
-
                         return (
-
                           <div
                             key={
                               aircraft
                             }
                             className="grid grid-cols-[220px_minmax(0,1fr)]"
                           >
-
                             <aside
                               className={`border-r border-slate-200 p-5 ${
                                 isUnassigned
@@ -2676,33 +2396,22 @@ export const DashboardGantt:
                                   : 'bg-slate-50/50'
                               }`}
                             >
-
                               {isUnassigned ? (
-
                                 <span className="text-xs font-bold text-rose-700">
                                   Non assigné
                                 </span>
-
                               ) : (
-
                                 <>
-
                                   <div className="flex items-center gap-2">
-
                                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-emerald-700 ring-1 ring-slate-200">
-
                                       <Plane className="h-4 w-4" />
-
                                     </div>
-
                                     <strong className="font-mono text-sm font-black text-slate-950">
                                       {
                                         aircraftLabel
                                       }
                                     </strong>
-
                                   </div>
-
                                   <span className="mt-2 block font-mono text-[9px] text-slate-400">
                                     REF{' '}
                                     {aircraft.slice(
@@ -2710,24 +2419,16 @@ export const DashboardGantt:
                                       8,
                                     )}
                                   </span>
-
                                 </>
-
                               )}
-
                               <div className="mt-4 border-t border-slate-200 pt-3 text-[10px] font-bold text-slate-500">
-
                                 {
                                   aircraftFlights.length
                                 }{' '}
                                 rotation(s)
-
                               </div>
-
                             </aside>
-
                             <div className="grid grid-cols-1 gap-3 p-4 xl:grid-cols-2 2xl:grid-cols-3">
-
                               {aircraftFlights.map(
                                 (
                                   flight,
@@ -2737,29 +2438,18 @@ export const DashboardGantt:
                                     'desktop',
                                   ),
                               )}
-
                             </div>
-
                           </div>
-
                         );
                       },
                     )}
-
                   </div>
-
                 </div>
-
               </>
-
             )}
-
           </section>
-
         </div>
-
         {/* AJOUT VOL */}
-
         <FlightAddModal
           isOpen={
             isAddModalOpen
@@ -2784,13 +2474,10 @@ export const DashboardGantt:
             isCreating
           }
         />
-
         {/* ================================================================
             FICHE VOL CENTRÉE SANS SCROLL
         ================================================================= */}
-
         {selectedFlight && (
-
           <div
             role="dialog"
             aria-modal="true"
@@ -2809,27 +2496,19 @@ export const DashboardGantt:
             }}
             className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-[2px]"
           >
-
             <div className="w-full max-w-[560px] overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
-
               {/* HEADER */}
-
               <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3.5">
-
                 <div className="min-w-0">
-
                   <span className="block text-[9px] font-black uppercase tracking-[0.14em] text-slate-400">
                     Fiche opérationnelle
                   </span>
-
                   <h3 className="mt-1 truncate font-mono text-lg font-black text-slate-950">
                     {
                       selectedFlight.flightNumber
                     }
                   </h3>
-
                 </div>
-
                 <button
                   type="button"
                   onClick={() =>
@@ -2840,87 +2519,55 @@ export const DashboardGantt:
                   aria-label="Fermer"
                   className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500 transition hover:bg-slate-200 hover:text-slate-700"
                 >
-
                   <X className="h-4 w-4" />
-
                 </button>
-
               </div>
-
               {/* CONTENT */}
-
               <div className="space-y-3 p-4">
-
                 {/* ROUTE */}
-
                 <section className="overflow-hidden rounded-2xl bg-emerald-700 px-5 py-4 text-white shadow-sm">
-
                   <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4">
-
                     <div>
-
                       <span className="block text-[9px] font-bold uppercase tracking-wider text-emerald-100">
                         Origine
                       </span>
-
                       <strong className="mt-1 block font-mono text-2xl font-black">
                         {
                           selectedFlight.origin
                         }
                       </strong>
-
                     </div>
-
                     <div className="flex items-center">
-
                       <div className="h-px w-5 bg-emerald-400/80" />
-
                       <Plane className="mx-2 h-4 w-4 rotate-90 text-white" />
-
                       <div className="h-px w-5 bg-emerald-400/80" />
-
                     </div>
-
                     <div className="text-right">
-
                       <span className="block text-[9px] font-bold uppercase tracking-wider text-emerald-100">
                         Destination
                       </span>
-
                       <strong className="mt-1 block font-mono text-2xl font-black">
                         {
                           selectedFlight.destination
                         }
                       </strong>
-
                     </div>
-
                   </div>
-
                   <div className="mt-3 border-t border-emerald-600/70 pt-2.5 text-center font-mono text-[10px] font-semibold text-emerald-100">
-
                     {
                       displayRoute(
                         selectedFlight,
                       )
                     }
-
                   </div>
-
                 </section>
-
                 {/* STATUT APPAREIL */}
-
                 <section className="grid grid-cols-2 gap-3">
-
                   <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-
                     <span className="block text-[9px] font-black uppercase tracking-wide text-slate-400">
                       Statut
                     </span>
-
                     <div className="mt-2">
-
                       <StatusBadge
                         status={
                           selectedFlight.status
@@ -2932,260 +2579,167 @@ export const DashboardGantt:
                           statusStyles.Scheduled
                         }
                       />
-
                     </div>
-
                   </div>
-
                   <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-
                     <span className="block text-[9px] font-black uppercase tracking-wide text-slate-400">
                       Appareil
                     </span>
-
                     <strong className="mt-2 block truncate font-mono text-xs font-black text-slate-900">
-
                       {selectedFlight.aircraft ===
                       UNASSIGNED_AIRCRAFT
                         ? 'NON ASSIGNÉ'
                         : selectedFlight.aircraftModel}
-
                     </strong>
-
                   </div>
-
                 </section>
-
                 {/* HORAIRES */}
-
                 <section className="rounded-xl border border-slate-200 bg-white px-4 py-3">
-
                   <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-
                     <div>
-
                       <span className="block text-[9px] font-bold uppercase tracking-wide text-slate-400">
                         Départ local
                       </span>
-
                       <strong className="mt-1 block font-mono text-sm font-black text-slate-900">
-
                         {formatLocalIso(
                           selectedFlight.localDeparture ||
                             selectedFlight.departure,
                         )}
-
                       </strong>
-
                     </div>
-
                     <ArrowRight className="h-4 w-4 text-slate-300" />
-
                     <div className="text-right">
-
                       <span className="block text-[9px] font-bold uppercase tracking-wide text-slate-400">
                         Arrivée locale
                       </span>
-
                       <strong className="mt-1 block font-mono text-sm font-black text-slate-900">
-
                         {formatLocalIso(
                           selectedFlight.localArrival ||
                             selectedFlight.arrival,
                         )}
-
                       </strong>
-
                     </div>
-
                   </div>
-
                   <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-2.5">
-
                     <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-slate-400">
-
                       <Timer className="h-3.5 w-3.5" />
-
                       Durée
-
                     </span>
-
                     <span className="font-mono text-xs font-black text-slate-700">
-
                       {formatDuration(
                         selectedFlight.durationMinutes,
                       )}
-
                     </span>
-
                   </div>
-
                 </section>
-
                 {/* METEO */}
-
                 {(() => {
                   const weather =
                     getWeatherIndicator(
                       selectedFlight.weatherSeverity,
                     );
-
                   return (
-
                     <section className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-
                       <div className="flex items-center justify-between gap-3">
-
                         <div>
-
                           <span className="block text-[9px] font-black uppercase tracking-wide text-slate-400">
                             Météo opérationnelle
                           </span>
-
                           <span className="mt-1 block font-mono text-[10px] text-slate-500">
-
                             Indice{' '}
-
                             {normalizeSeverity(
                               selectedFlight.weatherSeverity,
                             ).toFixed(
                               2,
                             )}
-
                             /1.00
-
                           </span>
-
                         </div>
-
                         <span
                           className={`inline-flex h-7 items-center gap-1.5 rounded-lg border px-2.5 text-[10px] font-bold ${weather.badge}`}
                         >
-
                           {
                             weather.icon
                           }
-
                           {
                             weather.label
                           }
-
                         </span>
-
                       </div>
-
                       <p className="mt-2.5 border-t border-slate-200 pt-2.5 text-[10px] font-medium leading-4 text-slate-600">
-
                         {
                           weather.recommendation
                         }
-
                       </p>
-
                     </section>
-
                   );
                 })()}
-
                 {/* TRONCONS */}
-
                 {selectedFlight.legs &&
                   selectedFlight.legs
                     .length >
                     0 && (
-
                   <section className="rounded-xl border border-slate-200 bg-white px-4 py-3">
-
                     <div className="mb-2.5 flex items-center justify-between">
-
                       <div className="flex items-center gap-2">
-
                         <Sparkles className="h-4 w-4 text-emerald-600" />
-
                         <div>
-
                           <h4 className="text-[11px] font-black text-slate-700">
                             Tronçons
                           </h4>
-
                           <p className="text-[9px] text-slate-400">
                             Détail de l&apos;itinéraire
                           </p>
-
                         </div>
-
                       </div>
-
                       <span className="rounded-lg bg-slate-100 px-2 py-1 text-[9px] font-bold text-slate-500">
-
                         {
                           selectedFlight.legs.length
                         }
-
                       </span>
-
                     </div>
-
                     <div className="grid gap-2 sm:grid-cols-2">
-
                       {selectedFlight.legs.map(
                         (
                           leg,
                           index,
                         ) => (
-
                           <div
                             key={`${leg.aeroportDepart}-${leg.aeroportArrivee}-${index}`}
                             className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2"
                           >
-
                             <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-
                               <span className="font-mono text-[10px] font-black text-slate-900">
                                 {
                                   leg.aeroportDepart
                                 }
                               </span>
-
                               <ArrowRight className="h-3 w-3 text-slate-400" />
-
                               <span className="text-right font-mono text-[10px] font-black text-slate-900">
                                 {
                                   leg.aeroportArrivee
                                 }
                               </span>
-
                             </div>
-
                             <div className="mt-1.5 grid grid-cols-2 border-t border-slate-200 pt-1.5 font-mono text-[8px] font-semibold text-slate-400">
-
                               <span>
                                 {formatDateTime(
                                   leg.heureDepart,
                                 )}
                               </span>
-
                               <span className="text-right">
                                 {formatDateTime(
                                   leg.heureArrivee,
                                 )}
                               </span>
-
                             </div>
-
                           </div>
-
                         ),
                       )}
-
                     </div>
-
                   </section>
-
                 )}
-
                 {/* CLOSE */}
-
                 <button
                   type="button"
                   onClick={() =>
@@ -3197,15 +2751,10 @@ export const DashboardGantt:
                 >
                   Fermer la fiche
                 </button>
-
               </div>
-
             </div>
-
           </div>
-
         )}
-
       </div>
     );
   };

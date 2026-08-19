@@ -1183,48 +1183,31 @@ export const CrewAssignmentsPage:
           assignments,
         ],
       );
-
     /* =========================================================================
      * RENDER
      * ======================================================================= */
-
     return (
       <div className="min-h-screen bg-slate-100 p-4 text-slate-800 sm:p-6 lg:p-8">
-
-        <div className="mx-auto max-w-[1500px] space-y-5">
-
+        <div className="mx-auto max-w-375 space-y-5">
           {/* ===================================================================
               HEADER
           =================================================================== */}
-
           <header className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-
               <div className="flex items-center gap-3">
-
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-700 text-white">
-
                   <Users className="h-5 w-5" />
-
                 </div>
-
                 <div>
-
                   <h1 className="text-xl font-black text-slate-950">
                     Gestion des équipages
                   </h1>
-
                   <p className="mt-1 text-xs font-semibold text-slate-400">
                     Affectation des membres d’équipage aux vols
                   </p>
-
                 </div>
-
               </div>
-
               <div className="flex flex-wrap gap-2">
-
                 <button
                   type="button"
                   onClick={() =>
@@ -1235,7 +1218,6 @@ export const CrewAssignmentsPage:
                   }
                   className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-xs font-black text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-
                   <RefreshCw
                     className={`h-4 w-4 ${
                       loading
@@ -1243,11 +1225,8 @@ export const CrewAssignmentsPage:
                         : ''
                     }`}
                   />
-
                   Actualiser
-
                 </button>
-
                 <button
                   type="button"
                   onClick={
@@ -1255,25 +1234,16 @@ export const CrewAssignmentsPage:
                   }
                   className="inline-flex h-11 items-center gap-2 rounded-xl bg-emerald-700 px-4 text-xs font-black text-white transition hover:bg-emerald-800"
                 >
-
                   <UserPlus className="h-4 w-4" />
-
                   Nouvelle affectation
-
                 </button>
-
               </div>
-
             </div>
-
           </header>
-
           {/* ===================================================================
               MESSAGE
           =================================================================== */}
-
           {message && (
-
             <div
               className={`flex items-start justify-between gap-3 rounded-2xl border p-4 ${
                 message.type ===
@@ -1285,28 +1255,19 @@ export const CrewAssignmentsPage:
                     : 'border-rose-200 bg-rose-50 text-rose-900'
               }`}
             >
-
               <div className="flex items-start gap-2 text-sm font-semibold">
-
                 {message.type ===
                 'success' ? (
-
                   <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" />
-
                 ) : (
-
                   <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
-
                 )}
-
                 <span>
                   {
                     message.text
                   }
                 </span>
-
               </div>
-
               <button
                 type="button"
                 onClick={() =>
@@ -1316,21 +1277,14 @@ export const CrewAssignmentsPage:
                 }
                 className="shrink-0 rounded-lg p-1 hover:bg-black/5"
               >
-
                 <X className="h-4 w-4" />
-
               </button>
-
             </div>
-
           )}
-
           {/* ===================================================================
               KPI
           =================================================================== */}
-
           <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-
             <MetricCard
               label="Affectations"
               value={
@@ -1340,7 +1294,6 @@ export const CrewAssignmentsPage:
                 <Users className="h-4 w-4" />
               }
             />
-
             <MetricCard
               label="Membres actifs"
               value={
@@ -1350,7 +1303,6 @@ export const CrewAssignmentsPage:
                 <ShieldCheck className="h-4 w-4" />
               }
             />
-
             <MetricCard
               label="Vols couverts"
               value={
@@ -1360,7 +1312,6 @@ export const CrewAssignmentsPage:
                 <Plane className="h-4 w-4" />
               }
             />
-
             <MetricCard
               label="Repos calculé"
               value={
@@ -1370,23 +1321,15 @@ export const CrewAssignmentsPage:
                 <Clock3 className="h-4 w-4" />
               }
             />
-
           </section>
-
           {/* ===================================================================
               FILTERS
           =================================================================== */}
-
           <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-
             <div className="grid gap-3 md:grid-cols-3">
-
               {/* SEARCH */}
-
               <div className="relative">
-
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-
                 <input
                   type="text"
                   placeholder="Rechercher un vol, membre, fonction..."
@@ -1402,11 +1345,8 @@ export const CrewAssignmentsPage:
                   }
                   className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-3 text-xs font-semibold outline-none transition focus:border-emerald-700 focus:bg-white"
                 />
-
               </div>
-
               {/* FLIGHT FILTER */}
-
               <select
                 value={
                   selectedFlightId
@@ -1420,16 +1360,13 @@ export const CrewAssignmentsPage:
                 }
                 className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-semibold outline-none transition focus:border-emerald-700 focus:bg-white"
               >
-
                 <option value="TOUS">
                   Tous les vols
                 </option>
-
                 {flights.map(
                   (
                     flight,
                   ) => (
-
                     <option
                       key={
                         flight.id
@@ -1438,25 +1375,18 @@ export const CrewAssignmentsPage:
                         flight.id
                       }
                     >
-
                       {flight.numeroVol ??
                         flight.id}
-
                       {' '}
-
                       {flight.aeroportDepart
                         ? `— ${flight.aeroportDepart} → ${flight.aeroportArrivee ?? '?'}`
                         : ''}
 
                     </option>
-
                   ),
                 )}
-
               </select>
-
               {/* USER FILTER */}
-
               <select
                 value={
                   selectedUserId
@@ -1470,16 +1400,13 @@ export const CrewAssignmentsPage:
                 }
                 className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-semibold outline-none transition focus:border-emerald-700 focus:bg-white"
               >
-
                 <option value="TOUS">
                   Tous les membres
                 </option>
-
                 {users.map(
                   (
                     user,
                   ) => (
-
                     <option
                       key={
                         user.id
@@ -1495,112 +1422,60 @@ export const CrewAssignmentsPage:
 
                   ),
                 )}
-
               </select>
-
             </div>
-
           </section>
-
           {/* ===================================================================
               TABLE
           =================================================================== */}
-
           <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-
             <div className="flex items-center justify-between border-b border-slate-200 p-5">
-
               <div>
-
                 <h2 className="text-base font-black text-slate-900">
                   Affectations équipage
                 </h2>
-
                 <p className="mt-1 text-[10px] font-semibold text-slate-400">
                   Vols, membres, fonctions et temps de repos
                 </p>
-
               </div>
-
               <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-[10px] font-black text-slate-500">
                 {
                   filteredAssignments.length
                 }{' '}
                 résultat(s)
               </span>
-
             </div>
-
             <div className="overflow-x-auto">
-
-              <table className="w-full min-w-[1000px] text-left text-sm">
-
+              <table className="w-full min-w-250 text-left text-sm">
                 <thead className="border-b border-slate-200 bg-slate-50 text-[10px] font-black uppercase tracking-wider text-slate-500">
-
                   <tr>
-
-                    <th className="px-4 py-3">
-                      Vol
-                    </th>
-
-                    <th className="px-4 py-3">
-                      Itinéraire
-                    </th>
-
-                    <th className="px-4 py-3">
-                      Membre
-                    </th>
-
-                    <th className="px-4 py-3">
-                      Fonction
-                    </th>
-
-                    <th className="px-4 py-3">
-                      Départ
-                    </th>
-
-                    <th className="px-4 py-3">
-                      Repos avant vol
-                    </th>
-
-                    <th className="px-4 py-3 text-right">
-                      Actions
-                    </th>
-
+                    <th className="px-4 py-3">Vol</th>
+                    <th className="px-4 py-3">Itinéraire</th>
+                    <th className="px-4 py-3">Membre</th>
+                    <th className="px-4 py-3">Fonction</th>
+                    <th className="px-4 py-3">Départ</th>
+                    <th className="px-4 py-3">Repos avant vol</th>
+                    <th className="px-4 py-3 text-right">Actions</th>
                   </tr>
-
                 </thead>
-
                 <tbody className="divide-y divide-slate-100">
-
                   {loading ? (
-
                     <tr>
-
                       <td
                         colSpan={
                           7
                         }
                         className="px-4 py-12 text-center text-slate-400"
                       >
-
                         <div className="flex items-center justify-center gap-2">
-
                           <RefreshCw className="h-4 w-4 animate-spin" />
-
                           Chargement...
-
                         </div>
-
                       </td>
-
                     </tr>
-
                   ) : filteredAssignments.length ===
                     0 ? (
-
                     <tr>
-
                       <td
                         colSpan={
                           7
@@ -1609,152 +1484,92 @@ export const CrewAssignmentsPage:
                       >
                         Aucune affectation trouvée
                       </td>
-
                     </tr>
-
                   ) : (
-
                     filteredAssignments.map(
                       (
                         assignment,
                       ) => {
                         const flight =
                           assignment.vol;
-
                         const user =
                           assignment.utilisateur;
-
                         return (
-
                           <tr
                             key={
                               assignment.id
                             }
                             className="transition hover:bg-slate-50"
                           >
-
                             {/* VOL */}
-
                             <td className="px-4 py-4">
-
                               <div className="flex items-center gap-2">
-
                                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
-
                                   <Plane className="h-4 w-4" />
-
                                 </div>
-
                                 <span className="font-black text-slate-900">
-
                                   {flight?.numeroVol ??
                                     assignment.volId}
-
                                 </span>
-
                               </div>
-
                             </td>
-
                             {/* ROUTE */}
-
                             <td className="px-4 py-4 font-semibold text-slate-600">
-
                               {flight?.aeroportDepart ??
                                 '--'}
-
                               {' '}
-
                               ➔
-
                               {' '}
-
                               {flight?.aeroportArrivee ??
                                 '--'}
-
                             </td>
-
                             {/* USER */}
-
                             <td className="px-4 py-4">
-
                               <div className="font-bold text-slate-800">
-
                                 {user?.nom ??
                                   'Utilisateur'}
-
                               </div>
-
                               <div className="mt-0.5 text-[10px] text-slate-400">
-
                                 {user?.email ??
                                   assignment.utilisateurId}
-
                               </div>
-
                             </td>
-
                             {/* ROLE */}
-
                             <td className="px-4 py-4">
-
                               <span className="inline-flex rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1 text-[10px] font-black text-sky-700">
-
                                 {formatRole(
                                   assignment.fonction,
                                 )}
-
                               </span>
-
                             </td>
-
                             {/* DEPARTURE */}
-
                             <td className="px-4 py-4 text-xs font-medium text-slate-500">
-
                               {formatDateTime(
                                 flight?.heureDepart,
                               )}
-
                             </td>
-
                             {/* REST */}
-
                             <td className="px-4 py-4">
-
                               {assignment.heuresReposAvant ===
                                 null ||
                               assignment.heuresReposAvant ===
                                 undefined ? (
-
                                 <span className="text-xs font-medium text-slate-400">
                                   Premier vol
                                 </span>
-
                               ) : (
-
                                 <span className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-black text-emerald-700">
-
                                   <Clock3 className="h-3 w-3" />
-
                                   {assignment.heuresReposAvant.toFixed(
                                     1,
                                   )}
-
                                   {' '}h
-
                                 </span>
-
                               )}
-
                             </td>
-
                             {/* ACTIONS */}
-
                             <td className="px-4 py-4">
-
                               <div className="flex justify-end gap-2">
-
                                 <button
                                   type="button"
                                   onClick={() =>
@@ -1765,11 +1580,8 @@ export const CrewAssignmentsPage:
                                   title="Modifier"
                                   className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-600 transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700"
                                 >
-
                                   <Pencil className="h-4 w-4" />
-
                                 </button>
-
                                 <button
                                   type="button"
                                   disabled={
@@ -1784,48 +1596,29 @@ export const CrewAssignmentsPage:
                                   title="Supprimer"
                                   className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
                                 >
-
                                   {deletingId ===
                                   assignment.id ? (
-
                                     <RefreshCw className="h-4 w-4 animate-spin" />
-
                                   ) : (
-
                                     <Trash2 className="h-4 w-4" />
-
                                   )}
-
                                 </button>
-
                               </div>
-
                             </td>
-
                           </tr>
-
                         );
                       },
                     )
-
                   )}
-
                 </tbody>
-
               </table>
-
             </div>
-
           </section>
-
         </div>
-
         {/* =====================================================================
             MODAL
         ===================================================================== */}
-
         {modalOpen && (
-
           <div
             role="dialog"
             aria-modal="true"
@@ -1842,31 +1635,21 @@ export const CrewAssignmentsPage:
             }}
             className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm"
           >
-
             <div className="w-full max-w-xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
-
               {/* ===============================================================
                   MODAL HEADER
               =============================================================== */}
-
               <div className="flex items-center justify-between border-b border-slate-200 p-5">
-
                 <div>
-
                   <h2 className="text-lg font-black text-slate-950">
-
                     {editingId
                       ? 'Modifier l’affectation'
                       : 'Nouvelle affectation'}
-
                   </h2>
-
                   <p className="mt-1 max-w-md text-xs leading-5 text-slate-400">
                     Le système contrôle automatiquement les chevauchements de vols et le temps minimal de repos.
                   </p>
-
                 </div>
-
                 <button
                   type="button"
                   onClick={
@@ -1878,32 +1661,23 @@ export const CrewAssignmentsPage:
                   aria-label="Fermer"
                   className="rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 disabled:opacity-50"
                 >
-
                   <X className="h-5 w-5" />
-
                 </button>
-
               </div>
-
               {/* ===============================================================
                   FORM
               =============================================================== */}
-
               <form
                 onSubmit={
                   handleSubmit
                 }
                 className="space-y-4 p-5"
               >
-
                 {/* VOL */}
-
                 <label className="block">
-
                   <span className="mb-1.5 block text-[10px] font-black uppercase tracking-wide text-slate-400">
                     Vol *
                   </span>
-
                   <select
                     required
                     value={
@@ -1917,7 +1691,6 @@ export const CrewAssignmentsPage:
                           current,
                         ) => ({
                           ...current,
-
                           volId:
                             event.target.value,
                         }),
@@ -1925,11 +1698,9 @@ export const CrewAssignmentsPage:
                     }
                     className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-emerald-700 focus:bg-white"
                   >
-
                     <option value="">
                       Sélectionner un vol
                     </option>
-
                     {flights.map(
                       (
                         flight,
@@ -1943,37 +1714,24 @@ export const CrewAssignmentsPage:
                             flight.id
                           }
                         >
-
                           {flight.numeroVol ??
                             flight.id}
-
                           {' — '}
-
                           {flight.aeroportDepart ??
                             '?'}
-
                           {' → '}
-
                           {flight.aeroportArrivee ??
                             '?'}
-
                         </option>
-
                       ),
                     )}
-
                   </select>
-
                 </label>
-
                 {/* USER */}
-
                 <label className="block">
-
                   <span className="mb-1.5 block text-[10px] font-black uppercase tracking-wide text-slate-400">
                     Membre d’équipage *
                   </span>
-
                   <select
                     required
                     value={
@@ -1995,16 +1753,13 @@ export const CrewAssignmentsPage:
                     }
                     className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-emerald-700 focus:bg-white"
                   >
-
                     <option value="">
                       Sélectionner un membre
                     </option>
-
                     {users.map(
                       (
                         user,
                       ) => (
-
                         <option
                           key={
                             user.id
@@ -2013,32 +1768,22 @@ export const CrewAssignmentsPage:
                             user.id
                           }
                         >
-
                           {user.nom ??
                             user.email ??
                             user.id}
-
                           {user.role
                             ? ` — ${user.role}`
                             : ''}
-
                         </option>
-
                       ),
                     )}
-
                   </select>
-
                 </label>
-
                 {/* ROLE */}
-
                 <label className="block">
-
                   <span className="mb-1.5 block text-[10px] font-black uppercase tracking-wide text-slate-400">
                     Fonction *
                   </span>
-
                   <select
                     required
                     value={
@@ -2060,12 +1805,10 @@ export const CrewAssignmentsPage:
                     }
                     className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-emerald-700 focus:bg-white"
                   >
-
                     {CREW_ROLES.map(
                       (
                         role,
                       ) => (
-
                         <option
                           key={
                             role
@@ -2078,38 +1821,25 @@ export const CrewAssignmentsPage:
                             role,
                           )}
                         </option>
-
                       ),
                     )}
-
                   </select>
-
                 </label>
-
                 {/* =============================================================
                     VALIDATION INFO
                 ============================================================= */}
-
                 <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
-
                   <div className="flex items-start gap-2 text-xs font-semibold leading-5 text-amber-800">
-
                     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-
                     <span>
                       Lors de l’enregistrement, le système vérifie les conflits d’équipage, les chevauchements de vols et le repos minimal avant la prochaine rotation.
                     </span>
-
                   </div>
-
                 </div>
-
                 {/* =============================================================
                     ACTIONS
                 ============================================================= */}
-
                 <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
-
                   <button
                     type="button"
                     onClick={
@@ -2122,45 +1852,30 @@ export const CrewAssignmentsPage:
                   >
                     Annuler
                   </button>
-
                   <button
                     type="submit"
                     disabled={
                       saving
                     }
-                    className="inline-flex h-11 min-w-[130px] items-center justify-center gap-2 rounded-xl bg-emerald-700 px-5 text-xs font-black text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="inline-flex h-11 min-w-32.5 items-center justify-center gap-2 rounded-xl bg-emerald-700 px-5 text-xs font-black text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-
                     {saving ? (
-
                       <RefreshCw className="h-4 w-4 animate-spin" />
-
                     ) : (
-
                       <Save className="h-4 w-4" />
-
                     )}
-
                     {saving
                       ? 'Enregistrement...'
                       : editingId
                         ? 'Enregistrer'
                         : 'Affecter'}
-
                   </button>
-
                 </div>
-
               </form>
-
             </div>
-
           </div>
-
         )}
-
       </div>
     );
   };
-
 export default CrewAssignmentsPage;

@@ -338,29 +338,24 @@ const safeDate = (
   }
   return date;
 };
-
 const formatDateTime = (
   value?: string | null,
 ): string => {
   const date =
     safeDate(value);
-
   if (!date) {
     return '--:--';
   }
-
   return date.toLocaleString(
     'fr-FR',
     {
       dateStyle:
         'short',
-
       timeStyle:
         'short',
     },
   );
 };
-
 const formatUtcTick = (
   timestamp: number,
 ): string =>
@@ -379,7 +374,6 @@ const formatUtcTick = (
   ).format(
     new Date(timestamp),
   );
-
 const formatUtcDay = (
   timestamp: number,
 ): string =>
@@ -396,7 +390,6 @@ const formatUtcDay = (
   ).format(
     new Date(timestamp),
   );
-
 /* ============================================================================
  * AIRCRAFT HELPERS
  * ========================================================================== */
@@ -429,7 +422,6 @@ const flightBelongsToAircraft = (
     )
       .trim()
       .toUpperCase();
-
   const rowId =
     String(
       row.aircraftId ??
@@ -2147,15 +2139,9 @@ export const FlightSchedulerDashboard:
 
             <MetricCard
               label="Non affectés"
-              value={
-                activeMetrics.unassignedFlights ??
-                0
-              }
-              icon={
-                <AlertTriangle className="h-4 w-4" />
-              }
+              value={ activeMetrics.unassignedFlights ??  0}
+              icon={<AlertTriangle className="h-4 w-4" />}
             />
-
             <MetricCard
               label="Décalés"
               value={
@@ -2165,7 +2151,6 @@ export const FlightSchedulerDashboard:
                 <RefreshCw className="h-4 w-4" />
               }
             />
-
             <MetricCard
               label="Appareils actifs"
               value={
@@ -2173,96 +2158,57 @@ export const FlightSchedulerDashboard:
                   ?.metrics
                   ?.operationalAircraft ??
                 activeSchedule.rows.filter(
-                  (
-                    row,
-                  ) =>
-                    row.aircraftId !==
-                    'UNASSIGNED',
+                  ( row,) =>
+                    row.aircraftId !== 'UNASSIGNED',
                 ).length
               }
-              icon={
-                <Plane className="h-4 w-4" />
-              }
+              icon={<Plane className="h-4 w-4" />}
             />
-
-            <MetricCard
-              label="OTP"
-              value={`${effectiveAnalytics.otpRate ?? 0}%`}
-              icon={
+            <MetricCard label="OTP" value={`${effectiveAnalytics.otpRate ?? 0}%`} icon={
                 <ShieldCheck className="h-4 w-4" />
               }
             />
-
           </section>
-
           {/* ============================================================= */}
           {/* SEARCH                                                        */}
           {/* ============================================================= */}
-
           <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-
             <div className="grid gap-3 xl:grid-cols-[minmax(280px,420px)_minmax(0,1fr)] xl:items-end">
-
               <div>
-
                 <label className="mb-2 block text-[9px] font-black uppercase tracking-[0.15em] text-slate-400">
                   Recherche opérationnelle
                 </label>
-
                 <div className="relative">
-
                   <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-
                   <input
                     type="text"
                     placeholder="Vol, itinéraire, appareil..."
-                    value={
-                      searchTerm
-                    }
+                    value={searchTerm}
                     onChange={(
                       event,
-                    ) =>
-                      setSearchTerm(
-                        event.target.value,
-                      )
+                    ) => setSearchTerm(event.target.value,)
                     }
                     className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-10 text-xs font-semibold text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-emerald-700 focus:bg-white focus:ring-4 focus:ring-emerald-100/70"
                   />
-
                   {searchTerm && (
-
                     <button
                       type="button"
                       onClick={() =>
-                        setSearchTerm(
-                          '',
-                        )
+                        setSearchTerm('',)
                       }
                       className="absolute right-2.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-200/70 hover:text-slate-700"
                     >
-
                       <X className="h-3.5 w-3.5" />
-
                     </button>
-
                   )}
-
                 </div>
-
               </div>
-
               <div>
-
                 <div className="mb-2 flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.15em] text-slate-400">
-
                   <Filter className="h-3.5 w-3.5" />
-
                   Statut
-
                 </div>
-
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-
                   {[
                     'TOUS',
                     'Planifié',
@@ -2271,10 +2217,7 @@ export const FlightSchedulerDashboard:
                     'Effectué',
                     'Annulé',
                   ].map(
-                    (
-                      status,
-                    ) => (
-
+                    (status,) => (
                       <button
                         type="button"
                         key={
@@ -2292,180 +2235,109 @@ export const FlightSchedulerDashboard:
                             : 'border-slate-200 bg-white text-slate-600 hover:border-emerald-200 hover:bg-emerald-50/60 hover:text-emerald-800'
                         }`}
                       >
-
                         {status ===
                         'TOUS'
                           ? 'Tous'
                           : status}
-
                       </button>
-
                     ),
                   )}
-
                 </div>
-
               </div>
-
             </div>
-
           </section>
-
           {/* ============================================================= */}
           {/* GANTT                                                         */}
           {/* ============================================================= */}
-
           <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-
             <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-
               <div className="flex items-center gap-2">
 
                 <BarChart3 className="h-4 w-4 text-emerald-700" />
-
                 <h2 className="text-base font-bold text-slate-900">
                   Programmation graphique des vols
                 </h2>
-
                 {isPreview && (
-
                   <span className="rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-[9px] font-black uppercase tracking-wide text-sky-700">
                     Prévisualisation
                   </span>
-
                 )}
-
               </div>
-
               <div className="flex flex-wrap items-center gap-3 text-[10px] font-semibold text-slate-500">
-
                 <LegendDot
                   className="bg-blue-500"
                   label="Programmé"
                 />
-
                 <LegendDot
                   className="bg-orange-500"
                   label="Décalé / retardé"
                 />
-
                 <LegendDot
                   className="bg-emerald-500"
                   label="Effectué"
                 />
-
               </div>
-
             </div>
-
             {ganttData.rows.length ===
             0 ? (
-
               <div className="flex min-h-60 items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 p-8 text-center">
-
                 <div>
-
                   <Plane className="mx-auto h-7 w-7 text-slate-300" />
-
                   <p className="mt-3 text-xs font-semibold text-slate-400">
                     Aucun élément Gantt disponible pour les critères sélectionnés.
                   </p>
-
                 </div>
-
               </div>
-
             ) : (
-
               <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-slate-50/20">
-
                 <div className="min-w-362.5 pb-4">
-
                   {/* ------------------------------------------------------- */}
                   {/* TIME HEADER                                             */}
                   {/* ------------------------------------------------------- */}
-
                   <div className="sticky top-0 z-30 flex border-b border-slate-200 bg-white/95 py-2.5 shadow-sm">
-
                     <div className="sticky left-0 z-40 flex w-64 shrink-0 items-center border-r border-slate-200 bg-white pl-4 text-[11px] font-bold uppercase tracking-wider text-slate-600">
                       Appareil / position
                     </div>
-
                     <div className="relative h-9 flex-1">
-
                       {ganttData.hourTicks.map(
-                        (
-                          tickTime,
-                        ) => {
+                        (tickTime,) => {
                           const left =
-                            (
-                              (
-                                tickTime -
-                                ganttData.minTime
-                              ) /
-                              ganttData.totalDuration
-                            ) *
-                            100;
-
+                            (  (tickTime -ganttData.minTime ) /  ganttData.totalDuration) *100;
                           return (
-
                             <div
-                              key={
-                                tickTime
-                              }
+                              key={  tickTime}
                               className="absolute flex h-full -translate-x-1/2 flex-col items-center justify-between border-l border-slate-200/80 pl-1"
-                              style={{
-                                left:
-                                  `${left}%`,
-                              }}
+                              style={{left:  `${left}%`,}}
                             >
-
                               <span className="rounded border border-slate-200/60 bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-700">
                                 {formatUtcTick(
                                   tickTime,
                                 )}
                               </span>
-
                               <span className="font-mono text-[9px] font-semibold text-slate-400">
                                 {formatUtcDay(
                                   tickTime,
                                 )}
                               </span>
-
                             </div>
-
                           );
                         },
                       )}
-
                     </div>
-
                   </div>
-
                   {/* ------------------------------------------------------- */}
                   {/* ROWS                                                    */}
                   {/* ------------------------------------------------------- */}
-
                   <div className="divide-y divide-slate-100">
-
                     {ganttData.rows.map(
-                      (
-                        row,
-                      ) => (
-
+                      (  row,) => (
                         <div
-                          key={
-                            row.aircraftId
-                          }
-                          className="group flex items-center transition hover:bg-slate-50/80"
-                        >
-
+                          key={  row.aircraftId}
+                          className="group flex items-center transition hover:bg-slate-50/80">
                           {/* ------------------------------------------------ */}
                           {/* AIRCRAFT                                         */}
                           {/* ------------------------------------------------ */}
-
                           <div className="sticky left-0 z-20 flex w-64 shrink-0 items-center gap-2.5 border-r border-slate-200 bg-white px-4 py-3 group-hover:bg-slate-50">
-
                             <div
                               className={`shrink-0 rounded-lg border p-1.5 ${
                                 row.aircraftId ===
@@ -2474,56 +2346,35 @@ export const FlightSchedulerDashboard:
                                   : 'border-emerald-100 bg-emerald-50 text-emerald-700'
                               }`}
                             >
-
                               <Plane className="h-3.5 w-3.5" />
-
                             </div>
-
                             <div className="min-w-0">
-
                               <span
                                 className="block truncate text-xs font-bold text-slate-800"
-                                title={
-                                  row.aircraftRegistration
-                                }
-                              >
-                                {
-                                  row.aircraftRegistration
-                                }
+                                title={  row.aircraftRegistration}>
+                                {  row.aircraftRegistration}
                               </span>
-
                               {/* ============================================ */}
                               {/* CORRECTION BASE / POSITION                   */}
                               {/* ============================================ */}
-
                               {row.aircraftId ===
                               'UNASSIGNED' ? (
-
                                 <span className="mt-0.5 block truncate text-[9px] font-semibold text-rose-500">
                                   Affectation requise
                                 </span>
-
                               ) : (
-
                                 <>
-
                                   {row.base && (
-
                                     <span className="mt-0.5 block truncate text-[9px] font-semibold text-slate-500">
                                       Base :{' '}
                                       <strong>
-                                        {
-                                          row.base
-                                        }
+                                        { row.base}
                                       </strong>
-
                                       {row.capacity
                                         ? ` · ${row.capacity} sièges`
                                         : ''}
                                     </span>
-
                                   )}
-
                                   <span
                                     className={`mt-0.5 flex items-center gap-1 truncate text-[9px] font-semibold ${
                                       row.currentPosition
@@ -2531,43 +2382,30 @@ export const FlightSchedulerDashboard:
                                         : 'text-slate-400'
                                     }`}
                                   >
-
                                     <MapPin className="h-2.5 w-2.5 shrink-0" />
-
                                     {row.currentPosition
                                       ? `Position : ${row.currentPosition}`
                                       : row.base
                                         ? `Position initiale : ${row.base}`
                                         : 'Position à déterminer'}
-
                                   </span>
-
                                   {!row.base &&
                                     row.capacity && (
-
                                       <span className="mt-0.5 block truncate text-[9px] font-semibold text-slate-400">
                                         {
                                           row.capacity
                                         }{' '}
                                         sièges
                                       </span>
-
                                     )}
-
                                 </>
-
                               )}
-
                             </div>
-
                           </div>
-
                           {/* ------------------------------------------------ */}
                           {/* TIMELINE                                         */}
                           {/* ------------------------------------------------ */}
-
                           <div className="relative mx-2 my-1 h-16 flex-1 rounded-lg bg-white/40">
-
                             {ganttData.hourTicks.map(
                               (
                                 tickTime,
@@ -2581,9 +2419,7 @@ export const FlightSchedulerDashboard:
                                     ganttData.totalDuration
                                   ) *
                                   100;
-
                                 return (
-
                                   <div
                                     key={`grid-${row.aircraftId}-${tickTime}`}
                                     className="absolute bottom-0 top-0 border-l border-slate-100"
@@ -2596,38 +2432,25 @@ export const FlightSchedulerDashboard:
                                 );
                               },
                             )}
-
                             {row.items.map(
-                              (
-                                item,
-                              ) => {
+                              (item,) => {
                                 const start =
-                                  safeDate(
-                                    item.start,
-                                  );
-
+                                  safeDate(  item.start,);
                                 const end =
-                                  safeDate(
-                                    item.end,
-                                  );
-
+                                  safeDate(  item.end,);
                                 if (
                                   !start ||
                                   !end
                                 ) {
                                   return null;
                                 }
-
                                 const startMs =
                                   start.getTime();
-
                                 const endMs =
                                   end.getTime();
-
                                 const left =
                                   Math.max(
                                     0,
-
                                     (
                                       (
                                         startMs -
@@ -2637,11 +2460,9 @@ export const FlightSchedulerDashboard:
                                     ) *
                                       100,
                                   );
-
                                 const width =
                                   Math.max(
                                     0.5,
-
                                     (
                                       (
                                         endMs -
@@ -2651,7 +2472,6 @@ export const FlightSchedulerDashboard:
                                     ) *
                                       100,
                                   );
-
                                 const uiStatus =
                                   normalizeFlightStatus(
                                     item.status,
@@ -2662,30 +2482,24 @@ export const FlightSchedulerDashboard:
                                     uiStatus
                                   ] ??
                                   DEFAULT_STATUS_CONFIG;
-
                                 const assignment =
                                   assignmentLookup.get(
                                     item.flightId,
                                   );
-
                                 const shiftMinutes =
                                   item.shiftMinutes ??
                                   assignment
                                     ?.shiftMinutes ??
                                   0;
-
                                 const localStart =
                                   item.localStart ??
                                   assignment
                                     ?.localDeparture;
-
                                 const localEnd =
                                   item.localEnd ??
                                   assignment
                                     ?.localArrival;
-
                                 return (
-
                                   <div
                                     key={
                                       item.id
@@ -2694,35 +2508,26 @@ export const FlightSchedulerDashboard:
                                     style={{
                                       left:
                                         `${left}%`,
-
                                       width:
                                         `${width}%`,
                                     }}
                                     title={[
                                       `Vol ${item.flightNumber ?? ''}`,
-
                                       `${item.origin ?? '?'} → ${item.destination ?? '?'}`,
-
                                       `Départ UTC : ${formatDateTime(item.start)}`,
-
                                       `Arrivée UTC : ${formatDateTime(item.end)}`,
-
                                       localStart
                                         ? `Départ local : ${formatDateTime(localStart)}`
                                         : '',
-
                                       localEnd
                                         ? `Arrivée locale : ${formatDateTime(localEnd)}`
                                         : '',
-
                                       row.base
                                         ? `Base appareil : ${row.base}`
                                         : '',
-
                                       row.currentPosition
                                         ? `Position : ${row.currentPosition}`
                                         : '',
-
                                       shiftMinutes >
                                       0
                                         ? `Décalage automatique : +${shiftMinutes} min`
@@ -2735,21 +2540,15 @@ export const FlightSchedulerDashboard:
                                         '\n',
                                       )}
                                   >
-
                                     <div className="flex min-w-0 items-center gap-1.5">
-
                                       <span
                                         className={`h-2 w-2 shrink-0 rounded-full ${config.dot}`}
                                       />
-
                                       <span
                                         className={`truncate text-xs font-extrabold tracking-tight ${config.text}`}
                                       >
-                                        {
-                                          item.flightNumber
-                                        }
+                                        {item.flightNumber}
                                       </span>
-
                                       {shiftMinutes >
                                         0 && (
 
@@ -2760,70 +2559,42 @@ export const FlightSchedulerDashboard:
                                           }
                                           m
                                         </span>
-
                                       )}
-
                                     </div>
-
                                     <div className="ml-2 flex shrink-0 items-center gap-1 rounded border border-slate-200/50 bg-white/80 px-1.5 py-0.5 text-[10px] font-bold text-slate-600">
-
                                       <span>
-                                        {
-                                          item.origin
-                                        }
+                                        {item.origin}
                                       </span>
-
                                       <span className="text-slate-400">
                                         ➔
                                       </span>
-
                                       <span>
-                                        {
-                                          item.destination
-                                        }
+                                        {item.destination}
                                       </span>
-
                                     </div>
-
                                   </div>
-
                                 );
                               },
                             )}
-
                           </div>
-
                         </div>
-
                       ),
                     )}
-
                   </div>
-
                 </div>
-
               </div>
-
             )}
-
           </section>
-
           {/* ============================================================= */}
           {/* PREVIEW                                                       */}
           {/* ============================================================= */}
-
           {previewScenario && (
-
             <section className="grid gap-4 xl:grid-cols-2">
-
               <div className="rounded-2xl border border-sky-200 bg-sky-50/50 p-4 sm:p-5">
-
                 <h3 className="text-sm font-black text-sky-900">
                   Résultat du générateur
                 </h3>
-
                 <div className="mt-4 grid grid-cols-2 gap-3">
-
                   <SmallValue
                     label="Affectations directes"
                     value={
@@ -2833,7 +2604,6 @@ export const FlightSchedulerDashboard:
                       0
                     }
                   />
-
                   <SmallValue
                     label="Vols décalés"
                     value={
@@ -2843,7 +2613,6 @@ export const FlightSchedulerDashboard:
                       0
                     }
                   />
-
                   <SmallValue
                     label="Avions opérationnels"
                     value={
@@ -2853,7 +2622,6 @@ export const FlightSchedulerDashboard:
                       0
                     }
                   />
-
                   <SmallValue
                     label="Stratégie"
                     value={
@@ -2861,20 +2629,15 @@ export const FlightSchedulerDashboard:
                       'deterministic-greedy-v1'
                     }
                   />
-
                 </div>
-
               </div>
-
               <div
                 className={`rounded-2xl border p-4 sm:p-5 ${
                   scenarioUnassigned >
                   0
                     ? 'border-amber-200 bg-amber-50/60'
                     : 'border-emerald-200 bg-emerald-50/60'
-                }`}
-              >
-
+                }`}>
                 <h3
                   className={`text-sm font-black ${
                     scenarioUnassigned >
@@ -2885,127 +2648,78 @@ export const FlightSchedulerDashboard:
                 >
                   Vols non affectés
                 </h3>
-
                 {(
                   previewScenario.unassigned ??
                   []
                 ).length ===
                 0 ? (
-
                   <p className="mt-3 text-xs font-semibold text-emerald-700">
                     Tous les vols du scénario ont reçu une affectation.
                   </p>
-
                 ) : (
-
                   <div className="mt-3 max-h-44 space-y-2 overflow-y-auto">
-
-                    {(
-                      previewScenario.unassigned ??
-                      []
-                    ).map(
-                      (
-                        item,
-                      ) => (
-
+                    {( previewScenario.unassigned ?? []).map((item,) => (
                         <div
-                          key={
-                            item.flightId
-                          }
-                          className="flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-white px-3 py-2"
+                          key={item.flightId}
+                          className="flex items-center
+                                     justify-between 
+                                     gap-3 rounded-xl 
+                                     border border-amber-200
+                                   bg-white px-3 py-2"
                         >
-
                           <div>
-
                             <span className="font-mono text-xs font-black text-slate-900">
-                              {
-                                item.flightNumber
-                              }
+                              {item.flightNumber}
                             </span>
-
                             <span className="ml-2 text-[10px] font-semibold text-slate-500">
-                              {
-                                item.origin
-                              }{' '}
-                              →{' '}
-                              {
-                                item.destination
-                              }
+                              {item.origin}{' '}→{' '}
+                              {item.destination}
                             </span>
-
                           </div>
-
                           <span className="text-[9px] font-black uppercase text-amber-700">
-                            {
-                              item.reason
-                            }
+                            {item.reason}
                           </span>
-
                         </div>
-
                       ),
                     )}
-
                   </div>
-
                 )}
-
               </div>
-
             </section>
-
           )}
-
           {/* ============================================================= */}
           {/* CHARTS                                                        */}
           {/* ============================================================= */}
-
           <section className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-
             <div className="flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-
               <h3 className="mb-2 text-sm font-bold text-slate-900">
                 Répartition par statut
               </h3>
-
               <div className="relative h-60 w-full">
-
                 {pieChartData.length >
                 0 ? (
-
                   <>
-
                     <ResponsiveContainer
                       width="100%"
                       height="100%"
                     >
-
                       <PieChart>
-
                         <Pie
                           data={
                             pieChartData
                           }
                           cx="50%"
                           cy="50%"
-                          innerRadius={
-                            65
-                          }
-                          outerRadius={
-                            85
-                          }
-                          paddingAngle={
-                            4
-                          }
+                          innerRadius={65}
+                          outerRadius={85}
+                          paddingAngle={4}
                           dataKey="value"
                         >
-
                           {pieChartData.map(
                             (
                               entry,
                               index,
                             ) => (
-
                               <Cell
                                 key={`cell-${index}`}
                                 fill={
@@ -3016,81 +2730,52 @@ export const FlightSchedulerDashboard:
                                   2
                                 }
                               />
-
                             ),
                           )}
-
                         </Pie>
-
                         <Tooltip />
-
                       </PieChart>
-
                     </ResponsiveContainer>
-
                     <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-
                       <span className="text-2xl font-black text-slate-800">
                         {
                           effectiveAnalytics.totalFlights
                         }
                       </span>
-
                       <span className="text-[10px] font-semibold uppercase text-slate-400">
                         Vols
                       </span>
-
                     </div>
-
                   </>
-
                 ) : (
-
                   <div className="flex h-full items-center justify-center text-xs text-slate-400">
                     Aucune donnée disponible
                   </div>
-
                 )}
-
               </div>
-
             </div>
-
             <div className="flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-
               <h3 className="mb-2 text-sm font-bold text-slate-900">
                 Départs par tranche horaire
               </h3>
-
               <div className="h-60 w-full">
-
                 {barChartData.length >
                 0 ? (
-
                   <ResponsiveContainer
                     width="100%"
                     height="100%"
                   >
-
                     <BarChart
                       data={
                         barChartData
                       }
                       margin={{
-                        top:
-                          10,
-
-                        right:
-                          10,
-
-                        left:
-                          -20,
-
-                        bottom:
-                          0,
+                        top:10,
+                        right:10,
+                        left:-20,
+                        bottom:0,
                       }}
                     >
-
                       <XAxis
                         dataKey="hour"
                         stroke="#94a3b8"
@@ -3105,7 +2790,6 @@ export const FlightSchedulerDashboard:
                           false
                         }
                       />
-
                       <YAxis
                         stroke="#94a3b8"
                         tick={{
@@ -3122,109 +2806,57 @@ export const FlightSchedulerDashboard:
                           false
                         }
                       />
-
                       <Tooltip />
-
                       <Bar
                         dataKey="vols"
                         fill="#047857"
-                        radius={[
-                          6,
-                          6,
-                          0,
-                          0,
-                        ]}
+                        radius={[6,6,0,0,]}
                         barSize={
                           24
                         }
                       />
-
                     </BarChart>
-
                   </ResponsiveContainer>
-
                 ) : (
-
                   <div className="flex h-full items-center justify-center text-xs text-slate-400">
                     Aucun départ enregistré
                   </div>
-
                 )}
-
               </div>
-
             </div>
-
           </section>
-
           {/* ============================================================= */}
           {/* TABLE                                                         */}
           {/* ============================================================= */}
-
           <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-
             <div className="flex items-center justify-between border-b border-slate-200 p-4 sm:p-5">
-
               <h3 className="flex items-center gap-2 text-base font-bold text-slate-900">
-
                 <Layers className="h-4 w-4 text-emerald-700" />
-
                 Registre des vols
-
               </h3>
-
               <span className="text-xs font-semibold text-slate-400">
                 {
                   filteredFlights.length
                 }{' '}
                 vol(s)
               </span>
-
             </div>
-
             <div className="overflow-x-auto">
-
               <table className="w-full min-w-225 text-left text-xs text-slate-600 sm:text-sm">
-
                 <thead className="border-b border-slate-200 bg-slate-50 text-[10px] font-black uppercase tracking-wider text-slate-500">
-
                   <tr>
-
-                    <th className="px-4 py-3">
-                      Vol
-                    </th>
-
-                    <th className="px-4 py-3">
-                      Itinéraire
-                    </th>
-
-                    <th className="px-4 py-3">
-                      Départ
-                    </th>
-
-                    <th className="px-4 py-3">
-                      Arrivée
-                    </th>
-
-                    <th className="px-4 py-3">
-                      Appareil
-                    </th>
-
-                    <th className="px-4 py-3 text-right">
-                      Statut
-                    </th>
-
+                    <th className="px-4 py-3">Vol</th>
+                    <th className="px-4 py-3">Itinéraire</th>
+                    <th className="px-4 py-3">Départ</th>
+                    <th className="px-4 py-3">Arrivée</th>
+                    <th className="px-4 py-3">Appareil</th>
+                    <th className="px-4 py-3 text-right">Statut</th>
                   </tr>
-
                 </thead>
-
                 <tbody className="divide-y divide-slate-100">
-
                   {filteredFlights.length ===
                   0 ? (
-
                     <tr>
-
                       <td
                         colSpan={
                           6
@@ -3233,11 +2865,8 @@ export const FlightSchedulerDashboard:
                       >
                         Aucun vol trouvé
                       </td>
-
                     </tr>
-
                   ) : (
-
                     filteredFlights.map(
                       (
                         flight,
@@ -3246,28 +2875,23 @@ export const FlightSchedulerDashboard:
                           normalizeFlightStatus(
                             flight.status,
                           );
-
                         const config =
                           STATUS_CONFIG[
                             status
                           ] ??
                           DEFAULT_STATUS_CONFIG;
-
                         return (
-
                           <tr
                             key={
                               flight.id
                             }
                             className="transition hover:bg-slate-50/80"
                           >
-
                             <td className="px-4 py-3.5 font-bold text-slate-900">
                               {
                                 flight.flightNumber
                               }
                             </td>
-
                             <td className="px-4 py-3.5 font-semibold text-slate-700">
                               {
                                 flight.origin
@@ -3277,90 +2901,58 @@ export const FlightSchedulerDashboard:
                                 flight.destination
                               }
                             </td>
-
                             <td className="px-4 py-3.5 text-slate-500">
                               {formatDateTime(
                                 flight.localDeparture ??
                                   flight.departure,
                               )}
                             </td>
-
                             <td className="px-4 py-3.5 text-slate-500">
                               {formatDateTime(
                                 flight.localArrival ??
                                   flight.arrival,
                               )}
                             </td>
-
                             <td className="px-4 py-3.5 text-slate-600">
                               {flight.aircraftModel ||
                                 flight.aircraft ||
                                 'Non assigné'}
                             </td>
-
                             <td className="px-4 py-3.5 text-right">
-
                               <span
                                 className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${config.badgeBg}`}
                               >
-
                                 <span
                                   className={`h-1.5 w-1.5 rounded-full ${config.dot}`}
                                 />
-
                                 {
                                   status
                                 }
-
                               </span>
-
                             </td>
-
                           </tr>
-
                         );
                       },
                     )
-
                   )}
-
                 </tbody>
-
               </table>
-
             </div>
-
           </section>
-
         </div>
-
       </div>
     );
   };
-
 /* ============================================================================
  * SMALL COMPONENTS
  * ========================================================================== */
-
-function NumberField({
-  label,
-  value,
-  min,
-  max,
+function NumberField({label,value,min,max,
   onChange,
 }: {
-  label:
-    string;
-
-  value:
-    number;
-
-  min:
-    number;
-
-  max:
-    number;
-
+  label:string;
+  value:number;
+  min:number;
+  max:number;
   onChange:
     (
       value: number,
