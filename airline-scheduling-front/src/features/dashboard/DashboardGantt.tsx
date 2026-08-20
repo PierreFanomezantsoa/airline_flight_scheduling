@@ -2496,7 +2496,7 @@ export const DashboardGantt:
             }}
             className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-[2px]"
           >
-            <div className="w-full max-w-[560px] overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
+            <div className="w-full max-w-140 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
               {/* HEADER */}
               <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3.5">
                 <div className="min-w-0">
