@@ -2946,69 +2946,6 @@ export const FlightSchedulerDashboard:
 /* ============================================================================
  * SMALL COMPONENTS
  * ========================================================================== */
-function NumberField({label,value,min,max,
-  onChange,
-}: {
-  label:string;
-  value:number;
-  min:number;
-  max:number;
-  onChange:
-    (
-      value: number,
-    ) => void;
-}) {
-  return (
-    <label className="block">
-
-      <span className="mb-1.5 block text-[9px] font-black uppercase tracking-wider text-slate-400">
-        {
-          label
-        }
-      </span>
-
-      <input
-        type="number"
-        min={
-          min
-        }
-        max={
-          max
-        }
-        value={
-          value
-        }
-        onChange={(
-          event,
-        ) => {
-          const parsed =
-            Number(
-              event.target.value,
-            );
-
-          onChange(
-            Math.max(
-              min,
-
-              Math.min(
-                max,
-
-                Number.isFinite(
-                  parsed,
-                )
-                  ? parsed
-                  : min,
-              ),
-            ),
-          );
-        }}
-        className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold outline-none focus:border-emerald-700 focus:bg-white focus:ring-4 focus:ring-emerald-100/60"
-      />
-
-    </label>
-  );
-}
-
 function MetricCard({
   label,
   value,

@@ -517,15 +517,8 @@ export const DashboardGantt:
     ] =
       useState('');
 
-    const [
-      lastUpdatedAt,
-      setLastUpdatedAt,
-    ] =
-      useState<
-        Date | null
-      >(
-        null,
-      );
+    const [, setLastUpdatedAt] =
+      useState<Date | null>(null);
 
     /* =========================================================================
      * FORMATTERS
