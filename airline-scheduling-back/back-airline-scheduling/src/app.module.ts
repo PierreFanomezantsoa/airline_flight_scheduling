@@ -11,6 +11,7 @@ import { FleetModule } from './fleet/fleet.module';
 import { CrewModule } from './crew/crew.module';
 import { MaintenanceModule } from './maintenance/maintenance.module';
 import { AirportsModule } from './airports/airports.module';
+import { NetworkConfigurationModule } from './network-configuration/network-configuration.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { AirportsModule } from './airports/airports.module';
     CrewModule,
     MaintenanceModule,
     AirportsModule,
+    NetworkConfigurationModule,
   ],
 })
 export class AppModule {}

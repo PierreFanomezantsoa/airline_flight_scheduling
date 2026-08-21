@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Not, Repository } from 'typeorm';
 import { SchedulingPolicy } from '../../common/constants/scheduling-policy';
+import { NetworkConfigurationService } from '../../network-configuration/network-configuration.service';
 import {
   AircraftStatus,
   ConflictSeverity,
@@ -30,7 +31,21 @@ export class ScheduleConflictService {
     private readonly maintenanceRepository: Repository<MaintenanceSlot>,
     @InjectRepository(CrewAssignment)
     private readonly crewAssignmentRepository: Repository<CrewAssignment>,
+    @Optional()
+    private readonly networkConfigurationService?: NetworkConfigurationService,
   ) {}
+
+  private get policy() {
+    return this.networkConfigurationService?.getPolicy() ?? {
+      minimumTurnaroundMinutes: SchedulingPolicy.minimumTurnaroundMinutes,
+      mediumHaulTurnaroundMinutes: SchedulingPolicy.minimumTurnaroundMinutes,
+      longHaulTurnaroundMinutes: Number(process.env.LONG_HAUL_TURNAROUND_MINUTES ?? 90),
+      positioningBufferMinutes: SchedulingPolicy.positioningBufferMinutes,
+      minimumCrewRestHours: SchedulingPolicy.minimumCrewRestHours,
+      maximumContinuousFlightHours: Number(process.env.MAX_CONTINUOUS_FLIGHT_HOURS ?? 8),
+      maintenanceWarningHours: SchedulingPolicy.maintenanceWarningHours,
+    };
+  }
 
   async validateCandidate(
     candidate: FlightCandidate,
@@ -204,14 +219,14 @@ export class ScheduleConflictService {
       return conflicts;
     }
 
-    if (gapMinutes < SchedulingPolicy.minimumTurnaroundMinutes) {
+    if (gapMinutes < this.policy.minimumTurnaroundMinutes) {
       conflicts.push({
         id: `TURNAROUND:${current.id}:${next.id}`,
         type: ScheduleConflictType.TURNAROUND_TOO_SHORT,
         severity: ConflictSeverity.HIGH,
         blocking: true,
         reason: `Rotation ${current.numeroVol} → ${next.numeroVol}: ${Math.round(gapMinutes)} min au sol.`,
-        recommendation: `Respecter la politique de turnaround configurée (${SchedulingPolicy.minimumTurnaroundMinutes} min) ou changer d'appareil.`,
+        recommendation: `Respecter la politique de turnaround configurée (${this.policy.minimumTurnaroundMinutes} min) ou changer d'appareil.`,
         flightId: current.id,
         relatedFlightId: next.id,
         flightNumber: current.numeroVol,
@@ -224,7 +239,7 @@ export class ScheduleConflictService {
 
     if (
       current.aeroportArrivee !== next.aeroportDepart &&
-      gapMinutes < SchedulingPolicy.positioningBufferMinutes
+      gapMinutes < this.policy.positioningBufferMinutes
     ) {
       conflicts.push({
         id: `POSITION:${current.id}:${next.id}`,
@@ -364,7 +379,7 @@ export class ScheduleConflictService {
       }];
     }
 
-    if (remaining <= SchedulingPolicy.maintenanceWarningHours) {
+    if (remaining <= this.policy.maintenanceWarningHours) {
       return [{
         id: `MAINTENANCE_WARNING:${candidate.numeroVol}:${aircraft.id}`,
         type: ScheduleConflictType.MAINTENANCE_DUE,
@@ -416,14 +431,14 @@ export class ScheduleConflictService {
             relatedFlightNumber: next.vol.numeroVol,
             metadata: { userId: current.utilisateurId },
           });
-        } else if (gapHours < SchedulingPolicy.minimumCrewRestHours) {
+        } else if (gapHours < this.policy.minimumCrewRestHours) {
           conflicts.push({
             id: `CREW_REST:${current.id}:${next.id}`,
             type: ScheduleConflictType.CREW_REST,
             severity: ConflictSeverity.HIGH,
             blocking: true,
             reason: `${current.utilisateur.nom} dispose de ${gapHours.toFixed(1)} h de repos entre ${current.vol.numeroVol} et ${next.vol.numeroVol}.`,
-            recommendation: `Respecter la politique de repos configurée (${SchedulingPolicy.minimumCrewRestHours} h) ou réaffecter l'équipage.`,
+            recommendation: `Respecter la politique de repos configurée (${this.policy.minimumCrewRestHours} h) ou réaffecter l'équipage.`,
             flightId: current.vol.id,
             relatedFlightId: next.vol.id,
             flightNumber: current.vol.numeroVol,

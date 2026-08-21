@@ -1,11 +1,13 @@
 import {
   ConflictException,
   Injectable,
+  Optional,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { SchedulingPolicy } from '../common/constants/scheduling-policy';
+import { NetworkConfigurationService } from '../network-configuration/network-configuration.service';
 import { FlightStatus } from '../common/enums/airline.enums';
 import { Flight } from '../flights/entities/flight.entity';
 import { User } from '../users/entities/user.entity';
@@ -22,7 +24,16 @@ export class CrewService {
     private readonly flightRepository: Repository<Flight>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @Optional()
+    private readonly networkConfigurationService?: NetworkConfigurationService,
   ) {}
+
+  private get minimumCrewRestHours(): number {
+    return (
+      this.networkConfigurationService?.getPolicy().minimumCrewRestHours ??
+      SchedulingPolicy.minimumCrewRestHours
+    );
+  }
 
   async create(dto: CreateCrewAssignmentDto): Promise<CrewAssignment> {
     const flight = await this.getFlight(dto.volId);
@@ -162,10 +173,10 @@ export class CrewService {
     if (!previous) return null;
 
     const restHours = (target.heureDepart.getTime() - previous.vol.heureArrivee.getTime()) / 3_600_000;
-    if (restHours < SchedulingPolicy.minimumCrewRestHours) {
+    if (restHours < this.minimumCrewRestHours) {
       throw new ConflictException({
         code: 'CREW_REST',
-        message: `Repos de ${restHours.toFixed(1)} h seulement; politique configurée: ${SchedulingPolicy.minimumCrewRestHours} h.`,
+        message: `Repos de ${restHours.toFixed(1)} h seulement; politique configurée: ${this.minimumCrewRestHours} h.`,
         previousFlightId: previous.vol.id,
       });
     }
