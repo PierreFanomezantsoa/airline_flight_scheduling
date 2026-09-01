@@ -8,6 +8,8 @@ from flask import Blueprint, jsonify, request
 
 import models as models_module
 from models import db, Flight, Aircraft
+from common.datetime_utils import ensure_utc
+from common.status_utils import normalize_status
 
 try:
     from data.airports import get_airport_timezone
@@ -48,24 +50,6 @@ IGNORED_FLIGHT_STATUSES = {
 # =============================================================================
 # UTILITAIRES
 # =============================================================================
-
-def ensure_utc(dt: Optional[datetime]) -> Optional[datetime]:
-    if dt is None:
-        return None
-    if dt.tzinfo is None:
-        return dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone(timezone.utc)
-
-
-def normalize_status(value: Any) -> str:
-    return (
-        str(value or "")
-        .strip()
-        .upper()
-        .replace("-", "_")
-        .replace(" ", "_")
-    )
-
 
 def safe_int(value: Any, default: int, minimum: int = 0, maximum: int | None = None) -> int:
     try:

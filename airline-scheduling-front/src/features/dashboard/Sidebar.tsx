@@ -1,6 +1,7 @@
 // features/dashboard/Sidebar.tsx
 
 import React, {
+  useMemo,
   useState,
 } from 'react';
 
@@ -10,6 +11,7 @@ import {
   Plane,
   CalendarDays,
   Users,
+  UserCog,
   Wrench,
   AlertTriangle,
   Settings,
@@ -32,6 +34,7 @@ import type {
 
 export type ActiveScreen =
   | 'dashboard'
+  | 'users'
   | 'scheduling'
   | 'fleet'
   | 'aircraft'
@@ -122,6 +125,17 @@ const mobileMenuItems:
 
       icon:
         LayoutDashboard,
+    },
+
+    {
+      id:
+        'users',
+
+      label:
+        'Utilisateurs',
+
+      icon:
+        UserCog,
     },
 
     {
@@ -265,6 +279,20 @@ const coreMenuItems:
 
     {
       id:
+        'users',
+
+      label:
+        'Gestion des utilisateurs',
+
+      icon:
+        UserCog,
+
+      badge:
+        'Admin',
+    },
+
+    {
+      id:
         'scheduling',
 
       label:
@@ -392,6 +420,7 @@ const allowedScreens:
   > = {
     Admin: [
       'dashboard',
+      'users',
       'scheduling',
       'fleet',
       'aircraft',
@@ -556,8 +585,14 @@ export const Sidebar:
         .toUpperCase();
 
     const currentRole =
-      normalizeRole(
-        user?.role,
+      useMemo(
+        () =>
+          normalizeRole(
+            user?.role,
+          ),
+        [
+          user?.role,
+        ],
       );
 
     const userRoleLabel:
@@ -581,12 +616,9 @@ export const Sidebar:
           MenuItem[],
       ) => {
         if (
-          !currentRole ||
-          !allowedScreens[
-            currentRole
-          ]
+          !currentRole
         ) {
-          return items;
+          return [];
         }
 
         return items.filter(
@@ -602,27 +634,81 @@ export const Sidebar:
       };
 
     const visibleCoreMenuItems =
-      getVisibleItems(
-        coreMenuItems,
+      useMemo(
+        () =>
+          getVisibleItems(
+            coreMenuItems,
+          ),
+        [
+          currentRole,
+        ],
       );
 
     const visibleAdvancedMenuItems =
-      getVisibleItems(
-        advancedMenuItems,
+      useMemo(
+        () =>
+          getVisibleItems(
+            advancedMenuItems,
+          ),
+        [
+          currentRole,
+        ],
       );
 
     const visibleMobileMenuItems =
-      getVisibleItems(
-        mobileMenuItems,
+      useMemo(
+        () =>
+          getVisibleItems(
+            mobileMenuItems,
+          ),
+        [
+          currentRole,
+        ],
       );
 
     const canAccessHelp =
-      !currentRole ||
-      allowedScreens[
-        currentRole
-      ]?.includes(
-        'help',
+      Boolean(
+        currentRole &&
+        allowedScreens[
+          currentRole
+        ].includes(
+          'help',
+        ),
       );
+
+    /* =========================================================================
+     * NAVIGATION SÉCURISÉE
+     * ======================================================================= */
+
+    const handleNavigate =
+      (
+        screen:
+          ActiveScreen,
+      ) => {
+        if (
+          !currentRole
+        ) {
+          return;
+        }
+
+        if (
+          !allowedScreens[
+            currentRole
+          ].includes(
+            screen,
+          )
+        ) {
+          console.warn(
+            `[SIDEBAR] Accès refusé à "${screen}" pour le rôle "${currentRole}".`,
+          );
+
+          return;
+        }
+
+        setActiveScreen(
+          screen,
+        );
+      };
 
     /* =========================================================================
      * BOUTON DESKTOP
@@ -647,7 +733,7 @@ export const Sidebar:
             }
             type="button"
             onClick={() =>
-              setActiveScreen(
+              handleNavigate(
                 item.id,
               )
             }
@@ -680,6 +766,7 @@ export const Sidebar:
                     : 'text-slate-400 group-hover:text-slate-600'
                 }`}
               />
+
               {!isCollapsed && (
                 <span className="truncate transition-all duration-200">
                   {
@@ -688,6 +775,7 @@ export const Sidebar:
                 </span>
               )}
             </div>
+
             {!isCollapsed &&
               item.badge && (
                 <span
@@ -705,15 +793,18 @@ export const Sidebar:
           </button>
         );
       };
+
     /* =========================================================================
      * RENDER
      * ======================================================================= */
+
     return (
       <>
         {/* =====================================================================
             VUE MOBILE
         ===================================================================== */}
-        <nav className="scrollbar-none fixed bottom-0 left-0 right-0 z-50 flex h-16 select-none items-center justify-between gap-1 overflow-x-auto border-t border-slate-200 bg-white/95 px-1 shadow-lg backdrop-blur-lg md:hidden">
+
+        <nav className="scrollbar-none fixed bottom-0 left-0 right-0 z-50 flex h-16 select-none items-center justify-start gap-1 overflow-x-auto border-t border-slate-200 bg-white/95 px-1 shadow-lg backdrop-blur-lg md:hidden">
           {visibleMobileMenuItems.map(
             (
               item,
@@ -726,14 +817,13 @@ export const Sidebar:
                 item.id;
 
               return (
-
                 <button
                   key={
                     item.id
                   }
                   type="button"
                   onClick={() =>
-                    setActiveScreen(
+                    handleNavigate(
                       item.id,
                     )
                   }
@@ -750,11 +840,13 @@ export const Sidebar:
                         : ''
                     }`}
                   />
+
                   <span className="mt-1 whitespace-nowrap text-[10px] tracking-tight">
                     {
                       item.label
                     }
                   </span>
+
                   {isActive && (
                     <div className="absolute left-1/2 top-0 h-0.5 w-6 -translate-x-1/2 rounded-full bg-emerald-700" />
                   )}
@@ -763,9 +855,11 @@ export const Sidebar:
             },
           )}
         </nav>
+
         {/* =====================================================================
             VUE DESKTOP
         ===================================================================== */}
+
         <div className="sticky top-0 hidden h-screen shrink-0 p-3 md:block">
           <aside
             className={`flex h-full flex-col justify-between overflow-hidden rounded-3xl border border-gray-200/80 bg-white text-slate-800 shadow-xs transition-all duration-300 ease-in-out ${
@@ -777,14 +871,16 @@ export const Sidebar:
             {/* =================================================================
                 CONTENU SCROLLABLE
             ================================================================= */}
+
             <div className="scrollbar-thin scrollbar-thumb-slate-200 overflow-y-auto">
               {/* ===============================================================
                   HEADER
               =============================================================== */}
+
               <div
                 className={`flex items-center border-b border-gray-100 py-5 transition-all duration-300 ${
                   isCollapsed
-                    ? 'justify-center px-0'
+                    ? 'flex-col justify-center gap-2 px-0'
                     : 'justify-between px-5'
                 }`}
               >
@@ -798,22 +894,28 @@ export const Sidebar:
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-emerald-700 shadow-md shadow-emerald-700/20">
                     <Plane className="h-5 w-5 text-white" />
                   </div>
+
                   {!isCollapsed && (
                     <div className="overflow-hidden transition-opacity duration-200">
                       <h1 className="m-0 text-base font-extrabold leading-none tracking-tight text-slate-800">
                         Opérations aériennes
                       </h1>
+
                       <p className="m-0 mt-1 truncate text-[11px] font-medium text-slate-400">
                         Centre de planification des vols
                       </p>
                     </div>
                   )}
                 </div>
+
                 <button
                   type="button"
                   onClick={() =>
                     setIsCollapsed(
-                      !isCollapsed,
+                      (
+                        previous,
+                      ) =>
+                        !previous,
                     )
                   }
                   title={
@@ -821,18 +923,21 @@ export const Sidebar:
                       ? 'Agrandir la barre latérale'
                       : 'Réduire la barre latérale'
                   }
-                  className={`cursor-pointer rounded-lg border-none bg-transparent p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 ${
+                  aria-label={
                     isCollapsed
-                      ? 'mt-3'
-                      : ''
-                  }`}
+                      ? 'Agrandir la barre latérale'
+                      : 'Réduire la barre latérale'
+                  }
+                  className="cursor-pointer rounded-lg border-none bg-transparent p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
                 >
                   <AlignLeft className="h-4 w-4" />
                 </button>
               </div>
+
               {/* ===============================================================
                   NAVIGATION
               =============================================================== */}
+
               <nav className="space-y-5 p-3">
                 {visibleCoreMenuItems.length >
                   0 && (
@@ -842,11 +947,13 @@ export const Sidebar:
                         Général
                       </p>
                     )}
+
                     {visibleCoreMenuItems.map(
                       renderDesktopButton,
                     )}
                   </div>
                 )}
+
                 {visibleAdvancedMenuItems.length >
                   0 && (
                   <div className="space-y-1">
@@ -855,6 +962,7 @@ export const Sidebar:
                         Gestion opérationnelle
                       </p>
                     )}
+
                     {visibleAdvancedMenuItems.map(
                       renderDesktopButton,
                     )}
@@ -862,19 +970,22 @@ export const Sidebar:
                 )}
               </nav>
             </div>
+
             {/* =================================================================
                 FOOTER
             ================================================================= */}
+
             <div className="border-t border-gray-100 bg-slate-50/50 p-3">
               {/* ===============================================================
                   AIDE ET SUPPORT
               =============================================================== */}
+
               {canAccessHelp && (
                 <div className="mb-2 px-2">
                   <button
                     type="button"
                     onClick={() =>
-                      setActiveScreen(
+                      handleNavigate(
                         'help',
                       )
                     }
@@ -902,6 +1013,7 @@ export const Sidebar:
                           : 'text-slate-400'
                       }`}
                     />
+
                     {!isCollapsed && (
                       <span>
                         Aide et support
@@ -910,9 +1022,11 @@ export const Sidebar:
                   </button>
                 </div>
               )}
+
               {/* ===============================================================
                   UTILISATEUR
               =============================================================== */}
+
               <div
                 className={`flex items-center border-t border-gray-200/60 pt-2 ${
                   isCollapsed
@@ -934,6 +1048,7 @@ export const Sidebar:
                         <User className="h-4 w-4 text-emerald-700" />
                       )}
                   </div>
+
                   {!isCollapsed && (
                     <div className="overflow-hidden">
                       <h3 className="m-0 truncate text-xs font-bold leading-tight text-slate-800">
@@ -941,6 +1056,7 @@ export const Sidebar:
                           userDisplayName
                         }
                       </h3>
+
                       <p className="m-0 mt-0.5 truncate text-[10px] font-medium text-slate-400">
                         {
                           userRoleLabel
@@ -956,19 +1072,15 @@ export const Sidebar:
                     onLogout
                   }
                   title="Déconnexion"
+                  aria-label="Déconnexion"
                   className="cursor-pointer rounded-lg border-none bg-transparent p-1.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
                 >
                   <LogOut className="h-4 w-4" />
                 </button>
-
               </div>
-
             </div>
-
           </aside>
-
         </div>
-
       </>
     );
   };

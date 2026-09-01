@@ -1,9 +1,15 @@
+// src/App.tsx
+
 import {
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
+} from 'react';
+
+import type {
+  ReactNode,
 } from 'react';
 
 import {
@@ -13,29 +19,129 @@ import {
   User,
 } from 'lucide-react';
 
-import { DashboardGantt } from './features/dashboard/DashboardGantt';
-import { FlightSchedulerDashboard } from './features/dashboard/FlightSchedulerDashboard';
+// =============================================================================
+// DASHBOARD
+// =============================================================================
 
-import { FlightsPlanning } from './features/flights/FlightsPlanning';
-import FlightHistory from './features/flights/FlightHistory';
+import {
+  DashboardGantt,
+} from './features/dashboard/DashboardGantt';
 
-import CrewAssignmentsPage from './features/crew/CrewAssignmentsPage';
+import {
+  FlightSchedulerDashboard,
+} from './features/dashboard/FlightSchedulerDashboard';
 
-import { FleetManagement } from './features/fleet/FleetManagement';
-import { AircraftManagement } from './features/Aircraft/AircraftManagement';
+// =============================================================================
+// FLIGHTS
+// =============================================================================
 
-import { MaintenancePlanning } from './features/maintenance/MaintenancePlanning';
-import { DisruptionCenter } from './features/disruptions/DisruptionCenter';
-import { NetworkSettings } from './features/settings/NetworkSettings';
+import {
+  FlightsPlanning,
+} from './features/flights/FlightsPlanning';
 
-import { FlightOptimizationDashboard } from './features/dashboard/FlightOptimizationDashboard';
+import FlightHistory
+  from './features/flights/FlightHistory';
 
-import HelpSupportPage from './features/Aide/HelpSupportPage';
+// =============================================================================
+// CREW
+// =============================================================================
 
-import { Sidebar } from './features/dashboard/Sidebar';
-import type { ActiveScreen } from './features/dashboard/Sidebar';
+import CrewAssignmentsPage
+  from './features/crew/CrewAssignmentsPage';
 
-import { AuthPage } from './features/auth/AuthPage';
+// =============================================================================
+// FLEET
+// =============================================================================
+
+import {
+  FleetManagement,
+} from './features/fleet/FleetManagement';
+
+import {
+  AircraftManagement,
+} from './features/Aircraft/AircraftManagement';
+
+// =============================================================================
+// MAINTENANCE
+// =============================================================================
+
+import {
+  MaintenancePlanning,
+} from './features/maintenance/MaintenancePlanning';
+
+// =============================================================================
+// DISRUPTIONS
+// =============================================================================
+
+import {
+  DisruptionCenter,
+} from './features/disruptions/DisruptionCenter';
+
+// =============================================================================
+// SETTINGS
+// =============================================================================
+
+import {
+  NetworkSettings,
+} from './features/settings/NetworkSettings';
+
+// =============================================================================
+// OPTIMIZATION
+// =============================================================================
+
+import {
+  FlightOptimizationDashboard,
+} from './features/dashboard/FlightOptimizationDashboard';
+
+// =============================================================================
+// HELP
+// =============================================================================
+
+import HelpSupportPage
+  from './features/Aide/HelpSupportPage';
+
+// =============================================================================
+// SIDEBAR
+// =============================================================================
+
+import {
+  Sidebar,
+} from './features/dashboard/Sidebar';
+
+import type {
+  ActiveScreen,
+} from './features/dashboard/Sidebar';
+
+// =============================================================================
+// AUTHENTIFICATION UTILISATEUR
+// =============================================================================
+
+import {
+  AuthPage,
+} from './features/auth/AuthPage';
+
+// =============================================================================
+// AUTHENTIFICATION ADMIN
+// =============================================================================
+
+import {
+  AdminDashboard,
+} from './features/auth/AdminDashboard';
+
+// =============================================================================
+// GESTION UTILISATEURS ADMIN
+// =============================================================================
+
+import UsersManagementPage
+  from './features/auth/UsersManagementPage';
+
+// =============================================================================
+// API AUTH
+// =============================================================================
+//
+// D'après ton dernier fichier :
+// src/Api/authApi.ts
+//
 
 import {
   clearAuthSession,
@@ -44,27 +150,47 @@ import {
   type UserRole,
 } from './features/Api/apiService';
 
-/* =============================================================================
- * AUTH / AUTORISATIONS
- * ========================================================================== */
+// =============================================================================
+// TYPES
+// =============================================================================
 
 type AppUser = Pick<
   PublicUser,
-  'id' | 'nom' | 'email' | 'role'
+  | 'id'
+  | 'nom'
+  | 'email'
+  | 'role'
 > & {
   avatarUrl?: string;
 };
 
-/* =============================================================================
- * AUTORISATIONS PAR RÔLE
- * ========================================================================== */
+// =============================================================================
+// TYPE PAGE AUTH
+// =============================================================================
 
-const ROLE_SCREEN_PERMISSIONS: Record<
+type AuthenticationPage =
+  | 'user'
+  | 'admin';
+
+// =============================================================================
+// AUTORISATIONS
+// =============================================================================
+
+const ROLE_SCREEN_PERMISSIONS:
+Record<
   UserRole,
   ActiveScreen[]
 > = {
+  // ===========================================================================
+  // ADMIN
+  // ===========================================================================
+
   Admin: [
     'dashboard',
+
+    // Gestion / validation des utilisateurs
+    'users',
+
     'scheduling',
     'fleet',
     'aircraft',
@@ -77,6 +203,10 @@ const ROLE_SCREEN_PERMISSIONS: Record<
     'settings',
     'help',
   ],
+
+  // ===========================================================================
+  // PLANIFICATEUR
+  // ===========================================================================
 
   Planificateur: [
     'dashboard',
@@ -90,6 +220,10 @@ const ROLE_SCREEN_PERMISSIONS: Record<
     'help',
   ],
 
+  // ===========================================================================
+  // REGULATOR
+  // ===========================================================================
+
   Regulator: [
     'dashboard',
     'scheduling',
@@ -102,6 +236,10 @@ const ROLE_SCREEN_PERMISSIONS: Record<
     'help',
   ],
 
+  // ===========================================================================
+  // MAINTENANCE
+  // ===========================================================================
+
   Maintenance_Engineer: [
     'dashboard',
     'scheduling',
@@ -112,6 +250,10 @@ const ROLE_SCREEN_PERMISSIONS: Record<
     'help',
   ],
 
+  // ===========================================================================
+  // CREW
+  // ===========================================================================
+
   Crew_Member: [
     'dashboard',
     'flights',
@@ -119,6 +261,10 @@ const ROLE_SCREEN_PERMISSIONS: Record<
     'crew',
     'help',
   ],
+
+  // ===========================================================================
+  // PRODUCT OWNER
+  // ===========================================================================
 
   Product_Owner: [
     'dashboard',
@@ -134,21 +280,23 @@ const ROLE_SCREEN_PERMISSIONS: Record<
   ],
 };
 
-/* =============================================================================
- * LIBELLÉS DES RÔLES
- * ========================================================================== */
+// =============================================================================
+// RÔLES
+// =============================================================================
 
-const ROLE_LABELS: Record<
+const ROLE_LABELS:
+Record<
   UserRole,
   string
 > = {
-  Admin: 'Administrateur',
+  Admin:
+    'Administrateur',
 
   Planificateur:
     'Planificateur',
 
   Regulator:
-    'Régulateur',
+    'Régulateur OCC',
 
   Maintenance_Engineer:
     'Ingénieur Maintenance',
@@ -160,11 +308,12 @@ const ROLE_LABELS: Record<
     'Product Owner',
 };
 
-/* =============================================================================
- * TITRES DES ÉCRANS
- * ========================================================================== */
+// =============================================================================
+// TITRES DES ÉCRANS
+// =============================================================================
 
-const SCREEN_META: Record<
+const SCREEN_META:
+Record<
   ActiveScreen,
   {
     title: string;
@@ -173,6 +322,15 @@ const SCREEN_META: Record<
   dashboard: {
     title:
       'Tableau de bord opérationnel',
+  },
+
+  // ===========================================================================
+  // ADMIN - USERS
+  // ===========================================================================
+
+  users: {
+    title:
+      'Gestion des utilisateurs',
   },
 
   scheduling: {
@@ -231,9 +389,9 @@ const SCREEN_META: Record<
   },
 };
 
-/* =============================================================================
- * VÉRIFICATION DU RÔLE
- * ========================================================================== */
+// =============================================================================
+// VÉRIFICATION RÔLE
+// =============================================================================
 
 function isUserRole(
   role: unknown,
@@ -246,33 +404,38 @@ function isUserRole(
   );
 }
 
-/* =============================================================================
- * ÉCRAN PAR DÉFAUT SELON LE RÔLE
- * ========================================================================== */
+// =============================================================================
+// ÉCRAN PAR DÉFAUT
+// =============================================================================
 
 function getDefaultScreenForRole(
   role: UserRole,
 ): ActiveScreen {
-  if (
-    role ===
-    'Maintenance_Engineer'
+  switch (
+    role
   ) {
-    return 'maintenance';
-  }
+    case 'Maintenance_Engineer':
+      return 'maintenance';
 
-  if (
-    role ===
-    'Crew_Member'
-  ) {
-    return 'flights';
-  }
+    case 'Crew_Member':
+      return 'flights';
 
-  return 'dashboard';
+    case 'Planificateur':
+      return 'scheduling';
+
+    case 'Admin':
+      return 'dashboard';
+
+    case 'Regulator':
+    case 'Product_Owner':
+    default:
+      return 'dashboard';
+  }
 }
 
-/* =============================================================================
- * AUTORISATION D'ACCÈS À UN ÉCRAN
- * ========================================================================== */
+// =============================================================================
+// AUTORISATION ÉCRAN
+// =============================================================================
 
 function isScreenAllowed(
   role: UserRole,
@@ -287,9 +450,9 @@ function isScreenAllowed(
   );
 }
 
-/* =============================================================================
- * RÉCUPÉRATION DU DERNIER ÉCRAN UTILISÉ
- * ========================================================================== */
+// =============================================================================
+// DERNIER ÉCRAN
+// =============================================================================
 
 function getStoredScreen(
   role: UserRole,
@@ -316,14 +479,15 @@ function getStoredScreen(
   );
 }
 
-/* =============================================================================
- * NORMALISATION UTILISATEUR
- * ========================================================================== */
+// =============================================================================
+// NORMALISATION UTILISATEUR
+// =============================================================================
 
 function normalizeAuthenticatedUser(
   user: PublicUser,
 ): AppUser | null {
   if (
+    !user ||
     !isUserRole(
       user.role,
     )
@@ -332,9 +496,11 @@ function normalizeAuthenticatedUser(
   }
 
   return {
-    id: user.id,
+    id:
+      user.id,
 
-    nom: user.nom,
+    nom:
+      user.nom,
 
     email:
       user.email,
@@ -344,17 +510,17 @@ function normalizeAuthenticatedUser(
   };
 }
 
-/* =============================================================================
- * FLOTTE : AIRCRAFT vs AIRCRAFT TYPE
- * ========================================================================== */
+// =============================================================================
+// FLOTTE
+// =============================================================================
 
 type FleetView =
   | 'aircrafts'
   | 'aircraft-types';
 
-/* =============================================================================
- * WORKSPACE FLOTTE
- * ========================================================================== */
+// =============================================================================
+// WORKSPACE FLOTTE
+// =============================================================================
 
 function FleetWorkspace() {
   const [
@@ -366,10 +532,23 @@ function FleetWorkspace() {
     );
 
   return (
-    <section className="space-y-5">
-
-      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-xs">
-
+    <section
+      className="space-y-5"
+    >
+      <div
+        className="
+          flex
+          flex-wrap
+          items-center
+          gap-2
+          rounded-2xl
+          border
+          border-slate-200
+          bg-white
+          p-2
+          shadow-xs
+        "
+      >
         <button
           type="button"
           onClick={() =>
@@ -377,12 +556,21 @@ function FleetWorkspace() {
               'aircrafts',
             )
           }
-          className={`rounded-xl px-4 py-2 text-xs font-bold transition ${
-            fleetView ===
-            'aircrafts'
-              ? 'bg-emerald-700 text-white shadow-xs'
-              : 'text-slate-600 hover:bg-slate-100'
-          }`}
+          className={`
+            rounded-xl
+            px-4
+            py-2
+            text-xs
+            font-bold
+            transition
+
+            ${
+              fleetView ===
+              'aircrafts'
+                ? 'bg-emerald-700 text-white shadow-xs'
+                : 'text-slate-600 hover:bg-slate-100'
+            }
+          `}
         >
           Avions de la flotte
         </button>
@@ -394,16 +582,24 @@ function FleetWorkspace() {
               'aircraft-types',
             )
           }
-          className={`rounded-xl px-4 py-2 text-xs font-bold transition ${
-            fleetView ===
-            'aircraft-types'
-              ? 'bg-emerald-700 text-white shadow-xs'
-              : 'text-slate-600 hover:bg-slate-100'
-          }`}
+          className={`
+            rounded-xl
+            px-4
+            py-2
+            text-xs
+            font-bold
+            transition
+
+            ${
+              fleetView ===
+              'aircraft-types'
+                ? 'bg-emerald-700 text-white shadow-xs'
+                : 'text-slate-600 hover:bg-slate-100'
+            }
+          `}
         >
           Types d&apos;avion
         </button>
-
       </div>
 
       {fleetView ===
@@ -412,14 +608,13 @@ function FleetWorkspace() {
       ) : (
         <FleetManagement />
       )}
-
     </section>
   );
 }
 
-/* =============================================================================
- * APP
- * ========================================================================== */
+// =============================================================================
+// APP
+// =============================================================================
 
 function App() {
   const profileMenuRef =
@@ -427,9 +622,9 @@ function App() {
       null,
     );
 
-  /* ===========================================================================
-   * SESSION INITIALE
-   * ======================================================================== */
+  // ===========================================================================
+  // SESSION INITIALE
+  // ===========================================================================
 
   const initialSession =
     useMemo(
@@ -439,19 +634,26 @@ function App() {
     );
 
   const initialUser =
-    useMemo(() => {
-      return initialSession?.user
-        ? normalizeAuthenticatedUser(
-            initialSession.user,
-          )
-        : null;
-    }, [
-      initialSession,
-    ]);
+    useMemo(
+      () => {
+        if (
+          !initialSession?.user
+        ) {
+          return null;
+        }
 
-  /* ===========================================================================
-   * ÉTATS
-   * ======================================================================== */
+        return normalizeAuthenticatedUser(
+          initialSession.user,
+        );
+      },
+      [
+        initialSession,
+      ],
+    );
+
+  // ===========================================================================
+  // USER
+  // ===========================================================================
 
   const [
     user,
@@ -460,6 +662,10 @@ function App() {
     useState<AppUser | null>(
       initialUser,
     );
+
+  // ===========================================================================
+  // ÉCRAN ACTIF
+  // ===========================================================================
 
   const [
     activeScreen,
@@ -479,6 +685,33 @@ function App() {
       },
     );
 
+  // ===========================================================================
+  // PAGE AUTH
+  // ===========================================================================
+
+  /**
+   * user  = AuthPage classique
+   * admin = AdminDashboard
+   *
+   * IMPORTANT :
+   * AdminDashboard est uniquement
+   * une page d'authentification Admin.
+   *
+   * Après authentification :
+   * l'Admin entre dans l'application normale.
+   */
+  const [
+    authenticationPage,
+    setAuthenticationPage,
+  ] =
+    useState<AuthenticationPage>(
+      'user',
+    );
+
+  // ===========================================================================
+  // MENU PROFIL
+  // ===========================================================================
+
   const [
     isProfileMenuOpen,
     setIsProfileMenuOpen,
@@ -487,18 +720,16 @@ function App() {
       false,
     );
 
-  /* ===========================================================================
-   * AUTHENTIFICATION
-   * ======================================================================== */
+  // ===========================================================================
+  // AUTH
+  // ===========================================================================
 
   const isAuthenticated =
-    user !== null &&
-    initialSession !==
-      null;
+    user !== null;
 
-  /* ===========================================================================
-   * CHANGEMENT D'ÉCRAN
-   * ======================================================================== */
+  // ===========================================================================
+  // NAVIGATION
+  // ===========================================================================
 
   const setActiveScreen =
     useCallback(
@@ -507,12 +738,21 @@ function App() {
           ActiveScreen,
       ) => {
         if (
-          !user ||
+          !user
+        ) {
+          return;
+        }
+
+        if (
           !isScreenAllowed(
             user.role,
             screen,
           )
         ) {
+          console.warn(
+            `[AUTHORIZATION] Accès interdit à ${screen} pour ${user.role}.`,
+          );
+
           return;
         }
 
@@ -530,23 +770,27 @@ function App() {
       ],
     );
 
-  /* ===========================================================================
-   * SYNCHRONISATION DES AUTORISATIONS
-   * ======================================================================== */
+  // ===========================================================================
+  // CONTRÔLE DES AUTORISATIONS
+  // ===========================================================================
 
-  useEffect(() => {
-    if (
-      !user
-    ) {
-      return;
-    }
+  useEffect(
+    () => {
+      if (
+        !user
+      ) {
+        return;
+      }
 
-    if (
-      !isScreenAllowed(
-        user.role,
-        activeScreen,
-      )
-    ) {
+      if (
+        isScreenAllowed(
+          user.role,
+          activeScreen,
+        )
+      ) {
+        return;
+      }
+
       const fallback =
         getDefaultScreenForRole(
           user.role,
@@ -560,112 +804,242 @@ function App() {
         'airline.activeScreen',
         fallback,
       );
-    }
-  }, [
-    user,
-    activeScreen,
-  ]);
+    },
+    [
+      user,
+      activeScreen,
+    ],
+  );
 
-  /* ===========================================================================
-   * FERMETURE DU MENU PROFIL
-   * ======================================================================== */
+  // ===========================================================================
+  // MENU PROFIL
+  // ===========================================================================
 
-  useEffect(() => {
-    const handleClickOutside =
-      (
-        event:
-          MouseEvent,
-      ) => {
-        if (
-          profileMenuRef.current &&
-          !profileMenuRef.current.contains(
-            event.target as Node,
-          )
-        ) {
-          setIsProfileMenuOpen(
-            false,
-          );
-        }
-      };
+  useEffect(
+    () => {
+      const handleClickOutside =
+        (
+          event:
+            MouseEvent,
+        ) => {
+          if (
+            profileMenuRef.current &&
+            !profileMenuRef.current.contains(
+              event.target as Node,
+            )
+          ) {
+            setIsProfileMenuOpen(
+              false,
+            );
+          }
+        };
 
-    const handleKeyDown =
-      (
-        event:
-          KeyboardEvent,
-      ) => {
-        if (
-          event.key ===
-          'Escape'
-        ) {
-          setIsProfileMenuOpen(
-            false,
-          );
-        }
-      };
+      const handleKeyDown =
+        (
+          event:
+            KeyboardEvent,
+        ) => {
+          if (
+            event.key ===
+            'Escape'
+          ) {
+            setIsProfileMenuOpen(
+              false,
+            );
+          }
+        };
 
-    document.addEventListener(
-      'mousedown',
-      handleClickOutside,
-    );
-
-    document.addEventListener(
-      'keydown',
-      handleKeyDown,
-    );
-
-    return () => {
-      document.removeEventListener(
+      document.addEventListener(
         'mousedown',
         handleClickOutside,
       );
 
-      document.removeEventListener(
+      document.addEventListener(
         'keydown',
         handleKeyDown,
       );
-    };
-  }, []);
 
-  /* ===========================================================================
-   * AUTHENTIFICATION RÉUSSIE
-   * ======================================================================== */
+      return () => {
+        document.removeEventListener(
+          'mousedown',
+          handleClickOutside,
+        );
+
+        document.removeEventListener(
+          'keydown',
+          handleKeyDown,
+        );
+      };
+    },
+    [],
+  );
+
+  // ===========================================================================
+  // AUTHENTIFICATION RÉUSSIE
+  // ===========================================================================
 
   const handleAuthenticate =
-    (
-      nextUser:
-        AppUser,
-    ) => {
-      if (
-        !isUserRole(
-          nextUser.role,
-        )
-      ) {
-        clearAuthSession();
+    useCallback(
+      (
+        nextUser:
+          AppUser,
+      ) => {
+        if (
+          !nextUser ||
+          !isUserRole(
+            nextUser.role,
+          )
+        ) {
+          clearAuthSession();
+
+          localStorage.removeItem(
+            'airline.activeScreen',
+          );
+
+          setUser(
+            null,
+          );
+
+          setActiveScreenState(
+            'dashboard',
+          );
+
+          setAuthenticationPage(
+            'user',
+          );
+
+          return;
+        }
+
+        // ---------------------------------------------------------------------
+        // UTILISATEUR AUTHENTIFIÉ
+        // ---------------------------------------------------------------------
 
         setUser(
-          null,
+          nextUser,
         );
 
-        return;
-      }
-
-      setUser(
-        nextUser,
-      );
-
-      const targetScreen =
-        getStoredScreen(
-          nextUser.role,
+        setIsProfileMenuOpen(
+          false,
         );
 
-      setActiveScreenState(
-        targetScreen,
-      );
-    };
+        setAuthenticationPage(
+          'user',
+        );
 
-  /* ===========================================================================
-   * DÉCONNEXION
-   * ======================================================================== */
+        // ---------------------------------------------------------------------
+        // ADMIN
+        // ---------------------------------------------------------------------
+
+        if (
+          nextUser.role ===
+          'Admin'
+        ) {
+          /**
+           * L'Admin arrive d'abord sur le dashboard.
+           *
+           * Il pourra ensuite ouvrir :
+           *
+           * "Gestion des utilisateurs"
+           *
+           * depuis la Sidebar.
+           */
+
+          setActiveScreenState(
+            'dashboard',
+          );
+
+          localStorage.setItem(
+            'airline.activeScreen',
+            'dashboard',
+          );
+
+          return;
+        }
+
+        // ---------------------------------------------------------------------
+        // AUTRES RÔLES
+        // ---------------------------------------------------------------------
+
+        const targetScreen =
+          getStoredScreen(
+            nextUser.role,
+          );
+
+        setActiveScreenState(
+          targetScreen,
+        );
+
+        localStorage.setItem(
+          'airline.activeScreen',
+          targetScreen,
+        );
+      },
+      [],
+    );
+
+  // ===========================================================================
+  // OUVRIR AUTH ADMIN
+  // ===========================================================================
+
+  const handleOpenAdminAuthentication =
+    useCallback(
+      () => {
+        setAuthenticationPage(
+          'admin',
+        );
+      },
+      [],
+    );
+
+  // ===========================================================================
+  // RETOUR AUTH UTILISATEUR
+  // ===========================================================================
+
+  const handleBackToUserAuthentication =
+    useCallback(
+      () => {
+        setAuthenticationPage(
+          'user',
+        );
+      },
+      [],
+    );
+
+  // ===========================================================================
+  // AUTHENTIFICATION ADMIN RÉUSSIE
+  // ===========================================================================
+
+  const handleAdminAuthenticate =
+    useCallback(
+      (
+        adminUser:
+          AppUser,
+      ) => {
+        if (
+          !adminUser ||
+          adminUser.role !==
+            'Admin'
+        ) {
+          console.warn(
+            '[ADMIN] Authentification refusée : rôle Admin requis.',
+          );
+
+          return;
+        }
+
+        handleAuthenticate(
+          adminUser,
+        );
+      },
+      [
+        handleAuthenticate,
+      ],
+    );
+
+  // ===========================================================================
+  // LOGOUT
+  // ===========================================================================
 
   const handleLogout =
     useCallback(
@@ -687,88 +1061,176 @@ function App() {
         setActiveScreenState(
           'dashboard',
         );
+
+        setAuthenticationPage(
+          'user',
+        );
       },
       [],
     );
 
-  /* ===========================================================================
-   * ROUTAGE INTERNE DES COMPOSANTS
-   * ======================================================================== */
+  // ===========================================================================
+  // ROUTAGE DES ÉCRANS
+  // ===========================================================================
 
   const renderScreen:
     Record<
       ActiveScreen,
-      React.ReactNode
+      ReactNode
     > = {
+      // =========================================================================
+      // DASHBOARD
+      // =========================================================================
+
       dashboard: (
         <DashboardGantt />
       ),
+
+      // =========================================================================
+      // USERS - ADMIN UNIQUEMENT
+      // =========================================================================
+
+      users: (
+        <UsersManagementPage />
+      ),
+
+      // =========================================================================
+      // SCHEDULING
+      // =========================================================================
 
       scheduling: (
         <FlightSchedulerDashboard />
       ),
 
+      // =========================================================================
+      // FLEET
+      // =========================================================================
+
       fleet: (
         <FleetWorkspace />
       ),
+
+      // =========================================================================
+      // AIRCRAFT
+      // =========================================================================
 
       aircraft: (
         <AircraftManagement />
       ),
 
+      // =========================================================================
+      // FLIGHTS
+      // =========================================================================
+
       flights: (
         <FlightsPlanning />
       ),
+
+      // =========================================================================
+      // FLIGHT HISTORY
+      // =========================================================================
 
       'flight-history': (
         <FlightHistory />
       ),
 
+      // =========================================================================
+      // CREW
+      // =========================================================================
+
       crew: (
         <CrewAssignmentsPage />
       ),
+
+      // =========================================================================
+      // MAINTENANCE
+      // =========================================================================
 
       maintenance: (
         <MaintenancePlanning />
       ),
 
+      // =========================================================================
+      // DISRUPTIONS
+      // =========================================================================
+
       disruptions: (
         <DisruptionCenter />
       ),
+
+      // =========================================================================
+      // OPTIMIZATION
+      // =========================================================================
 
       optimization: (
         <FlightOptimizationDashboard />
       ),
 
+      // =========================================================================
+      // SETTINGS
+      // =========================================================================
+
       settings: (
         <NetworkSettings />
       ),
+
+      // =========================================================================
+      // HELP
+      // =========================================================================
 
       help: (
         <HelpSupportPage />
       ),
     };
 
-  /* ===========================================================================
-   * PAGE DE CONNEXION
-   * ======================================================================== */
+  // ===========================================================================
+  // AUTHENTIFICATION
+  // ===========================================================================
 
   if (
     !isAuthenticated ||
     !user
   ) {
+    // =========================================================================
+    // PAGE AUTH ADMIN
+    // =========================================================================
+
+    if (
+      authenticationPage ===
+      'admin'
+    ) {
+      return (
+        <AdminDashboard
+          onAuthenticate={
+            handleAdminAuthenticate
+          }
+          onBack={
+            handleBackToUserAuthentication
+          }
+        />
+      );
+    }
+
+    // =========================================================================
+    // PAGE AUTH UTILISATEUR
+    // =========================================================================
+
     return (
       <AuthPage
         onAuthenticate={
           handleAuthenticate
         }
+        onAdminDashboard={
+          handleOpenAdminAuthentication
+        }
       />
     );
   }
 
-  /* ===========================================================================
-   * NOM DU RÔLE
-   * ======================================================================== */
+  // ===========================================================================
+  // À PARTIR D'ICI :
+  // UTILISATEUR AUTHENTIFIÉ
+  // ===========================================================================
 
   const userRoleLabel =
     ROLE_LABELS[
@@ -776,13 +1238,24 @@ function App() {
     ] ??
     user.role;
 
-  /* ===========================================================================
-   * AFFICHAGE PRINCIPAL
-   * ======================================================================== */
+  // ===========================================================================
+  // APPLICATION
+  // ===========================================================================
 
   return (
-    <div className="flex min-h-screen flex-col bg-gray-100 font-sans antialiased selection:bg-emerald-500/20 selection:text-emerald-900 md:flex-row">
-
+    <div
+      className="
+        flex
+        min-h-screen
+        flex-col
+        bg-gray-100
+        font-sans
+        antialiased
+        selection:bg-emerald-500/20
+        selection:text-emerald-900
+        md:flex-row
+      "
+    >
       {/* =====================================================================
           SIDEBAR
       ===================================================================== */}
@@ -803,74 +1276,150 @@ function App() {
       />
 
       {/* =====================================================================
-          CONTENU
+          CONTENT
       ===================================================================== */}
 
-      <div className="mb-16 flex min-h-screen min-w-0 flex-1 flex-col md:mb-0">
-
+      <div
+        className="
+          mb-16
+          flex
+          min-h-screen
+          min-w-0
+          flex-1
+          flex-col
+          md:mb-0
+        "
+      >
         {/* ===================================================================
             HEADER
         =================================================================== */}
 
-        <header className="sticky top-0 z-30 border-b border-gray-200 bg-gray-100/90 px-4 py-5 backdrop-blur-md transition-all sm:px-8">
+        <header
+          className="
+            sticky
+            top-0
+            z-30
+            border-b
+            border-gray-200
+            bg-gray-100/90
+            px-4
+            py-5
+            backdrop-blur-md
+            transition-all
+            sm:px-8
+          "
+        >
+          <div
+            className="
+              mx-auto
+              flex
+              max-w-7xl
+              items-center
+              justify-between
+              gap-4
+            "
+          >
+            {/* ===============================================================
+                TITRE
+            =============================================================== */}
 
-          <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
-
-            {/* TITRE */}
-
-            <div className="min-w-0">
-
-              <h2 className="truncate text-lg font-extrabold tracking-tight text-slate-800 sm:text-xl">
-
+            <div
+              className="
+                min-w-0
+              "
+            >
+              <h2
+                className="
+                  truncate
+                  text-lg
+                  font-extrabold
+                  tracking-tight
+                  text-slate-800
+                  sm:text-xl
+                "
+              >
                 {
                   SCREEN_META[
                     activeScreen
                   ]?.title ??
                   'Tableau de bord'
                 }
-
               </h2>
-
             </div>
 
-            {/* ACTIONS HEADER */}
+            {/* ===============================================================
+                PROFIL
+            =============================================================== */}
 
-            <div className="flex shrink-0 items-center gap-3">
-
-              <div />
-
-              {/* PROFIL */}
-
+            <div
+              className="
+                flex
+                shrink-0
+                items-center
+                gap-3
+              "
+            >
               <div
-                className="relative shrink-0"
+                className="
+                  relative
+                  shrink-0
+                "
                 ref={
                   profileMenuRef
                 }
               >
-
                 <button
                   type="button"
                   onClick={() =>
                     setIsProfileMenuOpen(
                       (
-                        prev,
+                        previous,
                       ) =>
-                        !prev,
+                        !previous,
                     )
                   }
                   aria-expanded={
                     isProfileMenuOpen
                   }
                   aria-label="Voir les détails du compte"
-                  className="group flex cursor-pointer items-center gap-3 rounded-xl border-none bg-transparent p-1.5 outline-hidden transition-all hover:bg-gray-200/80"
+                  className="
+                    group
+                    flex
+                    cursor-pointer
+                    items-center
+                    gap-3
+                    rounded-xl
+                    border-none
+                    bg-transparent
+                    p-1.5
+                    outline-hidden
+                    transition-all
+                    hover:bg-gray-200/80
+                  "
                 >
+                  {/* =========================================================
+                      AVATAR
+                  ========================================================= */}
 
-                  {/* AVATAR */}
-
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-emerald-200 bg-emerald-100 shadow-xs transition-transform group-hover:scale-105">
-
+                  <div
+                    className="
+                      flex
+                      h-9
+                      w-9
+                      shrink-0
+                      items-center
+                      justify-center
+                      overflow-hidden
+                      rounded-full
+                      border
+                      border-emerald-200
+                      bg-emerald-100
+                      shadow-xs
+                      transition-transform
+                      group-hover:scale-105
+                    "
+                  >
                     {user.avatarUrl ? (
-
                       <img
                         src={
                           user.avatarUrl
@@ -878,50 +1427,98 @@ function App() {
                         alt={
                           user.nom
                         }
-                        className="h-full w-full object-cover"
+                        className="
+                          h-full
+                          w-full
+                          object-cover
+                        "
                       />
-
                     ) : (
-
-                      <span className="text-sm font-extrabold text-emerald-700">
-
+                      <span
+                        className="
+                          text-sm
+                          font-extrabold
+                          text-emerald-700
+                        "
+                      >
                         {
                           user.nom
-                            .charAt(
+                            ?.charAt(
                               0,
                             )
-                            .toUpperCase() ||
+                            ?.toUpperCase() ||
                           (
-                            <User className="h-4 w-4" />
+                            <User
+                              className="
+                                h-4
+                                w-4
+                              "
+                            />
                           )
                         }
-
                       </span>
-
                     )}
-
                   </div>
 
-                  {/* UTILISATEUR */}
+                  {/* =========================================================
+                      USER
+                  ========================================================= */}
 
-                  <div className="hidden flex-col text-left sm:flex">
-
-                    <span className="max-w-30 truncate text-xs font-bold leading-tight text-slate-800">
+                  <div
+                    className="
+                      hidden
+                      flex-col
+                      text-left
+                      sm:flex
+                    "
+                  >
+                    <span
+                      className="
+                        max-w-30
+                        truncate
+                        text-xs
+                        font-bold
+                        leading-tight
+                        text-slate-800
+                      "
+                    >
                       {
                         user.nom
                       }
                     </span>
 
-                    <span className="mt-0.5 max-w-30 truncate text-[10px] font-medium text-slate-500">
+                    <span
+                      className="
+                        mt-0.5
+                        max-w-30
+                        truncate
+                        text-[10px]
+                        font-medium
+                        text-slate-500
+                      "
+                    >
                       {
                         userRoleLabel
                       }
                     </span>
-
                   </div>
 
-                  <ChevronDown className="h-4 w-4 text-slate-400 transition-transform duration-200 group-hover:text-slate-600" />
+                  <ChevronDown
+                    className={`
+                      h-4
+                      w-4
+                      text-slate-400
+                      transition-transform
+                      duration-200
+                      group-hover:text-slate-600
 
+                      ${
+                        isProfileMenuOpen
+                          ? 'rotate-180'
+                          : ''
+                      }
+                    `}
+                  />
                 </button>
 
                 {/* =============================================================
@@ -929,17 +1526,60 @@ function App() {
                 ============================================================= */}
 
                 {isProfileMenuOpen && (
+                  <div
+                    className="
+                      animate-in
+                      fade-in
+                      slide-in-from-top-2
+                      absolute
+                      right-0
+                      z-50
+                      mt-2
+                      w-64
+                      rounded-2xl
+                      border
+                      border-gray-200
+                      bg-white
+                      py-3
+                      text-slate-900
+                      shadow-xl
+                      duration-150
+                    "
+                  >
+                    <div
+                      className="
+                        flex
+                        flex-col
+                        items-center
+                        border-b
+                        border-gray-100
+                        px-4
+                        pb-3
+                        pt-1
+                        text-center
+                      "
+                    >
+                      {/* =======================================================
+                          AVATAR
+                      ======================================================= */}
 
-                  <div className="animate-in fade-in slide-in-from-top-2 absolute right-0 z-50 mt-2 w-64 rounded-2xl border border-gray-200 bg-white py-3 text-slate-900 shadow-xl duration-150">
-
-                    <div className="flex flex-col items-center border-b border-gray-100 px-4 pb-3 pt-1 text-center">
-
-                      {/* AVATAR */}
-
-                      <div className="mb-2.5 flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border-2 border-emerald-200 bg-emerald-100 shadow-xs">
-
+                      <div
+                        className="
+                          mb-2.5
+                          flex
+                          h-14
+                          w-14
+                          items-center
+                          justify-center
+                          overflow-hidden
+                          rounded-full
+                          border-2
+                          border-emerald-200
+                          bg-emerald-100
+                          shadow-xs
+                        "
+                      >
                         {user.avatarUrl ? (
-
                           <img
                             src={
                               user.avatarUrl
@@ -947,100 +1587,186 @@ function App() {
                             alt={
                               user.nom
                             }
-                            className="h-full w-full object-cover"
+                            className="
+                              h-full
+                              w-full
+                              object-cover
+                            "
                           />
-
                         ) : (
-
-                          <span className="text-xl font-black text-emerald-700">
-
+                          <span
+                            className="
+                              text-xl
+                              font-black
+                              text-emerald-700
+                            "
+                          >
                             {
                               user.nom
-                                .charAt(
+                                ?.charAt(
                                   0,
                                 )
-                                .toUpperCase() ||
+                                ?.toUpperCase() ||
                               (
-                                <User className="h-7 w-7" />
+                                <User
+                                  className="
+                                    h-7
+                                    w-7
+                                  "
+                                />
                               )
                             }
-
                           </span>
-
                         )}
-
                       </div>
 
-                      {/* NOM */}
+                      {/* =======================================================
+                          NOM
+                      ======================================================= */}
 
-                      <p className="max-w-full truncate text-sm font-bold text-slate-900">
+                      <p
+                        className="
+                          max-w-full
+                          truncate
+                          text-sm
+                          font-bold
+                          text-slate-900
+                        "
+                      >
                         {
                           user.nom
                         }
                       </p>
 
-                      {/* EMAIL */}
+                      {/* =======================================================
+                          EMAIL
+                      ======================================================= */}
 
-                      <p className="mt-0.5 max-w-full truncate text-xs text-slate-500">
+                      <p
+                        className="
+                          mt-0.5
+                          max-w-full
+                          truncate
+                          text-xs
+                          text-slate-500
+                        "
+                      >
                         {
                           user.email
                         }
                       </p>
 
-                      {/* RÔLE */}
+                      {/* =======================================================
+                          ROLE
+                      ======================================================= */}
 
-                      <span className="mt-2 inline-flex items-center gap-1 rounded-md border border-emerald-200/60 bg-emerald-50 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider text-emerald-700">
-
-                        <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+                      <span
+                        className="
+                          mt-2
+                          inline-flex
+                          items-center
+                          gap-1
+                          rounded-md
+                          border
+                          border-emerald-200/60
+                          bg-emerald-50
+                          px-2.5
+                          py-1
+                          text-[10px]
+                          font-extrabold
+                          uppercase
+                          tracking-wider
+                          text-emerald-700
+                        "
+                      >
+                        <ShieldCheck
+                          className="
+                            h-3.5
+                            w-3.5
+                            text-emerald-600
+                          "
+                        />
 
                         {
                           userRoleLabel
                         }
-
                       </span>
-
                     </div>
 
-                    {/* DÉCONNEXION */}
+                    {/* =========================================================
+                        LOGOUT
+                    ========================================================= */}
 
-                    <div className="px-2 pt-2">
-
+                    <div
+                      className="
+                        px-2
+                        pt-2
+                      "
+                    >
                       <button
                         type="button"
                         onClick={
                           handleLogout
                         }
-                        className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border-none bg-transparent px-4 py-2 text-xs font-semibold text-rose-600 transition-colors hover:bg-rose-50"
+                        className="
+                          flex
+                          w-full
+                          cursor-pointer
+                          items-center
+                          justify-center
+                          gap-2
+                          rounded-xl
+                          border-none
+                          bg-transparent
+                          px-4
+                          py-2
+                          text-xs
+                          font-semibold
+                          text-rose-600
+                          transition-colors
+                          hover:bg-rose-50
+                        "
                       >
-
-                        <LogOut className="h-4 w-4" />
+                        <LogOut
+                          className="
+                            h-4
+                            w-4
+                          "
+                        />
 
                         Déconnexion
-
                       </button>
-
                     </div>
-
                   </div>
-
                 )}
-
               </div>
-
             </div>
-
           </div>
-
         </header>
 
         {/* ===================================================================
             CONTENU PRINCIPAL
         =================================================================== */}
 
-        <main className="mx-auto w-full max-w-7xl flex-1 p-4 sm:p-6 lg:p-8">
-
-          <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-
+        <main
+          className="
+            mx-auto
+            w-full
+            max-w-7xl
+            flex-1
+            p-4
+            sm:p-6
+            lg:p-8
+          "
+        >
+          <div
+            className="
+              animate-in
+              fade-in
+              slide-in-from-bottom-2
+              duration-300
+            "
+          >
             {
               renderScreen[
                 activeScreen
@@ -1048,13 +1774,9 @@ function App() {
                 <DashboardGantt />
               )
             }
-
           </div>
-
         </main>
-
       </div>
-
     </div>
   );
 }

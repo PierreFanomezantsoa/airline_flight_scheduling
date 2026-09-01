@@ -1066,7 +1066,7 @@ export const FlightOptimizationDashboard: React.FC = () => {
                       {/* Conflit IA */}
                       <td className="py-3.5 px-4">
                         {strongestConflict ? (
-                          <div className="min-w-[135px]">
+                          <div className="min-w-33.75">
                             <span
                               className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-[9px] font-black uppercase tracking-wide ${getConflictSeverityBadge(
                                 strongestConflict.severity,

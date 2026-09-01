@@ -1,6 +1,6 @@
 import {
   IsEmail,
-  IsEnum,
+  IsIn,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -8,6 +8,13 @@ import {
   MinLength,
 } from 'class-validator';
 import { UserRole } from '../enums/user-role.enum';
+
+export const SELF_REGISTRATION_ROLES = [
+  UserRole.PLANIFICATEUR,
+  UserRole.REGULATOR,
+  UserRole.CREW_MEMBER,
+  UserRole.MAINTENANCE_ENGINEER,
+] as const;
 
 export class CreateUserDto {
   @IsEmail()
@@ -22,8 +29,15 @@ export class CreateUserDto {
   @Length(1, 150)
   nom!: string;
 
-  @IsEnum(UserRole)
-  role!: UserRole;
+  @IsIn(SELF_REGISTRATION_ROLES, {
+    message:
+      "Ce rôle ne peut pas être demandé depuis l'inscription publique.",
+  })
+  role!:
+    | UserRole.PLANIFICATEUR
+    | UserRole.REGULATOR
+    | UserRole.CREW_MEMBER
+    | UserRole.MAINTENANCE_ENGINEER;
 
   @IsOptional()
   @IsString()

@@ -164,7 +164,7 @@ export const CrewAssignment: React.FC = () => {
 
                   {/* Statut Repos & Affectation */}
                   <div className="flex items-center justify-between sm:justify-end gap-6 text-xs border-t border-slate-100 pt-3 sm:border-0 sm:pt-0">
-                    <div className="min-w-[100px] text-left sm:text-right">
+                    <div className="min-w-25 text-left sm:text-right">
                       <div className="flex items-center gap-1 text-[11px] font-medium text-slate-400 justify-start sm:justify-end">
                         <Clock className="h-3 w-3" />
                         <span>Repos Cumulé</span>
@@ -178,7 +178,7 @@ export const CrewAssignment: React.FC = () => {
                       </span>
                     </div>
 
-                    <div className="min-w-[110px] text-right">
+                    <div className="min-w-27.5 text-right">
                       {member.volAssigne ? (
                         <span className="inline-flex items-center gap-1.5 rounded-lg bg-sky-50 border border-sky-200/60 px-2.5 py-1 text-xs font-bold text-sky-800 shadow-sm">
                           <Plane className="h-3 w-3 text-sky-600 shrink-0" />

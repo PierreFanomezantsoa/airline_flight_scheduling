@@ -3,7 +3,7 @@ import requests
 from flask import Blueprint, jsonify, request
 
 from models import db, Flight
-from services import get_real_weather_severity
+from services.weather.resilient_service import resilient_weather_service
 
 optimization_bp = Blueprint('optimization', __name__)
 
@@ -61,7 +61,8 @@ def optimize_schedule_with_fastapi():
                 if vol.aeroportDepart == f.aeroportDepart and vol.heureDepart.hour == f.heureDepart.hour
             ]
             traffic_density = min(len(same_hour_slots) / 4.0, 1.0)
-            weather_severity = get_real_weather_severity(f.aeroportDepart, f.heureDepart)
+            weather_result = resilient_weather_service.get_severity(f.aeroportDepart, f.heureDepart)
+            weather_severity = weather_result.get("severity", 0.5)
 
             formatted_flights.append({
                 "id": str(f.id),

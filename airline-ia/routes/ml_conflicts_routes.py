@@ -30,6 +30,8 @@ from flask import Blueprint, jsonify
 
 import models as models_module
 from models import db, Flight
+from common.datetime_utils import ensure_utc
+from common.status_utils import normalize_status
 
 
 ml_conflicts_bp = Blueprint(
@@ -54,26 +56,6 @@ MODEL_VERSION = "pure-python-decision-tree-v1"
 # =============================================================================
 # OUTILS GÉNÉRAUX
 # =============================================================================
-
-def ensure_utc(dt: Optional[datetime]) -> Optional[datetime]:
-    if dt is None:
-        return None
-
-    if dt.tzinfo is None:
-        return dt.replace(tzinfo=timezone.utc)
-
-    return dt.astimezone(timezone.utc)
-
-
-def normalize_status(value: Any) -> str:
-    return (
-        str(value or "")
-        .strip()
-        .upper()
-        .replace("-", "_")
-        .replace(" ", "_")
-    )
-
 
 def is_cancelled_or_completed(value: Any) -> bool:
     return normalize_status(value) in {
