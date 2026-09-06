@@ -319,7 +319,7 @@ function getErrorMessage(
       fallback
     );
   }
-
+// condition pour gérer les erreurs de type Error et retourner un message d'erreur approprié
   if (
     error instanceof Error
   ) {
