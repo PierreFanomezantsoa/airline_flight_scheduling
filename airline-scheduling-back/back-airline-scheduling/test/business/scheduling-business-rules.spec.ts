@@ -41,7 +41,52 @@ describe('Règles métier OCC - planification des vols', () => {
     createQueryBuilder: jest.fn(),
   } as unknown as Repository<CrewAssignment>;
 
-  const makeAircraft = (overrides: Partial<Aircraft> = {}): Aircraft =>
+  /*
+   * QueryBuilder générique.
+   *
+   * Important :
+   * ScheduleConflictService utilise maintenant createQueryBuilder()
+   * notamment dans detectMaintenanceDue().
+   *
+   * Sans ce mock, createQueryBuilder() retourne undefined et provoque :
+   *
+   * Cannot read properties of undefined (reading 'where')
+   */
+  const makeQueryBuilder = <T>(results: T[] = []) => ({
+    select: jest.fn().mockReturnThis(),
+    addSelect: jest.fn().mockReturnThis(),
+
+    where: jest.fn().mockReturnThis(),
+    andWhere: jest.fn().mockReturnThis(),
+    orWhere: jest.fn().mockReturnThis(),
+
+    leftJoin: jest.fn().mockReturnThis(),
+    leftJoinAndSelect: jest.fn().mockReturnThis(),
+
+    innerJoin: jest.fn().mockReturnThis(),
+    innerJoinAndSelect: jest.fn().mockReturnThis(),
+
+    orderBy: jest.fn().mockReturnThis(),
+    addOrderBy: jest.fn().mockReturnThis(),
+
+    groupBy: jest.fn().mockReturnThis(),
+    addGroupBy: jest.fn().mockReturnThis(),
+
+    setParameter: jest.fn().mockReturnThis(),
+    setParameters: jest.fn().mockReturnThis(),
+
+    getMany: jest.fn().mockResolvedValue(results),
+    getOne: jest.fn().mockResolvedValue(null),
+    getExists: jest.fn().mockResolvedValue(false),
+    getCount: jest.fn().mockResolvedValue(0),
+
+    getRawOne: jest.fn().mockResolvedValue(null),
+    getRawMany: jest.fn().mockResolvedValue([]),
+  });
+
+  const makeAircraft = (
+    overrides: Partial<Aircraft> = {},
+  ): Aircraft =>
     ({
       id: 'aircraft-1',
       immatriculation: 'AFK-412',
@@ -66,220 +111,506 @@ describe('Règles métier OCC - planification des vols', () => {
       numeroVol,
       aeroportDepart,
       aeroportArrivee,
+
       aeroportEscale: null,
       dureeEscale: null,
+
       heureDepart: new Date(depart),
       heureArrivee: new Date(arrivee),
+
       statut: FlightStatus.SCHEDULED,
+
       avionId: aircraft.id,
       avion: aircraft,
+
       affectationsEquipage: [],
+
+      /*
+       * Nouveaux champs de Flight.
+       *
+       * Ils doivent être présents dans les objets de test maintenant
+       * que la comptabilisation réelle des heures de vol existe.
+       */
+      heuresComptabilisees: false,
+      heuresCreditees: null,
+      heuresComptabiliseesAt: null,
+
       version: 0,
       creeA: new Date(),
       misAJourA: new Date(),
       supprimeA: null,
     }) as Flight;
 
-  const maintenanceQb = (slots: MaintenanceSlot[] = []) => ({
-    where: jest.fn().mockReturnThis(),
-    andWhere: jest.fn().mockReturnThis(),
-    getMany: jest.fn().mockResolvedValue(slots),
-  });
-
   beforeEach(async () => {
+    jest.clearAllMocks();
+
+    /*
+     * Valeurs par défaut.
+     *
+     * Chaque règle pourra ensuite remplacer find() ou
+     * createQueryBuilder() seulement lorsqu'elle en a besoin.
+     */
+    (flightRepository.find as jest.Mock).mockResolvedValue([]);
+    (flightRepository.findOne as jest.Mock).mockResolvedValue(null);
+
+    /*
+     * CORRECTION PRINCIPALE :
+     *
+     * detectMaintenanceDue() appelle maintenant :
+     *
+     * this.flightRepository
+     *   .createQueryBuilder('flight')
+     *   .where(...)
+     *
+     * Il faut donc toujours retourner un QueryBuilder.
+     */
+    (
+      flightRepository.createQueryBuilder as jest.Mock
+    ).mockImplementation(() => makeQueryBuilder<Flight>());
+
+    (aircraftRepository.find as jest.Mock).mockResolvedValue([]);
+    (aircraftRepository.findOne as jest.Mock).mockResolvedValue(null);
+
+    (
+      aircraftRepository.createQueryBuilder as jest.Mock
+    ).mockImplementation(() => makeQueryBuilder<Aircraft>());
+
+    (crewRepository.find as jest.Mock).mockResolvedValue([]);
+    (crewRepository.findOne as jest.Mock).mockResolvedValue(null);
+
+    (
+      crewRepository.createQueryBuilder as jest.Mock
+    ).mockImplementation(() => makeQueryBuilder<CrewAssignment>());
+
+    (maintenanceRepository.find as jest.Mock).mockResolvedValue([]);
+    (maintenanceRepository.findOne as jest.Mock).mockResolvedValue(null);
+
+    (
+      maintenanceRepository.createQueryBuilder as jest.Mock
+    ).mockImplementation(() => makeQueryBuilder<MaintenanceSlot>());
+
     const moduleRef = await Test.createTestingModule({
       providers: [
         ScheduleConflictService,
-        { provide: getRepositoryToken(Flight), useValue: flightRepository },
-        { provide: getRepositoryToken(Aircraft), useValue: aircraftRepository },
-        { provide: getRepositoryToken(MaintenanceSlot), useValue: maintenanceRepository },
-        { provide: getRepositoryToken(CrewAssignment), useValue: crewRepository },
+
+        {
+          provide: getRepositoryToken(Flight),
+          useValue: flightRepository,
+        },
+
+        {
+          provide: getRepositoryToken(Aircraft),
+          useValue: aircraftRepository,
+        },
+
+        {
+          provide: getRepositoryToken(MaintenanceSlot),
+          useValue: maintenanceRepository,
+        },
+
+        {
+          provide: getRepositoryToken(CrewAssignment),
+          useValue: crewRepository,
+        },
       ],
     }).compile();
 
-    service = moduleRef.get(ScheduleConflictService);
-    jest.clearAllMocks();
-
-    (flightRepository.find as jest.Mock).mockResolvedValue([]);
-    (crewRepository.find as jest.Mock).mockResolvedValue([]);
-    (maintenanceRepository.createQueryBuilder as jest.Mock).mockImplementation(() => maintenanceQb());
-  });
-
-  it('RG01 - interdit deux vols qui se chevauchent avec le même avion', async () => {
-    const aircraft = makeAircraft();
-    const flights = [
-      makeFlight('f1', 'AFK101', '2026-08-20T11:00:00+03:00', '2026-08-20T14:00:00+03:00', 'TNR', 'NOS', aircraft),
-      makeFlight('f2', 'AFK102', '2026-08-20T13:00:00+03:00', '2026-08-20T16:00:00+03:00', 'NOS', 'TNR', aircraft),
-    ];
-    (flightRepository.find as jest.Mock).mockResolvedValue(flights);
-
-    const conflicts = await service.detectAll();
-
-    expect(conflicts).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          type: ScheduleConflictType.AIRCRAFT_OVERLAP,
-          blocking: true,
-          aircraftId: aircraft.id,
-        }),
-      ]),
+    service = moduleRef.get<ScheduleConflictService>(
+      ScheduleConflictService,
     );
   });
 
-  it('RG02 - impose le turnaround minimal entre deux rotations du même avion', async () => {
-    const aircraft = makeAircraft();
-    const flights = [
-      makeFlight('f1', 'AFK201', '2026-08-20T08:00:00+03:00', '2026-08-20T10:00:00+03:00', 'TNR', 'NOS', aircraft),
-      makeFlight('f2', 'AFK202', '2026-08-20T10:30:00+03:00', '2026-08-20T12:00:00+03:00', 'NOS', 'TNR', aircraft),
-    ];
-    (flightRepository.find as jest.Mock).mockResolvedValue(flights);
+  it(
+    'RG01 - interdit deux vols qui se chevauchent avec le même avion',
+    async () => {
+      const aircraft = makeAircraft();
 
-    const conflicts = await service.detectAll();
+      const flights = [
+        makeFlight(
+          'f1',
+          'AFK101',
+          '2026-08-20T11:00:00+03:00',
+          '2026-08-20T14:00:00+03:00',
+          'TNR',
+          'NOS',
+          aircraft,
+        ),
 
-    expect(conflicts).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          type: ScheduleConflictType.TURNAROUND_TOO_SHORT,
-          blocking: true,
-          gapMinutes: 30,
-        }),
-      ]),
-    );
-  });
+        makeFlight(
+          'f2',
+          'AFK102',
+          '2026-08-20T13:00:00+03:00',
+          '2026-08-20T16:00:00+03:00',
+          'NOS',
+          'TNR',
+          aircraft,
+        ),
+      ];
 
-  it('RG03 - détecte un problème de positionnement si l’avion repart d’un autre aéroport trop tôt', async () => {
-    const aircraft = makeAircraft();
-    const flights = [
-      makeFlight('f1', 'AFK301', '2026-08-20T06:00:00+03:00', '2026-08-20T08:00:00+03:00', 'TNR', 'NOS', aircraft),
-      makeFlight('f2', 'AFK302', '2026-08-20T10:00:00+03:00', '2026-08-20T12:00:00+03:00', 'TNR', 'DIE', aircraft),
-    ];
-    (flightRepository.find as jest.Mock).mockResolvedValue(flights);
+      (flightRepository.find as jest.Mock).mockResolvedValue(
+        flights,
+      );
 
-    const conflicts = await service.detectAll();
+      const conflicts = await service.detectAll();
 
-    expect(conflicts).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          type: ScheduleConflictType.AIRCRAFT_POSITIONING,
-          blocking: true,
-          gapMinutes: 120,
-        }),
-      ]),
-    );
-  });
+      expect(conflicts).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            type: ScheduleConflictType.AIRCRAFT_OVERLAP,
+            blocking: true,
+            aircraftId: aircraft.id,
+          }),
+        ]),
+      );
+    },
+  );
 
-  it('RG04 - bloque un avion déjà indisponible ou en maintenance', async () => {
-    const aircraft = makeAircraft({ statut: AircraftStatus.MAINTENANCE });
-    (flightRepository.find as jest.Mock).mockResolvedValue([
-      makeFlight('f1', 'AFK401', '2026-08-20T12:00:00+03:00', '2026-08-20T14:00:00+03:00', 'TNR', 'NOS', aircraft),
-    ]);
+  it(
+    'RG02 - impose le turnaround minimal entre deux rotations du même avion',
+    async () => {
+      const aircraft = makeAircraft();
 
-    const conflicts = await service.detectAll();
+      const flights = [
+        makeFlight(
+          'f1',
+          'AFK201',
+          '2026-08-20T08:00:00+03:00',
+          '2026-08-20T10:00:00+03:00',
+          'TNR',
+          'NOS',
+          aircraft,
+        ),
 
-    expect(conflicts).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          type: ScheduleConflictType.AIRCRAFT_UNAVAILABLE,
-          blocking: true,
-        }),
-      ]),
-    );
-  });
+        makeFlight(
+          'f2',
+          'AFK202',
+          '2026-08-20T10:30:00+03:00',
+          '2026-08-20T12:00:00+03:00',
+          'NOS',
+          'TNR',
+          aircraft,
+        ),
+      ];
 
-  it('RG05 - bloque un vol qui ferait dépasser la limite horaire avant maintenance', async () => {
-    const aircraft = makeAircraft({
-      heuresDepuisDerniereMaintenance: 99,
-      limiteHeuresMaintenance: 100,
-    });
-    (flightRepository.find as jest.Mock).mockResolvedValue([
-      makeFlight('f1', 'AFK501', '2026-08-20T12:00:00+03:00', '2026-08-20T14:00:00+03:00', 'TNR', 'NOS', aircraft),
-    ]);
+      (flightRepository.find as jest.Mock).mockResolvedValue(
+        flights,
+      );
 
-    const conflicts = await service.detectAll();
+      const conflicts = await service.detectAll();
 
-    expect(conflicts).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          type: ScheduleConflictType.MAINTENANCE_DUE,
-          blocking: true,
-        }),
-      ]),
-    );
-  });
+      expect(conflicts).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            type: ScheduleConflictType.TURNAROUND_TOO_SHORT,
+            blocking: true,
+            gapMinutes: 30,
+          }),
+        ]),
+      );
+    },
+  );
 
-  it('RG06 - interdit un vol pendant un créneau de maintenance planifié', async () => {
-    const aircraft = makeAircraft();
-    const slot = {
-      id: 'maintenance-1',
-      aircraftId: aircraft.id,
-      maintenanceType: MaintenanceType.TYPE_A,
-      status: MaintenanceStatus.PLANNED,
-      startTime: new Date('2026-08-20T11:00:00+03:00'),
-      endTime: new Date('2026-08-20T15:00:00+03:00'),
-    } as MaintenanceSlot;
+  it(
+    'RG03 - détecte un problème de positionnement si l’avion repart ' +
+      'd’un autre aéroport trop tôt',
+    async () => {
+      const aircraft = makeAircraft();
 
-    (flightRepository.find as jest.Mock).mockResolvedValue([
-      makeFlight('f1', 'AFK601', '2026-08-20T12:00:00+03:00', '2026-08-20T14:00:00+03:00', 'TNR', 'NOS', aircraft),
-    ]);
-    (maintenanceRepository.createQueryBuilder as jest.Mock).mockImplementation(() => maintenanceQb([slot]));
+      const flights = [
+        makeFlight(
+          'f1',
+          'AFK301',
+          '2026-08-20T06:00:00+03:00',
+          '2026-08-20T08:00:00+03:00',
+          'TNR',
+          'NOS',
+          aircraft,
+        ),
 
-    const conflicts = await service.detectAll();
+        makeFlight(
+          'f2',
+          'AFK302',
+          '2026-08-20T10:00:00+03:00',
+          '2026-08-20T12:00:00+03:00',
+          'TNR',
+          'DIE',
+          aircraft,
+        ),
+      ];
 
-    expect(conflicts).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          type: ScheduleConflictType.AIRCRAFT_MAINTENANCE,
-          blocking: true,
-        }),
-      ]),
-    );
-  });
+      (flightRepository.find as jest.Mock).mockResolvedValue(
+        flights,
+      );
 
-  it('RG07 - interdit qu’un membre d’équipage soit sur deux vols simultanément', async () => {
-    const aircraft1 = makeAircraft({ id: 'aircraft-1', immatriculation: 'AFK-411' });
-    const aircraft2 = makeAircraft({ id: 'aircraft-2', immatriculation: 'AFK-412' });
-    const f1 = makeFlight('f1', 'AFK701', '2026-08-20T08:00:00+03:00', '2026-08-20T11:00:00+03:00', 'TNR', 'NOS', aircraft1);
-    const f2 = makeFlight('f2', 'AFK702', '2026-08-20T10:00:00+03:00', '2026-08-20T13:00:00+03:00', 'TNR', 'DIE', aircraft2);
+      const conflicts = await service.detectAll();
 
-    (flightRepository.find as jest.Mock).mockResolvedValue([f1, f2]);
-    (crewRepository.find as jest.Mock).mockResolvedValue([
-      { id: 'ca1', utilisateurId: 'user-1', vol: f1, utilisateur: { nom: 'Rakoto' } },
-      { id: 'ca2', utilisateurId: 'user-1', vol: f2, utilisateur: { nom: 'Rakoto' } },
-    ] as CrewAssignment[]);
+      expect(conflicts).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            type: ScheduleConflictType.AIRCRAFT_POSITIONING,
+            blocking: true,
+            gapMinutes: 120,
+          }),
+        ]),
+      );
+    },
+  );
 
-    const conflicts = await service.detectAll();
+  it(
+    'RG04 - bloque un avion déjà indisponible ou en maintenance',
+    async () => {
+      const aircraft = makeAircraft({
+        statut: AircraftStatus.MAINTENANCE,
+      });
 
-    expect(conflicts).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          type: ScheduleConflictType.CREW_OVERLAP,
-          blocking: true,
-        }),
-      ]),
-    );
-  });
+      (flightRepository.find as jest.Mock).mockResolvedValue([
+        makeFlight(
+          'f1',
+          'AFK401',
+          '2026-08-20T12:00:00+03:00',
+          '2026-08-20T14:00:00+03:00',
+          'TNR',
+          'NOS',
+          aircraft,
+        ),
+      ]);
 
-  it('RG08 - impose le repos minimal d’un membre d’équipage entre deux vols', async () => {
-    const aircraft1 = makeAircraft({ id: 'aircraft-1', immatriculation: 'AFK-411' });
-    const aircraft2 = makeAircraft({ id: 'aircraft-2', immatriculation: 'AFK-412' });
-    const f1 = makeFlight('f1', 'AFK801', '2026-08-20T04:00:00+03:00', '2026-08-20T08:00:00+03:00', 'TNR', 'NOS', aircraft1);
-    const f2 = makeFlight('f2', 'AFK802', '2026-08-20T14:00:00+03:00', '2026-08-20T16:00:00+03:00', 'NOS', 'TNR', aircraft2);
+      const conflicts = await service.detectAll();
 
-    (flightRepository.find as jest.Mock).mockResolvedValue([f1, f2]);
-    (crewRepository.find as jest.Mock).mockResolvedValue([
-      { id: 'ca1', utilisateurId: 'user-1', vol: f1, utilisateur: { nom: 'Rakoto' } },
-      { id: 'ca2', utilisateurId: 'user-1', vol: f2, utilisateur: { nom: 'Rakoto' } },
-    ] as CrewAssignment[]);
+      expect(conflicts).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            type: ScheduleConflictType.AIRCRAFT_UNAVAILABLE,
+            blocking: true,
+          }),
+        ]),
+      );
+    },
+  );
 
-    const conflicts = await service.detectAll();
+  it(
+    'RG05 - bloque un vol qui ferait dépasser la limite horaire avant maintenance',
+    async () => {
+      const aircraft = makeAircraft({
+        heuresDepuisDerniereMaintenance: 99,
+        limiteHeuresMaintenance: 100,
+      });
 
-    expect(conflicts).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          type: ScheduleConflictType.CREW_REST,
-          blocking: true,
-        }),
-      ]),
-    );
-  });
+      (flightRepository.find as jest.Mock).mockResolvedValue([
+        makeFlight(
+          'f1',
+          'AFK501',
+          '2026-08-20T12:00:00+03:00',
+          '2026-08-20T14:00:00+03:00',
+          'TNR',
+          'NOS',
+          aircraft,
+        ),
+      ]);
+
+      const conflicts = await service.detectAll();
+
+      expect(conflicts).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            type: ScheduleConflictType.MAINTENANCE_DUE,
+            blocking: true,
+          }),
+        ]),
+      );
+    },
+  );
+
+  it(
+    'RG06 - interdit un vol pendant un créneau de maintenance planifié',
+    async () => {
+      const aircraft = makeAircraft();
+
+      const slot = {
+        id: 'maintenance-1',
+        aircraftId: aircraft.id,
+        maintenanceType: MaintenanceType.TYPE_A,
+        status: MaintenanceStatus.PLANNED,
+        startTime: new Date(
+          '2026-08-20T11:00:00+03:00',
+        ),
+        endTime: new Date(
+          '2026-08-20T15:00:00+03:00',
+        ),
+      } as MaintenanceSlot;
+
+      (flightRepository.find as jest.Mock).mockResolvedValue([
+        makeFlight(
+          'f1',
+          'AFK601',
+          '2026-08-20T12:00:00+03:00',
+          '2026-08-20T14:00:00+03:00',
+          'TNR',
+          'NOS',
+          aircraft,
+        ),
+      ]);
+
+      /*
+       * Pour RG06, on remplace seulement le QueryBuilder du repository
+       * maintenance afin de retourner le créneau qui chevauche le vol.
+       */
+      (
+        maintenanceRepository.createQueryBuilder as jest.Mock
+      ).mockImplementation(() =>
+        makeQueryBuilder<MaintenanceSlot>([slot]),
+      );
+
+      const conflicts = await service.detectAll();
+
+      expect(conflicts).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            type: ScheduleConflictType.AIRCRAFT_MAINTENANCE,
+            blocking: true,
+          }),
+        ]),
+      );
+    },
+  );
+
+  it(
+    'RG07 - interdit qu’un membre d’équipage soit sur deux vols simultanément',
+    async () => {
+      const aircraft1 = makeAircraft({
+        id: 'aircraft-1',
+        immatriculation: 'AFK-411',
+      });
+
+      const aircraft2 = makeAircraft({
+        id: 'aircraft-2',
+        immatriculation: 'AFK-412',
+      });
+
+      const f1 = makeFlight(
+        'f1',
+        'AFK701',
+        '2026-08-20T08:00:00+03:00',
+        '2026-08-20T11:00:00+03:00',
+        'TNR',
+        'NOS',
+        aircraft1,
+      );
+
+      const f2 = makeFlight(
+        'f2',
+        'AFK702',
+        '2026-08-20T10:00:00+03:00',
+        '2026-08-20T13:00:00+03:00',
+        'TNR',
+        'DIE',
+        aircraft2,
+      );
+
+      (flightRepository.find as jest.Mock).mockResolvedValue([
+        f1,
+        f2,
+      ]);
+
+      (crewRepository.find as jest.Mock).mockResolvedValue([
+        {
+          id: 'ca1',
+          utilisateurId: 'user-1',
+          vol: f1,
+          utilisateur: {
+            nom: 'Rakoto',
+          },
+        },
+        {
+          id: 'ca2',
+          utilisateurId: 'user-1',
+          vol: f2,
+          utilisateur: {
+            nom: 'Rakoto',
+          },
+        },
+      ] as CrewAssignment[]);
+
+      const conflicts = await service.detectAll();
+
+      expect(conflicts).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            type: ScheduleConflictType.CREW_OVERLAP,
+            blocking: true,
+          }),
+        ]),
+      );
+    },
+  );
+
+  it(
+    'RG08 - impose le repos minimal d’un membre d’équipage entre deux vols',
+    async () => {
+      const aircraft1 = makeAircraft({
+        id: 'aircraft-1',
+        immatriculation: 'AFK-411',
+      });
+
+      const aircraft2 = makeAircraft({
+        id: 'aircraft-2',
+        immatriculation: 'AFK-412',
+      });
+
+      const f1 = makeFlight(
+        'f1',
+        'AFK801',
+        '2026-08-20T04:00:00+03:00',
+        '2026-08-20T08:00:00+03:00',
+        'TNR',
+        'NOS',
+        aircraft1,
+      );
+
+      const f2 = makeFlight(
+        'f2',
+        'AFK802',
+        '2026-08-20T14:00:00+03:00',
+        '2026-08-20T16:00:00+03:00',
+        'NOS',
+        'TNR',
+        aircraft2,
+      );
+
+      (flightRepository.find as jest.Mock).mockResolvedValue([
+        f1,
+        f2,
+      ]);
+
+      (crewRepository.find as jest.Mock).mockResolvedValue([
+        {
+          id: 'ca1',
+          utilisateurId: 'user-1',
+          vol: f1,
+          utilisateur: {
+            nom: 'Rakoto',
+          },
+        },
+        {
+          id: 'ca2',
+          utilisateurId: 'user-1',
+          vol: f2,
+          utilisateur: {
+            nom: 'Rakoto',
+          },
+        },
+      ] as CrewAssignment[]);
+
+      const conflicts = await service.detectAll();
+
+      expect(conflicts).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            type: ScheduleConflictType.CREW_REST,
+            blocking: true,
+          }),
+        ]),
+      );
+    },
+  );
 });
