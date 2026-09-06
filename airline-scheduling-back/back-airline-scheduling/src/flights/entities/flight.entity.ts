@@ -56,6 +56,21 @@ export class Flight {
   @JoinColumn({ name: 'avionId' })
   avion!: Aircraft | null;
 
+  /**
+   * Empêche de créditer plusieurs fois les mêmes heures de vol.
+   * La valeur passe à true uniquement lorsque le vol est réellement terminé.
+   */
+  @Column({ type: 'boolean', default: false })
+  heuresComptabilisees!: boolean;
+
+  /** Nombre d'heures effectivement créditées à l'appareil pour ce vol. */
+  @Column({ type: 'double precision', nullable: true })
+  heuresCreditees!: number | null;
+
+  /** Date de l'écriture des heures dans le compteur de flotte. */
+  @Column({ type: 'timestamptz', nullable: true })
+  heuresComptabiliseesAt!: Date | null;
+
   @OneToMany(() => CrewAssignment, (assignment) => assignment.vol)
   affectationsEquipage!: CrewAssignment[];
 

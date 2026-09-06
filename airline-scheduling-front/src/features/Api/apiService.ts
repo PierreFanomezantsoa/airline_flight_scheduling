@@ -57,7 +57,6 @@ export interface PublicUser {
 
   misAJourA?: string;
 
-  // Compatibilité éventuelle avec certains composants frontend
   createdAt?: string;
 
   updatedAt?: string;
@@ -207,21 +206,13 @@ function normalizeNestMessage(
   const message =
     data.message;
 
-  // ---------------------------------------------------------------------------
-  // MESSAGE STRING
-  // ---------------------------------------------------------------------------
-
   if (
     typeof message ===
-    'string' &&
+      'string' &&
     message.trim()
   ) {
     return message;
   }
-
-  // ---------------------------------------------------------------------------
-  // MESSAGE ARRAY
-  // ---------------------------------------------------------------------------
 
   if (
     Array.isArray(
@@ -257,10 +248,6 @@ function normalizeNestMessage(
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // MESSAGE OBJET
-  // ---------------------------------------------------------------------------
-
   if (
     message !== null &&
     typeof message ===
@@ -280,10 +267,6 @@ function normalizeNestMessage(
       return nested.message;
     }
   }
-
-  // ---------------------------------------------------------------------------
-  // ERROR
-  // ---------------------------------------------------------------------------
 
   if (
     typeof data.error ===
@@ -360,10 +343,6 @@ async function requestJson<T>(
       error,
     );
   }
-
-  // ---------------------------------------------------------------------------
-  // 204
-  // ---------------------------------------------------------------------------
 
   if (
     response.status ===
@@ -643,10 +622,6 @@ export async function authFetch(
   const session =
     getAuthSession();
 
-  // ---------------------------------------------------------------------------
-  // SESSION ABSENTE
-  // ---------------------------------------------------------------------------
-
   if (
     !session ||
     !session.token ||
@@ -657,10 +632,6 @@ export async function authFetch(
       401,
     );
   }
-
-  // ---------------------------------------------------------------------------
-  // CONSTRUCTION HEADERS
-  // ---------------------------------------------------------------------------
 
   const headers =
     new Headers(
@@ -695,10 +666,6 @@ export async function authFetch(
     `Bearer ${session.token}`,
   );
 
-  // ---------------------------------------------------------------------------
-  // FETCH
-  // ---------------------------------------------------------------------------
-
   let response: Response;
 
   try {
@@ -726,10 +693,6 @@ export async function authFetch(
       error,
     );
   }
-
-  // ---------------------------------------------------------------------------
-  // 401
-  // ---------------------------------------------------------------------------
 
   if (
     response.status ===
@@ -767,10 +730,6 @@ export async function authFetch(
       payload,
     );
   }
-
-  // ---------------------------------------------------------------------------
-  // 403
-  // ---------------------------------------------------------------------------
 
   if (
     response.status ===
@@ -824,10 +783,6 @@ async function authRequestJson<T>(
       options,
     );
 
-  // ---------------------------------------------------------------------------
-  // 204
-  // ---------------------------------------------------------------------------
-
   if (
     response.status ===
     204
@@ -866,6 +821,24 @@ export async function getUsers():
     PublicUser[]
   >(
     '/users',
+    {
+      method:
+        'GET',
+    },
+  );
+}
+
+// =============================================================================
+// MEMBRES D'ÉQUIPAGE
+// GET /users/crew-members
+// =============================================================================
+
+export async function getCrewMembers():
+  Promise<PublicUser[]> {
+  return authRequestJson<
+    PublicUser[]
+  >(
+    '/users/crew-members',
     {
       method:
         'GET',

@@ -120,7 +120,7 @@ export class ScheduleConflictService {
       ...(await this.detectAircraftOverlap(candidate, aircraft, excludeFlightId)),
       ...(await this.detectTurnaroundAndPositioning(candidate, aircraft, excludeFlightId)),
       ...(await this.detectMaintenanceOverlap(candidate, aircraft)),
-      ...this.detectMaintenanceDue(candidate, aircraft),
+      ...(await this.detectMaintenanceDue(candidate, aircraft, excludeFlightId)),
     );
 
     return this.toValidationResult(conflicts);
@@ -175,8 +175,17 @@ export class ScheduleConflictService {
           this.toCandidate(flight),
           flight.avion,
         )),
-        ...this.detectMaintenanceDue(this.toCandidate(flight), flight.avion),
       );
+
+      if (!flight.heuresComptabilisees) {
+        conflicts.push(
+          ...(await this.detectMaintenanceDue(
+            this.toCandidate(flight),
+            flight.avion,
+            flight.id,
+          )),
+        );
+      }
     }
 
     for (const [aircraftId, rotations] of byAircraft.entries()) {
@@ -356,44 +365,124 @@ export class ScheduleConflictService {
     }));
   }
 
-  private detectMaintenanceDue(candidate: FlightCandidate, aircraft: Aircraft): ScheduleConflict[] {
-    const durationHours = Math.max(
+  private async detectMaintenanceDue(
+    candidate: FlightCandidate,
+    aircraft: Aircraft,
+    excludeFlightId?: string,
+  ): Promise<ScheduleConflict[]> {
+    const candidateHours = this.calculateCandidateFlightHours(candidate);
+
+    /*
+     * Le compteur de l'avion contient uniquement les heures réellement volées.
+     * Pour décider si un NOUVEAU vol peut être planifié, on ajoute aussi les
+     * vols déjà planifiés avant ce candidat et qui ne sont pas encore crédités.
+     */
+    const qb = this.flightRepository
+      .createQueryBuilder('flight')
+      .where('flight.avionId = :aircraftId', { aircraftId: aircraft.id })
+      .andWhere('flight.statut != :cancelled', {
+        cancelled: FlightStatus.CANCELLED,
+      })
+      .andWhere('flight.heuresComptabilisees = FALSE')
+      .andWhere('flight.heureDepart < :candidateDeparture', {
+        candidateDeparture: candidate.heureDepart,
+      });
+
+    if (excludeFlightId) {
+      qb.andWhere('flight.id != :excludeFlightId', { excludeFlightId });
+    }
+
+    const earlierPlannedFlights = await qb.getMany();
+
+    const earlierPlannedHours = earlierPlannedFlights.reduce(
+      (sum, flight) => sum + this.calculateStoredFlightHours(flight),
       0,
-      (candidate.heureArrivee.getTime() - candidate.heureDepart.getTime()) / 3_600_000,
     );
-    const projected = aircraft.heuresDepuisDerniereMaintenance + durationHours;
+
+    const projected =
+      Number(aircraft.heuresDepuisDerniereMaintenance || 0) +
+      earlierPlannedHours +
+      candidateHours;
+
     const remaining = aircraft.limiteHeuresMaintenance - projected;
 
     if (remaining <= 0) {
-      return [{
-        id: `MAINTENANCE_DUE:${candidate.numeroVol}:${aircraft.id}`,
-        type: ScheduleConflictType.MAINTENANCE_DUE,
-        severity: ConflictSeverity.HIGH,
-        blocking: true,
-        reason: `${aircraft.immatriculation} dépasserait sa limite de maintenance après ce vol.`,
-        recommendation: 'Planifier une maintenance ou utiliser un autre appareil.',
-        flightNumber: candidate.numeroVol,
-        aircraftId: aircraft.id,
-        aircraftRegistration: aircraft.immatriculation,
-        metadata: { projectedHours: projected, limitHours: aircraft.limiteHeuresMaintenance },
-      }];
+      return [
+        {
+          id: `MAINTENANCE_DUE:${candidate.numeroVol}:${aircraft.id}`,
+          type: ScheduleConflictType.MAINTENANCE_DUE,
+          severity: ConflictSeverity.HIGH,
+          blocking: true,
+          reason:
+            `${aircraft.immatriculation} dépasserait sa limite de maintenance ` +
+            `en tenant compte des vols déjà planifiés.`,
+          recommendation: 'Planifier une maintenance ou utiliser un autre appareil.',
+          flightNumber: candidate.numeroVol,
+          aircraftId: aircraft.id,
+          aircraftRegistration: aircraft.immatriculation,
+          metadata: {
+            actualHoursSinceMaintenance:
+              aircraft.heuresDepuisDerniereMaintenance,
+            earlierPlannedHours,
+            candidateHours,
+            projectedHours: projected,
+            limitHours: aircraft.limiteHeuresMaintenance,
+          },
+        },
+      ];
     }
 
     if (remaining <= this.policy.maintenanceWarningHours) {
-      return [{
-        id: `MAINTENANCE_WARNING:${candidate.numeroVol}:${aircraft.id}`,
-        type: ScheduleConflictType.MAINTENANCE_DUE,
-        severity: ConflictSeverity.MEDIUM,
-        blocking: false,
-        reason: `${aircraft.immatriculation} ne disposerait plus que de ${remaining.toFixed(1)} h avant maintenance.`,
-        recommendation: 'Anticiper l’immobilisation de maintenance.',
-        flightNumber: candidate.numeroVol,
-        aircraftId: aircraft.id,
-        aircraftRegistration: aircraft.immatriculation,
-      }];
+      return [
+        {
+          id: `MAINTENANCE_WARNING:${candidate.numeroVol}:${aircraft.id}`,
+          type: ScheduleConflictType.MAINTENANCE_DUE,
+          severity: ConflictSeverity.MEDIUM,
+          blocking: false,
+          reason:
+            `${aircraft.immatriculation} ne disposerait plus que de ` +
+            `${remaining.toFixed(1)} h avant maintenance après les rotations planifiées.`,
+          recommendation: 'Anticiper l’immobilisation de maintenance.',
+          flightNumber: candidate.numeroVol,
+          aircraftId: aircraft.id,
+          aircraftRegistration: aircraft.immatriculation,
+          metadata: {
+            actualHoursSinceMaintenance:
+              aircraft.heuresDepuisDerniereMaintenance,
+            earlierPlannedHours,
+            candidateHours,
+            projectedHours: projected,
+            limitHours: aircraft.limiteHeuresMaintenance,
+          },
+        },
+      ];
     }
 
     return [];
+  }
+
+  private calculateCandidateFlightHours(candidate: FlightCandidate): number {
+    const elapsedHours = Math.max(
+      0,
+      (candidate.heureArrivee.getTime() - candidate.heureDepart.getTime()) /
+        3_600_000,
+    );
+
+    const layoverHours =
+      Math.max(0, Number(candidate.dureeEscaleMinutes || 0)) / 60;
+
+    return Math.max(0, elapsedHours - layoverHours);
+  }
+
+  private calculateStoredFlightHours(flight: Flight): number {
+    const elapsedHours = Math.max(
+      0,
+      (flight.heureArrivee.getTime() - flight.heureDepart.getTime()) /
+        3_600_000,
+    );
+
+    const layoverHours = Math.max(0, Number(flight.dureeEscale || 0)) / 60;
+    return Math.max(0, elapsedHours - layoverHours);
   }
 
   private async detectCrewConflicts(): Promise<ScheduleConflict[]> {
@@ -468,6 +557,7 @@ export class ScheduleConflictService {
       heureDepart: flight.heureDepart,
       heureArrivee: flight.heureArrivee,
       avionId: flight.avionId,
+      dureeEscaleMinutes: flight.dureeEscale,
     };
   }
 
@@ -477,13 +567,16 @@ export class ScheduleConflictService {
       numeroVol: candidate.numeroVol,
       aeroportDepart: candidate.aeroportDepart,
       aeroportEscale: null,
-      dureeEscale: null,
+      dureeEscale: candidate.dureeEscaleMinutes ?? null,
       aeroportArrivee: candidate.aeroportArrivee,
       heureDepart: candidate.heureDepart,
       heureArrivee: candidate.heureArrivee,
       statut: FlightStatus.SCHEDULED,
       avionId: aircraft.id,
       avion: aircraft,
+      heuresComptabilisees: false,
+      heuresCreditees: null,
+      heuresComptabiliseesAt: null,
       affectationsEquipage: [],
       version: 0,
       creeA: new Date(0),

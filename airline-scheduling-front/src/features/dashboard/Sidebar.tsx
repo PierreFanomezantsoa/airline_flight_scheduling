@@ -296,7 +296,7 @@ const coreMenuItems:
         'scheduling',
 
       label:
-        'Ordonnancement',
+        'Génération automatique',
 
       icon:
         Layers,

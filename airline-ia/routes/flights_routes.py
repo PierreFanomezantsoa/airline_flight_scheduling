@@ -21,6 +21,7 @@ from services.flights.helpers import (
     build_legs_payload,
 )
 from services.weather.resilient_service import resilient_weather_service
+from weather_ml import local_weather_ml
 from services.weather.risk_engine import (
     WEATHER_MONITOR_THRESHOLD,
     WEATHER_PLANNING_MAX_HOURS,
@@ -30,6 +31,43 @@ from services.weather.risk_engine import (
 )
 
 flights_bp = Blueprint("flights", __name__)
+
+
+def _enrich_with_local_ml(
+    assessment,
+    *,
+    dep_airport,
+    arr_airport,
+    dep_time,
+    arr_time,
+    stopovers=None,
+):
+    """Ajoute un second avis ML local sans modifier la décision opérationnelle.
+
+    Le moteur/API existant reste la source de `score` et de `canAffectStatus`.
+    Le ML local fournit uniquement `localML` et `advisoryScore`.
+    """
+    try:
+        return local_weather_ml.enrich_api_assessment(
+            assessment,
+            dep_airport=dep_airport,
+            arr_airport=arr_airport,
+            dep_time=dep_time,
+            arr_time=arr_time,
+            stopovers=stopovers,
+        )
+    except Exception as exc:
+        enriched = dict(assessment or {})
+        enriched["localML"] = {
+            "available": False,
+            "source": "LOCAL_ML",
+            "error": str(exc),
+            "trustedForAutomaticStatus": False,
+        }
+        enriched["localMLAvailable"] = False
+        enriched["localMLTrustedForAutomaticStatus"] = False
+        return enriched
+
 
 # =============================================================================
 # GET /flights
@@ -89,6 +127,19 @@ def get_flights():
                 arr_time=arr_utc,
                 weather_assessment=assessment,
             )
+
+            # Le ML local enrichit l'affichage / l'aide OCC, mais ne participe
+            # pas à determine_operational_status(). Si ?weather=0, aucun
+            # traitement météo (API ou ML) n'est exécuté.
+            if weather_enabled:
+                assessment = _enrich_with_local_ml(
+                    assessment,
+                    dep_airport=flight.aeroportDepart,
+                    arr_airport=flight.aeroportArrivee,
+                    dep_time=dep_utc,
+                    arr_time=arr_utc,
+                    stopovers=getattr(flight, "aeroportEscale", None),
+                )
 
             if derived_status != current_status:
                 flight.statut = derived_status
@@ -319,7 +370,6 @@ def assess_weather_before_flight():
                 ),
                 400,
             )
-
         assessment = weather_engine.assess_flight(
             dep_airport=dep_airport,
             arr_airport=arr_airport,
@@ -327,6 +377,15 @@ def assess_weather_before_flight():
             arr_time=arr_time,
             stopovers=data.get("aeroportEscale"),
             force_refresh=False,
+        )
+
+        assessment = _enrich_with_local_ml(
+            assessment,
+            dep_airport=dep_airport,
+            arr_airport=arr_airport,
+            dep_time=dep_time,
+            arr_time=arr_time,
+            stopovers=data.get("aeroportEscale"),
         )
 
         return (
@@ -506,8 +565,21 @@ def get_weather_alerts():
                 ),
             )
 
+            assessment = _enrich_with_local_ml(
+                assessment,
+                dep_airport=flight.aeroportDepart,
+                arr_airport=flight.aeroportArrivee,
+                dep_time=ensure_utc(flight.heureDepart),
+                arr_time=ensure_utc(flight.heureArrivee),
+                stopovers=getattr(flight, "aeroportEscale", None),
+            )
+
+            monitor_score = assessment.get("advisoryScore")
+            if not isinstance(monitor_score, (int, float)):
+                monitor_score = assessment.get("score", 0)
+
             if (
-                assessment.get("score", 0)
+                monitor_score
                 >= WEATHER_MONITOR_THRESHOLD
                 or not assessment.get(
                     "dataAvailable",
@@ -533,9 +605,10 @@ def get_weather_alerts():
                 )
 
         alerts.sort(
-            key=lambda item: item["weatherAI"].get(
-                "score",
-                0,
+            key=lambda item: (
+                item["weatherAI"].get("advisoryScore")
+                if isinstance(item["weatherAI"].get("advisoryScore"), (int, float))
+                else item["weatherAI"].get("score", 0)
             ),
             reverse=True,
         )
@@ -624,6 +697,17 @@ def get_weather_outlook():
                 ),
             )
 
+            # Au-delà de l'horizon fournisseur, le ML local fournit une
+            # climatologie consultative avec confiance réduite.
+            assessment = _enrich_with_local_ml(
+                assessment,
+                dep_airport=flight.aeroportDepart,
+                arr_airport=flight.aeroportArrivee,
+                dep_time=ensure_utc(flight.heureDepart),
+                arr_time=ensure_utc(flight.heureArrivee),
+                stopovers=getattr(flight, "aeroportEscale", None),
+            )
+
             phase = assessment.get(
                 "forecastPhase",
                 "UNKNOWN",
@@ -659,9 +743,17 @@ def get_weather_outlook():
             key=lambda item: (
                 item["departure"] or "",
                 -(
-                    item["weatherAI"].get("score")
+                    (
+                        item["weatherAI"].get("advisoryScore")
+                        if isinstance(item["weatherAI"].get("advisoryScore"), (int, float))
+                        else item["weatherAI"].get("score")
+                    )
                     if isinstance(
-                        item["weatherAI"].get("score"),
+                        (
+                            item["weatherAI"].get("advisoryScore")
+                            if isinstance(item["weatherAI"].get("advisoryScore"), (int, float))
+                            else item["weatherAI"].get("score")
+                        ),
                         (int, float),
                     )
                     else -1
@@ -704,12 +796,56 @@ def get_weather_outlook():
         )
 
 
+@flights_bp.route("/flights/weather/local-assess", methods=["POST"])
+def assess_weather_local_only():
+    """Évalue un vol uniquement avec le ML local (consultatif OCC)."""
+    try:
+        data = request.get_json() or {}
+        dep_airport = (data.get("aeroportDepart") or "").strip().upper()
+        arr_airport = (data.get("aeroportArrivee") or "").strip().upper()
+        dep_raw = data.get("heureDepart")
+        arr_raw = data.get("heureArrivee")
+
+        if not dep_airport or not arr_airport or not dep_raw or not arr_raw:
+            return jsonify({
+                "status": "error",
+                "message": "Départ, arrivée et horaires sont requis.",
+            }), 400
+
+        dep_time = ensure_utc(datetime.fromisoformat(dep_raw.replace("Z", "+00:00")))
+        arr_time = ensure_utc(datetime.fromisoformat(arr_raw.replace("Z", "+00:00")))
+        if arr_time <= dep_time:
+            return jsonify({
+                "status": "error",
+                "message": "L'arrivée doit être postérieure au départ.",
+            }), 400
+
+        local_assessment = local_weather_ml.assess_flight(
+            dep_airport=dep_airport,
+            arr_airport=arr_airport,
+            dep_time=dep_time,
+            arr_time=arr_time,
+            stopovers=data.get("aeroportEscale"),
+        )
+        return jsonify({
+            "status": "success",
+            "localML": local_assessment,
+            "trustedForAutomaticStatus": False,
+        }), 200
+    except Exception as exc:
+        return jsonify({
+            "status": "error",
+            "message": str(exc),
+        }), 500
+
+
 @flights_bp.route("/flights/weather/status", methods=["GET"])
 def get_weather_system_status():
     """État de résilience météo : circuit API et disponibilité du ML local."""
     return jsonify({
         "status": "success",
         "weather": resilient_weather_service.status(),
+        "localML": local_weather_ml.status(),
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }), 200
 
@@ -877,6 +1013,15 @@ def create_flight():
             # pas annulation automatique.
             initial_status = "Delayed"
 
+        response_weather_assessment = _enrich_with_local_ml(
+            weather_assessment,
+            dep_airport=dep_airport,
+            arr_airport=arr_airport,
+            dep_time=dep_time,
+            arr_time=arr_time,
+            stopovers=stopover_airport,
+        )
+
         new_flight = Flight(
             id=str(uuid.uuid4()),
             numeroVol=data["numeroVol"].strip().upper(),
@@ -899,10 +1044,10 @@ def create_flight():
                     "status": "success",
                     "id": str(new_flight.id),
                     "assigned_status": initial_status,
-                    "weatherSeverity": weather_assessment.get(
+                    "weatherSeverity": response_weather_assessment.get(
                         "score"
                     ),
-                    "weatherAI": weather_assessment,
+                    "weatherAI": response_weather_assessment,
                 }
             ),
             201,
@@ -1071,6 +1216,15 @@ def update_flight(id):
         ):
             new_status = "Delayed"
 
+        response_weather_assessment = _enrich_with_local_ml(
+            weather_assessment,
+            dep_airport=dep_airport,
+            arr_airport=arr_airport,
+            dep_time=dep_time,
+            arr_time=arr_time,
+            stopovers=stopover_airport,
+        )
+
         flight.numeroVol = data["numeroVol"].strip().upper()
         flight.aeroportDepart = dep_airport
         flight.aeroportEscale = stopover_airport
@@ -1089,10 +1243,10 @@ def update_flight(id):
                     "status": "success",
                     "message": "Vol mis à jour",
                     "assigned_status": new_status,
-                    "weatherSeverity": weather_assessment.get(
+                    "weatherSeverity": response_weather_assessment.get(
                         "score"
                     ),
-                    "weatherAI": weather_assessment,
+                    "weatherAI": response_weather_assessment,
                 }
             ),
             200,

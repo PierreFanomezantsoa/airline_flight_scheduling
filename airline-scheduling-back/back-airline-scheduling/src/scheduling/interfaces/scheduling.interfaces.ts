@@ -10,6 +10,8 @@ export interface FlightCandidate {
   heureDepart: Date;
   heureArrivee: Date;
   avionId?: string | null;
+  /** Durée totale au sol pendant les escales, en minutes. */
+  dureeEscaleMinutes?: number | null;
 }
 
 export interface ScheduleConflict {

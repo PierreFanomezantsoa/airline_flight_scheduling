@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import { AircraftStatus } from '../common/enums/airline.enums';
 import { normalizeIata, normalizeRegistration } from '../common/utils/normalizers';
 import { CreateAircraftTypeDto } from './dto/create-aircraft-type.dto';
@@ -22,6 +22,7 @@ export class FleetService {
     private readonly aircraftRepository: Repository<Aircraft>,
     @InjectRepository(AircraftType)
     private readonly aircraftTypeRepository: Repository<AircraftType>,
+    private readonly dataSource: DataSource,
   ) {}
 
   findAll(): Promise<Aircraft[]> {
@@ -133,20 +134,68 @@ export class FleetService {
     return { retired: true, id };
   }
 
-  async addFlightHours(id: string, heuresVolees: number): Promise<Aircraft> {
-    if (!Number.isFinite(heuresVolees) || heuresVolees <= 0) {
-      throw new BadRequestException('heuresVolees doit être strictement positif.');
+  /**
+   * Ajoute des heures réellement effectuées à un appareil.
+   *
+   * Le verrou pessimiste évite de perdre des heures lorsque deux vols
+   * terminés tentent de mettre à jour le même avion au même moment.
+   *
+   * Le paramètre manager permet à FlightsService d'effectuer la mise à jour
+   * de l'avion et le marquage du vol dans UNE SEULE transaction.
+   */
+  async addFlightHours(
+    id: string,
+    heuresVolees: number,
+    manager?: EntityManager,
+  ): Promise<Aircraft> {
+    this.assertPositiveFlightHours(heuresVolees);
+
+    if (manager) {
+      return this.addFlightHoursWithManager(manager, id, heuresVolees);
     }
 
-    const aircraft = await this.findOne(id);
-    aircraft.heuresDeVolTotales += heuresVolees;
-    aircraft.heuresDepuisDerniereMaintenance += heuresVolees;
+    return this.dataSource.transaction((transactionManager) =>
+      this.addFlightHoursWithManager(transactionManager, id, heuresVolees),
+    );
+  }
 
-    if (aircraft.heuresDepuisDerniereMaintenance >= aircraft.limiteHeuresMaintenance) {
+  private async addFlightHoursWithManager(
+    manager: EntityManager,
+    id: string,
+    heuresVolees: number,
+  ): Promise<Aircraft> {
+    const aircraft = await manager.findOne(Aircraft, {
+      where: { id },
+      relations: ['type'],
+      lock: { mode: 'pessimistic_write' },
+    });
+
+    if (!aircraft) {
+      throw new NotFoundException(`Avion "${id}" introuvable.`);
+    }
+
+    aircraft.heuresDeVolTotales =
+      Number(aircraft.heuresDeVolTotales || 0) + heuresVolees;
+
+    aircraft.heuresDepuisDerniereMaintenance =
+      Number(aircraft.heuresDepuisDerniereMaintenance || 0) + heuresVolees;
+
+    if (
+      aircraft.heuresDepuisDerniereMaintenance >=
+      aircraft.limiteHeuresMaintenance
+    ) {
       aircraft.statut = AircraftStatus.MAINTENANCE;
     }
 
-    return this.aircraftRepository.save(aircraft);
+    return manager.save(Aircraft, aircraft);
+  }
+
+  private assertPositiveFlightHours(heuresVolees: number): void {
+    if (!Number.isFinite(heuresVolees) || heuresVolees <= 0) {
+      throw new BadRequestException(
+        'heuresVolees doit être strictement positif.',
+      );
+    }
   }
 
   async resetMaintenanceCounter(id: string): Promise<Aircraft> {
