@@ -7,8 +7,10 @@ import React, {
 
 import {
   AlertTriangle,
+  ArrowRight,
   CheckCircle2,
   Clock3,
+  Mail,
   Pencil,
   Plane,
   RefreshCw,
@@ -23,9 +25,6 @@ import {
 
 import {
   authFetch,
-} from '../Api/apiService';
-
-import {
   getCrewMembers,
   type PublicUser,
 } from '../Api/apiService';
@@ -34,8 +33,8 @@ import {
  * ENDPOINTS
  * ========================================================================== */
 
-const CREW_ENDPOINT =
-  '/users/crew-members';
+const CREW_ASSIGNMENTS_ENDPOINT =
+  '/crew-assignments';
 
 const FLIGHTS_ENDPOINT =
   '/flights';
@@ -65,45 +64,28 @@ type FlightStatus =
 
 interface Flight {
   id: string;
-
   numeroVol?: string;
-
   aeroportDepart?: string;
-
   aeroportArrivee?: string;
-
   heureDepart?: string;
-
   heureArrivee?: string;
-
   statut?: FlightStatus;
-
   avionId?: string | null;
 }
 
 interface CrewAssignment {
   id: string;
-
   volId?: string;
-
   vol?: Flight;
-
   utilisateurId?: string;
-
   utilisateur?: PublicUser;
-
   fonction?: CrewRole;
-
-  heuresReposAvant?:
-    | number
-    | null;
+  heuresReposAvant?: number | null;
 }
 
 interface CrewForm {
   volId: string;
-
   utilisateurId: string;
-
   fonction: CrewRole;
 }
 
@@ -112,7 +94,6 @@ interface MessageState {
     | 'success'
     | 'error'
     | 'info';
-
   text: string;
 }
 
@@ -137,25 +118,22 @@ const CREW_ROLES:
   ];
 
 const ROLE_LABELS:
-  Record<
-    CrewRole,
-    string
-  > = {
-  Captain:
-    'Commandant de bord',
+  Record<CrewRole, string> = {
+    Captain:
+      'Commandant de bord',
 
-  'First Officer':
-    'Copilote',
+    'First Officer':
+      'Copilote',
 
-  Purser:
-    'Chef de cabine',
+    Purser:
+      'Chef de cabine',
 
-  'Cabin Crew':
-    'Personnel de cabine',
+    'Cabin Crew':
+      'Personnel de cabine',
 
-  Other:
-    'Autre',
-};
+    Other:
+      'Autre',
+  };
 
 /* ============================================================================
  * HELPERS
@@ -282,10 +260,11 @@ function isAssignableFlight(
       flight.statut,
     );
 
-  return ![
-    'cancelled',
-    'annule',
-    'effectue',
+  return [
+    'scheduled',
+    'planifie',
+    'delayed',
+    'retarde',
   ].includes(
     status,
   );
@@ -311,6 +290,57 @@ function getAssignmentUserId(
     assignment.utilisateur?.id ||
     ''
   );
+}
+
+function getFlightStatusStyle(
+  status?: string,
+): string {
+  const normalized =
+    normalizeStatus(
+      status,
+    );
+
+  if (
+    [
+      'delayed',
+      'retarde',
+    ].includes(
+      normalized,
+    )
+  ) {
+    return 'border-amber-200 bg-amber-50 text-amber-700';
+  }
+
+  if (
+    [
+      'cancelled',
+      'annule',
+    ].includes(
+      normalized,
+    )
+  ) {
+    return 'border-rose-200 bg-rose-50 text-rose-700';
+  }
+
+  if (
+    normalized ===
+    'effectue'
+  ) {
+    return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+  }
+
+  if (
+    [
+      'in-flight',
+      'en vol',
+    ].includes(
+      normalized,
+    )
+  ) {
+    return 'border-sky-200 bg-sky-50 text-sky-700';
+  }
+
+  return 'border-slate-200 bg-slate-50 text-slate-600';
 }
 
 async function getErrorPayload(
@@ -368,24 +398,20 @@ function extractApiError(
     data.code ===
     'CREW_OVERLAP'
   ) {
-    return (
-      typeof data.message ===
-        'string'
-        ? data.message
-        : 'Ce membre est déjà affecté à un autre vol pendant cette période.'
-    );
+    return typeof data.message ===
+      'string'
+      ? data.message
+      : 'Ce membre est déjà affecté à un autre vol pendant cette période.';
   }
 
   if (
     data.code ===
     'CREW_REST'
   ) {
-    return (
-      typeof data.message ===
-        'string'
-        ? data.message
-        : 'Le temps minimal de repos équipage n’est pas respecté.'
-    );
+    return typeof data.message ===
+      'string'
+      ? data.message
+      : 'Le temps minimal de repos équipage n’est pas respecté.';
   }
 
   if (
@@ -415,8 +441,7 @@ function extractApiError(
     }
 
     return (
-      data.message
-        .message ||
+      data.message.message ||
       fallback
     );
   }
@@ -439,24 +464,6 @@ function extractApiError(
   return fallback;
 }
 
-async function getApiErrorMessage(
-  response:
-    Response,
-
-  fallback:
-    string,
-): Promise<string> {
-  const payload =
-    await getErrorPayload(
-      response,
-    );
-
-  return extractApiError(
-    payload,
-    fallback,
-  );
-}
-
 async function requestJson<T>(
   path:
     string,
@@ -473,9 +480,14 @@ async function requestJson<T>(
   if (
     !response.ok
   ) {
-    throw new Error(
-      await getApiErrorMessage(
+    const payload =
+      await getErrorPayload(
         response,
+      );
+
+    throw new Error(
+      extractApiError(
+        payload,
         `Erreur serveur HTTP ${response.status}`,
       ),
     );
@@ -492,7 +504,7 @@ async function requestJson<T>(
 }
 
 /* ============================================================================
- * METRIC
+ * KPI
  * ========================================================================== */
 
 function MetricCard({
@@ -501,42 +513,37 @@ function MetricCard({
   icon,
   subtitle,
 }: {
-  label:
-    string;
-
+  label: string;
   value:
     string | number;
-
   icon:
     React.ReactNode;
-
-  subtitle?:
-    string;
+  subtitle?: string;
 }) {
   return (
-    <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <article className="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm sm:p-4">
 
       <div className="flex items-start justify-between gap-3">
 
-        <div>
+        <div className="min-w-0">
 
-          <span className="text-[9px] font-black uppercase tracking-[0.13em] text-slate-400">
+          <span className="block text-[11px] font-bold uppercase tracking-wide text-slate-500">
             {label}
           </span>
 
-          <p className="mt-2 text-2xl font-black tabular-nums text-slate-950">
+          <p className="mt-1.5 text-2xl font-black tabular-nums text-slate-950 sm:text-3xl">
             {value}
           </p>
 
           {subtitle && (
-            <p className="mt-1 text-[9px] font-medium text-slate-400">
+            <p className="mt-1 text-[11px] font-medium leading-4 text-slate-500 sm:text-xs">
               {subtitle}
             </p>
           )}
 
         </div>
 
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
           {icon}
         </div>
 
@@ -552,9 +559,9 @@ function MetricCard({
 
 export const CrewAssignmentsPage:
   React.FC = () => {
-    /* =========================================================================
+    /* ========================================================================
      * STATES
-     * ======================================================================= */
+     * ====================================================================== */
 
     const [
       assignments,
@@ -610,9 +617,15 @@ export const CrewAssignmentsPage:
     ] =
       useState<
         string | null
-      >(
-        null,
-      );
+      >(null);
+
+    const [
+      assignmentToDelete,
+      setAssignmentToDelete,
+    ] =
+      useState<
+        CrewAssignment | null
+      >(null);
 
     const [
       editingId,
@@ -620,9 +633,7 @@ export const CrewAssignmentsPage:
     ] =
       useState<
         string | null
-      >(
-        null,
-      );
+      >(null);
 
     const [
       modalOpen,
@@ -660,25 +671,21 @@ export const CrewAssignmentsPage:
     ] =
       useState<
         MessageState | null
-      >(
-        null,
-      );
+      >(null);
 
     const [
       form,
       setForm,
     ] =
-      useState<
-        CrewForm
-      >({
+      useState<CrewForm>({
         volId: '',
         utilisateurId: '',
         fonction: 'Other',
       });
 
-    /* =========================================================================
-     * LOAD CREW MEMBERS
-     * ======================================================================= */
+    /* ========================================================================
+     * LOAD MEMBERS
+     * ====================================================================== */
 
     const loadCrewMembers =
       useCallback(
@@ -688,18 +695,25 @@ export const CrewAssignmentsPage:
           );
 
           try {
-            const members =
+            const result =
               await getCrewMembers();
+
+            const members =
+              normalizeArray<
+                PublicUser
+              >(
+                result,
+              );
 
             const filtered =
               members.filter(
                 (
                   user,
                 ) =>
-                  user.actif !==
-                    false &&
                   user.role ===
                     'Crew_Member' &&
+                  user.actif !==
+                    false &&
                   user.accountStatus ===
                     'APPROVED',
               );
@@ -717,29 +731,21 @@ export const CrewAssignmentsPage:
                   'info',
 
                 text:
-                  'Aucun membre d’équipage actif et approuvé n’est disponible.',
+                  'Aucun membre d’équipage actif et approuvé n’est actuellement disponible.',
               });
             }
           } catch (
             error:
               unknown
           ) {
-            console.error(
-              '[CrewAssignments] Chargement membres :',
-              error,
-            );
-
-            setUsers(
-              [],
-            );
+            setUsers([]);
 
             setMessage({
               type:
                 'error',
 
               text:
-                error instanceof
-                  Error
+                error instanceof Error
                   ? error.message
                   : 'Impossible de charger les membres d’équipage.',
             });
@@ -752,9 +758,9 @@ export const CrewAssignmentsPage:
         [],
       );
 
-    /* =========================================================================
+    /* ========================================================================
      * LOAD DATA
-     * ======================================================================= */
+     * ====================================================================== */
 
     const loadData =
       useCallback(
@@ -783,7 +789,7 @@ export const CrewAssignmentsPage:
                 requestJson<
                   unknown
                 >(
-                  CREW_ENDPOINT,
+                  CREW_ASSIGNMENTS_ENDPOINT,
                 ),
 
                 requestJson<
@@ -792,10 +798,6 @@ export const CrewAssignmentsPage:
                   FLIGHTS_ENDPOINT,
                 ),
               ]);
-
-            /* ===============================================================
-             * ASSIGNMENTS
-             * ============================================================= */
 
             if (
               assignmentsResult.status ===
@@ -812,10 +814,6 @@ export const CrewAssignmentsPage:
               ),
             );
 
-            /* ===============================================================
-             * FLIGHTS
-             * ============================================================= */
-
             if (
               flightsResult.status ===
               'fulfilled'
@@ -831,21 +829,11 @@ export const CrewAssignmentsPage:
               setFlights(
                 [],
               );
-
-              console.error(
-                '[CrewAssignments] Vols :',
-                flightsResult.reason,
-              );
             }
           } catch (
             error:
               unknown
           ) {
-            console.error(
-              '[CrewAssignments] Chargement :',
-              error,
-            );
-
             setMessage({
               type:
                 'error',
@@ -868,9 +856,9 @@ export const CrewAssignmentsPage:
         [],
       );
 
-    /* =========================================================================
+    /* ========================================================================
      * INITIAL LOAD
-     * ======================================================================= */
+     * ====================================================================== */
 
     useEffect(
       () => {
@@ -885,9 +873,9 @@ export const CrewAssignmentsPage:
       ],
     );
 
-    /* =========================================================================
+    /* ========================================================================
      * AUTO REFRESH
-     * ======================================================================= */
+     * ====================================================================== */
 
     useEffect(
       () => {
@@ -901,8 +889,6 @@ export const CrewAssignmentsPage:
                 void loadData(
                   true,
                 );
-
-                void loadCrewMembers();
               }
             },
             30_000,
@@ -915,38 +901,63 @@ export const CrewAssignmentsPage:
       },
       [
         loadData,
-        loadCrewMembers,
       ],
     );
 
-    /* =========================================================================
-     * MODAL SCROLL
-     * ======================================================================= */
+    /* ========================================================================
+     * MODAL BODY LOCK + ESCAPE
+     * ====================================================================== */
 
-    useEffect(() => {
-      if (
-        !modalOpen
-      ) {
-        return;
-      }
+    useEffect(
+      () => {
+        const hasOpenModal =
+          modalOpen ||
+          Boolean(
+            assignmentToDelete,
+          );
 
-      const previousOverflow =
-        document.body.style
-          .overflow;
+        if (
+          !hasOpenModal
+        ) {
+          return;
+        }
 
-      document.body.style.overflow =
-        'hidden';
+        const previousOverflow =
+          document.body.style
+            .overflow;
 
-      const handleEscape =
-        (
-          event:
-            KeyboardEvent,
-        ) => {
-          if (
-            event.key ===
-              'Escape' &&
-            !saving
-          ) {
+        document.body.style.overflow =
+          'hidden';
+
+        const handleEscape =
+          (
+            event:
+              KeyboardEvent,
+          ) => {
+            if (
+              event.key !==
+              'Escape'
+            ) {
+              return;
+            }
+
+            if (
+              saving ||
+              deletingId
+            ) {
+              return;
+            }
+
+            if (
+              assignmentToDelete
+            ) {
+              setAssignmentToDelete(
+                null,
+              );
+
+              return;
+            }
+
             setModalOpen(
               false,
             );
@@ -954,40 +965,58 @@ export const CrewAssignmentsPage:
             setEditingId(
               null,
             );
-          }
-        };
+          };
 
-      window.addEventListener(
-        'keydown',
-        handleEscape,
-      );
-
-      return () => {
-        document.body.style.overflow =
-          previousOverflow;
-
-        window.removeEventListener(
+        window.addEventListener(
           'keydown',
           handleEscape,
         );
-      };
-    }, [
-      modalOpen,
-      saving,
-    ]);
 
-    /* =========================================================================
+        return () => {
+          document.body.style.overflow =
+            previousOverflow;
+
+          window.removeEventListener(
+            'keydown',
+            handleEscape,
+          );
+        };
+      },
+      [
+        modalOpen,
+        assignmentToDelete,
+        saving,
+        deletingId,
+      ],
+    );
+
+    /* ========================================================================
      * DERIVED
-     * ======================================================================= */
+     * ====================================================================== */
 
     const assignableFlights =
       useMemo(
-        () =>
-          flights.filter(
-            isAssignableFlight,
-          ),
+        () => {
+          const currentFlightId =
+            editingId
+              ? form.volId
+              : null;
+
+          return flights.filter(
+            (
+              flight,
+            ) =>
+              isAssignableFlight(
+                flight,
+              ) ||
+              flight.id ===
+                currentFlightId,
+          );
+        },
         [
           flights,
+          editingId,
+          form.volId,
         ],
       );
 
@@ -1019,7 +1048,7 @@ export const CrewAssignmentsPage:
                   assignment,
                 );
 
-              const searchValues =
+              const text =
                 [
                   flight?.numeroVol,
                   flight?.aeroportDepart,
@@ -1036,28 +1065,25 @@ export const CrewAssignmentsPage:
                   )
                   .toLowerCase();
 
-              const matchesSearch =
-                !term ||
-                searchValues.includes(
-                  term,
-                );
-
-              const matchesFlight =
-                selectedFlightId ===
-                  'TOUS' ||
-                flightId ===
-                  selectedFlightId;
-
-              const matchesUser =
-                selectedUserId ===
-                  'TOUS' ||
-                userId ===
-                  selectedUserId;
-
               return (
-                matchesSearch &&
-                matchesFlight &&
-                matchesUser
+                (
+                  !term ||
+                  text.includes(
+                    term,
+                  )
+                ) &&
+                (
+                  selectedFlightId ===
+                    'TOUS' ||
+                  flightId ===
+                    selectedFlightId
+                ) &&
+                (
+                  selectedUserId ===
+                    'TOUS' ||
+                  userId ===
+                    selectedUserId
+                )
               );
             },
           );
@@ -1138,9 +1164,56 @@ export const CrewAssignmentsPage:
         ],
       );
 
-    /* =========================================================================
-     * MODAL ACTIONS
-     * ======================================================================= */
+    const modalUsers =
+      useMemo(
+        () => {
+          if (
+            !editingId
+          ) {
+            return users;
+          }
+
+          const assignment =
+            assignments.find(
+              (
+                item,
+              ) =>
+                item.id ===
+                editingId,
+            );
+
+          const currentUser =
+            assignment
+              ?.utilisateur;
+
+          if (
+            !currentUser ||
+            users.some(
+              (
+                user,
+              ) =>
+                user.id ===
+                currentUser.id,
+            )
+          ) {
+            return users;
+          }
+
+          return [
+            currentUser,
+            ...users,
+          ];
+        },
+        [
+          users,
+          assignments,
+          editingId,
+        ],
+      );
+
+    /* ========================================================================
+     * CREATE / EDIT MODAL
+     * ====================================================================== */
 
     const openCreateModal =
       () => {
@@ -1163,9 +1236,6 @@ export const CrewAssignmentsPage:
           null,
         );
 
-        /*
-         * On recharge les Crew_Member à chaque ouverture.
-         */
         void loadCrewMembers();
 
         setModalOpen(
@@ -1226,9 +1296,9 @@ export const CrewAssignmentsPage:
         );
       };
 
-    /* =========================================================================
+    /* ========================================================================
      * SAVE
-     * ======================================================================= */
+     * ====================================================================== */
 
     const handleSubmit =
       async (
@@ -1263,21 +1333,22 @@ export const CrewAssignmentsPage:
           selectedFlight &&
           !isAssignableFlight(
             selectedFlight,
-          )
+          ) &&
+          !editingId
         ) {
           setMessage({
             type:
               'error',
 
             text:
-              'Ce vol ne peut plus recevoir une affectation équipage.',
+              'Ce vol ne peut plus recevoir une nouvelle affectation équipage.',
           });
 
           return;
         }
 
         const selectedUser =
-          users.find(
+          modalUsers.find(
             (
               user,
             ) =>
@@ -1299,36 +1370,6 @@ export const CrewAssignmentsPage:
           return;
         }
 
-        if (
-          selectedUser.actif ===
-          false
-        ) {
-          setMessage({
-            type:
-              'error',
-
-            text:
-              'Ce membre d’équipage est désactivé.',
-          });
-
-          return;
-        }
-
-        if (
-          selectedUser.accountStatus !==
-          'APPROVED'
-        ) {
-          setMessage({
-            type:
-              'error',
-
-            text:
-              'Le compte de ce membre d’équipage n’est pas encore approuvé.',
-          });
-
-          return;
-        }
-
         setSaving(
           true,
         );
@@ -1343,23 +1384,12 @@ export const CrewAssignmentsPage:
               editingId,
             );
 
-          const payload = {
-            volId:
-              form.volId,
-
-            utilisateurId:
-              form.utilisateurId,
-
-            fonction:
-              form.fonction,
-          };
-
           await requestJson<
             CrewAssignment
           >(
             isEdit
-              ? `${CREW_ENDPOINT}/${editingId}`
-              : CREW_ENDPOINT,
+              ? `${CREW_ASSIGNMENTS_ENDPOINT}/${editingId}`
+              : CREW_ASSIGNMENTS_ENDPOINT,
 
             {
               method:
@@ -1368,9 +1398,16 @@ export const CrewAssignmentsPage:
                   : 'POST',
 
               body:
-                JSON.stringify(
-                  payload,
-                ),
+                JSON.stringify({
+                  volId:
+                    form.volId,
+
+                  utilisateurId:
+                    form.utilisateurId,
+
+                  fonction:
+                    form.fonction,
+                }),
             },
           );
 
@@ -1399,18 +1436,12 @@ export const CrewAssignmentsPage:
           error:
             unknown
         ) {
-          console.error(
-            '[CrewAssignments] Enregistrement :',
-            error,
-          );
-
           setMessage({
             type:
               'error',
 
             text:
-              error instanceof
-                Error
+              error instanceof Error
                 ? error.message
                 : 'Impossible d’enregistrer l’affectation.',
           });
@@ -1421,37 +1452,50 @@ export const CrewAssignmentsPage:
         }
       };
 
-    /* =========================================================================
-     * DELETE
-     * ======================================================================= */
+    /* ========================================================================
+     * DELETE MODAL
+     * ====================================================================== */
 
     const handleDelete =
-      async (
+      (
         assignment:
           CrewAssignment,
       ) => {
-        const userName =
-          assignment.utilisateur
-            ?.nom ??
-          assignment.utilisateur
-            ?.email ??
-          'ce membre';
-
-        const flightNumber =
-          assignment.vol
-            ?.numeroVol ??
-          'ce vol';
-
-        const confirmed =
-          window.confirm(
-            `Supprimer l’affectation de ${userName} au vol ${flightNumber} ?`,
-          );
-
         if (
-          !confirmed
+          deletingId
         ) {
           return;
         }
+
+        setAssignmentToDelete(
+          assignment,
+        );
+      };
+
+    const closeDeleteModal =
+      () => {
+        if (
+          deletingId
+        ) {
+          return;
+        }
+
+        setAssignmentToDelete(
+          null,
+        );
+      };
+
+    const confirmDelete =
+      async () => {
+        if (
+          !assignmentToDelete ||
+          deletingId
+        ) {
+          return;
+        }
+
+        const assignment =
+          assignmentToDelete;
 
         setDeletingId(
           assignment.id,
@@ -1462,14 +1506,17 @@ export const CrewAssignmentsPage:
         );
 
         try {
-          await requestJson<
-            unknown
-          >(
-            `${CREW_ENDPOINT}/${assignment.id}`,
+          await requestJson(
+            `${CREW_ASSIGNMENTS_ENDPOINT}/${assignment.id}`,
+
             {
               method:
                 'DELETE',
             },
+          );
+
+          setAssignmentToDelete(
+            null,
           );
 
           setMessage({
@@ -1487,18 +1534,12 @@ export const CrewAssignmentsPage:
           error:
             unknown
         ) {
-          console.error(
-            '[CrewAssignments] Suppression :',
-            error,
-          );
-
           setMessage({
             type:
               'error',
 
             text:
-              error instanceof
-                Error
+              error instanceof Error
                 ? error.message
                 : 'Impossible de supprimer cette affectation.',
           });
@@ -1509,54 +1550,56 @@ export const CrewAssignmentsPage:
         }
       };
 
-    /* =========================================================================
+    /* ========================================================================
      * RENDER
-     * ======================================================================= */
+     * ====================================================================== */
 
     return (
-      <div className="min-h-screen bg-slate-100 p-4 text-slate-800 sm:p-6 lg:p-8">
+      <div className="min-h-screen bg-slate-100 p-2.5 text-slate-800 sm:p-5 lg:p-6">
 
-        <div className="mx-auto max-w-[1500px] space-y-4">
+        <div className="mx-auto max-w-[1500px] space-y-3 sm:space-y-4">
 
-          {/* HEADER */}
+          {/* ================================================================ */}
+          {/* HEADER                                                           */}
+          {/* ================================================================ */}
 
           <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
 
-            <div className="flex flex-col gap-4 p-5 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-col gap-4 p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-start gap-3">
 
-                <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-700 text-white">
+                <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-700 text-white sm:h-12 sm:w-12">
 
                   <Users className="h-5 w-5" />
 
-                  <span className="absolute -bottom-1 -right-1 h-3 w-3 rounded-full border-2 border-white bg-emerald-400" />
+                  <span className="absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full border-2 border-white bg-emerald-400" />
 
                 </div>
 
-                <div>
+                <div className="min-w-0">
 
                   <div className="flex flex-wrap items-center gap-2">
 
-                    <h1 className="text-lg font-black tracking-tight text-slate-950">
+                    <h1 className="text-lg font-black tracking-tight text-slate-950 sm:text-xl">
                       Gestion des équipages
                     </h1>
 
-                    <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[8px] font-black uppercase tracking-wide text-emerald-700">
+                    <span className="rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-black text-emerald-700">
                       OCC
                     </span>
 
                   </div>
 
-                  <p className="mt-1 text-[11px] font-medium text-slate-500">
-                    Affectations, fonctions, chevauchements et repos des équipages.
+                  <p className="mt-1 max-w-xl text-xs font-medium leading-5 text-slate-500 sm:text-sm">
+                    Affectations, fonctions à bord, chevauchements et suivi du repos.
                   </p>
 
                 </div>
 
               </div>
 
-              <div className="flex flex-wrap gap-2">
+              <div className="grid grid-cols-2 gap-2 sm:flex">
 
                 <button
                   type="button"
@@ -1568,7 +1611,7 @@ export const CrewAssignmentsPage:
                     loading ||
                     loadingUsers
                   }
-                  className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-xs font-bold text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 transition hover:bg-slate-50 disabled:opacity-50 sm:h-10 sm:px-4 sm:text-sm"
                 >
 
                   <RefreshCw
@@ -1589,12 +1632,18 @@ export const CrewAssignmentsPage:
                   onClick={
                     openCreateModal
                   }
-                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-emerald-700 px-4 text-xs font-black text-white transition hover:bg-emerald-800"
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-emerald-700 px-3 text-xs font-bold text-white transition hover:bg-emerald-800 sm:h-10 sm:px-4 sm:text-sm"
                 >
 
                   <UserPlus className="h-4 w-4" />
 
-                  Nouvelle affectation
+                  <span className="sm:hidden">
+                    Affecter
+                  </span>
+
+                  <span className="hidden sm:inline">
+                    Nouvelle affectation
+                  </span>
 
                 </button>
 
@@ -1602,36 +1651,56 @@ export const CrewAssignmentsPage:
 
             </div>
 
-            <div className="flex flex-wrap gap-x-5 gap-y-2 border-t border-slate-100 bg-slate-50/80 px-5 py-2.5 text-[10px] font-semibold text-slate-500">
+            <div className="grid grid-cols-2 border-t border-slate-100 bg-slate-50/80 sm:flex sm:flex-wrap sm:gap-6 sm:px-5 sm:py-3">
 
-              <span>
-                <strong className="text-slate-700">
-                  {assignableFlights.length}
-                </strong>{' '}
-                vols disponibles
-              </span>
+              <div className="border-r border-slate-200 px-3 py-2.5 sm:border-0 sm:p-0">
 
-              <span>
-                <strong className="text-slate-700">
-                  {users.length}
-                </strong>{' '}
-                Crew_Member disponibles
-              </span>
+                <span className="block text-[10px] font-semibold uppercase text-slate-400 sm:hidden">
+                  Vols
+                </span>
 
-              <span>
-                Contrôle des conflits et du repos
-              </span>
+                <span className="text-xs font-semibold text-slate-600">
+
+                  <strong className="text-sm text-slate-900">
+                    {assignableFlights.length}
+                  </strong>{' '}
+
+                  disponibles
+
+                </span>
+
+              </div>
+
+              <div className="px-3 py-2.5 sm:p-0">
+
+                <span className="block text-[10px] font-semibold uppercase text-slate-400 sm:hidden">
+                  Membres
+                </span>
+
+                <span className="text-xs font-semibold text-slate-600">
+
+                  <strong className="text-sm text-slate-900">
+                    {users.length}
+                  </strong>{' '}
+
+                  disponibles
+
+                </span>
+
+              </div>
 
             </div>
 
           </section>
 
-          {/* MESSAGE */}
+          {/* ================================================================ */}
+          {/* MESSAGE                                                          */}
+          {/* ================================================================ */}
 
           {message && (
 
             <div
-              className={`flex items-start justify-between gap-3 rounded-2xl border p-4 ${
+              className={`flex items-start justify-between gap-3 rounded-2xl border p-3.5 sm:p-4 ${
                 message.type ===
                 'success'
                   ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
@@ -1642,16 +1711,16 @@ export const CrewAssignmentsPage:
               }`}
             >
 
-              <div className="flex items-start gap-2 text-sm font-semibold">
+              <div className="flex min-w-0 items-start gap-2 text-xs font-semibold leading-5 sm:text-sm">
 
                 {message.type ===
                 'success' ? (
 
-                  <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" />
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 sm:h-5 sm:w-5" />
 
                 ) : (
 
-                  <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 sm:h-5 sm:w-5" />
 
                 )}
 
@@ -1668,25 +1737,29 @@ export const CrewAssignmentsPage:
                     null,
                   )
                 }
-                className="rounded-lg p-1 hover:bg-black/5"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg hover:bg-black/5"
               >
+
                 <X className="h-4 w-4" />
+
               </button>
 
             </div>
 
           )}
 
-          {/* KPI */}
+          {/* ================================================================ */}
+          {/* KPI                                                              */}
+          {/* ================================================================ */}
 
-          <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <section className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
 
             <MetricCard
               label="Affectations"
               value={
                 assignments.length
               }
-              subtitle="Total enregistré"
+              subtitle="Total"
               icon={
                 <Users className="h-4 w-4" />
               }
@@ -1697,7 +1770,7 @@ export const CrewAssignmentsPage:
               value={
                 uniqueCrewCount
               }
-              subtitle="Membres affectés"
+              subtitle="Affectés"
               icon={
                 <ShieldCheck className="h-4 w-4" />
               }
@@ -1715,11 +1788,11 @@ export const CrewAssignmentsPage:
             />
 
             <MetricCard
-              label="Repos calculé"
+              label="Repos"
               value={
                 withRestInfo
               }
-              subtitle="Affectations renseignées"
+              subtitle="Renseignés"
               icon={
                 <Clock3 className="h-4 w-4" />
               }
@@ -1727,11 +1800,13 @@ export const CrewAssignmentsPage:
 
           </section>
 
-          {/* FILTERS */}
+          {/* ================================================================ */}
+          {/* FILTERS                                                          */}
+          {/* ================================================================ */}
 
-          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
 
-            <div className="grid gap-3 md:grid-cols-3">
+            <div className="grid gap-2.5 md:grid-cols-3">
 
               <div className="relative">
 
@@ -1749,8 +1824,8 @@ export const CrewAssignmentsPage:
                       event.target.value,
                     )
                   }
-                  placeholder="Vol, membre, fonction..."
-                  className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-3 text-xs font-semibold outline-none focus:border-emerald-600 focus:bg-white"
+                  placeholder="Vol, membre ou fonction..."
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-3 text-sm font-medium text-slate-700 outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-4 focus:ring-emerald-600/10"
                 />
 
               </div>
@@ -1766,7 +1841,7 @@ export const CrewAssignmentsPage:
                     event.target.value,
                   )
                 }
-                className="h-10 rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-semibold outline-none focus:border-emerald-600"
+                className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-700 outline-none focus:border-emerald-600"
               >
 
                 <option value="TOUS">
@@ -1815,13 +1890,15 @@ export const CrewAssignmentsPage:
                 disabled={
                   loadingUsers
                 }
-                className="h-10 rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-semibold outline-none focus:border-emerald-600 disabled:opacity-50"
+                className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-700 outline-none focus:border-emerald-600 disabled:opacity-50"
               >
 
                 <option value="TOUS">
+
                   {loadingUsers
                     ? 'Chargement des membres...'
                     : 'Tous les membres'}
+
                 </option>
 
                 {users.map(
@@ -1849,63 +1926,367 @@ export const CrewAssignmentsPage:
 
           </section>
 
-          {/* TABLE */}
+          {/* ================================================================ */}
+          {/* ASSIGNMENTS                                                      */}
+          {/* ================================================================ */}
 
           <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
 
-            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+            <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-4 sm:px-5">
 
-              <div>
+              <div className="min-w-0">
 
-                <h2 className="text-sm font-black text-slate-900">
+                <h2 className="text-sm font-black text-slate-900 sm:text-base">
                   Affectations équipage
                 </h2>
 
-                <p className="mt-0.5 text-[10px] text-slate-400">
-                  Vol, membre, fonction et repos avant rotation
+                <p className="mt-1 text-[11px] leading-4 text-slate-500 sm:text-xs">
+                  Vol, membre, fonction et repos avant rotation.
                 </p>
 
               </div>
 
-              <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-[9px] font-black text-slate-500">
-                {filteredAssignments.length} résultat(s)
+              <span className="shrink-0 rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600">
+                {filteredAssignments.length}
               </span>
 
             </div>
 
-            <div className="overflow-x-auto">
+            {/* ============================================================ */}
+            {/* MOBILE CARDS                                                 */}
+            {/* ============================================================ */}
 
-              <table className="w-full min-w-[1000px] text-left text-sm">
+            <div className="md:hidden">
 
-                <thead className="border-b border-slate-200 bg-slate-50 text-[9px] font-black uppercase tracking-wider text-slate-500">
+              {loading ? (
+
+                <div className="flex min-h-[180px] items-center justify-center">
+
+                  <span className="inline-flex items-center gap-2 text-sm font-medium text-slate-500">
+
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+
+                    Chargement...
+
+                  </span>
+
+                </div>
+
+              ) : filteredAssignments.length ===
+                0 ? (
+
+                <div className="flex min-h-[180px] items-center justify-center px-5 text-center">
+
+                  <div>
+
+                    <Users className="mx-auto h-9 w-9 text-slate-300" />
+
+                    <p className="mt-2 text-sm font-bold text-slate-700">
+                      Aucune affectation
+                    </p>
+
+                    <p className="mt-1 text-xs leading-5 text-slate-500">
+                      Modifiez les filtres ou créez une nouvelle affectation.
+                    </p>
+
+                  </div>
+
+                </div>
+
+              ) : (
+
+                <div className="divide-y divide-slate-100">
+
+                  {filteredAssignments.map(
+                    (
+                      assignment,
+                    ) => {
+                      const flight =
+                        assignment.vol;
+
+                      const user =
+                        assignment.utilisateur;
+
+                      return (
+
+                        <article
+                          key={
+                            assignment.id
+                          }
+                          className="bg-white p-4"
+                        >
+
+                          {/* TOP */}
+
+                          <div className="flex items-start justify-between gap-3">
+
+                            <div className="flex min-w-0 items-center gap-3">
+
+                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+
+                                <Plane className="h-4 w-4" />
+
+                              </div>
+
+                              <div className="min-w-0">
+
+                                <p className="text-base font-black text-slate-900">
+
+                                  {flight?.numeroVol ??
+                                    getAssignmentFlightId(
+                                      assignment,
+                                    )}
+
+                                </p>
+
+                                <span
+                                  className={`mt-1 inline-flex rounded-md border px-2 py-0.5 text-[10px] font-bold ${getFlightStatusStyle(
+                                    flight?.statut,
+                                  )}`}
+                                >
+                                  {flight?.statut ??
+                                    'Statut inconnu'}
+                                </span>
+
+                              </div>
+
+                            </div>
+
+                            <div className="flex gap-1.5">
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  openEditModal(
+                                    assignment,
+                                  )
+                                }
+                                aria-label="Modifier"
+                                className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition active:bg-sky-50"
+                              >
+
+                                <Pencil className="h-4 w-4" />
+
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleDelete(
+                                    assignment,
+                                  )
+                                }
+                                aria-label="Supprimer"
+                                className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-rose-500 transition hover:border-rose-200 hover:bg-rose-50"
+                              >
+
+                                <Trash2 className="h-4 w-4" />
+
+                              </button>
+
+                            </div>
+
+                          </div>
+
+                          {/* ROUTE */}
+
+                          <div className="mt-4 rounded-xl bg-slate-50 p-3">
+
+                            <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                              Itinéraire
+                            </span>
+
+                            <div className="mt-1.5 flex items-center gap-2 font-mono text-sm font-bold text-slate-800">
+
+                              <span>
+                                {flight?.aeroportDepart ??
+                                  '--'}
+                              </span>
+
+                              <ArrowRight className="h-4 w-4 text-slate-300" />
+
+                              <span>
+                                {flight?.aeroportArrivee ??
+                                  '--'}
+                              </span>
+
+                            </div>
+
+                          </div>
+
+                          {/* MEMBER */}
+
+                          <div className="mt-3 rounded-xl border border-slate-200 p-3">
+
+                            <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                              Membre d’équipage
+                            </span>
+
+                            <div className="mt-2 flex items-start gap-2.5">
+
+                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600">
+
+                                <Users className="h-4 w-4" />
+
+                              </div>
+
+                              <div className="min-w-0">
+
+                                <p className="truncate text-sm font-bold text-slate-900">
+
+                                  {user?.nom ??
+                                    'Utilisateur'}
+
+                                </p>
+
+                                <p className="mt-0.5 flex items-center gap-1.5 truncate text-xs text-slate-500">
+
+                                  <Mail className="h-3.5 w-3.5 shrink-0" />
+
+                                  <span className="truncate">
+
+                                    {user?.email ??
+                                      getAssignmentUserId(
+                                        assignment,
+                                      )}
+
+                                  </span>
+
+                                </p>
+
+                              </div>
+
+                            </div>
+
+                          </div>
+
+                          {/* GRID */}
+
+                          <div className="mt-3 grid grid-cols-2 gap-2">
+
+                            <div className="rounded-xl border border-slate-200 p-3">
+
+                              <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                                Fonction
+                              </span>
+
+                              <span className="mt-1.5 block text-xs font-bold leading-5 text-sky-700">
+
+                                {formatRole(
+                                  assignment.fonction,
+                                )}
+
+                              </span>
+
+                            </div>
+
+                            <div className="rounded-xl border border-slate-200 p-3">
+
+                              <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                                Repos avant
+                              </span>
+
+                              {assignment.heuresReposAvant ===
+                                null ||
+                              assignment.heuresReposAvant ===
+                                undefined ? (
+
+                                <span className="mt-1.5 block text-xs font-medium text-slate-400">
+                                  Non calculé
+                                </span>
+
+                              ) : (
+
+                                <span className="mt-1.5 inline-flex items-center gap-1.5 text-sm font-bold text-emerald-700">
+
+                                  <Clock3 className="h-4 w-4" />
+
+                                  {assignment.heuresReposAvant.toFixed(
+                                    1,
+                                  )}
+                                  {' h'}
+
+                                </span>
+
+                              )}
+
+                            </div>
+
+                          </div>
+
+                          {/* DATE */}
+
+                          <div className="mt-3 flex items-center gap-2 border-t border-slate-100 pt-3">
+
+                            <Clock3 className="h-4 w-4 text-slate-400" />
+
+                            <div>
+
+                              <span className="block text-[10px] font-bold uppercase text-slate-400">
+                                Départ du vol
+                              </span>
+
+                              <span className="mt-0.5 block text-sm font-semibold text-slate-700">
+
+                                {formatDateTime(
+                                  flight?.heureDepart,
+                                )}
+
+                              </span>
+
+                            </div>
+
+                          </div>
+
+                        </article>
+
+                      );
+                    },
+                  )}
+
+                </div>
+
+              )}
+
+            </div>
+
+            {/* ============================================================ */}
+            {/* DESKTOP TABLE                                                */}
+            {/* ============================================================ */}
+
+            <div className="hidden overflow-x-auto md:block">
+
+              <table className="w-full min-w-[1100px] text-left">
+
+                <thead className="border-b border-slate-200 bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500">
 
                   <tr>
 
-                    <th className="px-4 py-3">
+                    <th className="px-4 py-3.5">
                       Vol
                     </th>
 
-                    <th className="px-4 py-3">
+                    <th className="px-4 py-3.5">
                       Itinéraire
                     </th>
 
-                    <th className="px-4 py-3">
+                    <th className="px-4 py-3.5">
                       Membre
                     </th>
 
-                    <th className="px-4 py-3">
+                    <th className="px-4 py-3.5">
                       Fonction
                     </th>
 
-                    <th className="px-4 py-3">
+                    <th className="px-4 py-3.5">
                       Départ
                     </th>
 
-                    <th className="px-4 py-3">
+                    <th className="px-4 py-3.5">
                       Repos avant
                     </th>
 
-                    <th className="px-4 py-3 text-right">
+                    <th className="px-4 py-3.5 text-right">
                       Actions
                     </th>
 
@@ -1923,14 +2304,14 @@ export const CrewAssignmentsPage:
                         colSpan={
                           7
                         }
-                        className="px-4 py-14 text-center text-slate-400"
+                        className="px-4 py-14 text-center"
                       >
 
-                        <span className="inline-flex items-center gap-2">
+                        <span className="inline-flex items-center gap-2 text-sm font-medium text-slate-500">
 
                           <RefreshCw className="h-4 w-4 animate-spin" />
 
-                          Chargement...
+                          Chargement des affectations...
 
                         </span>
 
@@ -1947,9 +2328,15 @@ export const CrewAssignmentsPage:
                         colSpan={
                           7
                         }
-                        className="px-4 py-14 text-center text-slate-400"
+                        className="px-4 py-14 text-center"
                       >
-                        Aucune affectation trouvée.
+
+                        <Users className="mx-auto h-8 w-8 text-slate-300" />
+
+                        <p className="mt-2 text-sm font-semibold text-slate-600">
+                          Aucune affectation trouvée
+                        </p>
+
                       </td>
 
                     </tr>
@@ -1960,7 +2347,6 @@ export const CrewAssignmentsPage:
                       (
                         assignment,
                       ) => {
-
                         const flight =
                           assignment.vol;
 
@@ -1976,27 +2362,37 @@ export const CrewAssignmentsPage:
                             className="transition hover:bg-slate-50"
                           >
 
+                            {/* VOL */}
+
                             <td className="px-4 py-4">
 
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-3">
 
-                                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
+                                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
+
                                   <Plane className="h-4 w-4" />
+
                                 </div>
 
                                 <div>
 
-                                  <p className="font-black text-slate-900">
+                                  <p className="text-sm font-black text-slate-900">
+
                                     {flight?.numeroVol ??
                                       getAssignmentFlightId(
                                         assignment,
                                       )}
+
                                   </p>
 
-                                  <p className="text-[9px] text-slate-400">
+                                  <span
+                                    className={`mt-1 inline-flex rounded-md border px-2 py-0.5 text-[10px] font-bold ${getFlightStatusStyle(
+                                      flight?.statut,
+                                    )}`}
+                                  >
                                     {flight?.statut ??
-                                      'Statut inconnu'}
-                                  </p>
+                                      'Inconnu'}
+                                  </span>
 
                                 </div>
 
@@ -2004,45 +2400,69 @@ export const CrewAssignmentsPage:
 
                             </td>
 
-                            <td className="px-4 py-4 font-semibold text-slate-600">
-                              {flight?.aeroportDepart ??
-                                '--'}
-                              {' → '}
-                              {flight?.aeroportArrivee ??
-                                '--'}
-                            </td>
+                            {/* ROUTE */}
 
                             <td className="px-4 py-4">
 
-                              <p className="font-bold text-slate-800">
-                                {user?.nom ??
-                                  'Utilisateur'}
-                              </p>
+                              <span className="font-mono text-sm font-semibold text-slate-700">
 
-                              <p className="mt-0.5 text-[10px] text-slate-400">
-                                {user?.email ??
-                                  getAssignmentUserId(
-                                    assignment,
-                                  )}
-                              </p>
+                                {flight?.aeroportDepart ??
+                                  '--'}
+                                {' → '}
+                                {flight?.aeroportArrivee ??
+                                  '--'}
 
-                            </td>
-
-                            <td className="px-4 py-4">
-
-                              <span className="inline-flex rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1 text-[9px] font-black text-sky-700">
-                                {formatRole(
-                                  assignment.fonction,
-                                )}
                               </span>
 
                             </td>
 
-                            <td className="px-4 py-4 text-[11px] text-slate-500">
+                            {/* MEMBER */}
+
+                            <td className="px-4 py-4">
+
+                              <p className="text-sm font-bold text-slate-800">
+
+                                {user?.nom ??
+                                  'Utilisateur'}
+
+                              </p>
+
+                              <p className="mt-1 text-xs text-slate-500">
+
+                                {user?.email ??
+                                  getAssignmentUserId(
+                                    assignment,
+                                  )}
+
+                              </p>
+
+                            </td>
+
+                            {/* ROLE */}
+
+                            <td className="px-4 py-4">
+
+                              <span className="inline-flex rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-bold text-sky-700">
+
+                                {formatRole(
+                                  assignment.fonction,
+                                )}
+
+                              </span>
+
+                            </td>
+
+                            {/* DATE */}
+
+                            <td className="px-4 py-4 text-sm font-medium text-slate-600">
+
                               {formatDateTime(
                                 flight?.heureDepart,
                               )}
+
                             </td>
+
+                            {/* REST */}
 
                             <td className="px-4 py-4">
 
@@ -2051,19 +2471,20 @@ export const CrewAssignmentsPage:
                               assignment.heuresReposAvant ===
                                 undefined ? (
 
-                                <span className="text-[10px] text-slate-400">
+                                <span className="text-xs font-medium text-slate-400">
                                   Non calculé
                                 </span>
 
                               ) : (
 
-                                <span className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-black text-emerald-700">
+                                <span className="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">
 
-                                  <Clock3 className="h-3 w-3" />
+                                  <Clock3 className="h-3.5 w-3.5" />
 
                                   {assignment.heuresReposAvant.toFixed(
                                     1,
-                                  )} h
+                                  )}{' '}
+                                  h
 
                                 </span>
 
@@ -2071,9 +2492,11 @@ export const CrewAssignmentsPage:
 
                             </td>
 
+                            {/* ACTIONS */}
+
                             <td className="px-4 py-4">
 
-                              <div className="flex justify-end gap-1.5">
+                              <div className="flex justify-end gap-2">
 
                                 <button
                                   type="button"
@@ -2082,35 +2505,26 @@ export const CrewAssignmentsPage:
                                       assignment,
                                     )
                                   }
-                                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-sky-50 hover:text-sky-700"
+                                  title="Modifier"
+                                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700"
                                 >
-                                  <Pencil className="h-3.5 w-3.5" />
+
+                                  <Pencil className="h-4 w-4" />
+
                                 </button>
 
                                 <button
                                   type="button"
-                                  disabled={
-                                    deletingId ===
-                                    assignment.id
-                                  }
                                   onClick={() =>
-                                    void handleDelete(
+                                    handleDelete(
                                       assignment,
                                     )
                                   }
-                                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-rose-50 hover:text-rose-700 disabled:opacity-50"
+                                  title="Supprimer"
+                                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700"
                                 >
 
-                                  {deletingId ===
-                                  assignment.id ? (
-
-                                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-
-                                  ) : (
-
-                                    <Trash2 className="h-3.5 w-3.5" />
-
-                                  )}
+                                  <Trash2 className="h-4 w-4" />
 
                                 </button>
 
@@ -2136,31 +2550,68 @@ export const CrewAssignmentsPage:
 
         </div>
 
-        {/* MODAL */}
+        {/* ================================================================== */}
+        {/* MODAL CREATE / EDIT                                                */}
+        {/* ================================================================== */}
 
         {modalOpen && (
 
           <div
             role="dialog"
             aria-modal="true"
-            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm"
+            className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/50 backdrop-blur-[2px] sm:items-center sm:p-5"
+            onMouseDown={(
+              event,
+            ) => {
+              if (
+                event.currentTarget ===
+                  event.target &&
+                !saving
+              ) {
+                closeModal();
+              }
+            }}
           >
 
-            <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+            <div className="flex max-h-[94vh] w-full flex-col overflow-hidden rounded-t-3xl border border-slate-200 bg-white shadow-2xl sm:max-w-[620px] sm:rounded-2xl">
 
-              <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+              <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-slate-200 sm:hidden" />
 
-                <div>
+              {/* HEADER */}
 
-                  <h2 className="text-base font-black text-slate-950">
-                    {editingId
-                      ? 'Modifier l’affectation'
-                      : 'Nouvelle affectation'}
-                  </h2>
+              <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-4 sm:px-6">
 
-                  <p className="mt-1 text-[10px] text-slate-400">
-                    Sélection du vol, du membre et de sa fonction à bord.
-                  </p>
+                <div className="flex min-w-0 items-center gap-3">
+
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 sm:h-11 sm:w-11">
+
+                    {editingId ? (
+
+                      <Pencil className="h-5 w-5" />
+
+                    ) : (
+
+                      <UserPlus className="h-5 w-5" />
+
+                    )}
+
+                  </div>
+
+                  <div className="min-w-0">
+
+                    <h2 className="text-base font-black text-slate-950 sm:text-lg">
+
+                      {editingId
+                        ? 'Modifier l’affectation'
+                        : 'Nouvelle affectation'}
+
+                    </h2>
+
+                    <p className="mt-0.5 text-[11px] leading-4 text-slate-500 sm:text-xs">
+                      Vol, membre et fonction à bord.
+                    </p>
+
+                  </div>
 
                 </div>
 
@@ -2172,26 +2623,36 @@ export const CrewAssignmentsPage:
                   disabled={
                     saving
                   }
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100"
                 >
+
                   <X className="h-4 w-4" />
+
                 </button>
 
               </div>
+
+              {/* FORM */}
 
               <form
                 onSubmit={
                   handleSubmit
                 }
-                className="space-y-4 p-5"
+                className="flex-1 space-y-5 overflow-y-auto p-4 sm:p-6"
               >
 
                 {/* VOL */}
 
                 <label className="block">
 
-                  <span className="mb-1.5 block text-[9px] font-black uppercase tracking-wide text-slate-400">
-                    Vol *
+                  <span className="mb-2 block text-xs font-bold text-slate-700">
+
+                    Vol
+
+                    <span className="ml-1 text-rose-500">
+                      *
+                    </span>
+
                   </span>
 
                   <select
@@ -2213,7 +2674,7 @@ export const CrewAssignmentsPage:
                         }),
                       )
                     }
-                    className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-semibold outline-none focus:border-emerald-600"
+                    className="h-12 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-emerald-600 focus:ring-4 focus:ring-emerald-600/10"
                   >
 
                     <option value="">
@@ -2233,6 +2694,7 @@ export const CrewAssignmentsPage:
                             flight.id
                           }
                         >
+
                           {flight.numeroVol ??
                             flight.id}
                           {' — '}
@@ -2241,10 +2703,7 @@ export const CrewAssignmentsPage:
                           {' → '}
                           {flight.aeroportArrivee ??
                             '?'}
-                          {' — '}
-                          {formatDateTime(
-                            flight.heureDepart,
-                          )}
+
                         </option>
 
                       ),
@@ -2258,72 +2717,128 @@ export const CrewAssignmentsPage:
 
                 <label className="block">
 
-                  <span className="mb-1.5 block text-[9px] font-black uppercase tracking-wide text-slate-400">
-                    Membre d’équipage *
-                  </span>
+                  <div className="mb-2 flex items-center justify-between">
 
-                  <select
-                    required
-                    value={
-                      form.utilisateurId
-                    }
-                    disabled={
-                      loadingUsers
-                    }
-                    onChange={(
-                      event,
-                    ) =>
-                      setForm(
-                        (
-                          current,
-                        ) => ({
-                          ...current,
+                    <span className="text-xs font-bold text-slate-700">
+                      Membre d’équipage *
+                    </span>
 
-                          utilisateurId:
-                            event.target.value,
-                        }),
-                      )
-                    }
-                    className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-semibold outline-none focus:border-emerald-600 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
+                    {!loadingUsers && (
 
-                    <option value="">
-                      {loadingUsers
-                        ? 'Chargement des membres...'
-                        : users.length ===
-                            0
-                          ? 'Aucun membre disponible'
-                          : 'Sélectionner un membre'}
-                    </option>
+                      <span className="rounded-full bg-emerald-50 px-2 py-1 text-[11px] font-bold text-emerald-700">
 
-                    {users.map(
-                      (
-                        user,
-                      ) => (
+                        {modalUsers.length}{' '}
 
-                        <option
-                          key={
-                            user.id
-                          }
-                          value={
-                            user.id
-                          }
-                        >
-                          {user.nom} — {user.email}
-                        </option>
+                        disponible
+                        {modalUsers.length >
+                        1
+                          ? 's'
+                          : ''}
 
-                      ),
+                      </span>
+
                     )}
 
-                  </select>
+                  </div>
+
+                  <div className="relative">
+
+                    <Users className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+
+                    <select
+                      required
+                      value={
+                        form.utilisateurId
+                      }
+                      disabled={
+                        loadingUsers ||
+                        modalUsers.length ===
+                          0
+                      }
+                      onChange={(
+                        event,
+                      ) =>
+                        setForm(
+                          (
+                            current,
+                          ) => ({
+                            ...current,
+
+                            utilisateurId:
+                              event.target.value,
+                          }),
+                        )
+                      }
+                      className="h-12 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-3 text-sm font-semibold text-slate-700 outline-none focus:border-emerald-600 focus:ring-4 focus:ring-emerald-600/10 disabled:bg-slate-100"
+                    >
+
+                      <option value="">
+
+                        {loadingUsers
+                          ? 'Chargement...'
+                          : modalUsers.length ===
+                              0
+                            ? 'Aucun membre disponible'
+                            : 'Sélectionner un membre'}
+
+                      </option>
+
+                      {modalUsers.map(
+                        (
+                          user,
+                        ) => (
+
+                          <option
+                            key={
+                              user.id
+                            }
+                            value={
+                              user.id
+                            }
+                          >
+
+                            {user.nom}
+                            {' — '}
+                            {user.email}
+
+                          </option>
+
+                        ),
+                      )}
+
+                    </select>
+
+                  </div>
 
                   {!loadingUsers &&
-                    users.length ===
+                    modalUsers.length ===
                       0 && (
 
-                    <p className="mt-1.5 text-[9px] font-semibold text-amber-600">
-                      Aucun utilisateur Crew_Member actif et approuvé n’a été retourné par l’API.
-                    </p>
+                    <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3">
+
+                      <p className="text-xs font-bold text-amber-900">
+                        Aucun membre disponible
+                      </p>
+
+                      <p className="mt-1 text-xs leading-5 text-amber-700">
+                        Vérifiez le rôle Crew_Member, le statut APPROVED et l’activation du compte.
+                      </p>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void loadCrewMembers()
+                        }
+                        className="mt-2 inline-flex h-9 items-center gap-2 rounded-lg border border-amber-300 bg-white px-3 text-xs font-bold text-amber-700"
+                      >
+
+                        <RefreshCw className="h-3.5 w-3.5" />
+
+                        Recharger
+
+                      </button>
+
+                    </div>
 
                   )}
 
@@ -2333,7 +2848,7 @@ export const CrewAssignmentsPage:
 
                 <label className="block">
 
-                  <span className="mb-1.5 block text-[9px] font-black uppercase tracking-wide text-slate-400">
+                  <span className="mb-2 block text-xs font-bold text-slate-700">
                     Fonction à bord *
                   </span>
 
@@ -2356,7 +2871,7 @@ export const CrewAssignmentsPage:
                         }),
                       )
                     }
-                    className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-semibold outline-none focus:border-emerald-600"
+                    className="h-12 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-emerald-600 focus:ring-4 focus:ring-emerald-600/10"
                   >
 
                     {CREW_ROLES.map(
@@ -2372,9 +2887,11 @@ export const CrewAssignmentsPage:
                             role
                           }
                         >
+
                           {formatRole(
                             role,
                           )}
+
                         </option>
 
                       ),
@@ -2384,17 +2901,25 @@ export const CrewAssignmentsPage:
 
                 </label>
 
-                {/* VALIDATION INFO */}
+                {/* INFO */}
 
-                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3.5">
 
-                  <div className="flex items-start gap-2">
+                  <div className="flex items-start gap-2.5">
 
-                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                    <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-700" />
 
-                    <p className="text-[10px] font-medium leading-5 text-amber-900">
-                      Le serveur vérifie automatiquement les doublons, les chevauchements d’équipage et le temps minimal de repos.
-                    </p>
+                    <div>
+
+                      <p className="text-sm font-bold text-slate-800">
+                        Contrôles opérationnels
+                      </p>
+
+                      <p className="mt-1 text-xs leading-5 text-slate-600">
+                        Les chevauchements et le repos minimal sont vérifiés avant l’enregistrement.
+                      </p>
+
+                    </div>
 
                   </div>
 
@@ -2402,7 +2927,7 @@ export const CrewAssignmentsPage:
 
                 {/* ACTIONS */}
 
-                <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
+                <div className="sticky bottom-0 -mx-4 -mb-4 grid grid-cols-2 gap-2 border-t border-slate-100 bg-white px-4 py-4 sm:-mx-6 sm:-mb-6 sm:flex sm:justify-end sm:px-6">
 
                   <button
                     type="button"
@@ -2412,7 +2937,7 @@ export const CrewAssignmentsPage:
                     disabled={
                       saving
                     }
-                    className="h-10 rounded-xl border border-slate-200 px-4 text-xs font-bold text-slate-600 hover:bg-slate-50"
+                    className="h-11 rounded-xl border border-slate-200 px-4 text-sm font-bold text-slate-600 hover:bg-slate-50"
                   >
                     Annuler
                   </button>
@@ -2422,10 +2947,10 @@ export const CrewAssignmentsPage:
                     disabled={
                       saving ||
                       loadingUsers ||
-                      users.length ===
+                      modalUsers.length ===
                         0
                     }
-                    className="inline-flex h-10 min-w-[130px] items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 text-xs font-black text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 text-sm font-bold text-white hover:bg-emerald-800 disabled:opacity-50 sm:min-w-[140px]"
                   >
 
                     {saving ? (
@@ -2449,6 +2974,305 @@ export const CrewAssignmentsPage:
                 </div>
 
               </form>
+
+            </div>
+
+          </div>
+
+        )}
+
+        {/* ================================================================== */}
+        {/* DELETE CONFIRMATION MODAL                                          */}
+        {/* ================================================================== */}
+
+        {assignmentToDelete && (
+
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-assignment-title"
+            className="fixed inset-0 z-[60] flex items-end justify-center bg-slate-950/50 backdrop-blur-[2px] sm:items-center sm:p-5"
+            onMouseDown={(
+              event,
+            ) => {
+              if (
+                event.currentTarget ===
+                  event.target &&
+                !deletingId
+              ) {
+                closeDeleteModal();
+              }
+            }}
+          >
+
+            <div className="w-full overflow-hidden rounded-t-3xl border border-slate-200 bg-white shadow-2xl sm:max-w-[480px] sm:rounded-2xl">
+
+              {/* MOBILE HANDLE */}
+
+              <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-slate-200 sm:hidden" />
+
+              {/* HEADER */}
+
+              <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4 sm:px-6">
+
+                <div className="flex min-w-0 items-start gap-3">
+
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-rose-600">
+
+                    <Trash2 className="h-5 w-5" />
+
+                  </div>
+
+                  <div className="min-w-0">
+
+                    <h2
+                      id="delete-assignment-title"
+                      className="text-base font-black text-slate-950 sm:text-lg"
+                    >
+                      Supprimer l’affectation
+                    </h2>
+
+                    <p className="mt-1 text-xs leading-5 text-slate-500">
+                      Vérifiez les informations avant de confirmer la suppression.
+                    </p>
+
+                  </div>
+
+                </div>
+
+                <button
+                  type="button"
+                  onClick={
+                    closeDeleteModal
+                  }
+                  disabled={
+                    Boolean(
+                      deletingId,
+                    )
+                  }
+                  aria-label="Fermer"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+
+                  <X className="h-4 w-4" />
+
+                </button>
+
+              </div>
+
+              {/* BODY */}
+
+              <div className="p-5 sm:p-6">
+
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+
+                  {/* CREW */}
+
+                  <div className="flex items-start gap-3">
+
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-slate-600 ring-1 ring-slate-200">
+
+                      <Users className="h-4 w-4" />
+
+                    </div>
+
+                    <div className="min-w-0">
+
+                      <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                        Membre d’équipage
+                      </span>
+
+                      <p className="mt-1 truncate text-sm font-bold text-slate-900">
+
+                        {assignmentToDelete.utilisateur?.nom ??
+                          'Utilisateur'}
+
+                      </p>
+
+                      {assignmentToDelete.utilisateur?.email && (
+
+                        <p className="mt-0.5 truncate text-xs text-slate-500">
+
+                          {assignmentToDelete.utilisateur.email}
+
+                        </p>
+
+                      )}
+
+                    </div>
+
+                  </div>
+
+                  <div className="my-4 border-t border-slate-200" />
+
+                  {/* FLIGHT + ROLE */}
+
+                  <div className="grid grid-cols-2 gap-4">
+
+                    <div>
+
+                      <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                        Vol
+                      </span>
+
+                      <div className="mt-1.5 flex items-center gap-2">
+
+                        <Plane className="h-4 w-4 text-emerald-700" />
+
+                        <span className="font-mono text-sm font-black text-slate-900">
+
+                          {assignmentToDelete.vol?.numeroVol ??
+                            getAssignmentFlightId(
+                              assignmentToDelete,
+                            )}
+
+                        </span>
+
+                      </div>
+
+                    </div>
+
+                    <div>
+
+                      <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                        Fonction
+                      </span>
+
+                      <span className="mt-1.5 block text-sm font-bold text-sky-700">
+
+                        {formatRole(
+                          assignmentToDelete.fonction,
+                        )}
+
+                      </span>
+
+                    </div>
+
+                  </div>
+
+                  {/* ROUTE */}
+
+                  <div className="mt-4">
+
+                    <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                      Itinéraire
+                    </span>
+
+                    <div className="mt-1.5 flex items-center gap-2 font-mono text-sm font-bold text-slate-700">
+
+                      <span>
+
+                        {assignmentToDelete.vol?.aeroportDepart ??
+                          '--'}
+
+                      </span>
+
+                      <ArrowRight className="h-4 w-4 text-slate-300" />
+
+                      <span>
+
+                        {assignmentToDelete.vol?.aeroportArrivee ??
+                          '--'}
+
+                      </span>
+
+                    </div>
+
+                  </div>
+
+                  {/* DEPARTURE */}
+
+                  <div className="mt-4">
+
+                    <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                      Départ
+                    </span>
+
+                    <div className="mt-1.5 flex items-center gap-2 text-sm font-semibold text-slate-700">
+
+                      <Clock3 className="h-4 w-4 text-slate-400" />
+
+                      {formatDateTime(
+                        assignmentToDelete.vol?.heureDepart,
+                      )}
+
+                    </div>
+
+                  </div>
+
+                </div>
+
+                {/* WARNING */}
+
+                <div className="mt-4 flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50 p-3.5">
+
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" />
+
+                  <div>
+
+                    <p className="text-xs font-bold text-rose-900">
+                      Confirmation requise
+                    </p>
+
+                    <p className="mt-1 text-xs leading-5 text-rose-700">
+                      Cette opération supprimera l’affectation de ce membre au vol. Elle ne supprime ni le membre d’équipage ni le vol.
+                    </p>
+
+                  </div>
+
+                </div>
+
+              </div>
+
+              {/* ACTIONS */}
+
+              <div className="grid grid-cols-2 gap-2 border-t border-slate-100 bg-white px-5 py-4 sm:flex sm:justify-end sm:px-6">
+
+                <button
+                  type="button"
+                  onClick={
+                    closeDeleteModal
+                  }
+                  disabled={
+                    Boolean(
+                      deletingId,
+                    )
+                  }
+                  className="h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 sm:min-w-[110px]"
+                >
+                  Annuler
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    void confirmDelete()
+                  }
+                  disabled={
+                    Boolean(
+                      deletingId,
+                    )
+                  }
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-rose-600 px-4 text-sm font-bold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50 sm:min-w-[150px]"
+                >
+
+                  {deletingId ? (
+
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+
+                  ) : (
+
+                    <Trash2 className="h-4 w-4" />
+
+                  )}
+
+                  {deletingId
+                    ? 'Suppression...'
+                    : 'Supprimer'}
+
+                </button>
+
+              </div>
 
             </div>
 

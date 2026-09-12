@@ -8,15 +8,11 @@ import {
 import { Reflector } from '@nestjs/core';
 
 import { UserRole } from '../../users/enums/user-role.enum';
-
 import { ROLES_KEY } from '../decorators/roles.decorator';
-
 import { SessionUser } from '../interfaces/session-user.interface';
 
 interface RequestWithUser {
   user?: SessionUser;
-  url?: string;
-  method?: string;
 }
 
 @Injectable()
@@ -53,7 +49,7 @@ export class RolesGuard implements CanActivate {
     }
 
     // =========================================================================
-    // REQUÊTE
+    // UTILISATEUR AUTHENTIFIÉ
     // =========================================================================
 
     const request =
@@ -65,42 +61,10 @@ export class RolesGuard implements CanActivate {
       request.user;
 
     // =========================================================================
-    // DEBUG
-    // =========================================================================
-
-    console.log(
-      '[RolesGuard]',
-      {
-        method:
-          request.method,
-
-        route:
-          request.url,
-
-        requiredRoles,
-
-        userId:
-          user?.id,
-
-        userRole:
-          user?.role,
-
-        exp:
-          user?.exp,
-      },
-    );
-
-    // =========================================================================
     // UTILISATEUR ABSENT
     // =========================================================================
 
-    if (
-      !user
-    ) {
-      console.warn(
-        '[RolesGuard] request.user est absent.',
-      );
-
+    if (!user) {
       throw new ForbiddenException(
         'Utilisateur authentifié introuvable dans la requête.',
       );
@@ -110,24 +74,14 @@ export class RolesGuard implements CanActivate {
     // RÔLE ABSENT
     // =========================================================================
 
-    if (
-      !user.role
-    ) {
-      console.warn(
-        '[RolesGuard] Rôle utilisateur absent.',
-        {
-          userId:
-            user.id,
-        },
-      );
-
+    if (!user.role) {
       throw new ForbiddenException(
         "Le rôle de l'utilisateur est introuvable dans la session.",
       );
     }
 
     // =========================================================================
-    // VÉRIFICATION AUTORISATION
+    // VÉRIFICATION DES AUTORISATIONS
     // =========================================================================
 
     const isAuthorized =
@@ -135,28 +89,7 @@ export class RolesGuard implements CanActivate {
         user.role,
       );
 
-    if (
-      !isAuthorized
-    ) {
-      console.warn(
-        '[RolesGuard] Accès refusé.',
-        {
-          method:
-            request.method,
-
-          route:
-            request.url,
-
-          userId:
-            user.id,
-
-          userRole:
-            user.role,
-
-          requiredRoles,
-        },
-      );
-
+    if (!isAuthorized) {
       throw new ForbiddenException(
         `Le rôle "${user.role}" n'est pas autorisé à effectuer cette opération.`,
       );
@@ -165,23 +98,6 @@ export class RolesGuard implements CanActivate {
     // =========================================================================
     // ACCÈS AUTORISÉ
     // =========================================================================
-
-    console.log(
-      '[RolesGuard] Accès autorisé.',
-      {
-        method:
-          request.method,
-
-        route:
-          request.url,
-
-        userId:
-          user.id,
-
-        userRole:
-          user.role,
-      },
-    );
 
     return true;
   }

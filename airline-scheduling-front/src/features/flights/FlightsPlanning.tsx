@@ -1,48 +1,32 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { 
-  CalendarDays, 
-  Plus, 
-  Globe, 
-  ArrowRight, 
-  Trash2, 
-  Edit2, 
-  ShieldAlert, 
-  Loader2, 
-  Search, 
-  Plane, 
-  CheckCircle2, 
-  AlertCircle,
-  XCircle,
-  Filter,
-  X,
-  Clock,
-  MapPin,
-  CloudRain,
-  CloudLightning,
-  Sun,
-  RefreshCw,
-  Cpu,
-  Sparkles,
-  AlertTriangle
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  AlertCircle, AlertTriangle, ArrowRight, CalendarDays, CheckCircle2, Clock,
+  CloudLightning, CloudRain, Cpu, Edit2, Filter, Globe, Loader2, MapPin, Plane,
+  Plus, RefreshCw, Search, ShieldAlert, Sparkles, Sun, Trash2, X, XCircle,
 } from 'lucide-react';
 import { FlightAddModal, type FlightFormData } from '../dashboard/FlightAddModal';
 
-// --- TYPES & INTERFACES ---
-export type FlightStatus = 
-  | 'Scheduled' 
-  | 'Delayed' 
-  | 'In-Flight' 
-  | 'Cancelled' 
-  | 'On-Time' 
+export type FlightStatus =
+  | 'Scheduled'
+  | 'Delayed'
+  | 'In-Flight'
+  | 'Cancelled'
+  | 'On-Time'
   | 'En attente'
-  | 'Planifié' 
-  | 'Retardé' 
-  | 'En Vol' 
-  | 'Annulé' 
+  | 'Planifié'
+  | 'Retardé'
+  | 'En Vol'
+  | 'Annulé'
   | 'Ponctuel'
   | 'Effectué';
 
-export type NormalizedStatus = 'En attente' | 'Ponctuel' | 'Retardé' | 'En Vol' | 'Annulé' | 'Effectué';
+export type NormalizedStatus =
+  | 'En attente'
+  | 'Ponctuel'
+  | 'Retardé'
+  | 'En Vol'
+  | 'Annulé'
+  | 'Effectué';
 
 type WeatherRiskLevel =
   | 'LOW'
@@ -85,23 +69,18 @@ interface Flight {
   flightNumber: string;
   origin: string;
   destination: string;
-
-  // Compatibilité backend : stopover peut être une chaîne CSV ou une liste.
   stopover?: string | string[] | null;
   stops?: string[];
   stopoverDurationMinutes?: number | null;
   route?: string;
-
   departure: string;
   arrival: string;
   localDeparture?: string | null;
   localArrival?: string | null;
   durationMinutes?: number | null;
-
   status: FlightStatus;
   aircraft: string;
   aircraftModel: string;
-
   weatherSeverity?: number | null;
   weatherPending?: boolean;
   weatherAI?: WeatherAI;
@@ -135,30 +114,50 @@ interface Toast {
   message: string;
 }
 
+interface MobileFlightCardProps {
+  flight: Flight;
+  computedStatus: NormalizedStatus;
+  onEdit: (flight: Flight) => void;
+  onDelete: (flight: Flight) => void;
+}
+
 const API_BASE_URL =
   (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL) ||
   (typeof globalThis !== 'undefined' &&
     (globalThis as any).process?.env?.REACT_APP_API_BASE_URL) ||
   'http://localhost:5000';
 
-const normalizeStops = (flight: Flight): string[] => {
-  if (Array.isArray(flight.stops)) {
-    return flight.stops.filter(Boolean);
-  }
+const STATUS_STYLES: Record<NormalizedStatus, string> = {
+  'En attente': 'border-sky-200 bg-sky-50 text-sky-700',
+  Ponctuel: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+  Retardé: 'border-amber-200 bg-amber-50 text-amber-700',
+  'En Vol': 'border-teal-200 bg-teal-50 text-teal-800',
+  Annulé: 'border-rose-200 bg-rose-50 text-rose-700',
+  Effectué: 'border-slate-200 bg-slate-100 text-slate-600',
+};
 
+const STATUS_FILTERS = [
+  { id: 'ALL', label: 'Tous' },
+  { id: 'En attente', label: 'En attente' },
+  { id: 'Ponctuel', label: 'Ponctuels' },
+  { id: 'En Vol', label: 'En Vol' },
+  { id: 'Retardé', label: 'Retardés' },
+  { id: 'Annulé', label: 'Annulés' },
+];
+
+const normalizeStops = (flight: Flight): string[] => {
+  if (Array.isArray(flight.stops)) return flight.stops.filter(Boolean);
   if (Array.isArray(flight.stopover)) {
     return flight.stopover
-      .map((value) => String(value).trim().toUpperCase())
+      .map(value => String(value).trim().toUpperCase())
       .filter(Boolean);
   }
-
   if (typeof flight.stopover === 'string') {
     return flight.stopover
       .split(',')
-      .map((value) => value.trim().toUpperCase())
+      .map(value => value.trim().toUpperCase())
       .filter(Boolean);
   }
-
   return [];
 };
 
@@ -172,6 +171,42 @@ const formatWeatherPercent = (value?: number | null) => {
   return normalized == null ? '--' : `${Math.round(normalized * 100)}%`;
 };
 
+const calculateDuration = (departureStr: string, arrivalStr: string): string | null => {
+  const dep = new Date(departureStr);
+  const arr = new Date(arrivalStr);
+  if (Number.isNaN(dep.getTime()) || Number.isNaN(arr.getTime())) return null;
+
+  const diffMs = arr.getTime() - dep.getTime();
+  if (diffMs <= 0) return null;
+
+  const totalMinutes = Math.floor(diffMs / 60000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  if (hours === 0) return `${minutes} min`;
+  if (minutes === 0) return `${hours} h`;
+
+  return `${hours} h ${minutes} min`;
+};
+
+const formatMobileDate = (value: string): string => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '--';
+  return date.toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: '2-digit',
+  });
+};
+
+const formatMobileTime = (value: string): string => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '--:--';
+  return date.toLocaleTimeString('fr-FR', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
 const getWeatherVisual = (flight: Flight) => {
   const ai = flight.weatherAI;
   const level = ai?.riskLevel ?? flight.weatherRiskLevel;
@@ -179,8 +214,8 @@ const getWeatherVisual = (flight: Flight) => {
   if (flight.weatherPending && !ai) {
     return {
       label: 'Analyse...',
-      icon: <RefreshCw className="h-3.5 w-3.5 animate-spin" />,
-      badge: 'border-slate-200 bg-slate-50 text-slate-500',
+      icon: <RefreshCw className="h-4 w-4 animate-spin" />,
+      badge: 'border-slate-200 bg-slate-50 text-slate-600',
       bar: 'bg-slate-300',
     };
   }
@@ -188,7 +223,7 @@ const getWeatherVisual = (flight: Flight) => {
   if (ai?.dataAvailable === false || level === 'UNKNOWN') {
     return {
       label: 'Indisponible',
-      icon: <AlertCircle className="h-3.5 w-3.5" />,
+      icon: <AlertCircle className="h-4 w-4" />,
       badge: 'border-slate-200 bg-slate-100 text-slate-600',
       bar: 'bg-slate-400',
     };
@@ -197,7 +232,7 @@ const getWeatherVisual = (flight: Flight) => {
   if (level === 'EXTREME') {
     return {
       label: ai?.riskLabel || 'Extrême',
-      icon: <CloudLightning className="h-3.5 w-3.5" />,
+      icon: <CloudLightning className="h-4 w-4" />,
       badge: 'border-rose-200 bg-rose-50 text-rose-700',
       bar: 'bg-rose-500',
     };
@@ -206,7 +241,7 @@ const getWeatherVisual = (flight: Flight) => {
   if (level === 'SEVERE' || level === 'HIGH') {
     return {
       label: ai?.riskLabel || 'Élevé',
-      icon: <AlertTriangle className="h-3.5 w-3.5" />,
+      icon: <AlertTriangle className="h-4 w-4" />,
       badge: 'border-orange-200 bg-orange-50 text-orange-700',
       bar: 'bg-orange-500',
     };
@@ -215,7 +250,7 @@ const getWeatherVisual = (flight: Flight) => {
   if (level === 'MODERATE') {
     return {
       label: ai?.riskLabel || 'Modéré',
-      icon: <CloudRain className="h-3.5 w-3.5" />,
+      icon: <CloudRain className="h-4 w-4" />,
       badge: 'border-amber-200 bg-amber-50 text-amber-700',
       bar: 'bg-amber-500',
     };
@@ -224,7 +259,7 @@ const getWeatherVisual = (flight: Flight) => {
   if (level === 'LOW') {
     return {
       label: ai?.riskLabel || 'Faible',
-      icon: <Sun className="h-3.5 w-3.5" />,
+      icon: <Sun className="h-4 w-4" />,
       badge: 'border-emerald-200 bg-emerald-50 text-emerald-700',
       bar: 'bg-emerald-600',
     };
@@ -235,8 +270,8 @@ const getWeatherVisual = (flight: Flight) => {
   if (severity == null) {
     return {
       label: 'Non évalué',
-      icon: <Cpu className="h-3.5 w-3.5" />,
-      badge: 'border-slate-200 bg-slate-50 text-slate-500',
+      icon: <Cpu className="h-4 w-4" />,
+      badge: 'border-slate-200 bg-slate-50 text-slate-600',
       bar: 'bg-slate-300',
     };
   }
@@ -244,16 +279,16 @@ const getWeatherVisual = (flight: Flight) => {
   if (severity >= 0.92) {
     return {
       label: 'Extrême',
-      icon: <CloudLightning className="h-3.5 w-3.5" />,
+      icon: <CloudLightning className="h-4 w-4" />,
       badge: 'border-rose-200 bg-rose-50 text-rose-700',
       bar: 'bg-rose-500',
     };
   }
 
-  if (severity >= 0.70) {
+  if (severity >= 0.7) {
     return {
       label: 'Élevé',
-      icon: <AlertTriangle className="h-3.5 w-3.5" />,
+      icon: <AlertTriangle className="h-4 w-4" />,
       badge: 'border-orange-200 bg-orange-50 text-orange-700',
       bar: 'bg-orange-500',
     };
@@ -262,7 +297,7 @@ const getWeatherVisual = (flight: Flight) => {
   if (severity >= 0.45) {
     return {
       label: 'Modéré',
-      icon: <CloudRain className="h-3.5 w-3.5" />,
+      icon: <CloudRain className="h-4 w-4" />,
       badge: 'border-amber-200 bg-amber-50 text-amber-700',
       bar: 'bg-amber-500',
     };
@@ -270,83 +305,235 @@ const getWeatherVisual = (flight: Flight) => {
 
   return {
     label: 'Faible',
-    icon: <Sun className="h-3.5 w-3.5" />,
+    icon: <Sun className="h-4 w-4" />,
     badge: 'border-emerald-200 bg-emerald-50 text-emerald-700',
     bar: 'bg-emerald-600',
   };
 };
 
-// --- HELPER DURÉE DE VOL ---
-const calculateDuration = (departureStr: string, arrivalStr: string): string | null => {
-  const dep = new Date(departureStr);
-  const arr = new Date(arrivalStr);
-  if (isNaN(dep.getTime()) || isNaN(arr.getTime())) return null;
-
-  const diffMs = arr.getTime() - dep.getTime();
-  if (diffMs <= 0) return null;
-
-  const totalMinutes = Math.floor(diffMs / (1000 * 60));
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-
-  if (hours === 0) return `${minutes}m`;
-  return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
-};
-
-// --- COMPOSANT ITINÉRAIRE AVEC ESCALES ---
-const RouteBadge: React.FC<{ 
-  origin: string; 
-  destination: string; 
-  stops?: string[]; 
-  departure: string; 
-  arrival: string; 
+const RouteBadge: React.FC<{
+  origin: string;
+  destination: string;
+  stops?: string[];
+  departure: string;
+  arrival: string;
 }> = ({ origin, destination, stops = [], departure, arrival }) => {
   const duration = calculateDuration(departure, arrival);
-  const hasStops = stops && stops.length > 0;
+  const hasStops = stops.length > 0;
 
   return (
-    <div className="flex flex-col gap-1.5 items-start">
-      {/* Container de la route principale et escales */}
-      <div className="inline-flex items-center gap-1.5 bg-slate-900 text-white font-mono font-black text-xs px-3 py-1.5 rounded-xl shadow-xs border border-slate-800 flex-wrap">
-        {/* Origine */}
-        <span className="tracking-widest text-emerald-400">{origin}</span>
+    <div className="min-w-[190px]">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 font-mono text-xs font-black text-emerald-700">
+          {origin}
+        </span>
 
-        {/* Parcours avec escales */}
-        {hasStops ? (
-          stops.map((stop, index) => (
-            <React.Fragment key={`${stop}-${index}`}>
-              <ArrowRight className="h-3 w-3 text-slate-500 shrink-0" />
-              <span className="inline-flex items-center gap-1 text-[11px] font-extrabold text-amber-300 bg-amber-400/10 px-1.5 py-0.5 rounded border border-amber-400/20">
-                <MapPin className="h-2.5 w-2.5 text-amber-400" />
-                {stop}
-              </span>
-            </React.Fragment>
-          ))
-        ) : null}
+        {stops.map((stop, index) => (
+          <React.Fragment key={`${stop}-${index}`}>
+            <ArrowRight className="h-3.5 w-3.5 shrink-0 text-slate-300" />
+            <span className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 font-mono text-xs font-bold text-amber-700">
+              <MapPin className="h-3 w-3" />
+              {stop}
+            </span>
+          </React.Fragment>
+        ))}
 
-        <ArrowRight className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+        <ArrowRight className="h-3.5 w-3.5 shrink-0 text-slate-300" />
 
-        {/* Destination */}
-        <span className="tracking-widest text-sky-400">{destination}</span>
+        <span className="rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1 font-mono text-xs font-black text-sky-700">
+          {destination}
+        </span>
       </div>
 
-      {/* Informations complémentaires (Durée + Nombre d'escales) */}
-      <div className="flex items-center gap-2 text-[10px] font-semibold text-slate-500 pl-1">
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-500">
         {duration && (
           <span className="inline-flex items-center gap-1">
-            <Clock className="h-3 w-3 text-slate-400" />
+            <Clock className="h-3.5 w-3.5" />
             {duration}
           </span>
         )}
+
         {hasStops ? (
-          <span className="text-amber-600 font-bold bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200/60">
-            {stops.length} escale{stops.length > 1 ? 's' : ''} ({stops.join(', ')})
+          <span className="rounded-md bg-amber-50 px-2 py-0.5 font-bold text-amber-700">
+            {stops.length} escale{stops.length > 1 ? 's' : ''}
           </span>
         ) : (
-          <span className="text-slate-400">Direct</span>
+          <span className="font-semibold text-emerald-600">Vol direct</span>
         )}
       </div>
     </div>
+  );
+};
+const MobileFlightCard: React.FC<MobileFlightCardProps> = ({
+  flight,
+  computedStatus,
+  onEdit,
+  onDelete,
+}) => {
+  const stops = normalizeStops(flight);
+  const duration = calculateDuration(flight.departure, flight.arrival);
+  const weather = getWeatherVisual(flight);
+  const aircraftLabel = flight.aircraftModel || flight.aircraft || 'Non assigné';
+  const isUnassigned = !flight.aircraft || flight.aircraft === 'NON ASSIGNÉ';
+
+  return (
+    <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="border-b border-slate-100 px-4 py-3.5">
+        <div className="flex items-center justify-between gap-3">
+          <span className="font-mono text-sm font-black tracking-wide text-slate-950">
+            {flight.flightNumber}
+          </span>
+          <span
+            className={`inline-flex items-center rounded-lg border px-2.5 py-1 text-xs font-bold ${STATUS_STYLES[computedStatus]}`}
+          >
+            {computedStatus}
+          </span>
+        </div>
+
+        <div className="mt-2.5 flex flex-wrap items-center gap-1.5 font-mono text-xs font-bold text-slate-700">
+          <Plane className="h-3.5 w-3.5 shrink-0 text-emerald-700" />
+          <span>{flight.origin}</span>
+
+          {stops.map((stop, index) => (
+            <React.Fragment key={`${stop}-${index}`}>
+              <ArrowRight className="h-3 w-3 text-slate-300" />
+              <span className="text-amber-700">{stop}</span>
+            </React.Fragment>
+          ))}
+
+          <ArrowRight className="h-3 w-3 text-slate-300" />
+          <span>{flight.destination}</span>
+        </div>
+      </div>
+
+      <div className="space-y-4 px-4 py-4">
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-xl bg-slate-50 p-3">
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-sm font-black text-slate-900">
+                {flight.origin}
+              </span>
+              <Plane className="h-3.5 w-3.5 rotate-45 text-emerald-700" />
+            </div>
+
+            <p className="mt-1.5 text-xs font-bold text-slate-600">Départ</p>
+
+            <p className="mt-1 font-mono text-xs font-black text-slate-900">
+              {formatMobileDate(flight.departure)}{' '}
+              {formatMobileTime(flight.departure)}
+            </p>
+          </div>
+
+          <div className="rounded-xl bg-slate-50 p-3">
+            <span className="font-mono text-sm font-black text-slate-900">
+              {flight.destination}
+            </span>
+
+            <p className="mt-1.5 text-xs font-bold text-slate-600">Arrivée</p>
+
+            <p className="mt-1 font-mono text-xs font-black text-slate-900">
+              {formatMobileDate(flight.arrival)}{' '}
+              {formatMobileTime(flight.arrival)}
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-xl border border-slate-200 p-3">
+            <p className="text-xs font-bold text-slate-600">Durée</p>
+            <p className="mt-1.5 font-mono text-sm font-black text-slate-900">
+              {duration || '--'}
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-slate-200 p-3">
+            <p className="text-xs font-bold text-slate-600">Aéronef</p>
+            <p
+              className={`mt-1.5 truncate font-mono text-sm font-black ${
+                isUnassigned ? 'text-rose-600' : 'text-slate-900'
+              }`}
+            >
+              {aircraftLabel}
+            </p>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+          <p className="text-xs font-bold text-slate-700">Conditions météo</p>
+
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <span
+              className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-bold ${weather.badge}`}
+            >
+              {weather.icon}
+              {weather.label}
+            </span>
+
+            <span className="font-mono text-xs font-black text-slate-600">
+              {formatWeatherPercent(
+                flight.weatherAI?.score ?? flight.weatherSeverity,
+              )}
+            </span>
+          </div>
+
+          {flight.weatherAI?.recommendedAction &&
+            !['NORMAL', 'NONE'].includes(
+              flight.weatherAI.recommendedAction,
+            ) && (
+              <div className="mt-2 flex items-start gap-1.5 text-xs leading-5 text-slate-600">
+                <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-700" />
+                <span>
+                  {flight.weatherAI.recommendedActionLabel ||
+                    'Surveillance renforcée'}
+                </span>
+              </div>
+            )}
+        </div>
+
+        {stops.length > 0 && (
+          <div className="border-t border-slate-100 pt-3 text-xs font-semibold text-slate-600">
+            Escale{stops.length > 1 ? 's' : ''} :{' '}
+            <span className="font-bold text-amber-700">
+              {stops.join(' • ')}
+            </span>
+            {flight.stopoverDurationMinutes
+              ? ` · ${flight.stopoverDurationMinutes} min`
+              : ''}
+          </div>
+        )}
+      </div>
+
+      <div className="border-t border-slate-100 px-4 py-3">
+        <button
+          type="button"
+          onClick={() => onEdit(flight)}
+          className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 text-sm font-bold text-white transition hover:bg-emerald-600"
+        >
+          Voir les détails
+          <ArrowRight className="h-4 w-4" />
+        </button>
+
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => onEdit(flight)}
+            className="flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-600 transition hover:bg-emerald-50 hover:text-emerald-700"
+          >
+            <Edit2 className="h-3.5 w-3.5" />
+            Modifier
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onDelete(flight)}
+            className="flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white text-xs font-bold text-rose-600 transition hover:border-rose-200 hover:bg-rose-50"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            Supprimer
+          </button>
+        </div>
+      </div>
+    </article>
   );
 };
 
@@ -358,122 +545,145 @@ export const FlightsPlanning: React.FC = () => {
   const [loadingFlights, setLoadingFlights] = useState(true);
   const [loadingFleet, setLoadingFleet] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
   const [isWeatherRefreshing, setIsWeatherRefreshing] = useState(false);
-  const [weatherLastUpdatedAt, setWeatherLastUpdatedAt] = useState<Date | null>(null);
-  const [weatherSyncError, setWeatherSyncError] = useState<string | null>(null);
-
-  // Modal suppression
-  const [deletingFlight, setDeletingFlight] = useState<Flight | null>(null);
+  const [weatherLastUpdatedAt, setWeatherLastUpdatedAt] =
+    useState<Date | null>(null);
+  const [weatherSyncError, setWeatherSyncError] =
+    useState<string | null>(null);
+  const [deletingFlight, setDeletingFlight] =
+    useState<Flight | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-
-  // Toasts
   const [toasts, setToasts] = useState<Toast[]>([]);
-
-  // Filtres
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('ALL');
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState('ALL');
 
-  // --- TOASTS ---
-  const addToast = useCallback((type: 'success' | 'error' | 'info', message: string) => {
-    const id = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-    setToasts((prev) => [...prev, { id, type, message }]);
+  const addToast = useCallback((type: Toast['type'], message: string) => {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
+    setToasts(previous => [
+      ...previous,
+      { id, type, message },
+    ]);
+
+    window.setTimeout(() => {
+      setToasts(previous =>
+        previous.filter(toast => toast.id !== id),
+      );
     }, 4000);
   }, []);
 
   const removeToast = useCallback((id: string) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
+    setToasts(previous =>
+      previous.filter(toast => toast.id !== id),
+    );
   }, []);
 
-  // --- STATUT ---
-  const getCalculatedStatus = useCallback((flight: Flight): NormalizedStatus => {
-    const rawStatus = flight.status;
+  const getCalculatedStatus = useCallback(
+    (flight: Flight): NormalizedStatus => {
+      const rawStatus = flight.status;
 
-    // Le backend reste la source de vérité.
-    if (['Cancelled', 'Annulé'].includes(rawStatus)) return 'Annulé';
-    if (['Delayed', 'Retardé'].includes(rawStatus)) return 'Retardé';
-    if (['In-Flight', 'En Vol'].includes(rawStatus)) return 'En Vol';
-    if (rawStatus === 'Effectué') return 'Effectué';
-    if (['On-Time', 'Ponctuel'].includes(rawStatus)) return 'Ponctuel';
-    if (['Scheduled', 'Planifié', 'En attente'].includes(rawStatus)) return 'En attente';
-
-    // Fallback temporel uniquement si le serveur renvoie un statut inconnu.
-    const now = new Date();
-    const depDate = new Date(flight.departure);
-    const arrDate = new Date(flight.arrival);
-
-    if (!isNaN(depDate.getTime()) && !isNaN(arrDate.getTime())) {
-      if (now < depDate) return 'En attente';
-      if (now >= depDate && now <= arrDate) return 'En Vol';
-      if (now > arrDate) return 'Effectué';
-    }
-
-    return 'En attente';
-  }, []);
-
-  const getStatusBadge = (status: NormalizedStatus) => {
-    const styles: Record<NormalizedStatus, string> = {
-      'En attente': 'bg-sky-50 text-sky-700 border-sky-200/80',
-      'Ponctuel': 'bg-emerald-50 text-emerald-700 border-emerald-200/80',
-      'Retardé': 'bg-amber-50 text-amber-700 border-amber-200/80',
-      'En Vol': 'bg-teal-50 text-teal-800 border-teal-200/80',
-      'Annulé': 'bg-rose-50 text-rose-700 border-rose-200/80 line-through',
-      'Effectué': 'bg-slate-100 text-slate-600 border-slate-200/80',
-    };
-    return styles[status] || 'bg-slate-50 text-slate-700 border-slate-200';
-  };
-
-  // --- REQUÊTES ---
-  const fetchFlights = useCallback(async (signal?: AbortSignal) => {
-    try {
-      setLoadingFlights(true);
-
-      // Première peinture rapide : aucun appel météo.
-      let res = await fetch(`${API_BASE_URL}/flights/fast`, { signal });
-
-      // Compatibilité si l'ancien backend est encore actif.
-      if (res.status === 404) {
-        res = await fetch(`${API_BASE_URL}/flights?weather=0`, { signal });
+      if (['Cancelled', 'Annulé'].includes(rawStatus)) return 'Annulé';
+      if (['Delayed', 'Retardé'].includes(rawStatus)) return 'Retardé';
+      if (['In-Flight', 'En Vol'].includes(rawStatus)) return 'En Vol';
+      if (rawStatus === 'Effectué') return 'Effectué';
+      if (['On-Time', 'Ponctuel'].includes(rawStatus)) return 'Ponctuel';
+      if (['Scheduled', 'Planifié', 'En attente'].includes(rawStatus)) {
+        return 'En attente';
       }
 
-      if (!res.ok) {
-        throw new Error('Impossible de récupérer la liste des vols.');
+      const now = new Date();
+      const dep = new Date(flight.departure);
+      const arr = new Date(flight.arrival);
+
+      if (!Number.isNaN(dep.getTime()) && !Number.isNaN(arr.getTime())) {
+        if (now < dep) return 'En attente';
+        if (now >= dep && now <= arr) return 'En Vol';
+        if (now > arr) return 'Effectué';
       }
 
-      const data = await res.json();
+      return 'En attente';
+    },
+    [],
+  );
 
-      setFlights(
-        Array.isArray(data)
-          ? data.map((flight: Flight) => ({
-              ...flight,
-              weatherPending:
-                flight.weatherPending ??
-                flight.weatherSeverity == null,
-            }))
-          : [],
-      );
-    } catch (err: unknown) {
-      if (err instanceof Error && err.name !== 'AbortError') {
-        addToast('error', err.message || 'Erreur réseau');
+  const fetchFlights = useCallback(
+    async (signal?: AbortSignal) => {
+      try {
+        setLoadingFlights(true);
+
+        let response = await fetch(
+          `${API_BASE_URL}/flights/fast`,
+          { signal },
+        );
+
+        if (response.status === 404) {
+          response = await fetch(
+            `${API_BASE_URL}/flights?weather=0`,
+            { signal },
+          );
+        }
+
+        if (!response.ok) {
+          throw new Error(
+            'Impossible de récupérer la liste des vols.',
+          );
+        }
+
+        const data = await response.json();
+
+        setFlights(
+          Array.isArray(data)
+            ? data.map((flight: Flight) => ({
+                ...flight,
+                weatherPending:
+                  flight.weatherPending ??
+                  flight.weatherSeverity == null,
+              }))
+            : [],
+        );
+      } catch (error: unknown) {
+        if (
+          error instanceof Error &&
+          error.name !== 'AbortError'
+        ) {
+          addToast(
+            'error',
+            error.message || 'Erreur réseau',
+          );
+        }
+      } finally {
+        setLoadingFlights(false);
       }
-    } finally {
-      setLoadingFlights(false);
-    }
-  }, [addToast]);
+    },
+    [addToast],
+  );
 
   const fetchFleet = useCallback(async (signal?: AbortSignal) => {
     try {
       setLoadingFleet(true);
-      const res = await fetch(`${API_BASE_URL}/fleet/aircrafts`, { signal });
-      if (!res.ok) throw new Error('Impossible de récupérer la flotte.');
-      const data = await res.json();
-      setFleet(data);
-    } catch (err: unknown) {
-      if (err instanceof Error && err.name !== 'AbortError') {
-        console.error("Erreur flotte :", err.message);
+
+      const response = await fetch(
+        `${API_BASE_URL}/fleet/aircrafts`,
+        { signal },
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          'Impossible de récupérer la flotte.',
+        );
+      }
+
+      const data = await response.json();
+      setFleet(Array.isArray(data) ? data : []);
+    } catch (error: unknown) {
+      if (
+        error instanceof Error &&
+        error.name !== 'AbortError'
+      ) {
+        console.error(
+          'Erreur flotte :',
+          error.message,
+        );
       }
     } finally {
       setLoadingFleet(false);
@@ -481,48 +691,64 @@ export const FlightsPlanning: React.FC = () => {
   }, []);
 
   const refreshWeatherSnapshot = useCallback(
-    async (signal?: AbortSignal, silent = true) => {
+    async (
+      signal?: AbortSignal,
+      silent = true,
+    ) => {
       setIsWeatherRefreshing(true);
 
-      if (!silent) {
-        setWeatherSyncError(null);
-      }
+      if (!silent) setWeatherSyncError(null);
 
       try {
-        const res = await fetch(`${API_BASE_URL}/flights`, { signal });
+        const response = await fetch(
+          `${API_BASE_URL}/flights`,
+          { signal },
+        );
 
-        if (!res.ok) {
-          throw new Error(`Météo indisponible (HTTP ${res.status}).`);
+        if (!response.ok) {
+          throw new Error(
+            `Météo indisponible (HTTP ${response.status}).`,
+          );
         }
 
-        const data = await res.json();
-
+        const data = await response.json();
         if (!Array.isArray(data)) return;
 
         const enrichedMap = new Map<string, Flight>(
-          data.map((flight: Flight) => [flight.id, flight]),
+          data.map((flight: Flight) => [
+            flight.id,
+            flight,
+          ]),
         );
 
-        setFlights((current) =>
-          current.map((flight) => {
+        setFlights(current =>
+          current.map(flight => {
             const enriched = enrichedMap.get(flight.id);
+
             return enriched
-              ? { ...flight, ...enriched, weatherPending: false }
+              ? {
+                  ...flight,
+                  ...enriched,
+                  weatherPending: false,
+                }
               : flight;
           }),
         );
 
         setWeatherLastUpdatedAt(new Date());
         setWeatherSyncError(null);
-      } catch (err: unknown) {
-        if (err instanceof Error && err.name === 'AbortError') return;
-
-        console.error('Erreur météo complète :', err);
+      } catch (error: unknown) {
+        if (
+          error instanceof Error &&
+          error.name === 'AbortError'
+        ) {
+          return;
+        }
 
         if (!silent) {
           setWeatherSyncError(
-            err instanceof Error
-              ? err.message
+            error instanceof Error
+              ? error.message
               : 'Météo indisponible.',
           );
         }
@@ -533,69 +759,98 @@ export const FlightsPlanning: React.FC = () => {
     [],
   );
 
-  const refreshWeatherAlerts = useCallback(async (signal?: AbortSignal) => {
-    try {
-      const res = await fetch(
-        `${API_BASE_URL}/flights/weather-alerts?horizonHours=24`,
-        { signal },
-      );
-
-      if (!res.ok) {
-        throw new Error(`Alertes météo indisponibles (HTTP ${res.status}).`);
-      }
-
-      const payload: WeatherAlertsResponse = await res.json();
-      const alerts = Array.isArray(payload.alerts) ? payload.alerts : [];
-
-      if (alerts.length > 0) {
-        const alertMap = new Map(
-          alerts.map((alert) => [alert.flightId, alert]),
+  const refreshWeatherAlerts = useCallback(
+    async (signal?: AbortSignal) => {
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/flights/weather-alerts?horizonHours=24`,
+          { signal },
         );
 
-        setFlights((current) =>
-          current.map((flight) => {
-            const alert = alertMap.get(flight.id);
-            if (!alert) return flight;
-
-            const ai = alert.weatherAI;
-
-            return {
-              ...flight,
-              weatherPending: false,
-              weatherAI: ai,
-              weatherSeverity: ai.score ?? flight.weatherSeverity,
-              weatherRiskLevel: ai.riskLevel ?? flight.weatherRiskLevel,
-              weatherRiskLabel: ai.riskLabel ?? flight.weatherRiskLabel,
-              weatherConfidence: ai.confidence ?? flight.weatherConfidence,
-              weatherRecommendedAction:
-                ai.recommendedAction ?? flight.weatherRecommendedAction,
-              weatherRecommendedActionLabel:
-                ai.recommendedActionLabel ??
-                flight.weatherRecommendedActionLabel,
-              weatherUpdatedAt:
-                ai.evaluatedAt ?? flight.weatherUpdatedAt,
-            };
-          }),
-        );
-      }
-
-      if (payload.generatedAt) {
-        const generatedAt = new Date(payload.generatedAt);
-        if (!Number.isNaN(generatedAt.getTime())) {
-          setWeatherLastUpdatedAt(generatedAt);
+        if (!response.ok) {
+          throw new Error(
+            `Alertes météo indisponibles (HTTP ${response.status}).`,
+          );
         }
+
+        const payload: WeatherAlertsResponse =
+          await response.json();
+
+        const alerts = Array.isArray(payload.alerts)
+          ? payload.alerts
+          : [];
+
+        if (alerts.length > 0) {
+          const alertMap = new Map(
+            alerts.map(alert => [
+              alert.flightId,
+              alert,
+            ]),
+          );
+
+          setFlights(current =>
+            current.map(flight => {
+              const alert = alertMap.get(flight.id);
+              if (!alert) return flight;
+
+              const ai = alert.weatherAI;
+
+              return {
+                ...flight,
+                weatherPending: false,
+                weatherAI: ai,
+                weatherSeverity:
+                  ai.score ??
+                  flight.weatherSeverity,
+                weatherRiskLevel:
+                  ai.riskLevel ??
+                  flight.weatherRiskLevel,
+                weatherRiskLabel:
+                  ai.riskLabel ??
+                  flight.weatherRiskLabel,
+                weatherConfidence:
+                  ai.confidence ??
+                  flight.weatherConfidence,
+                weatherRecommendedAction:
+                  ai.recommendedAction ??
+                  flight.weatherRecommendedAction,
+                weatherRecommendedActionLabel:
+                  ai.recommendedActionLabel ??
+                  flight.weatherRecommendedActionLabel,
+                weatherUpdatedAt:
+                  ai.evaluatedAt ??
+                  flight.weatherUpdatedAt,
+              };
+            }),
+          );
+        }
+
+        if (payload.generatedAt) {
+          const generatedAt = new Date(
+            payload.generatedAt,
+          );
+
+          if (!Number.isNaN(generatedAt.getTime())) {
+            setWeatherLastUpdatedAt(generatedAt);
+          }
+        }
+
+        setWeatherSyncError(null);
+      } catch (error: unknown) {
+        if (
+          error instanceof Error &&
+          error.name === 'AbortError'
+        ) {
+          return;
+        }
+
+        setWeatherSyncError(
+          'Les vols restent disponibles, mais la météo temps réel n’est pas à jour.',
+        );
       }
-
-      setWeatherSyncError(null);
-    } catch (err: unknown) {
-      if (err instanceof Error && err.name === 'AbortError') return;
-
-      console.error('Erreur alertes météo :', err);
-      setWeatherSyncError(
-        'Les vols restent disponibles, mais la météo temps réel n’est pas à jour.',
-      );
-    }
-  }, []);
+    },
+    [],
+  );
 
   useEffect(() => {
     const controller = new AbortController();
@@ -607,14 +862,21 @@ export const FlightsPlanning: React.FC = () => {
       ]);
 
       if (!controller.signal.aborted) {
-        void refreshWeatherSnapshot(controller.signal, true);
+        void refreshWeatherSnapshot(
+          controller.signal,
+          true,
+        );
       }
     };
 
-    initialize();
+    void initialize();
 
     return () => controller.abort();
-  }, [fetchFlights, fetchFleet, refreshWeatherSnapshot]);
+  }, [
+    fetchFlights,
+    fetchFleet,
+    refreshWeatherSnapshot,
+  ]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -624,13 +886,21 @@ export const FlightsPlanning: React.FC = () => {
       void refreshWeatherAlerts(controller.signal);
     };
 
-    const intervalId = window.setInterval(tick, 60_000);
+    const intervalId = window.setInterval(
+      tick,
+      60000,
+    );
 
     const onVisibilityChange = () => {
-      if (document.visibilityState === 'visible') tick();
+      if (document.visibilityState === 'visible') {
+        tick();
+      }
     };
 
-    document.addEventListener('visibilitychange', onVisibilityChange);
+    document.addEventListener(
+      'visibilitychange',
+      onVisibilityChange,
+    );
 
     return () => {
       controller.abort();
@@ -642,17 +912,33 @@ export const FlightsPlanning: React.FC = () => {
     };
   }, [refreshWeatherAlerts]);
 
-  // --- MUTATIONS ---
-  const handleFormSubmit = async (formData: FlightFormData) => {
+  const openEditModal = (flight: Flight) => {
+    setEditingFlight(flight);
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setEditingFlight(null);
+  };
+
+  const handleFormSubmit = async (
+    formData: FlightFormData,
+  ) => {
     try {
       setIsSubmitting(true);
-      const isEdition = !!editingFlight;
-      const url = isEdition ? `${API_BASE_URL}/flights/${editingFlight.id}` : `${API_BASE_URL}/flights`;
-      const method = isEdition ? 'PUT' : 'POST';
 
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
+      const isEdition = Boolean(editingFlight);
+
+      const url = isEdition
+        ? `${API_BASE_URL}/flights/${editingFlight!.id}`
+        : `${API_BASE_URL}/flights`;
+
+      const response = await fetch(url, {
+        method: isEdition ? 'PUT' : 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           numeroVol: formData.numeroVol,
           aeroportDepart: formData.aeroportDepart,
@@ -664,34 +950,49 @@ export const FlightsPlanning: React.FC = () => {
           avionId: formData.avionId || null,
           legs: formData.legs,
           status: isEdition
-            ? (formData.status || editingFlight.status)
-            : (formData.status || 'Planifié')
+            ? formData.status || editingFlight!.status
+            : formData.status || 'Planifié',
         }),
       });
 
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.message || `Erreur serveur HTTP ${res.status}`);
+      if (!response.ok) {
+        const data = await response
+          .json()
+          .catch(() => ({}));
+
+        throw new Error(
+          data.message ||
+            `Erreur serveur HTTP ${response.status}`,
+        );
       }
 
       await fetchFlights();
-      void refreshWeatherSnapshot(undefined, true);
+
+      void refreshWeatherSnapshot(
+        undefined,
+        true,
+      );
+
       closeModal();
+
       addToast(
         'success',
         isEdition
           ? 'Vol mis à jour avec succès.'
           : 'Nouveau vol planifié avec succès.',
       );
-    } catch (err: unknown) {
+    } catch (error: unknown) {
       const message =
-        err instanceof Error ? err.message : 'Erreur inconnue';
+        error instanceof Error
+          ? error.message
+          : 'Erreur inconnue';
 
-      addToast('error', `Erreur d'enregistrement : ${message}`);
+      addToast(
+        'error',
+        `Erreur d'enregistrement : ${message}`,
+      );
 
-      // Important : la modale peut personnaliser l'erreur
-      // (numéro de vol dupliqué, conflit avion, etc.).
-      throw err;
+      throw error;
     } finally {
       setIsSubmitting(false);
     }
@@ -699,515 +1000,584 @@ export const FlightsPlanning: React.FC = () => {
 
   const confirmDeleteFlight = async () => {
     if (!deletingFlight) return;
+
     try {
       setIsDeleting(true);
-      const res = await fetch(`${API_BASE_URL}/flights/${deletingFlight.id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error("Erreur lors de la suppression sur le serveur.");
-      
-      setFlights(prev => prev.filter(f => f.id !== deletingFlight.id));
-      addToast('success', `Le vol ${deletingFlight.flightNumber} a été supprimé.`);
+
+      const response = await fetch(
+        `${API_BASE_URL}/flights/${deletingFlight.id}`,
+        {
+          method: 'DELETE',
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          'Erreur lors de la suppression sur le serveur.',
+        );
+      }
+
+      setFlights(previous =>
+        previous.filter(
+          flight =>
+            flight.id !== deletingFlight.id,
+        ),
+      );
+
+      addToast(
+        'success',
+        `Le vol ${deletingFlight.flightNumber} a été supprimé.`,
+      );
+
       setDeletingFlight(null);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Erreur inconnue';
-      addToast('error', `Échec de la suppression : ${message}`);
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Erreur inconnue';
+
+      addToast(
+        'error',
+        `Échec de la suppression : ${message}`,
+      );
     } finally {
       setIsDeleting(false);
     }
   };
 
-  const openEditModal = (flight: Flight) => {
-    setEditingFlight(flight);
-    setIsModalOpen(true);
-  };
-
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setEditingFlight(null);
-  };
-
-  const formatDateRange = (departureStr: string, arrivalStr: string) => {
+  const formatDateRange = (
+    departureStr: string,
+    arrivalStr: string,
+  ) => {
     const depDate = new Date(departureStr);
     const arrDate = new Date(arrivalStr);
-    
-    if (isNaN(depDate.getTime()) || isNaN(arrDate.getTime())) {
-      return <span className="text-slate-400 italic">Dates non renseignées</span>;
+
+    if (
+      Number.isNaN(depDate.getTime()) ||
+      Number.isNaN(arrDate.getTime())
+    ) {
+      return (
+        <span className="text-xs italic text-slate-400">
+          Dates non renseignées
+        </span>
+      );
     }
 
+    const formatDate = (date: Date) =>
+      `${date.toLocaleDateString('fr-FR', {
+        day: '2-digit',
+        month: '2-digit',
+      })} ${date.toLocaleTimeString('fr-FR', {
+        hour: '2-digit',
+        minute: '2-digit',
+      })}`;
+
     return (
-      <div className="inline-flex items-center gap-2 font-mono text-xs bg-teal-50/50 border border-teal-100 px-2.5 py-1 rounded-lg text-slate-700">
-        <div className="flex items-center gap-1">
-          <span className="text-slate-400 font-sans text-[11px]">
-            {depDate.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}
-          </span>
-          <span className="font-bold text-slate-900">
-            {depDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-          </span>
-        </div>
-        <ArrowRight className="h-3 w-3 text-teal-500 shrink-0" />
-        <div className="flex items-center gap-1">
-          <span className="font-bold text-slate-900">
-            {arrDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-          </span>
-          <span className="text-slate-400 font-sans text-[11px]">
-            {arrDate.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}
-          </span>
+      <div className="min-w-[170px]">
+        <div className="flex items-center gap-2">
+          <div>
+            <span className="block text-[10px] font-bold uppercase text-slate-400">
+              Départ
+            </span>
+            <span className="whitespace-nowrap text-sm font-bold text-slate-800">
+              {formatDate(depDate)}
+            </span>
+          </div>
+
+          <ArrowRight className="h-4 w-4 shrink-0 text-slate-300" />
+
+          <div>
+            <span className="block text-[10px] font-bold uppercase text-slate-400">
+              Arrivée
+            </span>
+            <span className="whitespace-nowrap text-sm font-semibold text-slate-700">
+              {formatDate(arrDate)}
+            </span>
+          </div>
         </div>
       </div>
     );
   };
 
-  const mapStatusToModalFormat = (status?: FlightStatus): FlightFormData['status'] => {
+  const mapStatusToModalFormat = (
+    status?: FlightStatus,
+  ): FlightFormData['status'] => {
     if (!status) return undefined;
+
     switch (status) {
       case 'Scheduled':
       case 'En attente':
         return 'Planifié';
+
       case 'On-Time':
       case 'Ponctuel':
         return 'Effectué';
+
       case 'In-Flight':
         return 'En Vol';
+
       case 'Delayed':
         return 'Retardé';
+
       case 'Cancelled':
         return 'Annulé';
+
       default:
         return status as FlightFormData['status'];
     }
   };
 
-  // --- FILTRES & KPIS (INCLUT RECHERCHE AVEC ESCALES) ---
   const filteredFlights = useMemo(() => {
     const term = searchTerm.toLowerCase().trim();
+
     return flights.filter(flight => {
-      const normalizedStops = normalizeStops(flight);
+      const stops = normalizeStops(flight);
       const fullRoute = [
         flight.origin,
-        ...normalizedStops,
+        ...stops,
         flight.destination,
       ]
         .join('-')
         .toLowerCase();
 
-      const stopsMatch = normalizedStops.some((stop) =>
-        stop.toLowerCase().includes(term),
-      );
-      
-      const matchesSearch = 
+      const matchesSearch =
         !term ||
         flight.flightNumber.toLowerCase().includes(term) ||
         flight.origin.toLowerCase().includes(term) ||
         flight.destination.toLowerCase().includes(term) ||
         fullRoute.includes(term) ||
-        stopsMatch ||
-        flight.aircraftModel?.toLowerCase().includes(term);
+        stops.some(stop =>
+          stop.toLowerCase().includes(term),
+        ) ||
+        flight.aircraftModel
+          ?.toLowerCase()
+          .includes(term);
 
-      const computedStatus = getCalculatedStatus(flight);
-      const matchesStatus = selectedStatusFilter === 'ALL' || computedStatus === selectedStatusFilter;
+      const matchesStatus =
+        selectedStatusFilter === 'ALL' ||
+        getCalculatedStatus(flight) ===
+          selectedStatusFilter;
 
       return matchesSearch && matchesStatus;
     });
-  }, [flights, searchTerm, selectedStatusFilter, getCalculatedStatus]);
+  }, [
+    flights,
+    searchTerm,
+    selectedStatusFilter,
+    getCalculatedStatus,
+  ]);
 
   const stats = useMemo(() => {
-    const computedStatuses = flights.map(f => getCalculatedStatus(f));
+    const statuses = flights.map(
+      getCalculatedStatus,
+    );
+
     return {
       total: flights.length,
-      inFlight: computedStatuses.filter(s => s === 'En Vol').length,
-      delayed: computedStatuses.filter(s => s === 'Retardé').length,
-      pending: computedStatuses.filter(s => s === 'En attente').length,
-      onTime: computedStatuses.filter(s => s === 'Ponctuel').length,
-      completed: computedStatuses.filter(s => s === 'Effectué').length,
+      inFlight: statuses.filter(
+        status => status === 'En Vol',
+      ).length,
+      delayed: statuses.filter(
+        status => status === 'Retardé',
+      ).length,
+      pending: statuses.filter(
+        status => status === 'En attente',
+      ).length,
     };
   }, [flights, getCalculatedStatus]);
 
   return (
-    <div className="space-y-6 max-w-375 mx-auto pb-8 relative">
-      
-      {/* TOASTS */}
-      <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-2.5 max-w-md w-full pointer-events-none">
-        {toasts.map((toast) => (
+    <div className="relative mx-auto max-w-[1500px] space-y-4 pb-8">
+      <div className="pointer-events-none fixed bottom-3 left-3 right-3 z-[70] flex flex-col gap-2 sm:bottom-5 sm:left-auto sm:right-5 sm:w-full sm:max-w-md">
+        {toasts.map(toast => (
           <div
             key={toast.id}
-            className={`pointer-events-auto flex items-center justify-between p-4 rounded-xl border shadow-lg transition-all transform animate-in slide-in-from-bottom-5 duration-200 ${
+            className={`pointer-events-auto flex items-start justify-between gap-3 rounded-xl border p-3.5 shadow-xl ${
               toast.type === 'success'
-                ? 'bg-emerald-950 text-white border-emerald-500/40'
+                ? 'border-emerald-700 bg-emerald-950 text-white'
                 : toast.type === 'error'
-                ? 'bg-rose-950 text-white border-rose-500/40'
-                : 'bg-teal-950 text-white border-teal-500/40'
+                  ? 'border-rose-700 bg-rose-950 text-white'
+                  : 'border-sky-700 bg-sky-950 text-white'
             }`}
           >
-            <div className="flex items-center gap-3">
-              {toast.type === 'success' && <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0" />}
-              {toast.type === 'error' && <XCircle className="h-5 w-5 text-rose-400 shrink-0" />}
-              {toast.type === 'info' && <AlertCircle className="h-5 w-5 text-teal-400 shrink-0" />}
-              <p className="text-xs font-semibold">{toast.message}</p>
+            <div className="flex min-w-0 items-start gap-2.5">
+              {toast.type === 'success' && (
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
+              )}
+              {toast.type === 'error' && (
+                <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-400" />
+              )}
+              {toast.type === 'info' && (
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-sky-400" />
+              )}
+              <p className="text-xs font-semibold leading-5">
+                {toast.message}
+              </p>
             </div>
             <button
+              type="button"
               onClick={() => removeToast(toast.id)}
-              className="p-1 text-slate-400 hover:text-white rounded-lg transition-colors cursor-pointer ml-3"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-white/10 hover:text-white"
             >
               <X className="h-4 w-4" />
             </button>
           </div>
         ))}
       </div>
-
-      {/* HEADER */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white border border-slate-200/80 p-5 sm:p-6 rounded-2xl gap-4 shadow-xs">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-teal-50 text-teal-700 rounded-xl border border-teal-200/60">
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
               <CalendarDays className="h-5 w-5" />
             </div>
-            <h2 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight uppercase">
-              Ordonnancement et  Régulation des Vols
-            </h2>
+            <div>
+              <h1 className="text-lg font-black tracking-tight text-slate-950 sm:text-xl">
+                Ordonnancement et régulation des vols
+              </h1>
+              <p className="mt-1 max-w-2xl text-xs font-medium leading-5 text-slate-500 sm:text-sm">
+                Gestion des rotations, affectations de flotte et contraintes opérationnelles.
+              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-500">
+                <span className="inline-flex items-center gap-1.5">
+                  {isWeatherRefreshing ? (
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                  ) : weatherSyncError ? (
+                    <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
+                  ) : (
+                    <CloudRain className="h-3.5 w-3.5 text-emerald-700" />
+                  )}
+                  Météo :
+                  {weatherLastUpdatedAt
+                    ? ` ${weatherLastUpdatedAt.toLocaleTimeString('fr-FR', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}`
+                    : ' en attente'}
+                </span>
+                {weatherSyncError && (
+                  <span className="text-amber-700">
+                    {weatherSyncError}
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
-          <p className="text-xs sm:text-sm text-slate-500 font-medium">
-            Gérez vos rotations aériennes, assignations de flotte et contraintes horaires en temps réel.
-          </p>
-
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] font-bold text-slate-400">
-            <span className="inline-flex items-center gap-1.5">
-              {isWeatherRefreshing ? (
-                <RefreshCw className="h-3 w-3 animate-spin" />
-              ) : weatherSyncError ? (
-                <AlertTriangle className="h-3 w-3 text-amber-600" />
-              ) : (
-                <CloudRain className="h-3 w-3 text-emerald-700" />
-              )}
-
-              météo{' '}
-              {weatherLastUpdatedAt
-                ? weatherLastUpdatedAt.toLocaleTimeString('fr-FR', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })
-                : 'en attente'}
-            </span>
-
-            {weatherSyncError && (
-              <span className="text-amber-600">
-                {weatherSyncError}
-              </span>
-            )}
-          </div>
-        </div>
-
-        <div className="grid w-full grid-cols-2 gap-2 sm:w-auto">
-          <button
-            type="button"
-            onClick={() =>
-              void refreshWeatherSnapshot(undefined, false)
-            }
-            disabled={isWeatherRefreshing}
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs font-bold text-slate-700 transition hover:border-emerald-200 hover:bg-emerald-50/60 hover:text-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <RefreshCw
-              className={`h-4 w-4 ${
-                isWeatherRefreshing ? 'animate-spin' : ''
-              }`}
-            />
-            Météo
-          </button>
-
-          <button
-            onClick={() => {
-              setEditingFlight(null);
-              setIsModalOpen(true);
-            }}
-            className="flex items-center justify-center gap-2 rounded-xl bg-emerald-700 px-5 py-3 text-xs font-bold uppercase tracking-wider text-white shadow-md shadow-emerald-700/20 transition-all hover:bg-emerald-800 active:scale-[0.98]"
-          >
-            <Plus className="h-4 w-4 text-emerald-200" />
-            Planifier
-          </button>
-        </div>
-      </div>
-
-      {/* KPIS */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <div className="bg-white border border-slate-200/80 rounded-2xl p-4 flex items-center justify-between shadow-2xs">
-          <div>
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Rotations</p>
-            <p className="text-2xl font-black text-slate-900 mt-0.5">{stats.total}</p>
-          </div>
-          <div className="p-2.5 bg-teal-50 text-teal-700 rounded-xl border border-teal-100">
-            <Plane className="h-5 w-5" />
-          </div>
-        </div>
-
-        <div className="bg-white border border-slate-200/80 rounded-2xl p-4 flex items-center justify-between shadow-2xs">
-          <div>
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">En Vol</p>
-            <p className="text-2xl font-black text-teal-800 mt-0.5">{stats.inFlight}</p>
-          </div>
-          <div className="p-2.5 bg-teal-50 text-teal-700 rounded-xl border border-teal-100">
-            <Globe className="h-5 w-5" />
-          </div>
-        </div>
-
-        <div className="bg-white border border-slate-200/80 rounded-2xl p-4 flex items-center justify-between shadow-2xs">
-          <div>
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">En Attente</p>
-            <p className="text-2xl font-black text-sky-700 mt-0.5">{stats.pending}</p>
-          </div>
-          <div className="p-2.5 bg-sky-50 text-sky-600 rounded-xl border border-sky-100">
-            <CheckCircle2 className="h-5 w-5" />
-          </div>
-        </div>
-
-        <div className="bg-white border border-slate-200/80 rounded-2xl p-4 flex items-center justify-between shadow-2xs">
-          <div>
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Retardés</p>
-            <p className="text-2xl font-black text-amber-700 mt-0.5">{stats.delayed}</p>
-          </div>
-          <div className="p-2.5 bg-amber-50 text-amber-600 rounded-xl border border-amber-100">
-            <AlertCircle className="h-5 w-5" />
-          </div>
-        </div>
-      </div>
-
-      {/* RECHERCHE ET FILTRES */}
-      <div className="flex flex-col md:flex-row items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-2xs">
-        <div className="relative w-full md:w-80">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Rechercher vol, appareil, escale (ex: TNR-DIE-PAR)..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all"
-          />
-        </div>
-
-        <div className="flex items-center gap-1.5 w-full md:w-auto overflow-x-auto pb-1 md:pb-0 scrollbar-none">
-          <Filter className="h-3.5 w-3.5 text-slate-400 ml-1 mr-1 shrink-0" />
-          {[
-            { id: 'ALL', label: 'Tous' },
-            { id: 'En attente', label: 'En attente' },
-            { id: 'Ponctuel', label: 'Ponctuels' },
-            { id: 'En Vol', label: 'En Vol' },
-            { id: 'Retardé', label: 'Retardés' },
-            { id: 'Annulé', label: 'Annulés' },
-          ].map((f) => (
+          <div className="grid grid-cols-2 gap-2 sm:flex">
             <button
-              key={f.id}
-              onClick={() => setSelectedStatusFilter(f.id)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
-                selectedStatusFilter === f.id
-                  ? 'bg-emerald-700 text-white shadow-xs shadow-emerald-700/20'
-                  : 'bg-slate-50 text-slate-600 hover:bg-teal-50/50 hover:text-teal-900 border border-slate-200/60'
-              }`}
+              type="button"
+              onClick={() =>
+                void refreshWeatherSnapshot(
+                  undefined,
+                  false,
+                )
+              }
+              disabled={isWeatherRefreshing}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-xs font-bold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 sm:h-10"
             >
-              {f.label}
+              <RefreshCw
+                className={`h-4 w-4 ${
+                  isWeatherRefreshing
+                    ? 'animate-spin'
+                    : ''
+                }`}
+              />
+              Météo
             </button>
-          ))}
+            <button
+              type="button"
+              onClick={() => {
+                setEditingFlight(null);
+                setIsModalOpen(true);
+              }}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 text-xs font-bold text-white transition hover:bg-emerald-800 sm:h-10"
+            >
+              <Plus className="h-4 w-4" />
+              Planifier
+            </button>
+          </div>
         </div>
-      </div>
-
-      {/* TABLEAU */}
-      <div className="rounded-2xl border border-slate-200/80 bg-white overflow-hidden shadow-xs">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-          <h3 className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-widest text-slate-500">
-            <Globe className="h-4 w-4 text-teal-600" /> Routes Actives et État Opérationnel
-          </h3>
-          <span className="text-xs font-bold text-slate-400">
-            {filteredFlights.length} vol{filteredFlights.length > 1 ? 's' : ''} affiché{filteredFlights.length > 1 ? 's' : ''}
+      </section>
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <KpiCard
+          label="Total rotations"
+          value={stats.total}
+          icon={<Plane className="h-5 w-5" />}
+        />
+        <KpiCard
+          label="En vol"
+          value={stats.inFlight}
+          icon={<Globe className="h-5 w-5" />}
+        />
+        <KpiCard
+          label="En attente"
+          value={stats.pending}
+          icon={<Clock className="h-5 w-5" />}
+        />
+        <KpiCard
+          label="Retardés"
+          value={stats.delayed}
+          icon={<AlertCircle className="h-5 w-5" />}
+        />
+      </section>
+      <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="relative w-full lg:max-w-[380px]">
+            <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              type="search"
+              placeholder="Vol, appareil, escale..."
+              value={searchTerm}
+              onChange={event =>
+                setSearchTerm(event.target.value)
+              }
+              className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm font-medium text-slate-700 outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-4 focus:ring-emerald-600/10"
+            />
+          </div>
+          <div className="flex w-full items-center gap-2 overflow-x-auto pb-1 lg:w-auto lg:pb-0">
+            <Filter className="h-4 w-4 shrink-0 text-slate-400" />
+            {STATUS_FILTERS.map(filter => (
+              <button
+                key={filter.id}
+                type="button"
+                onClick={() =>
+                  setSelectedStatusFilter(filter.id)
+                }
+                className={`h-9 shrink-0 rounded-xl border px-3 text-xs font-bold transition ${
+                  selectedStatusFilter === filter.id
+                    ? 'border-emerald-700 bg-emerald-700 text-white'
+                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                {filter.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
+      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <header className="flex items-center justify-between gap-3 border-b border-slate-200 bg-slate-50/70 px-4 py-4 sm:px-5">
+          <div>
+            <h2 className="flex items-center gap-2 text-sm font-black text-slate-900">
+              <Globe className="h-4 w-4 text-emerald-700" />
+              Routes actives
+            </h2>
+            <p className="mt-1 text-xs text-slate-500">
+              État opérationnel des rotations
+            </p>
+          </div>
+          <span className="rounded-lg bg-white px-2.5 py-1.5 text-xs font-bold text-slate-600 ring-1 ring-slate-200">
+            {filteredFlights.length} vol
+            {filteredFlights.length > 1 ? 's' : ''}
           </span>
-        </div>
-
+        </header>
         {loadingFlights ? (
-          <div className="p-6 space-y-3">
-            {[1, 2, 3, 4].map((n) => (
-              <div key={n} className="h-12 w-full bg-slate-50/80 animate-pulse rounded-xl border border-slate-100" />
+          <div className="space-y-3 bg-slate-50 p-3 sm:bg-white sm:p-4">
+            {[1, 2, 3, 4].map(item => (
+              <div
+                key={item}
+                className="h-56 animate-pulse rounded-2xl border border-slate-200 bg-white sm:h-16 sm:rounded-xl sm:bg-slate-100"
+              />
             ))}
           </div>
         ) : filteredFlights.length === 0 ? (
-          <div className="py-16 text-center space-y-3">
-            <div className="w-12 h-12 rounded-2xl bg-teal-50 border border-teal-100 flex items-center justify-center mx-auto text-teal-600">
-              <Plane className="h-6 w-6" />
-            </div>
-            <p className="text-xs font-bold text-slate-500">Aucune rotation ne correspond à vos critères.</p>
-            <p className="text-[11px] text-slate-400 max-w-sm mx-auto">
-              Ajustez vos mots-clés de recherche ou vos filtres de statut pour afficher d'autres vols.
+          <div className="flex min-h-[220px] flex-col items-center justify-center p-6 text-center">
+            <Plane className="h-8 w-8 text-slate-300" />
+            <p className="mt-2 text-sm font-bold text-slate-600">
+              Aucune rotation trouvée
+            </p>
+            <p className="mt-1 text-xs text-slate-500">
+              Modifiez votre recherche ou les filtres.
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-slate-200/60 bg-slate-50/80 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">
-                  <th className="py-3.5 px-6">N° Vol</th>
-                  <th className="py-3.5 px-4">Appareil</th>
-                  <th className="py-3.5 px-4">Itinéraire et Escales</th>
-                  <th className="py-3.5 px-4">Statut</th>
-                  <th className="py-3.5 px-4">Météo</th>
-                  <th className="py-3.5 px-4">Chronologie (UTC)</th>
-                  <th className="py-3.5 px-6 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-700">
-                {filteredFlights.map((flight) => {
-                  const computedStatus = getCalculatedStatus(flight);
-                  const isInFlight = computedStatus === 'En Vol';
-                  const weatherVisual = getWeatherVisual(flight);
-                  const weatherScore =
-                    flight.weatherAI?.score ??
-                    flight.weatherSeverity;
-                  const severityPct =
-                    normalizeSeverity(weatherScore) == null
-                      ? null
-                      : Math.round(
-                          normalizeSeverity(weatherScore)! * 100,
-                        );
-
-                  return (
-                    <tr 
-                      key={flight.id} 
-                      className="hover:bg-teal-50/20 transition-colors duration-150"
-                    >
-                      {/* Numéro de Vol */}
-                      <td className="py-4 px-6 font-mono font-black text-slate-900 text-sm">
-                        <div className="flex items-center gap-2">
-                          <div className={`p-1.5 rounded-lg shrink-0 border ${
-                            isInFlight 
-                              ? 'bg-teal-50 text-teal-700 border-teal-200' 
-                              : 'bg-slate-100 text-slate-600 border-slate-200/60'
-                          }`}>
-                            <Plane className={`h-3.5 w-3.5 ${isInFlight ? 'rotate-45' : ''}`} />
-                          </div>
-                          <span>{flight.flightNumber}</span>
-                        </div>
-                      </td>
-
-                      {/* Appareil */}
-                      <td className="py-4 px-4">
-                        <span className="inline-block rounded-md bg-slate-100 border border-slate-200/80 px-2 py-1 text-[11px] font-extrabold text-slate-600 uppercase tracking-wide">
-                          {flight.aircraftModel || flight.aircraft || "Non assigné"}
-                        </span>
-                      </td>
-
-                      {/* Itinéraire avec Escales */}
-                      <td className="py-4 px-4">
-                        <RouteBadge 
-                          origin={flight.origin} 
-                          destination={flight.destination}
-                          stops={normalizeStops(flight)}
-                          departure={flight.departure}
-                          arrival={flight.arrival}
-                        />
-                      </td>
-
-                      {/* Statut */}
-                      <td className="py-4 px-4">
-                        <span className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${getStatusBadge(computedStatus)}`}>
-                          {isInFlight && <span className="h-1.5 w-1.5 rounded-full bg-teal-600 animate-ping" />}
-                          {computedStatus}
-                        </span>
-                      </td>
-
-                      {/* Météo IA */}
-                      <td className="py-4 px-4">
-                        <div className="min-w-38.75 space-y-1.5">
-                          <div className="flex items-center gap-2">
-                            <span
-                              className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-[9px] font-black uppercase tracking-wide ${weatherVisual.badge}`}
-                            >
-                              {weatherVisual.icon}
-                              {weatherVisual.label}
-                            </span>
-
-                            <span className="font-mono text-[10px] font-black text-slate-600">
-                              {formatWeatherPercent(weatherScore)}
-                            </span>
-                          </div>
-
-                          <div className="h-1.5 w-full overflow-hidden rounded-full border border-slate-200/60 bg-slate-100">
+          <>
+            <div className="space-y-3 bg-slate-50 p-2.5 sm:hidden">
+              {filteredFlights.map(flight => (
+                <MobileFlightCard
+                  key={flight.id}
+                  flight={flight}
+                  computedStatus={getCalculatedStatus(
+                    flight,
+                  )}
+                  onEdit={openEditModal}
+                  onDelete={setDeletingFlight}
+                />
+              ))}
+            </div>
+            <div className="hidden overflow-x-auto sm:block">
+              <table className="w-full min-w-[1100px] border-collapse text-left">
+                <thead>
+                  <tr className="border-b border-slate-200 bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500">
+                    <th className="px-5 py-3.5">N° Vol</th>
+                    <th className="px-4 py-3.5">Appareil</th>
+                    <th className="px-4 py-3.5">
+                      Itinéraire et escales
+                    </th>
+                    <th className="px-4 py-3.5">Statut</th>
+                    <th className="px-4 py-3.5">Météo</th>
+                    <th className="px-4 py-3.5">
+                      Chronologie
+                    </th>
+                    <th className="px-5 py-3.5 text-right">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredFlights.map(flight => {
+                    const computedStatus =
+                      getCalculatedStatus(flight);
+                    const isInFlight =  computedStatus === 'En Vol';
+                    const weather =  getWeatherVisual(flight);
+                    const weatherScore =  flight.weatherAI?.score ??  flight.weatherSeverity;
+                    const normalized =  normalizeSeverity(weatherScore);
+                    const severityPct = normalized == null? 0: Math.round(normalized * 100);
+                    return (
+                      <tr
+                        key={flight.id}
+                        className="transition hover:bg-emerald-50/30"
+                      >
+                        <td className="px-5 py-4">
+                          <div className="flex items-center gap-2.5">
                             <div
-                              className={`h-full transition-all duration-300 ${weatherVisual.bar}`}
-                              style={{
-                                width:
-                                  severityPct == null
-                                    ? '0%'
-                                    : `${severityPct}%`,
-                              }}
-                            />
+                              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border ${
+                                isInFlight
+                                  ? 'border-teal-200 bg-teal-50 text-teal-700'
+                                  : 'border-slate-200 bg-slate-50 text-slate-600'
+                              }`}
+                            >
+                              <Plane
+                                className={`h-4 w-4 ${
+                                  isInFlight
+                                    ? 'rotate-45'
+                                    : ''
+                                }`}
+                              />
+                            </div>
+                            <span className="font-mono text-sm font-black text-slate-900">
+                              {flight.flightNumber}
+                            </span>
                           </div>
-
-                          {flight.weatherAI?.recommendedAction &&
-                            !['NORMAL', 'NONE'].includes(
-                              flight.weatherAI.recommendedAction,
-                            ) && (
-                              <div className="flex items-start gap-1 text-[9px] font-bold leading-4 text-slate-500">
-                                <Sparkles className="mt-0.5 h-3 w-3 shrink-0 text-emerald-700" />
-                                <span>
-                                  {flight.weatherAI
-                                    .recommendedActionLabel ||
-                                    'Surveillance renforcée'}
-                                </span>
-                              </div>
+                        </td>
+                        <td className="px-4 py-4">
+                          <span className="inline-flex rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-700">
+                            {flight.aircraftModel ||
+                              flight.aircraft ||
+                              'Non assigné'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-4">
+                          <RouteBadge
+                            origin={flight.origin}
+                            destination={flight.destination}
+                            stops={normalizeStops(flight)}
+                            departure={flight.departure}
+                            arrival={flight.arrival}
+                          />
+                        </td>
+                        <td className="px-4 py-4">
+                          <span
+                            className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border px-3 py-1.5 text-xs font-bold ${STATUS_STYLES[computedStatus]}`}
+                          >
+                            {isInFlight && (
+                              <span className="h-2 w-2 animate-pulse rounded-full bg-teal-600" />
                             )}
-                        </div>
-                      </td>
-
-                      {/* Chronologie (UTC) */}
-                      <td className="py-4 px-4">
-                        {formatDateRange(flight.departure, flight.arrival)}
-                      </td>
-
-                      {/* Actions */}
-                      <td className="py-4 px-6 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <button 
-                            onClick={() => openEditModal(flight)} 
-                            className="rounded-xl p-2 text-slate-400 hover:bg-teal-50 hover:text-teal-700 transition border border-transparent hover:border-teal-200/80 cursor-pointer"
-                            title="Modifier la programmation"
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </button>
-                          <button 
-                            onClick={() => setDeletingFlight(flight)} 
-                            className="rounded-xl p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition border border-transparent hover:border-rose-200/60 cursor-pointer"
-                            title="Supprimer la rotation"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                            {computedStatus}
+                          </span>
+                        </td>
+                        <td className="px-4 py-4">
+                          <div className="min-w-[170px]">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-bold ${weather.badge}`}
+                              >
+                                {weather.icon}
+                                {weather.label}
+                              </span>
+                              <span className="font-mono text-xs font-black text-slate-600">
+                                {formatWeatherPercent(
+                                  weatherScore,
+                                )}
+                              </span>
+                            </div>
+                            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
+                              <div
+                                className={`h-full rounded-full ${weather.bar}`}
+                                style={{
+                                  width: `${severityPct}%`,
+                                }}
+                              />
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-4">
+                          {formatDateRange(
+                            flight.departure,
+                            flight.arrival,
+                          )}
+                        </td>
+                        <td className="px-5 py-4">
+                          <div className="flex justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                openEditModal(flight)
+                              }
+                              title="Modifier"
+                              className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
+                            >
+                              <Edit2 className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setDeletingFlight(flight)
+                              }
+                              title="Supprimer"
+                              className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
-      </div>
-
-      {/* MODAL SUPPRESSION */}
+      </section>
       {deletingFlight && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-5 animate-in zoom-in-95 duration-200">
-            <div className="flex items-start gap-4">
-              <div className="p-3 bg-rose-50 text-rose-600 rounded-2xl border border-rose-200/60 shrink-0">
-                <ShieldAlert className="h-6 w-6" />
+        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-950/50 backdrop-blur-[2px] sm:items-center sm:p-4">
+          <div className="w-full rounded-t-3xl border border-slate-200 bg-white p-5 shadow-2xl sm:max-w-md sm:rounded-2xl">
+            <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-slate-200 sm:hidden" />
+            <div className="flex items-start gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-rose-600">
+                <ShieldAlert className="h-5 w-5" />
               </div>
-              <div className="space-y-1">
-                <h3 className="text-base font-black text-slate-900 uppercase tracking-tight">
-                  Suppression du vol {deletingFlight.flightNumber}
+              <div>
+                <h3 className="text-base font-black text-slate-900">
+                  Supprimer le vol{' '}
+                  {deletingFlight.flightNumber}
                 </h3>
-                <p className="text-xs text-slate-500 leading-relaxed font-medium">
-                  Êtes-vous sûr de vouloir supprimer définitivement ce vol ({deletingFlight.origin} ➔ {deletingFlight.destination}) ? Cette action est irréversible.
+                <p className="mt-1 text-sm leading-6 text-slate-500">
+                  Confirmez la suppression du vol{' '}
+                  <strong>
+                    {deletingFlight.origin} →{' '}
+                    {deletingFlight.destination}
+                  </strong>
+                  . Cette action est irréversible.
                 </p>
               </div>
             </div>
-
-            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
+            <div className="mt-5 grid grid-cols-2 gap-2 border-t border-slate-100 pt-4">
               <button
                 type="button"
                 disabled={isDeleting}
                 onClick={() => setDeletingFlight(null)}
-                className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+                className="h-11 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
               >
                 Annuler
               </button>
@@ -1215,54 +1585,74 @@ export const FlightsPlanning: React.FC = () => {
                 type="button"
                 disabled={isDeleting}
                 onClick={confirmDeleteFlight}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 active:scale-[0.98] transition shadow-xs cursor-pointer disabled:opacity-50"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-rose-600 px-4 text-sm font-bold text-white transition hover:bg-rose-700 disabled:opacity-50"
               >
                 {isDeleting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Suppression...
-                  </>
+                  <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  'Confirmer la suppression'
+                  <Trash2 className="h-4 w-4" />
                 )}
+                {isDeleting
+                  ? 'Suppression...'
+                  : 'Supprimer'}
               </button>
             </div>
           </div>
         </div>
       )}
-
-      {/* MODAL EDIT / ADD */}
-      <FlightAddModal 
+      <FlightAddModal
         isOpen={isModalOpen}
         onClose={closeModal}
         onSubmit={handleFormSubmit}
         fleetAircrafts={fleet}
         isLoadingFleet={loadingFleet}
-        initialData={editingFlight ? {
-          numeroVol: editingFlight.flightNumber,
-          aeroportDepart: editingFlight.origin,
-          aeroportArrivee: editingFlight.destination,
-          aeroportEscale:
-            normalizeStops(editingFlight)[0] || undefined,
-          dureeEscale:
-            editingFlight.stopoverDurationMinutes ?? undefined,
-          heureDepart: editingFlight.departure?.slice(0, 16) || '', 
-          heureArrivee: editingFlight.arrival?.slice(0, 16) || '',
-          avionId: (editingFlight.aircraft !== 'NON ASSIGNÉ' ? editingFlight.aircraft : '') || '',
-          status: mapStatusToModalFormat(editingFlight.status)
-        } : undefined}
+        initialData={
+          editingFlight
+            ? {
+                numeroVol:editingFlight.flightNumber,
+                aeroportDepart:editingFlight.origin,
+                aeroportArrivee:editingFlight.destination,
+                aeroportEscale: normalizeStops(  editingFlight,)[0] ||undefined,
+                dureeEscale:editingFlight  .stopoverDurationMinutes ??undefined,
+                heureDepart:editingFlight.departure?.slice(  0,  16,) || '',
+                heureArrivee:editingFlight.arrival?.slice(  0,  16,) || '',
+                avionId:  editingFlight.aircraft !==  'NON ASSIGNÉ'    ? editingFlight.aircraft    : '',
+                status:  mapStatusToModalFormat(    editingFlight.status,  ),
+              }
+            : undefined
+        }
       />
-
-      {/* OVERLAY SYNCHRO */}
       {isSubmitting && (
-        <div className="fixed inset-0 bg-slate-900/30 backdrop-blur-xs flex items-center justify-center z-50 animate-in fade-in duration-200">
-          <div className="bg-white p-5 rounded-2xl shadow-xl flex items-center gap-3.5 border border-slate-200">
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/30 p-4 backdrop-blur-[2px]">
+          <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-xl">
             <Loader2 className="h-5 w-5 animate-spin text-emerald-700" />
-            <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">Synchronisation réseau en cours...</span>
+            <span className="text-sm font-bold text-slate-800">
+              Synchronisation en cours...
+            </span>
           </div>
         </div>
       )}
-
     </div>
   );
 };
+const KpiCard: React.FC<{
+  label: string;
+  value: number;
+  icon: React.ReactNode;
+}> = ({ label, value, icon }) => (
+  <article className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm sm:p-4">
+    <div>
+      <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 sm:text-xs">
+        {label}
+      </p>
+      <p className="mt-1 text-2xl font-black text-slate-950 sm:text-3xl">
+        {value}
+      </p>
+    </div>
+    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+      {icon}
+    </div>
+  </article>
+);
+
+export default FlightsPlanning;

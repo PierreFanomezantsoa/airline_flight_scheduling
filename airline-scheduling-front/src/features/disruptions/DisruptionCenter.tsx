@@ -1,553 +1,2611 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  AlertTriangle, 
-  Clock, 
-  Layers, 
-  RefreshCw, 
-  CheckCircle, 
-  Loader2, 
-  FileText,
-  ShieldAlert,
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
+
+import {
+  AlertCircle,
+  AlertTriangle,
   ArrowRight,
-  ToggleLeft,
-  ToggleRight,
-  Activity,
+  BrainCircuit,
+  CheckCircle2,
+  Filter,
+  Gauge,
+  Loader2,
+  RefreshCw,
+  Search,
+  ShieldAlert,
+  Sparkles,
+  X,
   Zap,
-  CheckSquare,
-  Plus,
-  Sliders
 } from 'lucide-react';
 
-const BACKEND_URL = 'http://localhost:3001';
+/* ============================================================================
+ * CONFIG
+ * ========================================================================== */
 
-// --- INTERFACES ALIGNÉES SUR LES ENTITÉS TYPEORM ---
-export interface LigneProduction {
-  id: number;
-  nom: string;
-  code: string;
-  capaciteParHeure: number;
-  estActif: boolean;
-  dateCreation: string;
-  dateModification: string;
+const PYTHON_API_URL =
+  (typeof import.meta !== 'undefined' &&
+    import.meta.env?.VITE_PYTHON_API_URL) ||
+  'http://localhost:5000';
+
+const CONFLICTS_ENDPOINT =
+  '/flights/conflicts';
+
+const OPTIMIZE_ENDPOINT =
+  '/flights/optimize';
+
+const ML_INFO_ENDPOINT =
+  '/flights/ml/info';
+
+/* ============================================================================
+ * TYPES
+ * ========================================================================== */
+
+type ConflictSeverity =
+  | 'LOW'
+  | 'MEDIUM'
+  | 'HIGH'
+  | 'CRITICAL'
+  | string;
+
+type ConflictDetector =
+  | 'RULE'
+  | 'DECISION_TREE'
+  | string;
+
+type ScheduleConflictType =
+  | 'UNASSIGNED_AIRCRAFT'
+  | 'AIRCRAFT_OVERLAP'
+  | 'TURNAROUND_TOO_SHORT'
+  | 'AIRCRAFT_POSITIONING'
+  | 'ML_CONFLICT_RISK'
+  | string;
+
+interface ConflictFlight {
+  id: string;
+
+  numeroVol?: string | null;
+
+  aeroportDepart?: string | null;
+
+  aeroportArrivee?: string | null;
+
+  heureDepart?: string | null;
+
+  heureArrivee?: string | null;
+
+  statut?: string | null;
+
+  avionId?: string | null;
+
+  aircraftRegistration?: string | null;
 }
 
-export interface TacheProduction {
-  id: number;
-  referenceCommande: string;
-  nomProduit: string;
-  quantiteAProduire: number;
-  dureeEstimeeHeures: number;
-  dateLimite: string;
-  statut: 'EN_ATTENTE' | 'PLANIFIE' | 'EN_COURS' | 'TERMINE' | 'ANNULE';
-  dateCreation: string;
+interface MLConflict {
+  id: string;
+
+  type:
+    ScheduleConflictType;
+
+  severity:
+    ConflictSeverity;
+
+  probability:
+    number;
+
+  detector:
+    ConflictDetector;
+
+  aircraftId?: string | null;
+
+  aircraftRegistration?:
+    string | null;
+
+  flightA:
+    ConflictFlight;
+
+  flightB?:
+    ConflictFlight | null;
+
+  overlapMinutes?:
+    number | null;
+
+  gapMinutes?:
+    number | null;
+
+  reason:
+    string;
+
+  recommendation:
+    string;
 }
 
-export interface CreneauOrdonnancement {
-  id: number;
-  dateDebut: string;
-  dateFin: string;
-  ordreSequence: number;
-  tache: TacheProduction;
-  ligne: LigneProduction;
+interface ConflictModelInfo {
+  algorithm:
+    string;
+
+  version:
+    string;
+
+  externalDependencies?:
+    string[];
+
+  minTurnaroundMinutes?:
+    number;
+
+  positioningMinutes?:
+    number;
 }
 
-export interface AléaProduction {
-  id: number;
-  typePerturbation: string;
-  description: string;
-  gravite: 'MINEURE' | 'MAJEURE' | 'CRITIQUE';
-  estResolue: boolean;
-  dateApparition: string;
-  tacheAssociee?: TacheProduction;
+interface ConflictsResponse {
+  timestamp:
+    string;
+
+  totalConflicts:
+    number;
+
+  criticalConflicts:
+    number;
+
+  highConflicts:
+    number;
+
+  mediumConflicts:
+    number;
+
+  model:
+    ConflictModelInfo;
+
+  conflicts:
+    MLConflict[];
 }
 
-export const DisruptionCenter: React.FC = () => {
-  const [lignes, setLignes] = useState<LigneProduction[]>([]);
-  const [tachesEnCours, setTachesEnCours] = useState<TacheProduction[]>([]);
-  const [aleas, setAleas] = useState<AléaProduction[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState<boolean>(false);
-  const [creatingLigne, setCreatingLigne] = useState<boolean>(false);
+interface MLInfoResponse {
+  status:
+    string;
 
-  // Formulaire Incident (Aléas)
-  const [formData, setFormData] = useState({
-    tacheId: '',
-    typePerturbation: 'PANNE_MACHINE',
-    description: '',
-    gravite: 'MINEURE'
-  });
+  model: {
+    algorithm:
+      string;
 
-  // Formulaire Configuration d'une Ligne
-  const [ligneData, setLigneData] = useState({
-    nom: '',
-    code: '',
-    capaciteParHeure: ''
-  });
+    version:
+      string;
 
-  // --- CHARGEMENT DEPUIS LES NOUVEAUX ENDPOINTS NESTJS ---
-  const chargerDonneesUsine = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const debut = '2026-01-01T00:00:00.000Z';
-      const fin = '2026-12-31T23:59:59.000Z';
+    type:
+      string;
 
-      const [resLignes, resCalendrier] = await Promise.all([
-        fetch(`${BACKEND_URL}/api/ordonnancement/lignes`),
-        fetch(`${BACKEND_URL}/api/ordonnancement/calendrier?debut=${debut}&fin=${fin}`)
-      ]);
+    externalDependencies?:
+      string[];
 
-      if (!resLignes.ok || !resCalendrier.ok) {
-        throw new Error(`Erreur réseau (Lignes: ${resLignes.status} / Calendrier: ${resCalendrier.status})`);
-      }
+    tree?: {
+      root?:
+        string;
 
-      const dataLignes: LigneProduction[] = await resLignes.json();
-      const dataCreneaux: CreneauOrdonnancement[] = await resCalendrier.json();
+      turnaroundNode?:
+        string;
 
-      setLignes(dataLignes);
+      positionNode?:
+        string;
 
-      // Extraction propre des tâches associées aux créneaux
-      const tachesExtraites = dataCreneaux
-        .map(creneau => creneau.tache)
-        .filter((tache, index, self) => tache && self.findIndex(t => t.id === tache.id) === index);
-      
-      setTachesEnCours(tachesExtraites);
+      positionGapNode?:
+        string;
 
-      if(aleas.length === 0) {
-        setAleas([
-          {
-            id: 1,
-            typePerturbation: 'PANNE_MACHINE',
-            description: 'Surchauffe du groupe motopropulseur principal détectée par les capteurs IoT.',
-            gravite: 'MAJEURE',
-            estResolue: false,
-            dateApparition: new Date().toISOString(),
-            tacheAssociee: tachesExtraites[0] || undefined
-          }
-        ]);
-      }
-    } catch (err: any) {
-      setError(err.message || "Impossible de se connecter à l'API NestJS.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    chargerDonneesUsine();
-  }, []);
-
-  // --- ACTIONS : GESTION & CONFIGURATION DES LIGNES ---
-  const handleToggleLigne = async (id: number) => {
-    try {
-      // NOTE: Le contrôleur actuel ne possédant pas de endpoint direct de bascule globale, 
-      // nous simulons ou appelons un comportement d'inversion locale (ou via une future route PATCH).
-      setLignes(prev => prev.map(l => l.id === id ? { ...l, estActif: !l.estActif } : l));
-    } catch (err: any) {
-      alert(`Erreur : ${err.message}`);
-    }
-  };
-
-  const handleCreerLigne = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setCreatingLigne(true);
-    try {
-      const response = await fetch(`${BACKEND_URL}/api/ordonnancement/lignes`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          nom: ligneData.nom,
-          code: ligneData.code.toUpperCase(),
-          capaciteParHeure: parseFloat(ligneData.capaciteParHeure)
-        })
-      });
-
-      if (!response.ok) throw new Error("Erreur lors de l'enregistrement de la ligne.");
-
-      const nouvelleLigne: LigneProduction = await response.json();
-      setLignes(prev => [...prev, nouvelleLigne]);
-      setLigneData({ nom: '', code: '', capaciteParHeure: '' });
-    } catch (err: any) {
-      alert(`Erreur de création : ${err.message}`);
-    } finally {
-      setCreatingLigne(false);
-    }
-  };
-
-  // --- ACTIONS : SOUUMISSION D'ALÉAS ---
-  const handleDeclarerAlea = (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitting(true);
-    const tacheAssociee = tachesEnCours.find(t => t.id === Number(formData.tacheId));
-
-    const nouvelAlea: AléaProduction = {
-      id: Date.now(),
-      typePerturbation: formData.typePerturbation,
-      description: formData.description,
-      gravite: formData.gravite as any,
-      estResolue: false,
-      dateApparition: new Date().toISOString(),
-      tacheAssociee
+      delayedContextNode?:
+        string;
     };
-
-    setAleas(prev => [nouvelAlea, ...prev]);
-    setFormData({
-      tacheId: '',
-      typePerturbation: 'PANNE_MACHINE',
-      description: '',
-      gravite: 'MINEURE'
-    });
-    setSubmitting(false);
   };
+}
 
-  const marquerAleaResolu = (idAlea: number) => {
-    setAleas(prev => prev.map(a => a.id === idAlea ? { ...a, estResolue: true } : a));
+interface OptimizationDetail {
+  flightNumber:
+    string;
+
+  status:
+    'REASSIGNED' |
+    'UNRESOLVED' |
+    string;
+
+  from?:
+    string;
+
+  to?:
+    string;
+
+  reason?:
+    string;
+}
+
+interface OptimizationResponse {
+  timestamp:
+    string;
+
+  resolvedConflicts:
+    number;
+
+  unresolvedConflicts:
+    number;
+
+  details:
+    OptimizationDetail[];
+
+  conflictsBefore:
+    number;
+
+  conflictsAfter:
+    number;
+
+  remainingConflicts:
+    MLConflict[];
+
+  model: {
+    algorithm:
+      string;
+
+    version:
+      string;
   };
+}
 
-  const getBadgeGravite = (gravite: AléaProduction['gravite']) => {
-    switch (gravite) {
-      case 'CRITIQUE':
-        return <span className="inline-flex items-center text-[10px] font-black tracking-wide text-rose-700 bg-rose-50 border border-rose-200 px-2.5 py-0.5 rounded-md uppercase">Critique</span>;
-      case 'MAJEURE':
-        return <span className="inline-flex items-center text-[10px] font-black tracking-wide text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-md uppercase">Majeure</span>;
-      case 'MINEURE':
-        return <span className="inline-flex items-center text-[10px] font-bold tracking-wide text-cyan-700 bg-cyan-50 border border-cyan-200 px-2.5 py-0.5 rounded-md uppercase">Mineure</span>;
-    }
-  };
+interface MessageState {
+  type:
+    | 'success'
+    | 'error'
+    | 'info';
 
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh]">
-        <div className="relative flex items-center justify-center">
-          <div className="w-16 h-16 border-4 border-[#0e524b]/20 border-t-[#3ae7a6] rounded-full animate-spin"></div>
-          <Loader2 className="w-6 h-6 text-[#0e524b] animate-pulse absolute" />
-        </div>
-        <p className="text-xs font-bold tracking-wider text-slate-400 uppercase mt-4">Calcul et synchronisation de l'ordonnancement...</p>
-      </div>
+  text:
+    string;
+}
+
+/* ============================================================================
+ * HELPERS
+ * ========================================================================== */
+
+function normalizeText(
+  value?:
+    string | null,
+): string {
+  return String(
+    value ?? '',
+  )
+    .trim()
+    .toUpperCase();
+}
+
+function clampProbability(
+  value?:
+    number | null,
+): number {
+  const numberValue =
+    Number(
+      value ?? 0,
     );
+
+  if (
+    !Number.isFinite(
+      numberValue,
+    )
+  ) {
+    return 0;
   }
 
-  if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[50vh] p-6 text-center bg-white border border-slate-100 rounded-3xl shadow-sm max-w-xl mx-auto mt-12">
-        <div className="p-4 bg-rose-50 rounded-full text-rose-500 mb-4">
-          <ShieldAlert className="w-8 h-8" />
-        </div>
-        <h3 className="text-lg font-black text-slate-900 tracking-tight">Erreur API (api/ordonnancement)</h3>
-        <p className="text-sm text-slate-500 mt-2 max-w-sm font-medium">{error}</p>
-        <button 
-          onClick={chargerDonneesUsine} 
-          className="mt-6 px-5 py-2.5 bg-[#0e524b] text-[#3ae7a6] hover:bg-[#0c4741] font-bold text-xs tracking-wider uppercase rounded-xl shadow-xs transition duration-150 cursor-pointer"
-        >
-          Relancer le diagnostic
-        </button>
-      </div>
-    );
+  return Math.min(
+    1,
+    Math.max(
+      0,
+      numberValue,
+    ),
+  );
+}
+
+function formatProbability(
+  value?:
+    number | null,
+): string {
+  return `${Math.round(
+    clampProbability(
+      value,
+    ) * 100,
+  )}%`;
+}
+
+function formatDateTime(
+  value?:
+    string | null,
+): string {
+  if (!value) {
+    return '--';
   }
 
-  const aleasActifs = aleas.filter(a => !a.estResolue).length;
-  const lignesActives = lignes.filter(l => l.estActif).length;
+  const date =
+    new Date(
+      value,
+    );
+
+  if (
+    Number.isNaN(
+      date.getTime(),
+    )
+  ) {
+    return '--';
+  }
+
+  return date.toLocaleString(
+    'fr-FR',
+    {
+      dateStyle:
+        'short',
+
+      timeStyle:
+        'short',
+    },
+  );
+}
+
+function getSeverityRank(
+  severity:
+    string,
+): number {
+  switch (
+    normalizeText(
+      severity,
+    )
+  ) {
+    case 'CRITICAL':
+      return 4;
+
+    case 'HIGH':
+      return 3;
+
+    case 'MEDIUM':
+      return 2;
+
+    case 'LOW':
+      return 1;
+
+    default:
+      return 0;
+  }
+}
+
+function getSeverityLabel(
+  severity:
+    string,
+): string {
+  switch (
+    normalizeText(
+      severity,
+    )
+  ) {
+    case 'CRITICAL':
+      return 'Critique';
+
+    case 'HIGH':
+      return 'Élevée';
+
+    case 'MEDIUM':
+      return 'Modérée';
+
+    case 'LOW':
+      return 'Faible';
+
+    default:
+      return (
+        severity ||
+        'Inconnue'
+      );
+  }
+}
+
+function getSeverityStyle(
+  severity:
+    string,
+): string {
+  switch (
+    normalizeText(
+      severity,
+    )
+  ) {
+    case 'CRITICAL':
+      return 'border-rose-200 bg-rose-50 text-rose-700';
+
+    case 'HIGH':
+      return 'border-orange-200 bg-orange-50 text-orange-700';
+
+    case 'MEDIUM':
+      return 'border-amber-200 bg-amber-50 text-amber-700';
+
+    case 'LOW':
+      return 'border-sky-200 bg-sky-50 text-sky-700';
+
+    default:
+      return 'border-slate-200 bg-slate-50 text-slate-600';
+  }
+}
+
+function getProbabilityStyle(
+  probability:
+    number,
+): string {
+  const score =
+    clampProbability(
+      probability,
+    );
+
+  if (
+    score >=
+    0.85
+  ) {
+    return 'text-rose-700';
+  }
+
+  if (
+    score >=
+    0.7
+  ) {
+    return 'text-orange-700';
+  }
+
+  if (
+    score >=
+    0.5
+  ) {
+    return 'text-amber-700';
+  }
+
+  return 'text-emerald-700';
+}
+
+function getConflictTypeLabel(
+  type:
+    ScheduleConflictType,
+): string {
+  switch (
+    type
+  ) {
+    case 'UNASSIGNED_AIRCRAFT':
+      return 'Appareil non affecté';
+
+    case 'AIRCRAFT_OVERLAP':
+      return 'Chevauchement appareil';
+
+    case 'TURNAROUND_TOO_SHORT':
+      return 'Turnaround insuffisant';
+
+    case 'AIRCRAFT_POSITIONING':
+      return 'Positionnement incompatible';
+
+    case 'ML_CONFLICT_RISK':
+      return 'Risque de conflit ML';
+
+    default:
+      return type
+        .replace(
+          /_/g,
+          ' ',
+        )
+        .toLowerCase();
+  }
+}
+
+function getDetectorLabel(
+  detector:
+    ConflictDetector,
+): string {
+  switch (
+    detector
+  ) {
+    case 'DECISION_TREE':
+      return 'Arbre de décision';
+
+    case 'RULE':
+      return 'Règle métier';
+
+    default:
+      return detector;
+  }
+}
+
+function getDetectorStyle(
+  detector:
+    ConflictDetector,
+): string {
+  if (
+    detector ===
+    'DECISION_TREE'
+  ) {
+    return 'border-violet-200 bg-violet-50 text-violet-700';
+  }
+
+  return 'border-sky-200 bg-sky-50 text-sky-700';
+}
+
+/* ============================================================================
+ * KPI
+ * ========================================================================== */
+
+function MetricCard({
+  label,
+  value,
+  subtitle,
+  icon,
+  valueClassName =
+    'text-slate-950',
+}: {
+  label:
+    string;
+
+  value:
+    number | string;
+
+  subtitle:
+    string;
+
+  icon:
+    React.ReactNode;
+
+  valueClassName?:
+    string;
+}) {
+  return (
+    <article className="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm sm:p-4">
+
+      <div className="flex items-start justify-between gap-3">
+
+        <div className="min-w-0">
+
+          <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-500 sm:text-xs">
+            {label}
+          </span>
+
+          <p
+            className={`mt-1 text-2xl font-black tabular-nums sm:text-3xl ${valueClassName}`}
+          >
+            {value}
+          </p>
+
+          <p className="mt-1 text-[11px] font-medium leading-4 text-slate-500 sm:text-xs">
+            {subtitle}
+          </p>
+
+        </div>
+
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-50 text-slate-600">
+          {icon}
+        </div>
+
+      </div>
+
+    </article>
+  );
+}
+
+/* ============================================================================
+ * MOBILE CARD
+ * ========================================================================== */
+
+function ConflictMobileCard({
+  conflict,
+}: {
+  conflict:
+    MLConflict;
+}) {
+  const probability =
+    clampProbability(
+      conflict.probability,
+    );
 
   return (
-    <div className="space-y-6">
-      
-      {/* Blocs KPI Supérieurs */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white border border-slate-200/60 p-4 rounded-2xl flex items-center justify-between shadow-xs">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Réseau Lignes</p>
-            <h4 className="text-2xl font-black text-slate-900 mt-1">{lignesActives} <span className="text-xs font-bold text-slate-400">/ {lignes.length} actif(s)</span></h4>
+    <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+
+      {/* HEADER */}
+
+      <div className="border-b border-slate-100 px-4 py-3.5">
+
+        <div className="flex items-start justify-between gap-3">
+
+          <div className="min-w-0">
+
+            <p className="text-sm font-black text-slate-900">
+              {getConflictTypeLabel(
+                conflict.type,
+              )}
+            </p>
+
+            <div className="mt-1.5 flex flex-wrap items-center gap-2">
+
+              <span
+                className={`rounded-md border px-2 py-0.5 text-[10px] font-black uppercase ${getSeverityStyle(
+                  conflict.severity,
+                )}`}
+              >
+                {getSeverityLabel(
+                  conflict.severity,
+                )}
+              </span>
+
+              <span
+                className={`rounded-md border px-2 py-0.5 text-[10px] font-bold ${getDetectorStyle(
+                  conflict.detector,
+                )}`}
+              >
+                {getDetectorLabel(
+                  conflict.detector,
+                )}
+              </span>
+
+            </div>
+
           </div>
-          <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
-            <Activity className="w-5 h-5" />
+
+          <div className="text-right">
+
+            <p
+              className={`text-lg font-black tabular-nums ${getProbabilityStyle(
+                probability,
+              )}`}
+            >
+              {formatProbability(
+                probability,
+              )}
+            </p>
+
+            <span className="text-[9px] font-bold uppercase text-slate-400">
+              Probabilité
+            </span>
+
           </div>
+
         </div>
 
-        <div className="bg-white border border-slate-200/60 p-4 rounded-2xl flex items-center justify-between shadow-xs">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Anomalies Graphe</p>
-            <h4 className={`text-2xl font-black mt-1 ${aleasActifs > 0 ? 'text-rose-600' : 'text-slate-900'}`}>{aleasActifs}</h4>
-          </div>
-          <div className={`p-3 rounded-xl ${aleasActifs > 0 ? 'bg-rose-50 text-rose-500 animate-pulse' : 'bg-slate-50 text-slate-400'}`}>
-            <AlertTriangle className="w-5 h-5" />
-          </div>
+        {/* PROBABILITY BAR */}
+
+        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100">
+
+          <div
+            className="h-full rounded-full bg-emerald-600 transition-all"
+            style={{
+              width:
+                `${probability * 100}%`,
+            }}
+          />
+
         </div>
 
-        <div className="bg-white border border-slate-200/60 p-4 rounded-2xl flex items-center justify-between shadow-xs">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Noeuds Ordonnancés</p>
-            <h4 className="text-2xl font-black text-slate-900 mt-1">{tachesEnCours.length}</h4>
-          </div>
-          <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
-            <Zap className="w-5 h-5" />
-          </div>
-        </div>
       </div>
 
-      {/* Grid Supérieur : Configuration Ligne & Liste d'état */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Formulaire : Création de Ligne */}
-        <div className="bg-white border border-slate-200/60 rounded-2xl p-5 shadow-xs h-fit space-y-4">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-2 border-b border-slate-100 pb-3">
-            <Sliders className="w-4 h-4 text-[#0e524b]" /> Configuration Nouvelle Ligne
-          </h3>
-          <form onSubmit={handleCreerLigne} className="space-y-3.5">
+      {/* BODY */}
+
+      <div className="space-y-4 p-4">
+
+        {/* FLIGHT A / B */}
+
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+
+          <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400">
+            Rotation analysée
+          </span>
+
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Désignation / Nom</label>
-              <input 
-                type="text"
-                required
-                placeholder="Ex: Ligne d'Assemblage A350"
-                value={ligneData.nom}
-                onChange={(e) => setLigneData({ ...ligneData, nom: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-1 focus:ring-[#0e524b] text-slate-800 placeholder:text-slate-300"
-              />
+
+              <p className="font-mono text-sm font-black text-slate-900">
+                {conflict.flightA
+                  ?.numeroVol ||
+                  '--'}
+              </p>
+
+              <p className="mt-0.5 font-mono text-[11px] font-semibold text-slate-500">
+                {conflict.flightA
+                  ?.aeroportDepart ||
+                  '--'}
+                {' → '}
+                {conflict.flightA
+                  ?.aeroportArrivee ||
+                  '--'}
+              </p>
+
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Code Unique</label>
-                <input 
-                  type="text"
-                  required
-                  placeholder="L-A350"
-                  value={ligneData.code}
-                  onChange={(e) => setLigneData({ ...ligneData, code: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-[#0e524b] text-slate-800 uppercase placeholder:text-slate-300"
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Capacité (h)</label>
-                <input 
-                  type="number"
-                  step="0.01"
-                  required
-                  placeholder="24.00"
-                  value={ligneData.capaciteParHeure}
-                  onChange={(e) => setLigneData({ ...ligneData, capaciteParHeure: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-1 focus:ring-[#0e524b] text-slate-800 placeholder:text-slate-300"
-                />
-              </div>
-            </div>
-            <button
-              type="submit"
-              disabled={creatingLigne}
-              className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold tracking-wider uppercase rounded-xl transition cursor-pointer flex items-center justify-center gap-2"
-            >
-              {creatingLigne ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <><Plus className="w-3.5 h-3.5" /> Déployer la Ligne</>}
-            </button>
-          </form>
+
+            {conflict.flightB && (
+              <>
+                <ArrowRight className="h-4 w-4 shrink-0 text-slate-300" />
+
+                <div>
+
+                  <p className="font-mono text-sm font-black text-slate-900">
+                    {conflict.flightB
+                      .numeroVol ||
+                      '--'}
+                  </p>
+
+                  <p className="mt-0.5 font-mono text-[11px] font-semibold text-slate-500">
+                    {conflict.flightB
+                      .aeroportDepart ||
+                      '--'}
+                    {' → '}
+                    {conflict.flightB
+                      .aeroportArrivee ||
+                      '--'}
+                  </p>
+
+                </div>
+              </>
+            )}
+
+          </div>
+
         </div>
 
-        {/* Liste Interactive : Disponibilité Réseau */}
-        <div className="lg:col-span-2 bg-white border border-slate-200/60 rounded-2xl p-5 shadow-xs">
-          <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-2">
-              <Layers className="w-4 h-4 text-[#0e524b]" /> Matrice de Disponibilité des Lignes (`/lignes`)
-            </h3>
-            <button 
-              onClick={chargerDonneesUsine}
-              className="p-1.5 text-slate-400 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-200/60 transition cursor-pointer"
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
-            </button>
+        {/* AIRCRAFT */}
+
+        {conflict.aircraftRegistration && (
+          <div>
+
+            <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+              Appareil
+            </span>
+
+            <p className="mt-1 font-mono text-sm font-black text-slate-800">
+              {
+                conflict.aircraftRegistration
+              }
+            </p>
+
           </div>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-65 overflow-y-auto pr-1">
-            {lignes.map(ligne => (
-              <div 
-                key={ligne.id} 
-                className={`border rounded-xl p-4 flex items-center justify-between transition-all ${
-                  ligne.estActif 
-                    ? 'bg-linear-to-br from-white to-slate-50/30 border-slate-200' 
-                    : 'bg-slate-50/60 border-slate-200/60 opacity-75'
-                }`}
-              >
-                <div>
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-bold text-slate-900 tracking-wide">{ligne.nom}</p>
-                    <span className="text-[9px] font-mono font-black text-slate-400 border border-slate-200 px-1 py-0.2 rounded bg-slate-50">{ligne.code}</span>
-                  </div>
-                  <p className="text-xs text-slate-400 font-medium mt-0.5">Capacité de charge : <span className="text-slate-700 font-bold">{ligne.capaciteParHeure}h/h</span></p>
-                </div>
-                <button 
-                  onClick={() => handleToggleLigne(ligne.id)}
-                  className="cursor-pointer transition-transform duration-100 active:scale-95 focus:outline-none"
-                >
-                  {ligne.estActif ? (
-                    <span className="flex items-center gap-1.5 text-[10px] font-black uppercase text-emerald-600 tracking-wider">
-                      Actif <ToggleRight className="w-7 h-7 text-emerald-500" />
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-1.5 text-[10px] font-black uppercase text-slate-400 tracking-wider">
-                      Gelé <ToggleLeft className="w-7 h-7 text-slate-300" />
+        )}
+
+        {/* REASON */}
+
+        <div>
+
+          <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+            Constat
+          </span>
+
+          <p className="mt-1.5 text-sm font-semibold leading-6 text-slate-700">
+            {conflict.reason}
+          </p>
+
+        </div>
+
+        {/* METRICS */}
+
+        {(conflict.overlapMinutes != null ||
+          conflict.gapMinutes != null) && (
+          <div className="grid grid-cols-2 gap-2">
+
+            {conflict.overlapMinutes != null && (
+              <div className="rounded-xl border border-slate-200 p-3">
+
+                <span className="text-[10px] font-bold uppercase text-slate-400">
+                  Chevauchement
+                </span>
+
+                <p className="mt-1 text-sm font-black text-rose-600">
+                  {Math.round(
+                    conflict.overlapMinutes,
+                  )}{' '}
+                  min
+                </p>
+
+              </div>
+            )}
+
+            {conflict.gapMinutes != null && (
+              <div className="rounded-xl border border-slate-200 p-3">
+
+                <span className="text-[10px] font-bold uppercase text-slate-400">
+                  Intervalle
+                </span>
+
+                <p className="mt-1 text-sm font-black text-slate-800">
+                  {Math.round(
+                    conflict.gapMinutes,
+                  )}{' '}
+                  min
+                </p>
+
+              </div>
+            )}
+
+          </div>
+        )}
+
+        {/* RECOMMENDATION */}
+
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+
+          <div className="flex items-start gap-2">
+
+            <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" />
+
+            <div>
+
+              <span className="block text-[10px] font-black uppercase tracking-wide text-emerald-700">
+                Recommandation OCC
+              </span>
+
+              <p className="mt-1 text-xs font-semibold leading-5 text-emerald-900">
+                {conflict.recommendation}
+              </p>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </article>
+  );
+}
+
+/* ============================================================================
+ * COMPONENT
+ * ========================================================================== */
+
+export const DisruptionCenter:
+  React.FC = () => {
+    /* ========================================================================
+     * STATES
+     * ====================================================================== */
+
+    const [
+      conflicts,
+      setConflicts,
+    ] =
+      useState<
+        MLConflict[]
+      >([]);
+
+    const [
+      model,
+      setModel,
+    ] =
+      useState<
+        ConflictModelInfo | null
+      >(null);
+
+    const [
+      modelInfo,
+      setModelInfo,
+    ] =
+      useState<
+        MLInfoResponse['model'] | null
+      >(null);
+
+    const [
+      loading,
+      setLoading,
+    ] =
+      useState(
+        true,
+      );
+
+    const [
+      refreshing,
+      setRefreshing,
+    ] =
+      useState(
+        false,
+      );
+
+    const [
+      optimizing,
+      setOptimizing,
+    ] =
+      useState(
+        false,
+      );
+
+    const [
+      error,
+      setError,
+    ] =
+      useState<
+        string | null
+      >(null);
+
+    const [
+      message,
+      setMessage,
+    ] =
+      useState<
+        MessageState | null
+      >(null);
+
+    const [
+      searchTerm,
+      setSearchTerm,
+    ] =
+      useState('');
+
+    const [
+      selectedSeverity,
+      setSelectedSeverity,
+    ] =
+      useState(
+        'ALL',
+      );
+
+    const [
+      selectedType,
+      setSelectedType,
+    ] =
+      useState(
+        'ALL',
+      );
+
+    const [
+      lastUpdated,
+      setLastUpdated,
+    ] =
+      useState<
+        Date | null
+      >(null);
+
+    const [
+      optimizationResult,
+      setOptimizationResult,
+    ] =
+      useState<
+        OptimizationResponse | null
+      >(null);
+
+    /* ========================================================================
+     * LOAD CONFLICTS
+     * ====================================================================== */
+
+    const loadConflicts =
+      useCallback(
+        async (
+          silent =
+            false,
+        ) => {
+          if (
+            !silent
+          ) {
+            setLoading(
+              true,
+            );
+          }
+
+          try {
+            const response =
+              await fetch(
+                `${PYTHON_API_URL}${CONFLICTS_ENDPOINT}`,
+                {
+                  method:
+                    'GET',
+
+                  headers: {
+                    Accept:
+                      'application/json',
+                  },
+                },
+              );
+
+            if (
+              !response.ok
+            ) {
+              const payload =
+                await response
+                  .json()
+                  .catch(
+                    () => null,
+                  );
+
+              const backendMessage =
+                payload &&
+                typeof payload ===
+                  'object' &&
+                'message' in payload
+                  ? String(
+                      (
+                        payload as {
+                          message?:
+                            unknown;
+                        }
+                      ).message,
+                    )
+                  : null;
+
+              throw new Error(
+                backendMessage ||
+                  `Détection Python indisponible (HTTP ${response.status}).`,
+              );
+            }
+
+            const payload =
+              (await response.json()) as ConflictsResponse;
+
+            const nextConflicts =
+              Array.isArray(
+                payload.conflicts,
+              )
+                ? payload.conflicts
+                : [];
+
+            nextConflicts.sort(
+              (
+                first,
+                second,
+              ) => {
+                const severityDifference =
+                  getSeverityRank(
+                    second.severity,
+                  ) -
+                  getSeverityRank(
+                    first.severity,
+                  );
+
+                if (
+                  severityDifference !==
+                  0
+                ) {
+                  return severityDifference;
+                }
+
+                return (
+                  clampProbability(
+                    second.probability,
+                  ) -
+                  clampProbability(
+                    first.probability,
+                  )
+                );
+              },
+            );
+
+            setConflicts(
+              nextConflicts,
+            );
+
+            setModel(
+              payload.model ??
+                null,
+            );
+
+            if (
+              payload.timestamp
+            ) {
+              const timestamp =
+                new Date(
+                  payload.timestamp,
+                );
+
+              if (
+                !Number.isNaN(
+                  timestamp.getTime(),
+                )
+              ) {
+                setLastUpdated(
+                  timestamp,
+                );
+              }
+            } else {
+              setLastUpdated(
+                new Date(),
+              );
+            }
+
+            setError(
+              null,
+            );
+          } catch (
+            currentError:
+              unknown
+          ) {
+            setError(
+              currentError instanceof
+                Error
+                ? currentError.message
+                : 'Impossible de joindre le moteur ML Python.',
+            );
+          } finally {
+            if (
+              !silent
+            ) {
+              setLoading(
+                false,
+              );
+            }
+          }
+        },
+        [],
+      );
+
+    /* ========================================================================
+     * LOAD ML INFO
+     * ====================================================================== */
+
+    const loadMLInfo =
+      useCallback(
+        async () => {
+          try {
+            const response =
+              await fetch(
+                `${PYTHON_API_URL}${ML_INFO_ENDPOINT}`,
+                {
+                  method:
+                    'GET',
+
+                  headers: {
+                    Accept:
+                      'application/json',
+                  },
+                },
+              );
+
+            if (
+              !response.ok
+            ) {
+              return;
+            }
+
+            const payload =
+              (await response.json()) as MLInfoResponse;
+
+            setModelInfo(
+              payload.model ??
+                null,
+            );
+          } catch {
+            setModelInfo(
+              null,
+            );
+          }
+        },
+        [],
+      );
+
+    /* ========================================================================
+     * REFRESH
+     * ====================================================================== */
+
+    const refreshAll =
+      useCallback(
+        async () => {
+          if (
+            refreshing
+          ) {
+            return;
+          }
+
+          setRefreshing(
+            true,
+          );
+
+          try {
+            await Promise.all([
+              loadConflicts(
+                true,
+              ),
+
+              loadMLInfo(),
+            ]);
+
+            setLastUpdated(
+              new Date(),
+            );
+          } finally {
+            setRefreshing(
+              false,
+            );
+          }
+        },
+        [
+          loadConflicts,
+          loadMLInfo,
+          refreshing,
+        ],
+      );
+
+    /* ========================================================================
+     * OPTIMIZE
+     * ====================================================================== */
+
+    const handleOptimize =
+      async () => {
+        if (
+          optimizing
+        ) {
+          return;
+        }
+
+        setOptimizing(
+          true,
+        );
+
+        setMessage(
+          null,
+        );
+
+        setOptimizationResult(
+          null,
+        );
+
+        try {
+          const response =
+            await fetch(
+              `${PYTHON_API_URL}${OPTIMIZE_ENDPOINT}`,
+              {
+                method:
+                  'POST',
+
+                headers: {
+                  Accept:
+                    'application/json',
+
+                  'Content-Type':
+                    'application/json',
+                },
+              },
+            );
+
+          if (
+            !response.ok
+          ) {
+            const payload =
+              await response
+                .json()
+                .catch(
+                  () => null,
+                );
+
+            const backendMessage =
+              payload &&
+                typeof payload ===
+                  'object' &&
+                'message' in payload
+                ? String(
+                    (
+                      payload as {
+                        message?:
+                          unknown;
+                      }
+                    ).message,
+                  )
+                : null;
+
+            throw new Error(
+              backendMessage ||
+                `Optimisation impossible (HTTP ${response.status}).`,
+            );
+          }
+
+          const payload =
+            (await response.json()) as OptimizationResponse;
+
+          setOptimizationResult(
+            payload,
+          );
+
+          setConflicts(
+            Array.isArray(
+              payload.remainingConflicts,
+            )
+              ? payload.remainingConflicts
+              : [],
+          );
+
+          setMessage({
+            type:
+              payload.unresolvedConflicts >
+              0
+                ? 'info'
+                : 'success',
+
+            text:
+              `${payload.resolvedConflicts} conflit(s) résolu(s), ` +
+              `${payload.unresolvedConflicts} non résolu(s). ` +
+              `${payload.conflictsBefore} → ${payload.conflictsAfter} conflit(s).`,
+          });
+
+          setLastUpdated(
+            new Date(),
+          );
+        } catch (
+          currentError:
+            unknown
+        ) {
+          setMessage({
+            type:
+              'error',
+
+            text:
+              currentError instanceof
+                Error
+                ? currentError.message
+                : 'Impossible de lancer l’optimisation Python.',
+          });
+        } finally {
+          setOptimizing(
+            false,
+          );
+        }
+      };
+
+    /* ========================================================================
+     * INITIAL LOAD
+     * ====================================================================== */
+
+    useEffect(
+      () => {
+        const initialize =
+          async () => {
+            await Promise.all([
+              loadConflicts(),
+              loadMLInfo(),
+            ]);
+          };
+
+        void initialize();
+      },
+      [
+        loadConflicts,
+        loadMLInfo,
+      ],
+    );
+
+    /* ========================================================================
+     * AUTO REFRESH
+     * ====================================================================== */
+
+    useEffect(
+      () => {
+        const timer =
+          window.setInterval(
+            () => {
+              if (
+                document.visibilityState ===
+                'visible'
+              ) {
+                void loadConflicts(
+                  true,
+                );
+              }
+            },
+            30_000,
+          );
+
+        return () =>
+          window.clearInterval(
+            timer,
+          );
+      },
+      [
+        loadConflicts,
+      ],
+    );
+
+    /* ========================================================================
+     * DERIVED STATS
+     * ====================================================================== */
+
+    const stats =
+      useMemo(
+        () => {
+          const critical =
+            conflicts.filter(
+              (
+                conflict,
+              ) =>
+                normalizeText(
+                  conflict.severity,
+                ) ===
+                'CRITICAL',
+            ).length;
+
+          const high =
+            conflicts.filter(
+              (
+                conflict,
+              ) =>
+                normalizeText(
+                  conflict.severity,
+                ) ===
+                'HIGH',
+            ).length;
+
+          const medium =
+            conflicts.filter(
+              (
+                conflict,
+              ) =>
+                normalizeText(
+                  conflict.severity,
+                ) ===
+                'MEDIUM',
+            ).length;
+
+          const decisionTree =
+            conflicts.filter(
+              (
+                conflict,
+              ) =>
+                conflict.detector ===
+                'DECISION_TREE',
+            ).length;
+
+          const averageProbability =
+            conflicts.length >
+            0
+              ? Math.round(
+                  (
+                    conflicts.reduce(
+                      (
+                        total,
+                        conflict,
+                      ) =>
+                        total +
+                        clampProbability(
+                          conflict.probability,
+                        ),
+                      0,
+                    ) /
+                    conflicts.length
+                  ) * 100,
+                )
+              : 0;
+
+          return {
+            total:
+              conflicts.length,
+
+            critical,
+
+            high,
+
+            medium,
+
+            decisionTree,
+
+            averageProbability,
+          };
+        },
+        [
+          conflicts,
+        ],
+      );
+
+    /* ========================================================================
+     * TYPES
+     * ====================================================================== */
+
+    const availableTypes =
+      useMemo(
+        () =>
+          Array.from(
+            new Set(
+              conflicts.map(
+                (
+                  conflict,
+                ) =>
+                  conflict.type,
+              ),
+            ),
+          ).sort(),
+        [
+          conflicts,
+        ],
+      );
+
+    /* ========================================================================
+     * FILTER
+     * ====================================================================== */
+
+    const filteredConflicts =
+      useMemo(
+        () => {
+          const term =
+            searchTerm
+              .trim()
+              .toLowerCase();
+
+          return conflicts.filter(
+            (
+              conflict,
+            ) => {
+              const searchable =
+                [
+                  conflict.type,
+                  conflict.reason,
+                  conflict.recommendation,
+                  conflict.aircraftRegistration,
+                  conflict.flightA
+                    ?.numeroVol,
+                  conflict.flightA
+                    ?.aeroportDepart,
+                  conflict.flightA
+                    ?.aeroportArrivee,
+                  conflict.flightB
+                    ?.numeroVol,
+                  conflict.flightB
+                    ?.aeroportDepart,
+                  conflict.flightB
+                    ?.aeroportArrivee,
+                ]
+                  .filter(
+                    Boolean,
+                  )
+                  .join(
+                    ' ',
+                  )
+                  .toLowerCase();
+
+              const matchesSearch =
+                !term ||
+                searchable.includes(
+                  term,
+                );
+
+              const matchesSeverity =
+                selectedSeverity ===
+                  'ALL' ||
+                normalizeText(
+                  conflict.severity,
+                ) ===
+                  selectedSeverity;
+
+              const matchesType =
+                selectedType ===
+                  'ALL' ||
+                conflict.type ===
+                  selectedType;
+
+              return (
+                matchesSearch &&
+                matchesSeverity &&
+                matchesType
+              );
+            },
+          );
+        },
+        [
+          conflicts,
+          searchTerm,
+          selectedSeverity,
+          selectedType,
+        ],
+      );
+
+    /* ========================================================================
+     * LOADING
+     * ====================================================================== */
+
+    if (
+      loading
+    ) {
+      return (
+        <div className="flex min-h-[60vh] flex-col items-center justify-center">
+
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-violet-50">
+
+            <BrainCircuit className="h-7 w-7 text-violet-700" />
+
+            <Loader2 className="absolute h-12 w-12 animate-spin text-violet-200" />
+
+          </div>
+
+          <p className="mt-4 text-xs font-bold uppercase tracking-wide text-slate-500">
+            Analyse ML des conflits...
+          </p>
+
+          <p className="mt-1 text-xs text-slate-400">
+            Arbre de décision Python
+          </p>
+
+        </div>
+      );
+    }
+
+    /* ========================================================================
+     * ERROR
+     * ====================================================================== */
+
+    if (
+      error &&
+      conflicts.length ===
+        0
+    ) {
+      return (
+        <div className="mx-auto mt-12 flex min-h-[340px] max-w-xl flex-col items-center justify-center rounded-3xl border border-slate-200 bg-white p-6 text-center shadow-sm">
+
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-50 text-rose-600">
+
+            <ShieldAlert className="h-7 w-7" />
+
+          </div>
+
+          <h2 className="mt-4 text-lg font-black text-slate-900">
+            Moteur ML indisponible
+          </h2>
+
+          <p className="mt-2 max-w-md text-sm leading-6 text-slate-500">
+            {error}
+          </p>
+
+          <button
+            type="button"
+            onClick={() =>
+              void refreshAll()
+            }
+            className="mt-5 inline-flex h-11 items-center gap-2 rounded-xl bg-emerald-700 px-5 text-sm font-bold text-white transition hover:bg-emerald-800"
+          >
+
+            <RefreshCw className="h-4 w-4" />
+
+            Réessayer
+
+          </button>
+
+        </div>
+      );
+    }
+
+    /* ========================================================================
+     * RENDER
+     * ====================================================================== */
+
+    return (
+      <div className="min-h-screen bg-slate-100 p-2.5 text-slate-800 sm:p-5 lg:p-6">
+
+        <div className="mx-auto max-w-[1500px] space-y-4">
+
+          {/* ================================================================ */}
+          {/* HEADER                                                           */}
+          {/* ================================================================ */}
+
+          <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+
+            <div className="flex flex-col gap-4 p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
+
+              <div className="flex items-start gap-3">
+
+                <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-700 text-white sm:h-12 sm:w-12">
+
+                  <BrainCircuit className="h-5 w-5" />
+
+                  {stats.critical >
+                    0 && (
+                    <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-rose-500 px-1 text-[9px] font-black text-white">
+                      {
+                        stats.critical
+                      }
                     </span>
                   )}
-                </button>
+
+                </div>
+
+                <div className="min-w-0">
+
+                  <div className="flex flex-wrap items-center gap-2">
+
+                    <h1 className="text-lg font-black tracking-tight text-slate-950 sm:text-xl">
+                      Centre des perturbations
+                    </h1>
+
+                    <span className="rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-black text-emerald-700">
+                      OCC
+                    </span>
+
+                  </div>
+
+                  <p className="mt-1 max-w-2xl text-xs font-medium leading-5 text-slate-500 sm:text-sm">
+                    Détection prédictive des conflits de rotation et aide à la réaffectation des appareils.
+                  </p>
+
+                </div>
+
               </div>
-            ))}
-          </div>
-        </div>
 
-      </div>
+              <div className="grid grid-cols-2 gap-2 sm:flex">
 
-      {/* Grid Inférieur : Administration des crises (Aléas) */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        
-        {/* Formulaire d'injection d'aléa */}
-        <div className="rounded-2xl border border-slate-200/60 bg-white p-5 shadow-xs h-fit space-y-4">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-2 border-b border-slate-100 pb-3">
-            <ShieldAlert className="w-4 h-4 text-rose-500" /> Injection d'incident temps réel
-          </h3>
+                <button
+                  type="button"
+                  onClick={() =>
+                    void refreshAll()
+                  }
+                  disabled={
+                    refreshing ||
+                    optimizing
+                  }
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-xs font-bold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 sm:h-10 sm:text-sm"
+                >
 
-          <form onSubmit={handleDeclarerAlea} className="space-y-4">
-            <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Nature du sinistre</label>
-              <select
-                value={formData.typePerturbation}
-                onChange={(e) => setFormData({ ...formData, typePerturbation: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-semibold bg-slate-50/50 text-slate-800 focus:outline-none focus:border-[#0e524b] cursor-pointer"
-              >
-                <option value="PANNE_MACHINE">🚨 Panne Structurelle / Machine</option>
-                <option value="RUPTURE_STOCK">📦 Rupture Chaîne Approvisionnement</option>
-                <option value="ABSENCE_OPERATEUR">👥 Carence d'Équipage / Opérateur</option>
-                <option value="RETARD_LOGISTIQUE">✈️ Conflit Logistique Aéroportuaire</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Sévérité Algorithmique</label>
-              <div className="grid grid-cols-3 gap-2">
-                {['MINEURE', 'MAJEURE', 'CRITIQUE'].map((g) => (
-                  <button
-                    key={g}
-                    type="button"
-                    onClick={() => setFormData({ ...formData, gravite: g })}
-                    className={`py-2 px-1 text-[10px] font-bold tracking-wider rounded-lg uppercase cursor-pointer transition-all border ${
-                      formData.gravite === g 
-                        ? 'bg-rose-50 border-rose-400 text-rose-700 font-extrabold' 
-                        : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
+                  <RefreshCw
+                    className={`h-4 w-4 ${
+                      refreshing
+                        ? 'animate-spin'
+                        : ''
                     }`}
-                  >
-                    {g}
-                  </button>
-                ))}
+                  />
+
+                  Actualiser
+
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    void handleOptimize()
+                  }
+                  disabled={
+                    optimizing ||
+                    stats.total ===
+                      0
+                  }
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 text-xs font-bold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50 sm:h-10 sm:text-sm"
+                >
+
+                  {optimizing ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Zap className="h-4 w-4" />
+                  )}
+
+                  {optimizing
+                    ? 'Optimisation...'
+                    : 'Optimiser'}
+
+                </button>
+
               </div>
+
             </div>
 
-            <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Tâche réseau impactée</label>
-              <select
-                value={formData.tacheId}
-                onChange={(e) => setFormData({ ...formData, tacheId: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-semibold bg-slate-50/50 text-slate-800 focus:outline-none focus:border-[#0e524b] cursor-pointer"
-                required
-              >
-                <option value="">Sélectionner un noeud du planning...</option>
-                {tachesEnCours.map(tache => (
-                  <option key={tache.id} value={tache.id}>
-                    {tache.referenceCommande} — {tache.nomProduit}
-                  </option>
-                ))}
-              </select>
-            </div>
+          </section>
 
-            <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Rapport de dysfonctionnement</label>
-              <textarea
-                required
-                rows={3}
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Décrire précisément la panne technique..."
-                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-1 focus:ring-[#0e524b] text-slate-800 placeholder:text-slate-300"
-              />
-            </div>
+          {/* ================================================================ */}
+          {/* MESSAGE                                                          */}
+          {/* ================================================================ */}
 
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-full py-2.5 bg-[#0e524b] hover:bg-[#0c4741] text-[#3ae7a6] text-xs font-bold tracking-wider uppercase rounded-xl shadow-xs transition duration-150 cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+          {message && (
+            <div
+              className={`flex items-start justify-between gap-3 rounded-2xl border p-3.5 ${
+                message.type ===
+                'success'
+                  ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
+                  : message.type ===
+                      'info'
+                    ? 'border-sky-200 bg-sky-50 text-sky-900'
+                    : 'border-rose-200 bg-rose-50 text-rose-900'
+              }`}
             >
-              {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Calculer le re-routage"}
-            </button>
-          </form>
-        </div>
 
-        {/* Journal de bord des aléas */}
-        <div className="xl:col-span-2 rounded-2xl border border-slate-200/60 bg-white p-5 shadow-xs space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-2">
-              <CheckSquare className="w-4 h-4 text-[#0e524b]" /> Registre des Conflits Résiliés & Actifs
-            </h3>
-            <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Actifs : {aleasActifs}</span>
-          </div>
+              <div className="flex min-w-0 items-start gap-2.5">
 
-          <div className="space-y-3 max-h-[460px] overflow-y-auto pr-1">
-            {aleas.length === 0 ? (
-              <div className="text-center py-16 border border-dashed border-slate-200 rounded-2xl bg-slate-50/40">
-                <CheckCircle className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
-                <p className="text-slate-800 text-sm font-bold">Système en équilibre</p>
-                <p className="text-slate-400 text-xs font-medium mt-0.5">Aucune perturbation détectée sur les graphes.</p>
+                {message.type ===
+                'success' ? (
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+                ) : (
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                )}
+
+                <p className="text-xs font-semibold leading-5 sm:text-sm">
+                  {message.text}
+                </p>
+
+              </div>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setMessage(
+                    null,
+                  )
+                }
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg hover:bg-black/5"
+              >
+
+                <X className="h-4 w-4" />
+
+              </button>
+
+            </div>
+          )}
+
+          {/* ================================================================ */}
+          {/* KPI                                                              */}
+          {/* ================================================================ */}
+
+          <section className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
+
+            <MetricCard
+              label="Conflits ML"
+              value={
+                stats.total
+              }
+              subtitle="Détectés"
+              icon={
+                <BrainCircuit className="h-5 w-5" />
+              }
+            />
+
+            <MetricCard
+              label="Critiques"
+              value={
+                stats.critical
+              }
+              subtitle="Priorité OCC"
+              valueClassName={
+                stats.critical >
+                0
+                  ? 'text-rose-600'
+                  : 'text-slate-950'
+              }
+              icon={
+                <ShieldAlert className="h-5 w-5" />
+              }
+            />
+
+            <MetricCard
+              label="Élevés"
+              value={
+                stats.high
+              }
+              subtitle="À traiter"
+              valueClassName={
+                stats.high >
+                0
+                  ? 'text-orange-600'
+                  : 'text-slate-950'
+              }
+              icon={
+                <AlertTriangle className="h-5 w-5" />
+              }
+            />
+
+            <MetricCard
+              label="Risque moyen"
+              value={`${stats.averageProbability}%`}
+              subtitle="Probabilité moyenne"
+              valueClassName={
+                stats.averageProbability >=
+                70
+                  ? 'text-rose-600'
+                  : stats.averageProbability >=
+                      50
+                    ? 'text-amber-600'
+                    : 'text-emerald-700'
+              }
+              icon={
+                <Gauge className="h-5 w-5" />
+              }
+            />
+
+          </section>
+
+          {/* ================================================================ */}
+          {/* MODEL INFO                                                       */}
+          {/* ================================================================ */}
+
+          {(model ||
+            modelInfo) && (
+            <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+
+              <div className="flex items-start gap-3">
+
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-700">
+
+                  <BrainCircuit className="h-5 w-5" />
+
+                </div>
+
+                <div className="min-w-0 flex-1">
+
+                  <div className="flex flex-wrap items-center gap-2">
+
+                    <p className="text-sm font-black text-slate-900">
+                      Modèle de détection
+                    </p>
+
+                  </div>
+
+                  <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-[11px] font-medium text-slate-500">
+
+                    {model?.minTurnaroundMinutes != null && (
+                      <span>
+                        Turnaround minimum :{' '}
+                        <strong className="text-slate-700">
+                          {
+                            model.minTurnaroundMinutes
+                          }{' '}
+                          min
+                        </strong>
+                      </span>
+                    )}
+
+                    {model?.positioningMinutes != null && (
+                      <span>
+                        Repositionnement :{' '}
+                        <strong className="text-slate-700">
+                          {
+                            model.positioningMinutes
+                          }{' '}
+                          min
+                        </strong>
+                      </span>
+                    )}
+
+                  </div>
+
+                </div>
+
+              </div>
+
+            </section>
+          )}
+
+          {/* ================================================================ */}
+          {/* OPTIMIZATION RESULT                                              */}
+          {/* ================================================================ */}
+
+          {optimizationResult && (
+            <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+
+              <div className="border-b border-slate-100 px-4 py-4 sm:px-5">
+
+                <div className="flex items-center justify-between gap-3">
+
+                  <div>
+
+                    <h2 className="text-sm font-black text-slate-900">
+                      Résultat de l’optimisation
+                    </h2>
+
+                    <p className="mt-1 text-xs text-slate-500">
+                      Réaffectation automatique proposée par le moteur Python.
+                    </p>
+
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setOptimizationResult(
+                        null,
+                      )
+                    }
+                    className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+
+                </div>
+
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 p-3 sm:grid-cols-4 sm:p-4">
+
+                <div className="rounded-xl bg-slate-50 p-3 text-center">
+
+                  <span className="text-[10px] font-bold uppercase text-slate-400">
+                    Avant
+                  </span>
+
+                  <p className="mt-1 text-xl font-black text-slate-900">
+                    {
+                      optimizationResult.conflictsBefore
+                    }
+                  </p>
+
+                </div>
+
+                <div className="rounded-xl bg-slate-50 p-3 text-center">
+
+                  <span className="text-[10px] font-bold uppercase text-slate-400">
+                    Après
+                  </span>
+
+                  <p className="mt-1 text-xl font-black text-slate-900">
+                    {
+                      optimizationResult.conflictsAfter
+                    }
+                  </p>
+
+                </div>
+
+                <div className="rounded-xl bg-emerald-50 p-3 text-center">
+
+                  <span className="text-[10px] font-bold uppercase text-emerald-700">
+                    Résolus
+                  </span>
+
+                  <p className="mt-1 text-xl font-black text-emerald-700">
+                    {
+                      optimizationResult.resolvedConflicts
+                    }
+                  </p>
+
+                </div>
+
+                <div className="rounded-xl bg-rose-50 p-3 text-center">
+
+                  <span className="text-[10px] font-bold uppercase text-rose-700">
+                    Non résolus
+                  </span>
+
+                  <p className="mt-1 text-xl font-black text-rose-700">
+                    {
+                      optimizationResult.unresolvedConflicts
+                    }
+                  </p>
+
+                </div>
+
+              </div>
+
+              {optimizationResult.details.length >
+                0 && (
+                <div className="border-t border-slate-100 px-4 py-3 sm:px-5">
+
+                  <div className="space-y-2">
+
+                    {optimizationResult.details.map(
+                      (
+                        detail,
+                        index,
+                      ) => (
+                        <div
+                          key={`${detail.flightNumber}-${index}`}
+                          className="flex flex-col gap-2 rounded-xl border border-slate-200 p-3 sm:flex-row sm:items-center sm:justify-between"
+                        >
+
+                          <div>
+
+                            <p className="font-mono text-sm font-black text-slate-900">
+                              {
+                                detail.flightNumber
+                              }
+                            </p>
+
+                            {detail.reason && (
+                              <p className="mt-1 text-xs leading-5 text-slate-500">
+                                {
+                                  detail.reason
+                                }
+                              </p>
+                            )}
+
+                          </div>
+
+                          {detail.status ===
+                          'REASSIGNED' ? (
+                            <div className="flex items-center gap-2 text-xs font-bold">
+
+                              <span className="rounded-lg bg-slate-100 px-2 py-1 text-slate-600">
+                                {detail.from ||
+                                  'NON ASSIGNÉ'}
+                              </span>
+
+                              <ArrowRight className="h-3.5 w-3.5 text-slate-300" />
+
+                              <span className="rounded-lg bg-emerald-50 px-2 py-1 text-emerald-700">
+                                {detail.to ||
+                                  '--'}
+                              </span>
+
+                            </div>
+                          ) : (
+                            <span className="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-bold text-rose-700">
+                              Non résolu
+                            </span>
+                          )}
+
+                        </div>
+                      ),
+                    )}
+
+                  </div>
+
+                </div>
+              )}
+
+            </section>
+          )}
+
+          {/* ================================================================ */}
+          {/* FILTERS                                                          */}
+          {/* ================================================================ */}
+
+          <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+
+            <div className="grid gap-2.5 lg:grid-cols-[1fr_220px_270px]">
+
+              <div className="relative">
+
+                <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+
+                <input
+                  type="search"
+                  value={
+                    searchTerm
+                  }
+                  onChange={(
+                    event,
+                  ) =>
+                    setSearchTerm(
+                      event.target.value,
+                    )
+                  }
+                  placeholder="Vol, appareil, route, motif..."
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm font-medium text-slate-700 outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-4 focus:ring-emerald-600/10"
+                />
+
+              </div>
+
+              <div className="relative">
+
+                <Filter className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+
+                <select
+                  value={
+                    selectedSeverity
+                  }
+                  onChange={(
+                    event,
+                  ) =>
+                    setSelectedSeverity(
+                      event.target.value,
+                    )
+                  }
+                  className="h-11 w-full appearance-none rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-3 text-sm font-semibold text-slate-700 outline-none focus:border-emerald-600"
+                >
+
+                  <option value="ALL">
+                    Toutes les sévérités
+                  </option>
+
+                  <option value="CRITICAL">
+                    Critique
+                  </option>
+
+                  <option value="HIGH">
+                    Élevée
+                  </option>
+
+                  <option value="MEDIUM">
+                    Modérée
+                  </option>
+
+                  <option value="LOW">
+                    Faible
+                  </option>
+
+                </select>
+
+              </div>
+
+              <select
+                value={
+                  selectedType
+                }
+                onChange={(
+                  event,
+                ) =>
+                  setSelectedType(
+                    event.target.value,
+                  )
+                }
+                className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-700 outline-none focus:border-emerald-600"
+              >
+
+                <option value="ALL">
+                  Tous les types de conflit
+                </option>
+
+                {availableTypes.map(
+                  (
+                    type,
+                  ) => (
+                    <option
+                      key={
+                        type
+                      }
+                      value={
+                        type
+                      }
+                    >
+                      {getConflictTypeLabel(
+                        type,
+                      )}
+                    </option>
+                  ),
+                )}
+
+              </select>
+
+            </div>
+
+          </section>
+
+          {/* ================================================================ */}
+          {/* LIST                                                             */}
+          {/* ================================================================ */}
+
+          <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+
+            <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-4 sm:px-5">
+
+              <div>
+
+                <h2 className="text-sm font-black text-slate-900 sm:text-base">
+                  Conflits détectés par le modèle
+                </h2>
+
+                <p className="mt-1 text-[11px] leading-4 text-slate-500 sm:text-xs">
+                  Analyse des rotations par arbre de décision.
+                </p>
+
+              </div>
+
+              <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600">
+                {
+                  filteredConflicts.length
+                }
+              </span>
+
+            </div>
+
+            {filteredConflicts.length ===
+              0 ? (
+              <div className="flex min-h-[250px] items-center justify-center p-6 text-center">
+
+                <div>
+
+                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
+
+                    <CheckCircle2 className="h-6 w-6" />
+
+                  </div>
+
+                  <p className="mt-3 text-sm font-black text-slate-800">
+                    Aucun conflit détecté
+                  </p>
+
+                  <p className="mx-auto mt-1 max-w-md text-xs leading-5 text-slate-500">
+                    Aucun conflit ne correspond actuellement aux critères de l’arbre de décision et aux filtres sélectionnés.
+                  </p>
+
+                </div>
+
               </div>
             ) : (
-              aleas.map((alea) => (
-                <div 
-                  key={alea.id} 
-                  className={`border rounded-xl p-4 transition-all duration-150 ${
-                    alea.estResolue 
-                      ? 'bg-slate-50/50 border-slate-200/60 opacity-60' 
-                      : 'bg-white border-rose-100 shadow-xs ring-1 ring-rose-500/5'
-                  }`}
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-mono font-black text-slate-700 bg-slate-100 px-2 py-0.5 rounded">
-                        {alea.typePerturbation}
-                      </span>
-                      {getBadgeGravite(alea.gravite)}
-                    </div>
-                    
-                    <span className="text-[11px] text-slate-400 font-medium flex items-center gap-1">
-                      <Clock className="w-3 h-3" /> 
-                      {new Date(alea.dateApparition).toLocaleTimeString('fr-FR')}
-                    </span>
-                  </div>
+              <>
+                {/* MOBILE */}
 
-                  <p className="text-xs sm:text-sm text-slate-700 font-semibold mb-3 leading-relaxed">{alea.description}</p>
+                <div className="space-y-3 bg-slate-50 p-2.5 md:hidden">
 
-                  {alea.tacheAssociee && (
-                    <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-200/60 w-fit">
-                      <FileText className="w-3.5 h-3.5 text-indigo-500" />
-                      <span className="font-bold">Noeud :</span>
-                      <span className="font-mono text-indigo-600 font-bold">{alea.tacheAssociee.referenceCommande}</span>
-                      <ArrowRight className="w-3 h-3 text-slate-300" />
-                      <span className="text-slate-700 font-bold">{alea.tacheAssociee.nomProduit}</span>
-                    </div>
+                  {filteredConflicts.map(
+                    (
+                      conflict,
+                    ) => (
+                      <ConflictMobileCard
+                        key={
+                          conflict.id
+                        }
+                        conflict={
+                          conflict
+                        }
+                      />
+                    ),
                   )}
 
-                  <div className="flex justify-end border-t border-slate-100/80 pt-3 mt-3">
-                    {alea.estResolue ? (
-                      <span className="text-xs font-bold text-emerald-600 flex items-center gap-1 bg-emerald-50 border border-emerald-100 px-2.5 py-1 rounded-lg">
-                        <CheckCircle className="w-3.5 h-3.5" /> Risque Contenu
-                      </span>
-                    ) : (
-                      <button
-                        onClick={() => marquerAleaResolu(alea.id)}
-                        className="px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold rounded-lg hover:bg-emerald-100 transition cursor-pointer"
-                      >
-                        Lever l'alerte & Stabiliser
-                      </button>
-                    )}
-                  </div>
                 </div>
-              ))
+
+                {/* DESKTOP */}
+
+                <div className="hidden overflow-x-auto md:block">
+
+                  <table className="w-full min-w-[1200px] text-left">
+
+                    <thead className="border-b border-slate-200 bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500">
+
+                      <tr>
+
+                        <th className="px-4 py-3.5">
+                          Conflit
+                        </th>
+
+                        <th className="px-4 py-3.5">
+                          Rotation
+                        </th>
+
+                        <th className="px-4 py-3.5">
+                          Appareil
+                        </th>
+
+                        <th className="px-4 py-3.5">
+                          Risque ML
+                        </th>
+
+                        <th className="px-4 py-3.5">
+                          Détecteur
+                        </th>
+
+                        <th className="px-4 py-3.5">
+                          Motif
+                        </th>
+
+                        <th className="px-4 py-3.5">
+                          Recommandation
+                        </th>
+
+                      </tr>
+
+                    </thead>
+
+                    <tbody className="divide-y divide-slate-100">
+
+                      {filteredConflicts.map(
+                        (
+                          conflict,
+                        ) => (
+                          <tr
+                            key={
+                              conflict.id
+                            }
+                            className="align-top transition hover:bg-slate-50"
+                          >
+
+                            {/* TYPE */}
+
+                            <td className="px-4 py-4">
+
+                              <p className="max-w-[180px] text-sm font-bold text-slate-900">
+                                {getConflictTypeLabel(
+                                  conflict.type,
+                                )}
+                              </p>
+
+                              <span
+                                className={`mt-1.5 inline-flex rounded-md border px-2 py-0.5 text-[10px] font-bold ${getSeverityStyle(
+                                  conflict.severity,
+                                )}`}
+                              >
+                                {getSeverityLabel(
+                                  conflict.severity,
+                                )}
+                              </span>
+
+                            </td>
+
+                            {/* ROTATION */}
+
+                            <td className="px-4 py-4">
+
+                              <div className="flex items-center gap-2">
+
+                                <div>
+
+                                  <p className="font-mono text-sm font-black text-slate-900">
+                                    {conflict.flightA
+                                      ?.numeroVol ||
+                                      '--'}
+                                  </p>
+
+                                  <p className="mt-0.5 font-mono text-[10px] font-semibold text-slate-400">
+                                    {conflict.flightA
+                                      ?.aeroportDepart ||
+                                      '--'}
+                                    {' → '}
+                                    {conflict.flightA
+                                      ?.aeroportArrivee ||
+                                      '--'}
+                                  </p>
+
+                                </div>
+
+                                {conflict.flightB && (
+                                  <>
+                                    <ArrowRight className="h-4 w-4 shrink-0 text-slate-300" />
+
+                                    <div>
+
+                                      <p className="font-mono text-sm font-black text-slate-900">
+                                        {conflict.flightB
+                                          .numeroVol ||
+                                          '--'}
+                                      </p>
+
+                                      <p className="mt-0.5 font-mono text-[10px] font-semibold text-slate-400">
+                                        {conflict.flightB
+                                          .aeroportDepart ||
+                                          '--'}
+                                        {' → '}
+                                        {conflict.flightB
+                                          .aeroportArrivee ||
+                                          '--'}
+                                      </p>
+
+                                    </div>
+                                  </>
+                                )}
+
+                              </div>
+
+                            </td>
+
+                            {/* AIRCRAFT */}
+
+                            <td className="px-4 py-4">
+
+                              {conflict.aircraftRegistration ? (
+                                <span className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 font-mono text-xs font-bold text-slate-700">
+                                  {
+                                    conflict.aircraftRegistration
+                                  }
+                                </span>
+                              ) : (
+                                <span className="text-xs font-semibold text-rose-600">
+                                  Non assigné
+                                </span>
+                              )}
+
+                            </td>
+
+                            {/* PROBABILITY */}
+
+                            <td className="px-4 py-4">
+
+                              <div className="min-w-[100px]">
+
+                                <p
+                                  className={`text-sm font-black ${getProbabilityStyle(
+                                    conflict.probability,
+                                  )}`}
+                                >
+                                  {formatProbability(
+                                    conflict.probability,
+                                  )}
+                                </p>
+
+                                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
+
+                                  <div
+                                    className="h-full rounded-full bg-emerald-600"
+                                    style={{
+                                      width:
+                                        `${clampProbability(
+                                          conflict.probability,
+                                        ) * 100}%`,
+                                    }}
+                                  />
+
+                                </div>
+
+                              </div>
+
+                            </td>
+
+                            {/* DETECTOR */}
+
+                            <td className="px-4 py-4">
+
+                              <span
+                                className={`inline-flex rounded-lg border px-2.5 py-1.5 text-xs font-bold ${getDetectorStyle(
+                                  conflict.detector,
+                                )}`}
+                              >
+                                {getDetectorLabel(
+                                  conflict.detector,
+                                )}
+                              </span>
+
+                            </td>
+
+                            {/* REASON */}
+
+                            <td className="max-w-[300px] px-4 py-4">
+
+                              <p className="text-xs font-semibold leading-5 text-slate-700">
+                                {
+                                  conflict.reason
+                                }
+                              </p>
+
+                              <div className="mt-2 flex flex-wrap gap-1.5">
+
+                                {conflict.overlapMinutes != null &&
+                                  conflict.overlapMinutes >
+                                    0 && (
+                                  <span className="rounded-md bg-rose-50 px-2 py-1 text-[10px] font-bold text-rose-700">
+                                    Chevauchement :{' '}
+                                    {Math.round(
+                                      conflict.overlapMinutes,
+                                    )}{' '}
+                                    min
+                                  </span>
+                                )}
+
+                                {conflict.gapMinutes != null && (
+                                  <span className="rounded-md bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-600">
+                                    Intervalle :{' '}
+                                    {Math.round(
+                                      conflict.gapMinutes,
+                                    )}{' '}
+                                    min
+                                  </span>
+                                )}
+
+                              </div>
+
+                            </td>
+
+                            {/* RECOMMENDATION */}
+
+                            <td className="max-w-[300px] px-4 py-4">
+
+                              <div className="flex items-start gap-2">
+
+                                <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" />
+
+                                <p className="text-xs font-semibold leading-5 text-slate-700">
+                                  {
+                                    conflict.recommendation
+                                  }
+                                </p>
+
+                              </div>
+
+                            </td>
+
+                          </tr>
+                        ),
+                      )}
+
+                    </tbody>
+
+                  </table>
+
+                </div>
+
+              </>
             )}
-          </div>
+
+          </section>
+
+          {/* ================================================================ */}
+          {/* OCC INFORMATION                                                  */}
+          {/* ================================================================ */}
+
+          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+
+            <div className="flex items-start gap-3">
+
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-700">
+
+                <AlertCircle className="h-4 w-4" />
+
+              </div>
+
+              <div>
+
+                <p className="text-sm font-bold text-slate-800">
+                  Aide à la décision OCC
+                </p>
+
+                <p className="mt-1 max-w-5xl text-xs leading-5 text-slate-500">
+                  Le moteur Python analyse les rotations à l’aide de règles et d’un arbre de décision. La probabilité indique le niveau de risque identifié par le modèle. Les recommandations restent une aide à la décision et doivent être validées par l’OCC avant toute modification opérationnelle importante.
+                </p>
+
+              </div>
+
+            </div>
+
+          </section>
+
         </div>
 
       </div>
-    </div>
-  );
-};
+    );
+  };
+
+export default DisruptionCenter;

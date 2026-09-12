@@ -1,10 +1,6 @@
 // src/features/auth/AuthPage.tsx
 
-import {
-  memo,
-  useState,
-} from 'react';
-
+import { memo, useState } from 'react';
 import type {
   ChangeEvent,
   FormEvent,
@@ -35,31 +31,17 @@ import {
 } from '../Api/apiService';
 
 // =============================================================================
-// CONFIGURATION UI
+// CONFIGURATION
 // =============================================================================
 
 const ROLE_LABELS: Record<UserRole, string> = {
   Admin: 'Administrateur',
-
-  Planificateur:
-    'Planificateur de vol',
-
-  Regulator:
-    'Régulateur OCC',
-
-  Crew_Member:
-    "Membre d'équipage",
-
-  Maintenance_Engineer:
-    'Ingénieur de maintenance',
-
-  Product_Owner:
-    'Product Owner',
+  Planificateur: 'Planificateur de vol',
+  Regulator: 'Régulateur OCC',
+  Crew_Member: "Membre d'équipage",
+  Maintenance_Engineer: 'Ingénieur de maintenance',
+  Product_Owner: 'Product Owner',
 };
-
-// =============================================================================
-// RÔLES AUTORISÉS À L'INSCRIPTION PUBLIQUE
-// =============================================================================
 
 const SELF_REGISTRATION_ROLES: UserRole[] = [
   'Planificateur',
@@ -80,10 +62,7 @@ export interface AuthenticatedUser {
 }
 
 interface AuthPageProps {
-  onAuthenticate: (
-    user: AuthenticatedUser,
-  ) => void;
-
+  onAuthenticate: (user: AuthenticatedUser) => void;
   onAdminDashboard?: () => void;
 }
 
@@ -95,7 +74,7 @@ interface AuthFormState {
 }
 
 // =============================================================================
-// VALEUR INITIALE
+// ÉTAT INITIAL
 // =============================================================================
 
 const INITIAL_FORM: AuthFormState = {
@@ -125,31 +104,24 @@ const InputField = ({
   ...props
 }: InputFieldProps) => {
   return (
-    <div
-      className="
-        space-y-1.5
-      "
-    >
+    <div className="space-y-1.5">
       <label
         htmlFor={id}
         className="
           block
-          px-4
+          px-3
           text-[10px]
           font-bold
           uppercase
           tracking-wider
           text-slate-400
+          sm:px-4
         "
       >
         {label}
       </label>
 
-      <div
-        className="
-          relative
-        "
-      >
+      <div className="relative">
         <div
           className="
             pointer-events-none
@@ -276,7 +248,6 @@ const IconSpinner = () => {
 
 // =============================================================================
 // PANNEAU DROIT
-// DESIGN ALIGNÉ SUR ADMIN DASHBOARD
 // =============================================================================
 
 const InfoPanel = memo(() => {
@@ -292,14 +263,12 @@ const InfoPanel = memo(() => {
         bg-[#0c1821]
         p-10
         text-white
+
         lg:col-span-5
         lg:flex
       "
     >
-      {/* =====================================================================
-          DÉGRADÉ SOMBRE
-      ===================================================================== */}
-
+      {/* Background sombre */}
       <div
         className="
           absolute
@@ -312,10 +281,7 @@ const InfoPanel = memo(() => {
         aria-hidden="true"
       />
 
-      {/* =====================================================================
-          IMAGE AVION
-      ===================================================================== */}
-
+      {/* Image avion */}
       <div
         className="
           absolute
@@ -332,17 +298,8 @@ const InfoPanel = memo(() => {
         aria-hidden="true"
       />
 
-      {/* =====================================================================
-          LOGO
-      ===================================================================== */}
-
-      <div
-        className="
-          relative
-          z-10
-          pt-4
-        "
-      >
+      {/* Logo */}
+      <div className="relative z-10 pt-4">
         <div
           className="
             flex
@@ -368,18 +325,8 @@ const InfoPanel = memo(() => {
         </div>
       </div>
 
-      {/* =====================================================================
-          TEXTE
-      ===================================================================== */}
-
-      <div
-        className="
-          relative
-          z-10
-          my-auto
-          pb-12
-        "
-      >
+      {/* Texte */}
+      <div className="relative z-10 my-auto pb-12">
         <h2
           className="
             text-3xl
@@ -405,12 +352,9 @@ const InfoPanel = memo(() => {
             text-slate-300
           "
         >
-          Supervisez la flotte,
-          les conflits de planning,
-          les équipages,
-          la maintenance technique
-          et les opérations OCC
-          depuis un espace centralisé.
+          Supervisez la flotte, les conflits de planning, les équipages,
+          la maintenance technique et les opérations OCC depuis un espace
+          centralisé.
         </p>
       </div>
     </div>
@@ -423,23 +367,18 @@ InfoPanel.displayName = 'InfoPanel';
 // ERREURS API
 // =============================================================================
 
-function getFriendlyApiError(
-  error: unknown,
-): string {
+function getFriendlyApiError(error: unknown): string {
   if (
     typeof error === 'object' &&
     error !== null &&
     'status' in error
   ) {
-    const apiError =
-      error as {
-        status?: number;
-        message?: string;
-      };
+    const apiError = error as {
+      status?: number;
+      message?: string;
+    };
 
-    switch (
-      apiError.status
-    ) {
+    switch (apiError.status) {
       case 400:
         return (
           apiError.message ||
@@ -447,9 +386,7 @@ function getFriendlyApiError(
         );
 
       case 401:
-        return (
-          'Email ou mot de passe incorrect.'
-        );
+        return 'Email ou mot de passe incorrect.';
 
       case 403:
         return (
@@ -483,35 +420,23 @@ function getFriendlyApiError(
     }
   }
 
-  if (
-    error instanceof Error
-  ) {
+  if (error instanceof Error) {
     return error.message;
   }
 
-  if (
-    typeof error === 'string'
-  ) {
+  if (typeof error === 'string') {
     return error;
   }
 
-  return (
-    "Une erreur inattendue est survenue lors de l'authentification."
-  );
+  return "Une erreur inattendue est survenue lors de l'authentification.";
 }
 
 // =============================================================================
-// RÔLE AUTORISÉ EN INSCRIPTION PUBLIQUE
+// RÔLE AUTORISÉ
 // =============================================================================
 
-function isSelfRegistrationRole(
-  role: UserRole,
-): boolean {
-  return (
-    SELF_REGISTRATION_ROLES.includes(
-      role,
-    )
-  );
+function isSelfRegistrationRole(role: UserRole): boolean {
+  return SELF_REGISTRATION_ROLES.includes(role);
 }
 
 // =============================================================================
@@ -522,206 +447,108 @@ export function AuthPage({
   onAuthenticate,
   onAdminDashboard,
 }: AuthPageProps) {
-  const [
-    form,
-    setForm,
-  ] =
-    useState<AuthFormState>(
-      INITIAL_FORM,
-    );
-
-  const [
-    isSignUp,
-    setIsSignUp,
-  ] =
-    useState(
-      false,
-    );
-
-  const [
-    showPassword,
-    setShowPassword,
-  ] =
-    useState(
-      false,
-    );
-
-  const [
-    isLoading,
-    setIsLoading,
-  ] =
-    useState(
-      false,
-    );
-
-  const [
-    error,
-    setError,
-  ] =
-    useState('');
-
-  const [
-    success,
-    setSuccess,
-  ] =
-    useState('');
+  const [form, setForm] = useState<AuthFormState>(INITIAL_FORM);
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
   // ===========================================================================
   // CHANGEMENT DES CHAMPS
   // ===========================================================================
 
   const handleInputChange = (
-    event:
-      ChangeEvent<
-        HTMLInputElement |
-        HTMLSelectElement
-      >,
+    event: ChangeEvent<HTMLInputElement | HTMLSelectElement>,
   ) => {
-    const target =
-      event.target;
-
-    const key =
-      target.id as keyof AuthFormState;
+    const target = event.target;
+    const key = target.id as keyof AuthFormState;
 
     setError('');
     setSuccess('');
 
-    setForm(
-      (
-        current,
-      ) => ({
-        ...current,
-
-        [key]:
-          target.value,
-      }),
-    );
+    setForm((current) => ({
+      ...current,
+      [key]: target.value,
+    }));
   };
 
   // ===========================================================================
-  // BASCULER CONNEXION / INSCRIPTION
+  // CONNEXION / INSCRIPTION
   // ===========================================================================
 
   const switchMode = () => {
-    setIsSignUp(
-      (
-        current,
-      ) =>
-        !current,
-    );
+    setIsSignUp((current) => !current);
 
     setError('');
     setSuccess('');
-    setShowPassword(
-      false,
-    );
+    setShowPassword(false);
 
-    setForm(
-      (
-        current,
-      ) => ({
-        ...INITIAL_FORM,
-
-        email:
-          current.email,
-      }),
-    );
+    setForm((current) => ({
+      ...INITIAL_FORM,
+      email: current.email,
+    }));
   };
 
   // ===========================================================================
   // VALIDATION
   // ===========================================================================
 
-  const validateForm =
-    (): boolean => {
-      const email =
-        form.email
-          .trim()
-          .toLowerCase();
+  const validateForm = (): boolean => {
+    const email = form.email.trim().toLowerCase();
+    const nom = form.nom.trim();
 
-      const nom =
-        form.nom.trim();
+    if (!email || !form.password) {
+      setError(
+        'Veuillez renseigner votre adresse e-mail et votre mot de passe.',
+      );
+      return false;
+    }
 
-      if (
-        !email ||
-        !form.password
-      ) {
-        setError(
-          'Veuillez renseigner votre adresse e-mail et votre mot de passe.',
-        );
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError(
+        'Veuillez saisir une adresse e-mail valide.',
+      );
+      return false;
+    }
 
-        return false;
-      }
+    if (form.password.length < 8) {
+      setError(
+        'Le mot de passe doit contenir au moins 8 caractères.',
+      );
+      return false;
+    }
 
-      if (
-        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
-          email,
-        )
-      ) {
-        setError(
-          'Veuillez saisir une adresse e-mail valide.',
-        );
+    if (isSignUp && !nom) {
+      setError(
+        'Veuillez renseigner votre nom complet.',
+      );
+      return false;
+    }
 
-        return false;
-      }
+    if (
+      isSignUp &&
+      !isSelfRegistrationRole(form.role)
+    ) {
+      setError(
+        "Ce rôle ne peut pas être demandé depuis l'inscription publique.",
+      );
+      return false;
+    }
 
-      if (
-        form.password.length <
-        8
-      ) {
-        setError(
-          'Le mot de passe doit contenir au moins 8 caractères.',
-        );
-
-        return false;
-      }
-
-      if (
-        isSignUp &&
-        !nom
-      ) {
-        setError(
-          'Veuillez renseigner votre nom complet.',
-        );
-
-        return false;
-      }
-
-      if (
-        isSignUp &&
-        !isSelfRegistrationRole(
-          form.role,
-        )
-      ) {
-        setError(
-          "Ce rôle ne peut pas être demandé depuis l'inscription publique.",
-        );
-
-        return false;
-      }
-
-      return true;
-    };
+    return true;
+  };
 
   // ===========================================================================
-  // AUTHENTIFIER UTILISATEUR
+  // AUTHENTIFICATION
   // ===========================================================================
 
-  const authenticate = (
-    user: PublicUser,
-  ) => {
+  const authenticate = (user: PublicUser) => {
     onAuthenticate({
-      id:
-        user.id,
-
-      nom:
-        user.nom,
-
-      email:
-        user.email,
-
-      role:
-        user.role,
+      id: user.id,
+      nom: user.nom,
+      email: user.email,
+      role: user.role,
     });
   };
 
@@ -729,158 +556,118 @@ export function AuthPage({
   // SUBMIT
   // ===========================================================================
 
-  const handleSubmit =
-    async (
-      event:
-        FormEvent<HTMLFormElement>,
-    ) => {
-      event.preventDefault();
+  const handleSubmit = async (
+    event: FormEvent<HTMLFormElement>,
+  ) => {
+    event.preventDefault();
 
-      if (
-        isLoading ||
-        !validateForm()
-      ) {
+    if (
+      isLoading ||
+      !validateForm()
+    ) {
+      return;
+    }
+
+    const email = form.email.trim().toLowerCase();
+    const nom = form.nom.trim();
+
+    setIsLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      // -----------------------------------------------------------------------
+      // INSCRIPTION
+      // -----------------------------------------------------------------------
+
+      if (isSignUp) {
+        await signUp({
+          email,
+          password: form.password,
+          nom,
+          role: form.role,
+        });
+
+        setIsSignUp(false);
+        setShowPassword(false);
+
+        setForm({
+          ...INITIAL_FORM,
+          email,
+        });
+
+        setSuccess(
+          'Compte créé avec succès. Vous pouvez maintenant vous connecter.',
+        );
+
         return;
       }
 
-      const email =
-        form.email
-          .trim()
-          .toLowerCase();
+      // -----------------------------------------------------------------------
+      // CONNEXION
+      // -----------------------------------------------------------------------
 
-      const nom =
-        form.nom.trim();
+      const auth = await logIn({
+        email,
+        password: form.password,
+      });
 
-      setIsLoading(
-        true,
+      if (
+        !auth ||
+        !auth.user
+      ) {
+        throw new Error(
+          "Le serveur n'a pas retourné les informations de l'utilisateur.",
+        );
+      }
+
+      if (
+        !auth.user.id ||
+        !auth.user.email ||
+        !auth.user.role
+      ) {
+        throw new Error(
+          "La réponse d'authentification est incomplète.",
+        );
+      }
+
+      // -----------------------------------------------------------------------
+      // SESSION
+      // -----------------------------------------------------------------------
+
+      saveAuthSession(auth, true);
+
+      // -----------------------------------------------------------------------
+      // UTILISATEUR AUTHENTIFIÉ
+      // -----------------------------------------------------------------------
+
+      authenticate(auth.user);
+    } catch (apiError: unknown) {
+      setError(
+        getFriendlyApiError(apiError),
       );
-
-      setError('');
-      setSuccess('');
-
-      try {
-        // =====================================================================
-        // INSCRIPTION
-        // =====================================================================
-
-        if (
-          isSignUp
-        ) {
-          await signUp({
-            email,
-
-            password:
-              form.password,
-
-            nom,
-
-            role:
-              form.role,
-          });
-
-          setIsSignUp(
-            false,
-          );
-
-          setShowPassword(
-            false,
-          );
-
-          setForm({
-            ...INITIAL_FORM,
-            email,
-          });
-
-          setSuccess(
-            'Compte créé avec succès. Vous pouvez maintenant vous connecter.',
-          );
-
-          return;
-        }
-
-        // =====================================================================
-        // CONNEXION
-        // =====================================================================
-
-        const auth =
-          await logIn({
-            email,
-
-            password:
-              form.password,
-          });
-
-        if (
-          !auth ||
-          !auth.user
-        ) {
-          throw new Error(
-            "Le serveur n'a pas retourné les informations de l'utilisateur.",
-          );
-        }
-
-        if (
-          !auth.user.id ||
-          !auth.user.email ||
-          !auth.user.role
-        ) {
-          throw new Error(
-            "La réponse d'authentification est incomplète.",
-          );
-        }
-
-        // =====================================================================
-        // SAUVEGARDE SESSION
-        // =====================================================================
-
-        saveAuthSession(
-          auth,
-          true,
-        );
-
-        // =====================================================================
-        // AUTHENTIFICATION TERMINÉE
-        // =====================================================================
-
-        authenticate(
-          auth.user,
-        );
-      } catch (
-        apiError: unknown
-      ) {
-        setError(
-          getFriendlyApiError(
-            apiError,
-          ),
-        );
-      } finally {
-        setIsLoading(
-          false,
-        );
-      }
-    };
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // ===========================================================================
-  // ACCÈS ADMIN
+  // ADMINISTRATEUR
   // ===========================================================================
 
-  const handleAdminAccess =
-    () => {
-      setError('');
-      setSuccess('');
+  const handleAdminAccess = () => {
+    setError('');
+    setSuccess('');
 
-      if (
-        !onAdminDashboard
-      ) {
-        setError(
-          "L'espace administrateur n'est pas configuré.",
-        );
+    if (!onAdminDashboard) {
+      setError(
+        "L'espace administrateur n'est pas configuré.",
+      );
+      return;
+    }
 
-        return;
-      }
-
-      onAdminDashboard();
-    };
+    onAdminDashboard();
+  };
 
   // ===========================================================================
   // RENDER
@@ -897,11 +684,12 @@ export function AuthPage({
         justify-center
         overflow-hidden
         bg-slate-100/70
-        p-4
+        p-3
         font-sans
         text-slate-900
         antialiased
-        sm:p-6
+
+        sm:p-5
         lg:p-8
       "
     >
@@ -952,15 +740,19 @@ export function AuthPage({
           w-full
           max-w-5xl
           overflow-hidden
-          rounded-3xl
+          rounded-2xl
           bg-white
-          shadow-2xl
+          shadow-xl
           shadow-slate-200/80
+
+          sm:rounded-3xl
+          sm:shadow-2xl
+
           lg:grid-cols-12
         "
       >
         {/* ===================================================================
-            COLONNE GAUCHE : FORMULAIRE
+            FORMULAIRE
         =================================================================== */}
 
         <div
@@ -969,9 +761,13 @@ export function AuthPage({
             flex-col
             justify-between
             bg-white
-            p-8
-            sm:p-12
+            p-5
+
+            sm:p-8
+            md:p-10
+
             lg:col-span-7
+            lg:p-12
           "
         >
           <div>
@@ -983,10 +779,13 @@ export function AuthPage({
               className="
                 flex
                 items-center
+                justify-center
                 gap-2.5
                 font-black
                 tracking-tight
                 text-emerald-700
+
+                sm:justify-start
               "
             >
               <div
@@ -1030,15 +829,21 @@ export function AuthPage({
 
             <div
               className="
-                mt-8
+                mt-7
+                text-center
+
+                sm:mt-8
+                sm:text-left
               "
             >
               <h1
                 className="
-                  text-2xl
+                  text-[22px]
                   font-extrabold
+                  leading-tight
                   tracking-tight
                   text-slate-900
+
                   sm:text-3xl
                 "
               >
@@ -1049,11 +854,15 @@ export function AuthPage({
 
               <p
                 className="
-                  mt-1.5
+                  mx-auto
+                  mt-2
+                  max-w-md
                   text-xs
                   font-medium
                   leading-relaxed
                   text-slate-400
+
+                  sm:mx-0
                   sm:text-sm
                 "
               >
@@ -1069,12 +878,12 @@ export function AuthPage({
 
             <form
               className="
-                mt-8
+                mt-7
                 space-y-4
+
+                sm:mt-8
               "
-              onSubmit={
-                handleSubmit
-              }
+              onSubmit={handleSubmit}
               noValidate
             >
               {/* =============================================================
@@ -1085,26 +894,15 @@ export function AuthPage({
                 <InputField
                   label="Nom complet"
                   icon={
-                    <User
-                      className="
-                        h-4
-                        w-4
-                      "
-                    />
+                    <User className="h-4 w-4" />
                   }
                   id="nom"
                   name="nom"
                   type="text"
-                  value={
-                    form.nom
-                  }
-                  onChange={
-                    handleInputChange
-                  }
+                  value={form.nom}
+                  onChange={handleInputChange}
                   placeholder="Nom et prénom"
-                  disabled={
-                    isLoading
-                  }
+                  disabled={isLoading}
                   autoComplete="name"
                   required
                 />
@@ -1117,44 +915,28 @@ export function AuthPage({
               <InputField
                 label="Adresse e-mail"
                 icon={
-                  <Mail
-                    className="
-                      h-4
-                      w-4
-                    "
-                  />
+                  <Mail className="h-4 w-4" />
                 }
                 id="email"
                 name="email"
                 type="email"
-                value={
-                  form.email
-                }
-                onChange={
-                  handleInputChange
-                }
+                value={form.email}
+                onChange={handleInputChange}
                 placeholder="prenom.nom@compagnie.com"
-                disabled={
-                  isLoading
-                }
+                disabled={isLoading}
                 autoComplete="username"
                 inputMode="email"
                 required
               />
 
               {/* =============================================================
-                  PASSWORD
+                  MOT DE PASSE
               ============================================================= */}
 
               <InputField
                 label="Mot de passe"
                 icon={
-                  <Lock
-                    className="
-                      h-4
-                      w-4
-                    "
-                  />
+                  <Lock className="h-4 w-4" />
                 }
                 id="password"
                 name="password"
@@ -1163,16 +945,10 @@ export function AuthPage({
                     ? 'text'
                     : 'password'
                 }
-                value={
-                  form.password
-                }
-                onChange={
-                  handleInputChange
-                }
+                value={form.password}
+                onChange={handleInputChange}
                 placeholder="8 caractères minimum"
-                disabled={
-                  isLoading
-                }
+                disabled={isLoading}
                 autoComplete={
                   isSignUp
                     ? 'new-password'
@@ -1189,20 +965,13 @@ export function AuthPage({
                         ? 'Masquer le mot de passe'
                         : 'Afficher le mot de passe'
                     }
-                    aria-pressed={
-                      showPassword
-                    }
+                    aria-pressed={showPassword}
                     onClick={() =>
                       setShowPassword(
-                        (
-                          current,
-                        ) =>
-                          !current,
+                        (current) => !current,
                       )
                     }
-                    disabled={
-                      isLoading
-                    }
+                    disabled={isLoading}
                     className="
                       cursor-pointer
                       text-slate-400
@@ -1218,19 +987,9 @@ export function AuthPage({
                     "
                   >
                     {showPassword ? (
-                      <EyeOff
-                        className="
-                          h-4
-                          w-4
-                        "
-                      />
+                      <EyeOff className="h-4 w-4" />
                     ) : (
-                      <Eye
-                        className="
-                          h-4
-                          w-4
-                        "
-                      />
+                      <Eye className="h-4 w-4" />
                     )}
                   </button>
                 }
@@ -1241,43 +1000,31 @@ export function AuthPage({
               ============================================================= */}
 
               {isSignUp && (
-                <div
-                  className="
-                    space-y-1.5
-                  "
-                >
+                <div className="space-y-1.5">
                   <label
                     htmlFor="role"
                     className="
                       block
-                      px-4
+                      px-3
                       text-[10px]
                       font-bold
                       uppercase
                       tracking-wider
                       text-slate-400
+
+                      sm:px-4
                     "
                   >
                     Rôle opérationnel
                   </label>
 
-                  <div
-                    className="
-                      relative
-                    "
-                  >
+                  <div className="relative">
                     <select
                       id="role"
                       name="role"
-                      value={
-                        form.role
-                      }
-                      onChange={
-                        handleInputChange
-                      }
-                      disabled={
-                        isLoading
-                      }
+                      value={form.role}
+                      onChange={handleInputChange}
+                      disabled={isLoading}
                       className="
                         h-12
                         w-full
@@ -1308,22 +1055,12 @@ export function AuthPage({
                       "
                     >
                       {SELF_REGISTRATION_ROLES.map(
-                        (
-                          role,
-                        ) => (
+                        (role) => (
                           <option
-                            key={
-                              role
-                            }
-                            value={
-                              role
-                            }
+                            key={role}
+                            value={role}
                           >
-                            {
-                              ROLE_LABELS[
-                                role
-                              ]
-                            }
+                            {ROLE_LABELS[role]}
                           </option>
                         ),
                       )}
@@ -1355,9 +1092,11 @@ export function AuthPage({
                   className="
                     flex
                     items-center
-                    justify-end
+                    justify-center
                     px-2
                     pt-1
+
+                    sm:justify-end
                   "
                 >
                   <span
@@ -1365,6 +1104,7 @@ export function AuthPage({
                       inline-flex
                       items-center
                       gap-1.5
+                      text-center
                       text-[10px]
                       font-semibold
                       text-slate-400
@@ -1374,6 +1114,7 @@ export function AuthPage({
                       className="
                         h-3.5
                         w-3.5
+                        shrink-0
                         text-emerald-600
                       "
                     />
@@ -1389,9 +1130,7 @@ export function AuthPage({
 
               <div
                 aria-live="polite"
-                className="
-                  min-h-0
-                "
+                className="min-h-0"
               >
                 {error && (
                   <div
@@ -1402,10 +1141,13 @@ export function AuthPage({
                       bg-rose-50/70
                       px-4
                       py-2.5
+                      text-center
                       text-xs
                       font-semibold
                       leading-relaxed
                       text-rose-700
+
+                      sm:text-left
                     "
                     role="alert"
                   >
@@ -1422,10 +1164,13 @@ export function AuthPage({
                       bg-emerald-50/70
                       px-4
                       py-2.5
+                      text-center
                       text-xs
                       font-semibold
                       leading-relaxed
                       text-emerald-800
+
+                      sm:text-left
                     "
                     role="status"
                   >
@@ -1441,20 +1186,26 @@ export function AuthPage({
               <div
                 className="
                   flex
-                  flex-wrap
+                  flex-col
                   items-center
-                  gap-4
-                  pt-4
+                  justify-center
+                  gap-2.5
+                  pt-3
+
+                  sm:flex-row
+                  sm:justify-start
+                  sm:gap-4
+                  sm:pt-4
                 "
               >
+                {/* BOUTON PRINCIPAL */}
                 <button
                   type="submit"
-                  disabled={
-                    isLoading
-                  }
+                  disabled={isLoading}
                   className="
                     inline-flex
                     h-11
+                    min-w-[180px]
                     cursor-pointer
                     items-center
                     justify-center
@@ -1471,6 +1222,7 @@ export function AuthPage({
                     transition
 
                     hover:bg-emerald-800
+
                     active:scale-[0.98]
                     active:bg-emerald-900
 
@@ -1481,6 +1233,8 @@ export function AuthPage({
 
                     disabled:cursor-not-allowed
                     disabled:opacity-50
+
+                    max-[380px]:w-full
                   "
                 >
                   {isLoading && (
@@ -1496,31 +1250,35 @@ export function AuthPage({
                       : 'Se connecter'}
                 </button>
 
+                {/* BOUTON SECONDAIRE */}
                 <button
                   type="button"
-                  onClick={
-                    switchMode
-                  }
-                  disabled={
-                    isLoading
-                  }
+                  onClick={switchMode}
+                  disabled={isLoading}
                   className="
                     cursor-pointer
-                    text-xs
+                    rounded-full
+                    px-4
+                    py-2
+                    text-center
+                    text-[11px]
                     font-bold
                     uppercase
                     tracking-wider
                     text-emerald-700
                     transition
 
+                    hover:bg-emerald-50
                     hover:text-emerald-800
-                    hover:underline
 
                     focus:outline-none
-                    focus:underline
+                    focus:ring-2
+                    focus:ring-emerald-500/20
 
                     disabled:cursor-not-allowed
                     disabled:opacity-50
+
+                    sm:text-xs
                   "
                 >
                   {isSignUp
@@ -1536,6 +1294,7 @@ export function AuthPage({
               {!isSignUp && (
                 <div
                   className="
+                    mt-1
                     border-t
                     border-slate-100
                     pt-4
@@ -1543,12 +1302,8 @@ export function AuthPage({
                 >
                   <button
                     type="button"
-                    onClick={
-                      handleAdminAccess
-                    }
-                    disabled={
-                      isLoading
-                    }
+                    onClick={handleAdminAccess}
+                    disabled={isLoading}
                     className="
                       group
                       flex
@@ -1560,7 +1315,7 @@ export function AuthPage({
                       border
                       border-slate-100
                       bg-slate-50/50
-                      p-4
+                      p-3.5
                       text-left
                       transition-all
 
@@ -1573,11 +1328,14 @@ export function AuthPage({
 
                       disabled:cursor-not-allowed
                       disabled:opacity-50
+
+                      sm:p-4
                     "
                   >
                     <div
                       className="
                         flex
+                        min-w-0
                         items-center
                         gap-3
                       "
@@ -1587,6 +1345,7 @@ export function AuthPage({
                           flex
                           h-9
                           w-9
+                          shrink-0
                           items-center
                           justify-center
                           rounded-xl
@@ -1598,15 +1357,10 @@ export function AuthPage({
                           group-hover:text-white
                         "
                       >
-                        <ShieldCheck
-                          className="
-                            h-5
-                            w-5
-                          "
-                        />
+                        <ShieldCheck className="h-5 w-5" />
                       </div>
 
-                      <div>
+                      <div className="min-w-0">
                         <p
                           className="
                             text-xs
@@ -1620,18 +1374,22 @@ export function AuthPage({
                         <p
                           className="
                             mt-0.5
-                            text-[11px]
+                            text-[10px]
+                            leading-relaxed
                             text-slate-400
+
+                            sm:text-[11px]
                           "
                         >
-                          Accéder à la connexion
-                          administrateur sécurisée
+                          Accéder à la connexion administrateur sécurisée
                         </p>
                       </div>
                     </div>
 
                     <span
                       className="
+                        ml-2
+                        shrink-0
                         text-lg
                         font-bold
                         text-slate-300
@@ -1651,7 +1409,7 @@ export function AuthPage({
         </div>
 
         {/* ===================================================================
-            COLONNE DROITE
+            PANNEAU DROIT
         =================================================================== */}
 
         <InfoPanel />
