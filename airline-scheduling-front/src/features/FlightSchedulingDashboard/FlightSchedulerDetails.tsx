@@ -403,7 +403,7 @@ const FlightSchedulerDetails: React.FC<FlightSchedulerDetailsProps> = ({
 
         {/* DESKTOP */}
         <div className="hidden overflow-x-auto md:block">
-          <table className="w-full min-w-[900px] text-left text-xs text-slate-600 sm:text-sm">
+          <table className="w-full min-w-225 text-left text-xs text-slate-600 sm:text-sm">
             <thead className="border-b border-slate-200 bg-slate-50 text-[10px] font-black uppercase tracking-wider text-slate-500">
               <tr>
                 <th className="px-4 py-3">Vol</th>

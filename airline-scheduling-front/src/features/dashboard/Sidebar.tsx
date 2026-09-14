@@ -1,8 +1,23 @@
-// features/dashboard/Sidebar.tsx
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  AlertTriangle, AlignLeft, CalendarDays, HelpCircle, History, LayoutDashboard,
-  LogOut, Plane, PlaneTakeoff, Settings, Sparkles, User, UserCog, Users, Wrench,
+  AlertTriangle,
+  AlignLeft,
+  CalendarDays,
+  ChevronDown,
+  HelpCircle,
+  History,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  Plane,
+  PlaneTakeoff,
+  Settings,
+  Sparkles,
+  User,
+  UserCog,
+  Users,
+  Wrench,
+  X,
 } from 'lucide-react';
 import type { LucideProps } from 'lucide-react';
 
@@ -129,7 +144,7 @@ const normalizeRole = (role?: string): AvailableRoles | undefined => {
   if (!role) return undefined;
   const cleanRole = role.trim().toLowerCase();
   return (Object.keys(roleLabels) as AvailableRoles[]).find(
-    key => key.toLowerCase() === cleanRole,
+    (key) => key.toLowerCase() === cleanRole,
   );
 };
 
@@ -140,6 +155,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onLogout,
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [expandedSections, setExpandedSections] = useState({
+    core: true,
+    advanced: true,
+  });
 
   const userDisplayName = user?.nom?.trim() || 'Utilisateur';
   const userInitial = userDisplayName.charAt(0).toUpperCase();
@@ -149,13 +169,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
     [user?.role],
   );
 
-  const userRoleLabel: UserRoleLabel =
-    currentRole ? roleLabels[currentRole] : 'Utilisateur';
+  const userRoleLabel: UserRoleLabel = currentRole
+    ? roleLabels[currentRole]
+    : 'Utilisateur';
 
   const visibleCoreMenuItems = useMemo(
     () =>
       currentRole
-        ? coreMenuItems.filter(item =>
+        ? coreMenuItems.filter((item) =>
             allowedScreens[currentRole].includes(item.id),
           )
         : [],
@@ -165,7 +186,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const visibleAdvancedMenuItems = useMemo(
     () =>
       currentRole
-        ? advancedMenuItems.filter(item =>
+        ? advancedMenuItems.filter((item) =>
             allowedScreens[currentRole].includes(item.id),
           )
         : [],
@@ -175,7 +196,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const visibleMobileMenuItems = useMemo(
     () =>
       currentRole
-        ? mobileMenuItems.filter(item =>
+        ? mobileMenuItems.filter((item) =>
             allowedScreens[currentRole].includes(item.id),
           )
         : [],
@@ -183,15 +204,37 @@ export const Sidebar: React.FC<SidebarProps> = ({
   );
 
   const canAccessHelp = Boolean(
-    currentRole &&
-      allowedScreens[currentRole].includes('help'),
+    currentRole && allowedScreens[currentRole].includes('help'),
   );
 
   const handleNavigate = (screen: ActiveScreen) => {
     if (!currentRole) return;
     if (!allowedScreens[currentRole].includes(screen)) return;
     setActiveScreen(screen);
+    setIsMobileOpen(false);
   };
+
+  /* Fermer le drawer mobile sur Escape */
+  useEffect(() => {
+    if (!isMobileOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsMobileOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isMobileOpen]);
+
+  /* Bloquer le scroll body quand drawer ouvert */
+  useEffect(() => {
+    if (isMobileOpen) {
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = '';
+      };
+    }
+  }, [isMobileOpen]);
+
+  /* ------------------ DESKTOP BUTTON ------------------ */
 
   const renderDesktopButton = (item: MenuItem) => {
     const Icon = item.icon;
@@ -204,7 +247,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         onClick={() => handleNavigate(item.id)}
         title={isCollapsed ? item.label : undefined}
         aria-current={isActive ? 'page' : undefined}
-        className={`group relative flex w-full cursor-pointer select-none items-center rounded-xl py-2.5 text-left text-sm font-semibold outline-none transition-all duration-200 ${
+        className={`group relative flex w-full cursor-pointer select-none items-center rounded-xl py-2.5 text-left text-sm font-semibold outline-none transition-all duration-200 focus-visible:ring-2 focus-visible:ring-emerald-500/40 ${
           isCollapsed ? 'justify-center px-0' : 'justify-between px-4'
         } ${
           isActive
@@ -226,7 +269,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           />
           {!isCollapsed && <span className="truncate">{item.label}</span>}
         </div>
-
         {!isCollapsed && item.badge && (
           <span
             className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${
@@ -242,41 +284,196 @@ export const Sidebar: React.FC<SidebarProps> = ({
     );
   };
 
+  /* ------------------ SECTION (collapsible) ------------------ */
+
+  const renderSection = (
+    key: 'core' | 'advanced',
+    label: string,
+    items: MenuItem[],
+  ) => {
+    if (items.length === 0) return null;
+
+    const isExpanded = expandedSections[key];
+
+    return (
+      <div className="space-y-1">
+        {!isCollapsed && (
+          <button
+            type="button"
+            onClick={() =>
+              setExpandedSections((prev) => ({
+                ...prev,
+                [key]: !prev[key],
+              }))
+            }
+            className="flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 transition hover:bg-slate-50 hover:text-slate-600"
+          >
+            <span>{label}</span>
+            <ChevronDown
+              className={`h-3.5 w-3.5 shrink-0 transition-transform duration-200 ${
+                isExpanded ? '' : '-rotate-90'
+              }`}
+            />
+          </button>
+        )}
+
+        {(isCollapsed || isExpanded) && (
+          <div className="space-y-1">
+            {items.map(renderDesktopButton)}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  /* ------------------ MOBILE DRAWER ------------------ */
+
+  const renderMobileDrawer = () => (
+    <>
+      {/* OVERLAY */}
+      <div
+        onClick={() => setIsMobileOpen(false)}
+        aria-hidden="true"
+        className={`fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm transition-opacity duration-300 md:hidden ${
+          isMobileOpen
+            ? 'pointer-events-auto opacity-100'
+            : 'pointer-events-none opacity-0'
+        }`}
+      />
+
+      {/* DRAWER */}
+      <aside
+        role="dialog"
+        aria-modal="true"
+        aria-label="Navigation principale"
+        className={`fixed inset-y-0 left-0 z-50 flex w-[85%] max-w-xs flex-col overflow-hidden bg-white shadow-2xl transition-transform duration-300 ease-out md:hidden ${
+          isMobileOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        {/* HEADER */}
+        <div className="flex items-center justify-between border-b border-slate-100 px-4 py-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-700 shadow-md shadow-emerald-700/20">
+              <Plane className="h-5 w-5 text-white" />
+            </div>
+            <div className="overflow-hidden">
+              <h1 className="m-0 text-sm font-extrabold leading-tight tracking-tight text-slate-800">
+                Opérations aériennes
+              </h1>
+              <p className="m-0 mt-0.5 truncate text-[11px] font-medium text-slate-400">
+                Planification et contrôle OCC
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsMobileOpen(false)}
+            aria-label="Fermer le menu"
+            className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* USER */}
+        <div className="flex items-center gap-3 border-b border-slate-100 bg-slate-50/60 px-4 py-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-emerald-200 bg-emerald-100 text-xs font-extrabold text-emerald-700">
+            {user ? userInitial : <User className="h-4 w-4" />}
+          </div>
+          <div className="min-w-0">
+            <h3 className="m-0 truncate text-xs font-bold leading-tight text-slate-800">
+              {userDisplayName}
+            </h3>
+            <p className="m-0 mt-0.5 truncate text-[10px] font-medium text-slate-500">
+              {userRoleLabel}
+            </p>
+          </div>
+        </div>
+
+        {/* MENU */}
+        <nav className="flex-1 space-y-4 overflow-y-auto p-3">
+          {visibleMobileMenuItems.length > 0 && (
+            <div className="space-y-1">
+              {visibleMobileMenuItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = activeScreen === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => handleNavigate(item.id)}
+                    aria-current={isActive ? 'page' : undefined}
+                    className={`flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition ${
+                      isActive
+                        ? 'bg-emerald-700 text-white shadow-sm shadow-emerald-700/20'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    }`}
+                  >
+                    <Icon
+                      className={`h-4 w-4 shrink-0 ${
+                        isActive ? 'text-white' : 'text-slate-400'
+                      }`}
+                    />
+                    <span className="truncate">{item.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </nav>
+
+        {/* FOOTER */}
+        <div className="border-t border-slate-100 bg-slate-50/60 p-3">
+          <button
+            type="button"
+            onClick={onLogout}
+            className="flex w-full cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-rose-50 hover:text-rose-600"
+          >
+            <LogOut className="h-4 w-4" />
+            <span>Déconnexion</span>
+          </button>
+        </div>
+      </aside>
+    </>
+  );
+
+  /* ------------------ MOBILE TOPBAR (hamburger flottant) ------------------ */
+
+  const renderMobileTopbar = () => (
+    <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-slate-200 bg-white/95 px-3 py-2.5 shadow-sm backdrop-blur-lg md:hidden">
+      <button
+        type="button"
+        onClick={() => setIsMobileOpen(true)}
+        aria-label="Ouvrir le menu"
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
+      >
+        <Menu className="h-5 w-5" />
+      </button>
+
+      <div className="flex min-w-0 flex-1 items-center justify-center gap-2">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-emerald-700">
+          <Plane className="h-4 w-4 text-white" />
+        </div>
+        <span className="truncate text-sm font-extrabold tracking-tight text-slate-800">
+          Opérations aériennes
+        </span>
+      </div>
+
+      <div
+        className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-emerald-200 bg-emerald-100 text-xs font-extrabold text-emerald-700"
+        title={userDisplayName}
+      >
+        {user ? userInitial : <User className="h-4 w-4" />}
+      </div>
+    </header>
+  );
+
+  /* ------------------ RENDER ------------------ */
+
   return (
     <>
-      <nav className="scrollbar-none fixed bottom-0 left-0 right-0 z-50 flex h-16 select-none items-center gap-1 overflow-x-auto border-t border-slate-200 bg-white/95 px-1 shadow-lg backdrop-blur-lg md:hidden">
-        {visibleMobileMenuItems.map(item => {
-          const Icon = item.icon;
-          const isActive = activeScreen === item.id;
-
-          return (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => handleNavigate(item.id)}
-              title={item.label}
-              aria-current={isActive ? 'page' : undefined}
-              className={`relative flex h-12 min-w-16 shrink-0 flex-col items-center justify-center rounded-xl outline-none transition ${
-                isActive
-                  ? 'bg-emerald-50 font-bold text-emerald-700'
-                  : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
-              }`}
-            >
-              <Icon
-                className={`h-5 w-5 shrink-0 transition-transform ${
-                  isActive ? 'scale-110 text-emerald-700' : ''
-                }`}
-              />
-              <span className="mt-1 whitespace-nowrap text-[10px] tracking-tight">
-                {item.shortLabel ?? item.label}
-              </span>
-              {isActive && (
-                <span className="absolute left-1/2 top-0 h-0.5 w-6 -translate-x-1/2 rounded-full bg-emerald-700" />
-              )}
-            </button>
-          );
-        })}
-      </nav>
+      {renderMobileTopbar()}
+      {renderMobileDrawer()}
 
       <div className="sticky top-0 hidden h-screen shrink-0 p-3 md:block">
         <aside
@@ -315,7 +512,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
               <button
                 type="button"
-                onClick={() => setIsCollapsed(previous => !previous)}
+                onClick={() => setIsCollapsed((prev) => !prev)}
                 title={
                   isCollapsed
                     ? 'Agrandir la barre latérale'
@@ -333,26 +530,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
 
             <nav className="space-y-5 p-3">
-              {visibleCoreMenuItems.length > 0 && (
-                <div className="space-y-1">
-                  {!isCollapsed && (
-                    <p className="mb-1.5 px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                      Général
-                    </p>
-                  )}
-                  {visibleCoreMenuItems.map(renderDesktopButton)}
-                </div>
-              )}
-
-              {visibleAdvancedMenuItems.length > 0 && (
-                <div className="space-y-1">
-                  {!isCollapsed && (
-                    <p className="mb-1.5 px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                      Gestion opérationnelle
-                    </p>
-                  )}
-                  {visibleAdvancedMenuItems.map(renderDesktopButton)}
-                </div>
+              {renderSection('core', 'Général', visibleCoreMenuItems)}
+              {renderSection(
+                'advanced',
+                'Gestion opérationnelle',
+                visibleAdvancedMenuItems,
               )}
             </nav>
           </div>

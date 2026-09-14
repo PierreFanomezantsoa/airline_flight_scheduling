@@ -874,7 +874,7 @@ export function AdminDashboard({
                   className="
                     inline-flex
                     h-11
-                    min-w-[180px]
+                    min-w-45
                     cursor-pointer
                     items-center
                     justify-center
