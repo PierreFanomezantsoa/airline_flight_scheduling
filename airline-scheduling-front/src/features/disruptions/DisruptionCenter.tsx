@@ -6,7 +6,6 @@ import React, {
 } from 'react';
 import {
   Activity,
-  AlertCircle,
   AlertTriangle,
   ArrowRight,
   BrainCircuit,
@@ -157,16 +156,6 @@ function clampProbability(value?: number | null): number {
 
 function formatProbability(value?: number | null): string {
   return `${Math.round(clampProbability(value) * 100)}%`;
-}
-
-function formatDateTime(value?: string | null): string {
-  if (!value) return '--';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '--';
-  return date.toLocaleString('fr-FR', {
-    dateStyle: 'short',
-    timeStyle: 'short',
-  });
 }
 
 function getSeverityRank(severity: string): number {
@@ -337,7 +326,6 @@ export const DisruptionCenter: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSeverity, setSelectedSeverity] = useState('ALL');
   const [selectedType, setSelectedType] = useState('ALL');
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [optimizationResult, setOptimizationResult] =
     useState<OptimizationResponse | null>(null);
 
@@ -374,12 +362,6 @@ export const DisruptionCenter: React.FC = () => {
       });
       setConflicts(nextConflicts);
       setModel(payload.model ?? null);
-      if (payload.timestamp) {
-        const timestamp = new Date(payload.timestamp);
-        if (!Number.isNaN(timestamp.getTime())) setLastUpdated(timestamp);
-      } else {
-        setLastUpdated(new Date());
-      }
       setError(null);
     } catch (currentError: unknown) {
       setError(
@@ -415,7 +397,6 @@ export const DisruptionCenter: React.FC = () => {
     setRefreshing(true);
     try {
       await Promise.all([loadConflicts(true), loadMLInfo()]);
-      setLastUpdated(new Date());
     } finally {
       setRefreshing(false);
     }
@@ -464,7 +445,6 @@ export const DisruptionCenter: React.FC = () => {
           `${payload.unresolvedConflicts} non résolu(s). ` +
           `${payload.conflictsBefore} → ${payload.conflictsAfter} conflit(s).`,
       });
-      setLastUpdated(new Date());
     } catch (currentError: unknown) {
       setMessage({
         type: 'error',
@@ -931,7 +911,7 @@ export const DisruptionCenter: React.FC = () => {
           <div className="flex items-center justify-between gap-3 border-b border-slate-200 bg-slate-50/50 px-4 py-4 sm:px-5">
             <div>
               <h2 className="text-sm font-black text-slate-900 sm:text-base">
-                Conflits détectés 
+                Conflits détectés
               </h2>
             </div>
             <span className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-black tabular-nums text-slate-700">

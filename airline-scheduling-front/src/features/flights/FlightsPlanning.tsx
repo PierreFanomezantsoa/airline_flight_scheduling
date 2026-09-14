@@ -145,6 +145,8 @@ const STATUS_FILTERS = [
   { id: 'Annulé', label: 'Annulés' },
 ];
 
+const PAGE_SIZE = 10;
+
 const normalizeStops = (flight: Flight): string[] => {
   if (Array.isArray(flight.stops)) return flight.stops.filter(Boolean);
   if (Array.isArray(flight.stopover)) {
@@ -322,7 +324,7 @@ const RouteBadge: React.FC<{
   const hasStops = stops.length > 0;
 
   return (
-    <div className="min-w-[190px]">
+    <div className="min-w-47.5">
       <div className="flex flex-wrap items-center gap-1.5">
         <span className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 font-mono text-xs font-black text-emerald-700">
           {origin}
@@ -364,6 +366,7 @@ const RouteBadge: React.FC<{
     </div>
   );
 };
+
 const MobileFlightCard: React.FC<MobileFlightCardProps> = ({
   flight,
   computedStatus,
@@ -556,26 +559,20 @@ export const FlightsPlanning: React.FC = () => {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState('ALL');
+  const [currentPage, setCurrentPage] = useState(1);
 
   const addToast = useCallback((type: Toast['type'], message: string) => {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-    setToasts(previous => [
-      ...previous,
-      { id, type, message },
-    ]);
+    setToasts(previous => [...previous, { id, type, message }]);
 
     window.setTimeout(() => {
-      setToasts(previous =>
-        previous.filter(toast => toast.id !== id),
-      );
+      setToasts(previous => previous.filter(toast => toast.id !== id));
     }, 4000);
   }, []);
 
   const removeToast = useCallback((id: string) => {
-    setToasts(previous =>
-      previous.filter(toast => toast.id !== id),
-    );
+    setToasts(previous => previous.filter(toast => toast.id !== id));
   }, []);
 
   const getCalculatedStatus = useCallback(
@@ -611,22 +608,14 @@ export const FlightsPlanning: React.FC = () => {
       try {
         setLoadingFlights(true);
 
-        let response = await fetch(
-          `${API_BASE_URL}/flights/fast`,
-          { signal },
-        );
+        let response = await fetch(`${API_BASE_URL}/flights/fast`, { signal });
 
         if (response.status === 404) {
-          response = await fetch(
-            `${API_BASE_URL}/flights?weather=0`,
-            { signal },
-          );
+          response = await fetch(`${API_BASE_URL}/flights?weather=0`, { signal });
         }
 
         if (!response.ok) {
-          throw new Error(
-            'Impossible de récupérer la liste des vols.',
-          );
+          throw new Error('Impossible de récupérer la liste des vols.');
         }
 
         const data = await response.json();
@@ -636,20 +625,13 @@ export const FlightsPlanning: React.FC = () => {
             ? data.map((flight: Flight) => ({
                 ...flight,
                 weatherPending:
-                  flight.weatherPending ??
-                  flight.weatherSeverity == null,
+                  flight.weatherPending ?? flight.weatherSeverity == null,
               }))
             : [],
         );
       } catch (error: unknown) {
-        if (
-          error instanceof Error &&
-          error.name !== 'AbortError'
-        ) {
-          addToast(
-            'error',
-            error.message || 'Erreur réseau',
-          );
+        if (error instanceof Error && error.name !== 'AbortError') {
+          addToast('error', error.message || 'Erreur réseau');
         }
       } finally {
         setLoadingFlights(false);
@@ -662,28 +644,17 @@ export const FlightsPlanning: React.FC = () => {
     try {
       setLoadingFleet(true);
 
-      const response = await fetch(
-        `${API_BASE_URL}/fleet/aircrafts`,
-        { signal },
-      );
+      const response = await fetch(`${API_BASE_URL}/fleet/aircrafts`, { signal });
 
       if (!response.ok) {
-        throw new Error(
-          'Impossible de récupérer la flotte.',
-        );
+        throw new Error('Impossible de récupérer la flotte.');
       }
 
       const data = await response.json();
       setFleet(Array.isArray(data) ? data : []);
     } catch (error: unknown) {
-      if (
-        error instanceof Error &&
-        error.name !== 'AbortError'
-      ) {
-        console.error(
-          'Erreur flotte :',
-          error.message,
-        );
+      if (error instanceof Error && error.name !== 'AbortError') {
+        console.error('Erreur flotte :', error.message);
       }
     } finally {
       setLoadingFleet(false);
@@ -691,34 +662,23 @@ export const FlightsPlanning: React.FC = () => {
   }, []);
 
   const refreshWeatherSnapshot = useCallback(
-    async (
-      signal?: AbortSignal,
-      silent = true,
-    ) => {
+    async (signal?: AbortSignal, silent = true) => {
       setIsWeatherRefreshing(true);
 
       if (!silent) setWeatherSyncError(null);
 
       try {
-        const response = await fetch(
-          `${API_BASE_URL}/flights`,
-          { signal },
-        );
+        const response = await fetch(`${API_BASE_URL}/flights`, { signal });
 
         if (!response.ok) {
-          throw new Error(
-            `Météo indisponible (HTTP ${response.status}).`,
-          );
+          throw new Error(`Météo indisponible (HTTP ${response.status}).`);
         }
 
         const data = await response.json();
         if (!Array.isArray(data)) return;
 
         const enrichedMap = new Map<string, Flight>(
-          data.map((flight: Flight) => [
-            flight.id,
-            flight,
-          ]),
+          data.map((flight: Flight) => [flight.id, flight]),
         );
 
         setFlights(current =>
@@ -726,11 +686,7 @@ export const FlightsPlanning: React.FC = () => {
             const enriched = enrichedMap.get(flight.id);
 
             return enriched
-              ? {
-                  ...flight,
-                  ...enriched,
-                  weatherPending: false,
-                }
+              ? { ...flight, ...enriched, weatherPending: false }
               : flight;
           }),
         );
@@ -738,18 +694,11 @@ export const FlightsPlanning: React.FC = () => {
         setWeatherLastUpdatedAt(new Date());
         setWeatherSyncError(null);
       } catch (error: unknown) {
-        if (
-          error instanceof Error &&
-          error.name === 'AbortError'
-        ) {
-          return;
-        }
+        if (error instanceof Error && error.name === 'AbortError') return;
 
         if (!silent) {
           setWeatherSyncError(
-            error instanceof Error
-              ? error.message
-              : 'Météo indisponible.',
+            error instanceof Error ? error.message : 'Météo indisponible.',
           );
         }
       } finally {
@@ -759,98 +708,71 @@ export const FlightsPlanning: React.FC = () => {
     [],
   );
 
-  const refreshWeatherAlerts = useCallback(
-    async (signal?: AbortSignal) => {
-      try {
-        const response = await fetch(
-          `${API_BASE_URL}/flights/weather-alerts?horizonHours=24`,
-          { signal },
-        );
+  const refreshWeatherAlerts = useCallback(async (signal?: AbortSignal) => {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/flights/weather-alerts?horizonHours=24`,
+        { signal },
+      );
 
-        if (!response.ok) {
-          throw new Error(
-            `Alertes météo indisponibles (HTTP ${response.status}).`,
-          );
-        }
-
-        const payload: WeatherAlertsResponse =
-          await response.json();
-
-        const alerts = Array.isArray(payload.alerts)
-          ? payload.alerts
-          : [];
-
-        if (alerts.length > 0) {
-          const alertMap = new Map(
-            alerts.map(alert => [
-              alert.flightId,
-              alert,
-            ]),
-          );
-
-          setFlights(current =>
-            current.map(flight => {
-              const alert = alertMap.get(flight.id);
-              if (!alert) return flight;
-
-              const ai = alert.weatherAI;
-
-              return {
-                ...flight,
-                weatherPending: false,
-                weatherAI: ai,
-                weatherSeverity:
-                  ai.score ??
-                  flight.weatherSeverity,
-                weatherRiskLevel:
-                  ai.riskLevel ??
-                  flight.weatherRiskLevel,
-                weatherRiskLabel:
-                  ai.riskLabel ??
-                  flight.weatherRiskLabel,
-                weatherConfidence:
-                  ai.confidence ??
-                  flight.weatherConfidence,
-                weatherRecommendedAction:
-                  ai.recommendedAction ??
-                  flight.weatherRecommendedAction,
-                weatherRecommendedActionLabel:
-                  ai.recommendedActionLabel ??
-                  flight.weatherRecommendedActionLabel,
-                weatherUpdatedAt:
-                  ai.evaluatedAt ??
-                  flight.weatherUpdatedAt,
-              };
-            }),
-          );
-        }
-
-        if (payload.generatedAt) {
-          const generatedAt = new Date(
-            payload.generatedAt,
-          );
-
-          if (!Number.isNaN(generatedAt.getTime())) {
-            setWeatherLastUpdatedAt(generatedAt);
-          }
-        }
-
-        setWeatherSyncError(null);
-      } catch (error: unknown) {
-        if (
-          error instanceof Error &&
-          error.name === 'AbortError'
-        ) {
-          return;
-        }
-
-        setWeatherSyncError(
-          'Les vols restent disponibles, mais la météo temps réel n’est pas à jour.',
+      if (!response.ok) {
+        throw new Error(
+          `Alertes météo indisponibles (HTTP ${response.status}).`,
         );
       }
-    },
-    [],
-  );
+
+      const payload: WeatherAlertsResponse = await response.json();
+
+      const alerts = Array.isArray(payload.alerts) ? payload.alerts : [];
+
+      if (alerts.length > 0) {
+        const alertMap = new Map(
+          alerts.map(alert => [alert.flightId, alert]),
+        );
+
+        setFlights(current =>
+          current.map(flight => {
+            const alert = alertMap.get(flight.id);
+            if (!alert) return flight;
+
+            const ai = alert.weatherAI;
+
+            return {
+              ...flight,
+              weatherPending: false,
+              weatherAI: ai,
+              weatherSeverity: ai.score ?? flight.weatherSeverity,
+              weatherRiskLevel: ai.riskLevel ?? flight.weatherRiskLevel,
+              weatherRiskLabel: ai.riskLabel ?? flight.weatherRiskLabel,
+              weatherConfidence: ai.confidence ?? flight.weatherConfidence,
+              weatherRecommendedAction:
+                ai.recommendedAction ?? flight.weatherRecommendedAction,
+              weatherRecommendedActionLabel:
+                ai.recommendedActionLabel ??
+                flight.weatherRecommendedActionLabel,
+              weatherUpdatedAt: ai.evaluatedAt ?? flight.weatherUpdatedAt,
+            };
+          }),
+        );
+      }
+
+      if (payload.generatedAt) {
+        const generatedAt = new Date(payload.generatedAt);
+
+        if (!Number.isNaN(generatedAt.getTime())) {
+          setWeatherLastUpdatedAt(generatedAt);
+        }
+      }
+
+      setWeatherSyncError(null);
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name === 'AbortError') return;
+
+      setWeatherSyncError(
+        'Les vols restent disponibles, mais la météo temps réel n’est pas à jour.',
+      );
+    }
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -862,21 +784,14 @@ export const FlightsPlanning: React.FC = () => {
       ]);
 
       if (!controller.signal.aborted) {
-        void refreshWeatherSnapshot(
-          controller.signal,
-          true,
-        );
+        void refreshWeatherSnapshot(controller.signal, true);
       }
     };
 
     void initialize();
 
     return () => controller.abort();
-  }, [
-    fetchFlights,
-    fetchFleet,
-    refreshWeatherSnapshot,
-  ]);
+  }, [fetchFlights, fetchFleet, refreshWeatherSnapshot]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -886,10 +801,7 @@ export const FlightsPlanning: React.FC = () => {
       void refreshWeatherAlerts(controller.signal);
     };
 
-    const intervalId = window.setInterval(
-      tick,
-      60000,
-    );
+    const intervalId = window.setInterval(tick, 60000);
 
     const onVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
@@ -897,18 +809,12 @@ export const FlightsPlanning: React.FC = () => {
       }
     };
 
-    document.addEventListener(
-      'visibilitychange',
-      onVisibilityChange,
-    );
+    document.addEventListener('visibilitychange', onVisibilityChange);
 
     return () => {
       controller.abort();
       window.clearInterval(intervalId);
-      document.removeEventListener(
-        'visibilitychange',
-        onVisibilityChange,
-      );
+      document.removeEventListener('visibilitychange', onVisibilityChange);
     };
   }, [refreshWeatherAlerts]);
 
@@ -922,9 +828,7 @@ export const FlightsPlanning: React.FC = () => {
     setEditingFlight(null);
   };
 
-  const handleFormSubmit = async (
-    formData: FlightFormData,
-  ) => {
+  const handleFormSubmit = async (formData: FlightFormData) => {
     try {
       setIsSubmitting(true);
 
@@ -956,22 +860,16 @@ export const FlightsPlanning: React.FC = () => {
       });
 
       if (!response.ok) {
-        const data = await response
-          .json()
-          .catch(() => ({}));
+        const data = await response.json().catch(() => ({}));
 
         throw new Error(
-          data.message ||
-            `Erreur serveur HTTP ${response.status}`,
+          data.message || `Erreur serveur HTTP ${response.status}`,
         );
       }
 
       await fetchFlights();
 
-      void refreshWeatherSnapshot(
-        undefined,
-        true,
-      );
+      void refreshWeatherSnapshot(undefined, true);
 
       closeModal();
 
@@ -983,14 +881,9 @@ export const FlightsPlanning: React.FC = () => {
       );
     } catch (error: unknown) {
       const message =
-        error instanceof Error
-          ? error.message
-          : 'Erreur inconnue';
+        error instanceof Error ? error.message : 'Erreur inconnue';
 
-      addToast(
-        'error',
-        `Erreur d'enregistrement : ${message}`,
-      );
+      addToast('error', `Erreur d'enregistrement : ${message}`);
 
       throw error;
     } finally {
@@ -1006,22 +899,15 @@ export const FlightsPlanning: React.FC = () => {
 
       const response = await fetch(
         `${API_BASE_URL}/flights/${deletingFlight.id}`,
-        {
-          method: 'DELETE',
-        },
+        { method: 'DELETE' },
       );
 
       if (!response.ok) {
-        throw new Error(
-          'Erreur lors de la suppression sur le serveur.',
-        );
+        throw new Error('Erreur lors de la suppression sur le serveur.');
       }
 
       setFlights(previous =>
-        previous.filter(
-          flight =>
-            flight.id !== deletingFlight.id,
-        ),
+        previous.filter(flight => flight.id !== deletingFlight.id),
       );
 
       addToast(
@@ -1032,23 +918,15 @@ export const FlightsPlanning: React.FC = () => {
       setDeletingFlight(null);
     } catch (error: unknown) {
       const message =
-        error instanceof Error
-          ? error.message
-          : 'Erreur inconnue';
+        error instanceof Error ? error.message : 'Erreur inconnue';
 
-      addToast(
-        'error',
-        `Échec de la suppression : ${message}`,
-      );
+      addToast('error', `Échec de la suppression : ${message}`);
     } finally {
       setIsDeleting(false);
     }
   };
 
-  const formatDateRange = (
-    departureStr: string,
-    arrivalStr: string,
-  ) => {
+  const formatDateRange = (departureStr: string, arrivalStr: string) => {
     const depDate = new Date(departureStr);
     const arrDate = new Date(arrivalStr);
 
@@ -1073,7 +951,7 @@ export const FlightsPlanning: React.FC = () => {
       })}`;
 
     return (
-      <div className="min-w-[170px]">
+      <div className="min-w-42.5">
         <div className="flex items-center gap-2">
           <div>
             <span className="block text-[10px] font-bold uppercase text-slate-400">
@@ -1132,11 +1010,7 @@ export const FlightsPlanning: React.FC = () => {
 
     return flights.filter(flight => {
       const stops = normalizeStops(flight);
-      const fullRoute = [
-        flight.origin,
-        ...stops,
-        flight.destination,
-      ]
+      const fullRoute = [flight.origin, ...stops, flight.destination]
         .join('-')
         .toLowerCase();
 
@@ -1146,49 +1020,53 @@ export const FlightsPlanning: React.FC = () => {
         flight.origin.toLowerCase().includes(term) ||
         flight.destination.toLowerCase().includes(term) ||
         fullRoute.includes(term) ||
-        stops.some(stop =>
-          stop.toLowerCase().includes(term),
-        ) ||
-        flight.aircraftModel
-          ?.toLowerCase()
-          .includes(term);
+        stops.some(stop => stop.toLowerCase().includes(term)) ||
+        flight.aircraftModel?.toLowerCase().includes(term);
 
       const matchesStatus =
         selectedStatusFilter === 'ALL' ||
-        getCalculatedStatus(flight) ===
-          selectedStatusFilter;
+        getCalculatedStatus(flight) === selectedStatusFilter;
 
       return matchesSearch && matchesStatus;
     });
-  }, [
-    flights,
-    searchTerm,
-    selectedStatusFilter,
-    getCalculatedStatus,
-  ]);
+  }, [flights, searchTerm, selectedStatusFilter, getCalculatedStatus]);
+
+  // Reset page quand recherche ou filtre change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedStatusFilter]);
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredFlights.length / PAGE_SIZE),
+  );
+
+  const paginatedFlights = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return filteredFlights.slice(start, start + PAGE_SIZE);
+  }, [filteredFlights, currentPage]);
+
+  // Sécurité : si currentPage dépasse totalPages après filtrage
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   const stats = useMemo(() => {
-    const statuses = flights.map(
-      getCalculatedStatus,
-    );
+    const statuses = flights.map(getCalculatedStatus);
 
     return {
       total: flights.length,
-      inFlight: statuses.filter(
-        status => status === 'En Vol',
-      ).length,
-      delayed: statuses.filter(
-        status => status === 'Retardé',
-      ).length,
-      pending: statuses.filter(
-        status => status === 'En attente',
-      ).length,
+      inFlight: statuses.filter(status => status === 'En Vol').length,
+      delayed: statuses.filter(status => status === 'Retardé').length,
+      pending: statuses.filter(status => status === 'En attente').length,
     };
   }, [flights, getCalculatedStatus]);
 
   return (
-    <div className="relative mx-auto max-w-[1500px] space-y-4 pb-8">
-      <div className="pointer-events-none fixed bottom-3 left-3 right-3 z-[70] flex flex-col gap-2 sm:bottom-5 sm:left-auto sm:right-5 sm:w-full sm:max-w-md">
+    <div className="relative mx-auto max-w-375 space-y-4 pb-8">
+      <div className="pointer-events-none fixed bottom-3 left-3 right-3 z-70 flex flex-col gap-2 sm:bottom-5 sm:left-auto sm:right-5 sm:w-full sm:max-w-md">
         {toasts.map(toast => (
           <div
             key={toast.id}
@@ -1210,9 +1088,7 @@ export const FlightsPlanning: React.FC = () => {
               {toast.type === 'info' && (
                 <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-sky-400" />
               )}
-              <p className="text-xs font-semibold leading-5">
-                {toast.message}
-              </p>
+              <p className="text-xs font-semibold leading-5">{toast.message}</p>
             </div>
             <button
               type="button"
@@ -1224,6 +1100,7 @@ export const FlightsPlanning: React.FC = () => {
           </div>
         ))}
       </div>
+
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-start gap-3">
@@ -1235,7 +1112,8 @@ export const FlightsPlanning: React.FC = () => {
                 Ordonnancement et régulation des vols
               </h1>
               <p className="mt-1 max-w-2xl text-xs font-medium leading-5 text-slate-500 sm:text-sm">
-                Gestion des rotations, affectations de flotte et contraintes opérationnelles.
+                Gestion des rotations, affectations de flotte et contraintes
+                opérationnelles.
               </p>
               <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-500">
                 <span className="inline-flex items-center gap-1.5">
@@ -1255,9 +1133,7 @@ export const FlightsPlanning: React.FC = () => {
                     : ' en attente'}
                 </span>
                 {weatherSyncError && (
-                  <span className="text-amber-700">
-                    {weatherSyncError}
-                  </span>
+                  <span className="text-amber-700">{weatherSyncError}</span>
                 )}
               </div>
             </div>
@@ -1266,19 +1142,14 @@ export const FlightsPlanning: React.FC = () => {
             <button
               type="button"
               onClick={() =>
-                void refreshWeatherSnapshot(
-                  undefined,
-                  false,
-                )
+                void refreshWeatherSnapshot(undefined, false)
               }
               disabled={isWeatherRefreshing}
               className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-xs font-bold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 sm:h-10"
             >
               <RefreshCw
                 className={`h-4 w-4 ${
-                  isWeatherRefreshing
-                    ? 'animate-spin'
-                    : ''
+                  isWeatherRefreshing ? 'animate-spin' : ''
                 }`}
               />
               Météo
@@ -1297,6 +1168,7 @@ export const FlightsPlanning: React.FC = () => {
           </div>
         </div>
       </section>
+
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <KpiCard
           label="Total rotations"
@@ -1319,17 +1191,16 @@ export const FlightsPlanning: React.FC = () => {
           icon={<AlertCircle className="h-5 w-5" />}
         />
       </section>
+
       <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="relative w-full lg:max-w-[380px]">
+          <div className="relative w-full lg:max-w-95">
             <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               type="search"
               placeholder="Vol, appareil, escale..."
               value={searchTerm}
-              onChange={event =>
-                setSearchTerm(event.target.value)
-              }
+              onChange={event => setSearchTerm(event.target.value)}
               className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm font-medium text-slate-700 outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-4 focus:ring-emerald-600/10"
             />
           </div>
@@ -1339,9 +1210,7 @@ export const FlightsPlanning: React.FC = () => {
               <button
                 key={filter.id}
                 type="button"
-                onClick={() =>
-                  setSelectedStatusFilter(filter.id)
-                }
+                onClick={() => setSelectedStatusFilter(filter.id)}
                 className={`h-9 shrink-0 rounded-xl border px-3 text-xs font-bold transition ${
                   selectedStatusFilter === filter.id
                     ? 'border-emerald-700 bg-emerald-700 text-white'
@@ -1354,6 +1223,7 @@ export const FlightsPlanning: React.FC = () => {
           </div>
         </div>
       </section>
+
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <header className="flex items-center justify-between gap-3 border-b border-slate-200 bg-slate-50/70 px-4 py-4 sm:px-5">
           <div>
@@ -1370,6 +1240,7 @@ export const FlightsPlanning: React.FC = () => {
             {filteredFlights.length > 1 ? 's' : ''}
           </span>
         </header>
+
         {loadingFlights ? (
           <div className="space-y-3 bg-slate-50 p-3 sm:bg-white sm:p-4">
             {[1, 2, 3, 4].map(item => (
@@ -1380,7 +1251,7 @@ export const FlightsPlanning: React.FC = () => {
             ))}
           </div>
         ) : filteredFlights.length === 0 ? (
-          <div className="flex min-h-[220px] flex-col items-center justify-center p-6 text-center">
+          <div className="flex min-h-55 flex-col items-center justify-center p-6 text-center">
             <Plane className="h-8 w-8 text-slate-300" />
             <p className="mt-2 text-sm font-bold text-slate-600">
               Aucune rotation trouvée
@@ -1391,47 +1262,44 @@ export const FlightsPlanning: React.FC = () => {
           </div>
         ) : (
           <>
+            {/* MOBILE : cartes paginées */}
             <div className="space-y-3 bg-slate-50 p-2.5 sm:hidden">
-              {filteredFlights.map(flight => (
+              {paginatedFlights.map(flight => (
                 <MobileFlightCard
                   key={flight.id}
                   flight={flight}
-                  computedStatus={getCalculatedStatus(
-                    flight,
-                  )}
+                  computedStatus={getCalculatedStatus(flight)}
                   onEdit={openEditModal}
                   onDelete={setDeletingFlight}
                 />
               ))}
             </div>
+
+            {/* DESKTOP : tableau paginé */}
             <div className="hidden overflow-x-auto sm:block">
-              <table className="w-full min-w-[1100px] border-collapse text-left">
+              <table className="w-full min-w-275 border-collapse text-left">
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500">
                     <th className="px-5 py-3.5">N° Vol</th>
                     <th className="px-4 py-3.5">Appareil</th>
-                    <th className="px-4 py-3.5">
-                      Itinéraire et escales
-                    </th>
+                    <th className="px-4 py-3.5">Itinéraire et escales</th>
                     <th className="px-4 py-3.5">Statut</th>
                     <th className="px-4 py-3.5">Météo</th>
-                    <th className="px-4 py-3.5">
-                      Chronologie
-                    </th>
-                    <th className="px-5 py-3.5 text-right">
-                      Actions
-                    </th>
+                    <th className="px-4 py-3.5">Chronologie</th>
+                    <th className="px-5 py-3.5 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {filteredFlights.map(flight => {
-                    const computedStatus =
-                      getCalculatedStatus(flight);
-                    const isInFlight =  computedStatus === 'En Vol';
-                    const weather =  getWeatherVisual(flight);
-                    const weatherScore =  flight.weatherAI?.score ??  flight.weatherSeverity;
-                    const normalized =  normalizeSeverity(weatherScore);
-                    const severityPct = normalized == null? 0: Math.round(normalized * 100);
+                  {paginatedFlights.map(flight => {
+                    const computedStatus = getCalculatedStatus(flight);
+                    const isInFlight = computedStatus === 'En Vol';
+                    const weather = getWeatherVisual(flight);
+                    const weatherScore =
+                      flight.weatherAI?.score ?? flight.weatherSeverity;
+                    const normalized = normalizeSeverity(weatherScore);
+                    const severityPct =
+                      normalized == null ? 0 : Math.round(normalized * 100);
+
                     return (
                       <tr
                         key={flight.id}
@@ -1448,9 +1316,7 @@ export const FlightsPlanning: React.FC = () => {
                             >
                               <Plane
                                 className={`h-4 w-4 ${
-                                  isInFlight
-                                    ? 'rotate-45'
-                                    : ''
+                                  isInFlight ? 'rotate-45' : ''
                                 }`}
                               />
                             </div>
@@ -1486,7 +1352,7 @@ export const FlightsPlanning: React.FC = () => {
                           </span>
                         </td>
                         <td className="px-4 py-4">
-                          <div className="min-w-[170px]">
+                          <div className="min-w-42.5">
                             <div className="flex items-center gap-2">
                               <span
                                 className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-bold ${weather.badge}`}
@@ -1495,34 +1361,25 @@ export const FlightsPlanning: React.FC = () => {
                                 {weather.label}
                               </span>
                               <span className="font-mono text-xs font-black text-slate-600">
-                                {formatWeatherPercent(
-                                  weatherScore,
-                                )}
+                                {formatWeatherPercent(weatherScore)}
                               </span>
                             </div>
                             <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
                               <div
                                 className={`h-full rounded-full ${weather.bar}`}
-                                style={{
-                                  width: `${severityPct}%`,
-                                }}
+                                style={{ width: `${severityPct}%` }}
                               />
                             </div>
                           </div>
                         </td>
                         <td className="px-4 py-4">
-                          {formatDateRange(
-                            flight.departure,
-                            flight.arrival,
-                          )}
+                          {formatDateRange(flight.departure, flight.arrival)}
                         </td>
                         <td className="px-5 py-4">
                           <div className="flex justify-end gap-2">
                             <button
                               type="button"
-                              onClick={() =>
-                                openEditModal(flight)
-                              }
+                              onClick={() => openEditModal(flight)}
                               title="Modifier"
                               className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
                             >
@@ -1530,9 +1387,7 @@ export const FlightsPlanning: React.FC = () => {
                             </button>
                             <button
                               type="button"
-                              onClick={() =>
-                                setDeletingFlight(flight)
-                              }
+                              onClick={() => setDeletingFlight(flight)}
                               title="Supprimer"
                               className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600"
                             >
@@ -1546,11 +1401,93 @@ export const FlightsPlanning: React.FC = () => {
                 </tbody>
               </table>
             </div>
+
+            {/* PAGINATION */}
+            {totalPages > 1 && (
+              <div className="flex flex-col items-center justify-between gap-3 border-t border-slate-200 bg-slate-50/70 px-4 py-3 sm:flex-row sm:px-5">
+                <p className="text-xs font-semibold text-slate-500">
+                  Page{' '}
+                  <span className="font-black text-slate-700">
+                    {currentPage}
+                  </span>{' '}
+                  sur{' '}
+                  <span className="font-black text-slate-700">
+                    {totalPages}
+                  </span>{' '}
+                  — {filteredFlights.length} vol
+                  {filteredFlights.length > 1 ? 's' : ''}
+                </p>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCurrentPage(prev => Math.max(1, prev - 1))
+                    }
+                    disabled={currentPage === 1}
+                    className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <ArrowRight className="h-3.5 w-3.5 rotate-180" />
+                    Précédent
+                  </button>
+
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: totalPages }, (_, i) => i + 1)
+                      .filter(page => {
+                        if (totalPages <= 5) return true;
+                        if (page === 1 || page === totalPages) return true;
+                        return Math.abs(page - currentPage) <= 1;
+                      })
+                      .map((page, index, array) => {
+                        const previousPage = array[index - 1];
+                        const showEllipsis =
+                          previousPage != null && page - previousPage > 1;
+
+                        return (
+                          <React.Fragment key={page}>
+                            {showEllipsis && (
+                              <span className="px-1 text-xs font-bold text-slate-400">
+                                …
+                              </span>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => setCurrentPage(page)}
+                              className={`h-9 min-w-9 rounded-lg border px-2 text-xs font-bold transition ${
+                                page === currentPage
+                                  ? 'border-emerald-700 bg-emerald-700 text-white'
+                                  : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                              }`}
+                            >
+                              {page}
+                            </button>
+                          </React.Fragment>
+                        );
+                      })}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCurrentPage(prev =>
+                        Math.min(totalPages, prev + 1),
+                      )
+                    }
+                    disabled={currentPage === totalPages}
+                    className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Suivant
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+            )}
           </>
         )}
       </section>
+
       {deletingFlight && (
-        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-950/50 backdrop-blur-[2px] sm:items-center sm:p-4">
+        <div className="fixed inset-0 z-80 flex items-end justify-center bg-slate-950/50 backdrop-blur-[2px] sm:items-center sm:p-4">
           <div className="w-full rounded-t-3xl border border-slate-200 bg-white p-5 shadow-2xl sm:max-w-md sm:rounded-2xl">
             <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-slate-200 sm:hidden" />
             <div className="flex items-start gap-3">
@@ -1559,14 +1496,12 @@ export const FlightsPlanning: React.FC = () => {
               </div>
               <div>
                 <h3 className="text-base font-black text-slate-900">
-                  Supprimer le vol{' '}
-                  {deletingFlight.flightNumber}
+                  Supprimer le vol {deletingFlight.flightNumber}
                 </h3>
                 <p className="mt-1 text-sm leading-6 text-slate-500">
                   Confirmez la suppression du vol{' '}
                   <strong>
-                    {deletingFlight.origin} →{' '}
-                    {deletingFlight.destination}
+                    {deletingFlight.origin} → {deletingFlight.destination}
                   </strong>
                   . Cette action est irréversible.
                 </p>
@@ -1592,14 +1527,13 @@ export const FlightsPlanning: React.FC = () => {
                 ) : (
                   <Trash2 className="h-4 w-4" />
                 )}
-                {isDeleting
-                  ? 'Suppression...'
-                  : 'Supprimer'}
+                {isDeleting ? 'Suppression...' : 'Supprimer'}
               </button>
             </div>
           </div>
         </div>
       )}
+
       <FlightAddModal
         isOpen={isModalOpen}
         onClose={closeModal}
@@ -1609,21 +1543,25 @@ export const FlightsPlanning: React.FC = () => {
         initialData={
           editingFlight
             ? {
-                numeroVol:editingFlight.flightNumber,
-                aeroportDepart:editingFlight.origin,
-                aeroportArrivee:editingFlight.destination,
-                aeroportEscale: normalizeStops(  editingFlight,)[0] ||undefined,
-                dureeEscale:editingFlight  .stopoverDurationMinutes ??undefined,
-                heureDepart:editingFlight.departure?.slice(  0,  16,) || '',
-                heureArrivee:editingFlight.arrival?.slice(  0,  16,) || '',
-                avionId:  editingFlight.aircraft !==  'NON ASSIGNÉ'    ? editingFlight.aircraft    : '',
-                status:  mapStatusToModalFormat(    editingFlight.status,  ),
+                numeroVol: editingFlight.flightNumber,
+                aeroportDepart: editingFlight.origin,
+                aeroportArrivee: editingFlight.destination,
+                aeroportEscale: normalizeStops(editingFlight)[0] || undefined,
+                dureeEscale: editingFlight.stopoverDurationMinutes ?? undefined,
+                heureDepart: editingFlight.departure?.slice(0, 16) || '',
+                heureArrivee: editingFlight.arrival?.slice(0, 16) || '',
+                avionId:
+                  editingFlight.aircraft !== 'NON ASSIGNÉ'
+                    ? editingFlight.aircraft
+                    : '',
+                status: mapStatusToModalFormat(editingFlight.status),
               }
             : undefined
         }
       />
+
       {isSubmitting && (
-        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/30 p-4 backdrop-blur-[2px]">
+        <div className="fixed inset-0 z-90 flex items-center justify-center bg-slate-950/30 p-4 backdrop-blur-[2px]">
           <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-xl">
             <Loader2 className="h-5 w-5 animate-spin text-emerald-700" />
             <span className="text-sm font-bold text-slate-800">
@@ -1635,6 +1573,7 @@ export const FlightsPlanning: React.FC = () => {
     </div>
   );
 };
+
 const KpiCard: React.FC<{
   label: string;
   value: number;
