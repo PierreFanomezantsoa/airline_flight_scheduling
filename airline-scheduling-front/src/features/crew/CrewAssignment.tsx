@@ -1,26 +1,259 @@
-import React, { useState } from 'react';
-import { 
-  Users, 
-  UserCheck, 
-  ShieldCheck,
-  CheckCircle2, 
-  XCircle, 
-  Loader2, 
-  User, 
+import React, { useMemo, useState } from 'react';
+import {
+  AlertCircle,
+  AlertTriangle,
+  CheckCircle2,
+  Clock,
+  Info,
+  Loader2,
   Plane,
-  Clock
+  ShieldCheck,
+  TrendingUp,
+  User,
+  UserCheck,
+  Users,
+  X,
+  XCircle,
 } from 'lucide-react';
 import { useCrewAssignments } from './useCrewAssignments';
 
+/* ============================================================================
+ * DESIGN TOKENS
+ * ========================================================================== */
+
+const SURFACE = 'rounded-2xl border border-slate-200 bg-white shadow-sm';
+const FOCUS_RING =
+  'outline-none transition focus:border-emerald-600 focus:ring-4 focus:ring-emerald-600/10';
+const LABEL_UPPER =
+  'text-[10px] font-semibold uppercase tracking-wider text-slate-500';
+
+const MIN_REST_HOURS = 11;
+
+/* ============================================================================
+ * HELPERS
+ * ========================================================================== */
+
+const getInitials = (name?: string | null): string => {
+  if (!name) return '??';
+  return name
+    .split(' ')
+    .map(part => part[0])
+    .join('')
+    .substring(0, 2)
+    .toUpperCase();
+};
+
+const formatRestHours = (hours?: number | null): string => {
+  if (hours == null || !Number.isFinite(hours)) return '--';
+  return `${hours.toFixed(1)} h`;
+};
+
+/* ============================================================================
+ * SOUS-COMPOSANTS
+ * ========================================================================== */
+
+function MetricCard({
+  label,
+  value,
+  hint,
+  icon,
+  variant = 'neutral',
+}: {
+  label: string;
+  value: number | string;
+  hint: string;
+  icon: React.ReactNode;
+  variant?: 'neutral' | 'primary' | 'success' | 'warning' | 'danger' | 'info';
+}) {
+  const styles = {
+    neutral: {
+      ring: 'border-slate-200 bg-white',
+      icon: 'bg-slate-100 text-slate-600',
+      value: 'text-slate-900',
+      accent: null as string | null,
+    },
+    primary: {
+      ring: 'border-emerald-200 bg-emerald-50/40',
+      icon: 'bg-emerald-600 text-white shadow-sm shadow-emerald-600/20',
+      value: 'text-emerald-900',
+      accent: 'bg-emerald-600',
+    },
+    success: {
+      ring: 'border-emerald-200 bg-white',
+      icon: 'bg-emerald-100 text-emerald-700',
+      value: 'text-emerald-800',
+      accent: null,
+    },
+    info: {
+      ring: 'border-sky-200 bg-white',
+      icon: 'bg-sky-100 text-sky-700',
+      value: 'text-sky-800',
+      accent: null,
+    },
+    warning: {
+      ring: 'border-amber-200 bg-amber-50/40',
+      icon: 'bg-amber-100 text-amber-700',
+      value: 'text-amber-800',
+      accent: 'bg-amber-500',
+    },
+    danger: {
+      ring: 'border-rose-200 bg-rose-50/40',
+      icon: 'bg-rose-100 text-rose-700',
+      value: 'text-rose-800',
+      accent: 'bg-rose-500',
+    },
+  } as const;
+
+  const s = styles[variant];
+
+  return (
+    <article
+      className={`relative overflow-hidden rounded-2xl border p-3.5 shadow-sm transition hover:shadow-md sm:p-4 ${s.ring}`}
+    >
+      {s.accent && (
+        <span
+          className={`absolute inset-x-0 top-0 h-0.5 ${s.accent}`}
+          aria-hidden
+        />
+      )}
+
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <span className={LABEL_UPPER}>{label}</span>
+          <p
+            className={`mt-2 text-2xl font-bold tabular-nums sm:text-3xl ${s.value}`}
+          >
+            {value}
+          </p>
+          <p className="mt-1 text-[10px] font-medium text-slate-400">{hint}</p>
+        </div>
+        <div
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${s.icon}`}
+        >
+          {icon}
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function AlertBanner({
+  type,
+  text,
+}: {
+  type: 'success' | 'error' | 'info';
+  text: string;
+}) {
+  const config = {
+    success: {
+      ring: 'border-emerald-200 bg-emerald-50/60',
+      icon: 'bg-emerald-100 text-emerald-700',
+      title: 'text-emerald-800',
+      body: 'text-emerald-700',
+      Icon: CheckCircle2,
+      label: 'Opération réussie',
+    },
+    error: {
+      ring: 'border-rose-200 bg-rose-50/60',
+      icon: 'bg-rose-100 text-rose-700',
+      title: 'text-rose-800',
+      body: 'text-rose-700',
+      Icon: AlertCircle,
+      label: 'Action impossible',
+    },
+    info: {
+      ring: 'border-sky-200 bg-sky-50/60',
+      icon: 'bg-sky-100 text-sky-700',
+      title: 'text-sky-800',
+      body: 'text-sky-700',
+      Icon: Info,
+      label: 'Information',
+    },
+  }[type];
+
+  const { Icon } = config;
+
+  return (
+    <div
+      className={`flex items-start gap-3 rounded-2xl border px-4 py-3.5 shadow-sm ${config.ring}`}
+      role="alert"
+    >
+      <div
+        className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${config.icon}`}
+      >
+        <Icon className="h-4 w-4" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className={`text-xs font-semibold ${config.title}`}>
+          {config.label}
+        </p>
+        <p className={`mt-0.5 text-xs leading-5 ${config.body}`}>{text}</p>
+      </div>
+    </div>
+  );
+}
+
+function RestBar({ hours }: { hours: number }) {
+  const pct = Math.min(100, Math.max(0, (hours / MIN_REST_HOURS) * 100));
+  const isOk = hours >= MIN_REST_HOURS;
+  const isCritical = hours < MIN_REST_HOURS * 0.7;
+
+  const barColor = isCritical
+    ? 'bg-rose-500'
+    : isOk
+      ? 'bg-emerald-500'
+      : 'bg-amber-500';
+
+  return (
+    <div className="w-full">
+      <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
+        <div
+          className={`h-full rounded-full transition-all duration-500 ${barColor}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================================
+ * COMPOSANT PRINCIPAL
+ * ========================================================================== */
+
 export const CrewAssignment: React.FC = () => {
-  const { flights, crew, loading, error: apiError, assignCrewMember } = useCrewAssignments();
+  const {
+    flights,
+    crew,
+    loading,
+    error: apiError,
+    assignCrewMember,
+  } = useCrewAssignments();
 
   const [selectedFlightId, setSelectedFlightId] = useState<string>('');
   const [selectedMemberId, setSelectedMemberId] = useState<string>('');
   const [submitting, setSubmitting] = useState<boolean>(false);
-  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+  const [feedback, setFeedback] = useState<{
+    type: 'success' | 'error';
+    msg: string;
+  } | null>(null);
 
-  const currentSelectedUser = crew.find((m) => m.id === selectedMemberId);
+  const currentSelectedUser = crew.find(m => m.id === selectedMemberId);
+
+  /* -------------------- KPI stats -------------------- */
+  const stats = useMemo(() => {
+    const total = crew.length;
+    const assigned = crew.filter(m => Boolean(m.volAssigne)).length;
+    const available = crew.filter(
+      m =>
+        !m.volAssigne &&
+        (m.heuresReposAvant ?? 0) >= MIN_REST_HOURS,
+    ).length;
+    const alerts = crew.filter(
+      m => (m.heuresReposAvant ?? 0) < MIN_REST_HOURS,
+    ).length;
+
+    return { total, assigned, available, alerts };
+  }, [crew]);
 
   const handleAssign = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,7 +263,10 @@ export const CrewAssignment: React.FC = () => {
     const member = currentSelectedUser;
 
     if (!flightId || !member) {
-      setFeedback({ type: 'error', msg: 'Veuillez sélectionner un vol et un membre du personnel.' });
+      setFeedback({
+        type: 'error',
+        msg: 'Veuillez sélectionner un vol et un membre du personnel.',
+      });
       return;
     }
 
@@ -43,7 +279,7 @@ export const CrewAssignment: React.FC = () => {
     }
 
     const restHours = member.heuresReposAvant ?? 0;
-    if (restHours < 11) {
+    if (restHours < MIN_REST_HOURS) {
       setFeedback({
         type: 'error',
         msg: `Réglementation non respectée : ${member.nom} n'a que ${restHours}h de repos.`,
@@ -54,176 +290,302 @@ export const CrewAssignment: React.FC = () => {
     try {
       setSubmitting(true);
       await assignCrewMember(flightId, member.id, restHours);
-      setFeedback({ type: 'success', msg: `Affectation validée avec succès pour ${member.nom}.` });
+      setFeedback({
+        type: 'success',
+        msg: `Affectation validée avec succès pour ${member.nom}.`,
+      });
       setSelectedMemberId('');
     } catch (err: any) {
-      setFeedback({ type: 'error', msg: err.message || "Échec de l'enregistrement." });
+      setFeedback({
+        type: 'error',
+        msg: err.message || "Échec de l'enregistrement.",
+      });
     } finally {
       setSubmitting(false);
     }
   };
 
+  /* -------------------- LOADING -------------------- */
   if (loading) {
     return (
-      <div className="flex h-80 flex-col items-center justify-center gap-3 text-slate-500 text-sm">
-        <Loader2 className="h-8 w-8 animate-spin text-sky-600" />
-        <p className="font-medium">Chargement du registre d'équipage...</p>
+      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 text-center">
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
+          <Loader2 className="h-6 w-6 animate-spin" />
+        </div>
+        <div>
+          <p className="text-sm font-semibold text-slate-800">
+            Chargement du registre d'équipage
+          </p>
+          <p className="mt-1 text-xs text-slate-400">
+            Synchronisation des affectations et du personnel navigant...
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 p-4 sm:p-6 bg-slate-50/50 min-h-screen">
-      {/* En-tête de section */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2.5">
-            <Plane className="h-6 w-6 text-sky-600" />
-            Gestion & Affectation des Équipages
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-            Contrôle de la conformité réglementaire et affectation des agents de bord.
-          </p>
-        </div>
-      </div>
-
-      {/* Message d'erreur API globale */}
-      {apiError && (
-        <div className="flex items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50/80 p-4 text-xs sm:text-sm text-rose-900 shadow-sm">
-          <XCircle className="h-5 w-5 shrink-0 text-rose-600" />
-          <span className="font-medium">{apiError}</span>
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 items-start">
-        {/* Registre d'Équipage & Statut */}
-        <div className="lg:col-span-7 xl:col-span-8 rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-sm">
-          <div className="mb-5 flex items-center justify-between">
-            <h2 className="flex items-center gap-2.5 text-base sm:text-lg font-bold text-slate-900">
-              <Users className="h-5 w-5 text-sky-600 shrink-0" />
-              Registre du Personnel
-            </h2>
-            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200/60">
-              {crew.length} Membres
-            </span>
-          </div>
-
-          <div className="divide-y divide-slate-100">
-            {crew.map((member) => {
-              const restHours = member.heuresReposAvant ?? 0;
-              const isRestOk = restHours >= 11;
-              const isAssigned = Boolean(member.volAssigne);
-
-              const initials = member.nom
-                .split(' ')
-                .map((n) => n[0])
-                .join('')
-                .substring(0, 2)
-                .toUpperCase();
-
-              return (
-                <div
-                  key={member.id}
-                  className="group flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-4 transition hover:bg-slate-50/80 rounded-xl px-2 -mx-2"
-                >
-                  {/* Identité & Qualification */}
-                  <div className="flex items-center gap-3.5">
-                    <div className="relative">
-                      <div className="h-10 w-10 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-slate-600 text-xs shadow-inner">
-                        {initials}
-                      </div>
-                      <span
-                        className={`absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white ${
-                          isRestOk && !isAssigned ? 'bg-emerald-500' : 'bg-amber-500'
-                        }`}
-                        title={isRestOk && !isAssigned ? 'Disponible' : 'Indisponible ou Restreint'}
-                      />
-                    </div>
-
-                    <div>
-                      <h3 className="text-sm font-bold text-slate-900 group-hover:text-sky-600 transition capitalize">
-                        {member.nom}
-                      </h3>
-                      <div className="flex flex-wrap items-center gap-1.5 mt-1 text-[11px]">
-                        <span className="font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
-                          {member.role}
-                        </span>
-                        {member.niveauMetier && (
-                          <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md font-medium">
-                            Niv. {member.niveauMetier}
-                          </span>
-                        )}
-                        {member.niveauTechnique && (
-                          <span className="bg-sky-50 text-sky-700 border border-sky-100 px-2 py-0.5 rounded-md font-medium">
-                            Tech: {member.niveauTechnique}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Statut Repos & Affectation */}
-                  <div className="flex items-center justify-between sm:justify-end gap-6 text-xs border-t border-slate-100 pt-3 sm:border-0 sm:pt-0">
-                    <div className="min-w-25 text-left sm:text-right">
-                      <div className="flex items-center gap-1 text-[11px] font-medium text-slate-400 justify-start sm:justify-end">
-                        <Clock className="h-3 w-3" />
-                        <span>Repos Cumulé</span>
-                      </div>
-                      <span
-                        className={`mt-0.5 inline-block font-bold text-xs ${
-                          isRestOk ? 'text-slate-700' : 'text-amber-600 font-extrabold'
-                        }`}
-                      >
-                        {restHours}h / 11h
-                      </span>
-                    </div>
-
-                    <div className="min-w-27.5 text-right">
-                      {member.volAssigne ? (
-                        <span className="inline-flex items-center gap-1.5 rounded-lg bg-sky-50 border border-sky-200/60 px-2.5 py-1 text-xs font-bold text-sky-800 shadow-sm">
-                          <Plane className="h-3 w-3 text-sky-600 shrink-0" />
-                          Vol {member.volAssigne.numeroVol}
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
-                          En réserve
-                        </span>
-                      )}
-                    </div>
-                  </div>
+    <div className="min-h-screen bg-slate-50 p-3 text-slate-800 antialiased sm:p-4 lg:p-5">
+      <div className="mx-auto max-w-[1500px] space-y-4">
+        {/* ═══════════════ HEADER ═══════════════ */}
+        <header className={`${SURFACE} p-4 sm:p-5`}>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-start gap-3.5">
+              <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm shadow-emerald-600/20">
+                <Plane className="h-5 w-5 rotate-45" />
+                <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-400" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="text-lg font-bold tracking-tight text-slate-950 sm:text-xl">
+                    Affectation des équipages
+                  </h1>
+                  <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                    OCC
+                  </span>
                 </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Formulaire d'Assignation */}
-        <form
-          onSubmit={handleAssign}
-          className="lg:col-span-5 xl:col-span-4 flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-sm sticky top-6"
-        >
-          <div>
-            <div className="mb-5 border-b border-slate-100 pb-3">
-              <h2 className="flex items-center gap-2 text-base sm:text-lg font-bold text-slate-900">
-                <UserCheck className="h-5 w-5 text-sky-600 shrink-0" />
-                Assignation de Vol
-              </h2>
-              <p className="text-xs text-slate-400 mt-1">Affecter un membre à une rotation active</p>
+                <p className="mt-0.5 text-xs text-slate-500 sm:text-sm">
+                  Conformité réglementaire et affectation des agents de bord
+                </p>
+              </div>
             </div>
+          </div>
+        </header>
 
-            <div className="space-y-4">
-              {/* Choix Vol */}
+        {/* ═══════════════ API ERROR ═══════════════ */}
+        {apiError && <AlertBanner type="error" text={apiError} />}
+
+        {/* ═══════════════ KPI ═══════════════ */}
+        <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <MetricCard
+            label="Effectif total"
+            value={stats.total}
+            hint="Membres enregistrés"
+            icon={<Users className="h-4 w-4" />}
+            variant="primary"
+          />
+          <MetricCard
+            label="Disponibles"
+            value={stats.available}
+            hint="Repos conforme"
+            icon={<UserCheck className="h-4 w-4" />}
+            variant="success"
+          />
+          <MetricCard
+            label="En vol"
+            value={stats.assigned}
+            hint="Actuellement affectés"
+            icon={<Plane className="h-4 w-4" />}
+            variant="info"
+          />
+          <MetricCard
+            label="Alertes repos"
+            value={stats.alerts}
+            hint="Repos insuffisant"
+            icon={<AlertTriangle className="h-4 w-4" />}
+            variant={stats.alerts > 0 ? 'warning' : 'neutral'}
+          />
+        </section>
+
+        {/* ═══════════════ CONTENU PRINCIPAL ═══════════════ */}
+        <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-12">
+          {/* ═════════ REGISTRE ═════════ */}
+          <section
+            className={`${SURFACE} lg:col-span-7 xl:col-span-8`}
+          >
+            {/* Header section */}
+            <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3.5 sm:px-5">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
+                  <Users className="h-4 w-4" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-semibold text-slate-900">
+                    Registre du personnel
+                  </h2>
+                  <p className="text-[10px] text-slate-500">
+                    Statut de repos et affectation en temps réel
+                  </p>
+                </div>
+              </div>
+
+              <span className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-semibold text-slate-600">
+                {crew.length} membre{crew.length > 1 ? 's' : ''}
+              </span>
+            </header>
+
+            {/* Liste */}
+            <div className="divide-y divide-slate-100">
+              {crew.length === 0 ? (
+                <div className="flex min-h-[200px] flex-col items-center justify-center p-6 text-center">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-50 text-slate-300">
+                    <Users className="h-6 w-6" />
+                  </div>
+                  <p className="mt-3 text-sm font-semibold text-slate-700">
+                    Aucun membre d'équipage
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Aucun agent n'est actuellement enregistré.
+                  </p>
+                </div>
+              ) : (
+                crew.map(member => {
+                  const restHours = member.heuresReposAvant ?? 0;
+                  const isRestOk = restHours >= MIN_REST_HOURS;
+                  const isAssigned = Boolean(member.volAssigne);
+                  const isAvailable = isRestOk && !isAssigned;
+                  const initials = getInitials(member.nom);
+
+                  return (
+                    <article
+                      key={member.id}
+                      className="group transition hover:bg-emerald-50/20"
+                    >
+                      <div className="flex flex-col gap-3 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                        {/* Identité */}
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className="relative shrink-0">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-600 ring-1 ring-slate-200">
+                              {initials}
+                            </div>
+                            <span
+                              className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white ${
+                                isAvailable
+                                  ? 'bg-emerald-500'
+                                  : isAssigned
+                                    ? 'bg-sky-500'
+                                    : 'bg-amber-500'
+                              }`}
+                              title={
+                                isAvailable
+                                  ? 'Disponible'
+                                  : isAssigned
+                                    ? 'En vol'
+                                    : 'Repos insuffisant'
+                              }
+                            />
+                          </div>
+
+                          <div className="min-w-0">
+                            <h3 className="truncate text-sm font-semibold text-slate-900">
+                              {member.nom}
+                            </h3>
+                            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                              <span className="rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">
+                                {member.role}
+                              </span>
+                              {member.niveauMetier && (
+                                <span className="rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
+                                  Niv. {member.niveauMetier}
+                                </span>
+                              )}
+                              {member.niveauTechnique && (
+                                <span className="rounded-md border border-sky-200 bg-sky-50 px-1.5 py-0.5 text-[10px] font-medium text-sky-700">
+                                  Tech {member.niveauTechnique}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Stats */}
+                        <div className="flex items-center gap-3 border-t border-slate-100 pt-3 sm:border-0 sm:pt-0">
+                          {/* Repos */}
+                          <div className="min-w-[100px] flex-1 sm:flex-initial">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                                <Clock className="h-3 w-3" />
+                                Repos
+                              </span>
+                              <span
+                                className={`font-mono text-[11px] font-bold ${
+                                  isRestOk
+                                    ? 'text-emerald-700'
+                                    : 'text-amber-700'
+                                }`}
+                              >
+                                {formatRestHours(restHours)}
+                              </span>
+                            </div>
+                            <div className="mt-1.5">
+                              <RestBar hours={restHours} />
+                            </div>
+                            <p className="mt-1 text-[9px] font-medium text-slate-400">
+                              Min {MIN_REST_HOURS} h requis
+                            </p>
+                          </div>
+
+                          {/* Affectation */}
+                          <div className="shrink-0">
+                            {member.volAssigne ? (
+                              <span className="inline-flex items-center gap-1.5 rounded-md border border-sky-200 bg-sky-50 px-2 py-1 text-[11px] font-semibold text-sky-700">
+                                <Plane className="h-3 w-3" />
+                                Vol {member.volAssigne.numeroVol}
+                              </span>
+                            ) : (
+                              <span
+                                className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] font-semibold ${
+                                  isRestOk
+                                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                                    : 'border-amber-200 bg-amber-50 text-amber-700'
+                                }`}
+                              >
+                                {isRestOk ? (
+                                  <>
+                                    <CheckCircle2 className="h-3 w-3" />
+                                    Disponible
+                                  </>
+                                ) : (
+                                  <>
+                                    <AlertTriangle className="h-3 w-3" />
+                                    Indisponible
+                                  </>
+                                )}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })
+              )}
+            </div>
+          </section>
+
+          {/* ═════════ FORMULAIRE ═════════ */}
+          <form
+            onSubmit={handleAssign}
+            className={`${SURFACE} lg:col-span-5 xl:col-span-4 lg:sticky lg:top-4`}
+          >
+            {/* Header form */}
+            <header className="flex items-center gap-2.5 border-b border-slate-100 px-4 py-3.5 sm:px-5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
+                <UserCheck className="h-4 w-4" />
+              </div>
               <div>
-                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500">
-                  Vol Cible
+                <h2 className="text-sm font-semibold text-slate-900">
+                  Nouvelle affectation
+                </h2>
+                <p className="text-[10px] text-slate-500">
+                  Sélectionnez un vol et un agent
+                </p>
+              </div>
+            </header>
+
+            <div className="space-y-4 p-4 sm:p-5">
+              {/* Vol */}
+              <div>
+                <label className={`mb-1.5 block ${LABEL_UPPER}`}>
+                  Vol cible
                 </label>
                 <select
                   value={selectedFlightId}
-                  onChange={(e) => setSelectedFlightId(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-xs sm:text-sm text-slate-800 font-medium focus:bg-white focus:border-sky-500 focus:ring-2 focus:ring-sky-100 focus:outline-none transition"
+                  onChange={e => setSelectedFlightId(e.target.value)}
+                  className={`h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-semibold text-slate-700 focus:bg-white ${FOCUS_RING}`}
                 >
-                  <option value="">-- Sélectionner un vol --</option>
-                  {flights.map((f) => (
+                  <option value="">Sélectionner un vol</option>
+                  {flights.map(f => (
                     <option key={f.id} value={f.id}>
                       Vol {f.numeroVol} ({f.aeroportDepart} → {f.aeroportArrivee})
                     </option>
@@ -231,26 +593,29 @@ export const CrewAssignment: React.FC = () => {
                 </select>
               </div>
 
-              {/* Choix Membre */}
+              {/* Membre */}
               <div>
-                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500">
-                  Agent d'Équipage
+                <label className={`mb-1.5 block ${LABEL_UPPER}`}>
+                  Agent d'équipage
                 </label>
                 <select
                   value={selectedMemberId}
-                  onChange={(e) => setSelectedMemberId(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-xs sm:text-sm text-slate-800 font-medium focus:bg-white focus:border-sky-500 focus:ring-2 focus:ring-sky-100 focus:outline-none transition"
+                  onChange={e => setSelectedMemberId(e.target.value)}
+                  className={`h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-semibold text-slate-700 focus:bg-white ${FOCUS_RING}`}
                 >
-                  <option value="">-- Sélectionner un utilisateur --</option>
-                  {crew.map((m) => {
+                  <option value="">Sélectionner un agent</option>
+                  {crew.map(m => {
                     const restHours = m.heuresReposAvant ?? 0;
-                    const isRestOk = restHours >= 11;
+                    const isRestOk = restHours >= MIN_REST_HOURS;
                     const isAlreadyAssigned = Boolean(m.volAssigne);
                     const isDisabled = !isRestOk || isAlreadyAssigned;
 
-                    let statusText = '✓ Repos OK';
-                    if (!isRestOk) statusText = `⚠️ Repos Insuffisant (${restHours}h)`;
-                    else if (isAlreadyAssigned) statusText = `⛔ Déjà Affecté (${m.volAssigne?.numeroVol})`;
+                    let statusText = '✓ Repos conforme';
+                    if (!isRestOk) {
+                      statusText = `⚠ Repos insuffisant (${restHours}h)`;
+                    } else if (isAlreadyAssigned) {
+                      statusText = `⛔ Déjà affecté (Vol ${m.volAssigne?.numeroVol})`;
+                    }
 
                     return (
                       <option key={m.id} value={m.id} disabled={isDisabled}>
@@ -261,73 +626,90 @@ export const CrewAssignment: React.FC = () => {
                 </select>
               </div>
 
-              {/* Prévisualisation de la sélection */}
+              {/* Preview */}
               {currentSelectedUser && (
-                <div className="mt-4 rounded-xl border border-sky-100 bg-sky-50/50 p-3.5 text-xs text-slate-700 space-y-2">
-                  <div className="flex items-center justify-between font-bold text-slate-900 border-b border-sky-100 pb-2">
-                    <div className="flex items-center gap-2 capitalize">
-                      <User className="h-4 w-4 text-sky-600" />
-                      <span>{currentSelectedUser.nom}</span>
+                <div className="rounded-xl border border-emerald-100 bg-emerald-50/40 p-3.5">
+                  <div className="flex items-center justify-between gap-2 border-b border-emerald-100 pb-2.5">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-[10px] font-bold text-emerald-700 ring-1 ring-emerald-200">
+                        {getInitials(currentSelectedUser.nom)}
+                      </div>
+                      <span className="truncate text-xs font-semibold text-slate-900">
+                        {currentSelectedUser.nom}
+                      </span>
                     </div>
-                    <span className="text-[10px] font-semibold text-sky-700 bg-sky-100/80 px-2 py-0.5 rounded">
+                    <span className="shrink-0 rounded-md border border-emerald-200 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">
                       {currentSelectedUser.role}
                     </span>
                   </div>
 
-                  <div className="space-y-1.5 pt-1">
-                    <div className="flex justify-between text-[11px] text-slate-600">
-                      <span>Temps de Repos Cumulé :</span>
-                      <span className={`font-bold ${currentSelectedUser.heuresReposAvant >= 11 ? 'text-emerald-700' : 'text-amber-700'}`}>
-                        {currentSelectedUser.heuresReposAvant}h / 11h
+                  <div className="mt-2.5 space-y-2 text-[11px]">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-600">Repos cumulé</span>
+                      <span
+                        className={`font-mono font-bold ${
+                          (currentSelectedUser.heuresReposAvant ?? 0) >=
+                          MIN_REST_HOURS
+                            ? 'text-emerald-700'
+                            : 'text-amber-700'
+                        }`}
+                      >
+                        {currentSelectedUser.heuresReposAvant ?? 0} h /{' '}
+                        {MIN_REST_HOURS} h
                       </span>
                     </div>
 
                     {currentSelectedUser.niveauMetier && (
-                      <div className="flex justify-between text-[11px] text-slate-600">
-                        <span>Qualifications :</span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-600">Qualification</span>
                         <span className="font-semibold text-slate-800">
-                          {currentSelectedUser.niveauMetier} | Tech: {currentSelectedUser.niveauTechnique ?? 'N/A'}
+                          Niv. {currentSelectedUser.niveauMetier}
+                          {currentSelectedUser.niveauTechnique
+                            ? ` · Tech ${currentSelectedUser.niveauTechnique}`
+                            : ''}
                         </span>
                       </div>
                     )}
                   </div>
                 </div>
               )}
+
+              {/* Feedback */}
+              {feedback && (
+                <AlertBanner type={feedback.type} text={feedback.msg} />
+              )}
             </div>
 
-            {/* Notifications de Feedback */}
-            {feedback && (
-              <div
-                className={`mt-4 flex items-start gap-2.5 rounded-xl p-3.5 text-xs font-medium border shadow-sm ${
-                  feedback.type === 'success'
-                    ? 'bg-emerald-50 text-emerald-900 border-emerald-200'
-                    : 'bg-rose-50 text-rose-900 border-rose-200'
-                }`}
+            {/* Footer form */}
+            <footer className="border-t border-slate-100 p-4 sm:p-5">
+              <button
+                type="submit"
+                disabled={
+                  !selectedMemberId ||
+                  !selectedFlightId ||
+                  submitting ||
+                  Boolean(currentSelectedUser?.volAssigne)
+                }
+                className={`flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING}`}
               >
-                {feedback.type === 'success' ? (
-                  <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                {submitting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  <XCircle className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
+                  <ShieldCheck className="h-4 w-4" />
                 )}
-                <span className="leading-tight">{feedback.msg}</span>
-              </div>
-            )}
-          </div>
+                {submitting ? 'Traitement en cours...' : "Valider l'affectation"}
+              </button>
 
-          <button
-            type="submit"
-            disabled={!selectedMemberId || !selectedFlightId || submitting || Boolean(currentSelectedUser?.volAssigne)}
-            className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 py-3 px-4 text-xs sm:text-sm font-bold text-white transition-all duration-200 hover:bg-emerald-800 focus:ring-4 focus:ring-emerald-200 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm active:scale-[0.99]"
-          >
-            {submitting ? (
-              <Loader2 className="h-4 w-4 animate-spin text-emerald-200" />
-            ) : (
-              <ShieldCheck className="h-4 w-4 text-emerald-300" />
-            )}
-            {submitting ? 'Traitement en cours...' : "Valider l'affectation"}
-          </button>
-        </form>
+              <p className="mt-2.5 text-center text-[10px] leading-4 text-slate-400">
+                Les contrôles de repos ({MIN_REST_HOURS} h minimum) et de
+                chevauchement sont appliqués côté serveur.
+              </p>
+            </footer>
+          </form>
+        </div>
       </div>
     </div>
   );
 };
+
+export default CrewAssignment;

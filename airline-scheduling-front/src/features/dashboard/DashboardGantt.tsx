@@ -1,7 +1,23 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Activity, AlertCircle, AlertTriangle, BarChart3, CheckCircle2, Clock,
-  CloudLightning, CloudRain, Cpu, Gauge, Plane, Plus, RefreshCw, Sun, X,
+  Activity,
+  AlertCircle,
+  AlertTriangle,
+  ArrowUpRight,
+  BarChart3,
+  CheckCircle2,
+  Clock,
+  CloudLightning,
+  CloudRain,
+  Cpu,
+  Gauge,
+  Plane,
+  Plus,
+  RefreshCw,
+  Sun,
+  TrendingUp,
+  X,
+  XCircle,
 } from 'lucide-react';
 import { FlightAddModal } from './FlightAddModal';
 import { FlightDetailsModal } from './FlightDetailsModal';
@@ -41,6 +57,18 @@ export interface FlightFormData {
   aeroportEscale?: string | string[];
   dureeEscale?: number;
 }
+
+/* ========================================================================== */
+/* DESIGN TOKENS                                                              */
+/* ========================================================================== */
+
+const SURFACE = 'rounded-2xl border border-slate-200 bg-white shadow-sm';
+const FOCUS_RING =
+  'outline-none transition focus:border-emerald-600 focus:ring-4 focus:ring-emerald-600/10';
+
+/* ========================================================================== */
+/* HELPERS                                                                    */
+/* ========================================================================== */
 
 const clampPercentage = (value: number) =>
   Math.min(100, Math.max(0, Number.isFinite(value) ? value : 0));
@@ -92,6 +120,10 @@ const buildFallbackAnalytics = (flights: Flight[]): Analytics => {
     distributions: {},
   };
 };
+
+/* ========================================================================== */
+/* STATUS & WEATHER CONFIG                                                    */
+/* ========================================================================== */
 
 const STATUS_STYLES: Record<FlightStatus, StatusStyle> = {
   Scheduled: {
@@ -162,6 +194,10 @@ const WEATHER_CONFIG = {
   },
 };
 
+/* ========================================================================== */
+/* COMPOSANT PRINCIPAL                                                        */
+/* ========================================================================== */
+
 export const DashboardGantt: React.FC = () => {
   const [flights, setFlights] = useState<Flight[]>([]);
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
@@ -174,6 +210,7 @@ export const DashboardGantt: React.FC = () => {
   const [isCreating, setIsCreating] = useState(false);
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [globalSuccess, setGlobalSuccess] = useState<string | null>(null);
+
   const formatDateTime = useCallback((dateString?: string | null) => {
     if (!dateString) return '--/-- --:--';
     if (/^\d{2}:\d{2}$/.test(dateString)) return dateString;
@@ -186,6 +223,7 @@ export const DashboardGantt: React.FC = () => {
       minute: '2-digit',
     }).format(parsedDate);
   }, []);
+
   const formatLocalIso = useCallback(
     (dateString?: string | null) => {
       if (!dateString) return '--/-- --:--';
@@ -198,6 +236,7 @@ export const DashboardGantt: React.FC = () => {
     },
     [formatDateTime],
   );
+
   const formatDuration = useCallback((minutes?: number | null) => {
     if (minutes == null || !Number.isFinite(minutes)) return '--';
     const total = Math.max(0, Math.round(minutes));
@@ -207,6 +246,7 @@ export const DashboardGantt: React.FC = () => {
     if (rest === 0) return `${hours} h`;
     return `${hours} h ${rest.toString().padStart(2, '0')}`;
   }, []);
+
   const displayRoute = useCallback((flight: Flight) => {
     if (flight.route?.trim()) return flight.route;
     const stopovers = Array.isArray(flight.stopover)
@@ -221,12 +261,15 @@ export const DashboardGantt: React.FC = () => {
       .filter(Boolean)
       .join(' → ');
   }, []);
+
   const loadData = useCallback(async (signal?: AbortSignal) => {
     setIsFetching(true);
     setIsLoadingFleet(true);
     setGlobalError(null);
     try {
-      const flightsResponse = await fetch(`${API_BASE_URL}/flights`, { signal });
+      const flightsResponse = await fetch(`${API_BASE_URL}/flights`, {
+        signal,
+      });
       if (!flightsResponse.ok) {
         throw new Error(
           await getErrorMessage(
@@ -240,14 +283,13 @@ export const DashboardGantt: React.FC = () => {
         ? flightsPayload
         : [];
       setFlights(flightsList);
+
       const [analyticsResult, fleetResult] = await Promise.allSettled([
         fetch(`${API_BASE_URL}/flights/analytics`, { signal }),
         fetch(`${API_BASE_URL}/fleet/aircrafts`, { signal }),
       ]);
-      if (
-        analyticsResult.status === 'fulfilled' &&
-        analyticsResult.value.ok
-      ) {
+
+      if (analyticsResult.status === 'fulfilled' && analyticsResult.value.ok) {
         const payload = await analyticsResult.value.json();
         setAnalytics({
           ...payload,
@@ -261,6 +303,7 @@ export const DashboardGantt: React.FC = () => {
       } else {
         setAnalytics(buildFallbackAnalytics(flightsList));
       }
+
       if (fleetResult.status === 'fulfilled' && fleetResult.value.ok) {
         const payload = await fleetResult.value.json();
         setFleetAircrafts(Array.isArray(payload) ? payload : []);
@@ -279,11 +322,13 @@ export const DashboardGantt: React.FC = () => {
       setIsLoadingFleet(false);
     }
   }, []);
+
   useEffect(() => {
     const controller = new AbortController();
     void loadData(controller.signal);
     return () => controller.abort();
   }, [loadData]);
+
   const triggerOptimization = useCallback(async () => {
     if (isOptimizing) return;
     setIsOptimizing(true);
@@ -326,6 +371,7 @@ export const DashboardGantt: React.FC = () => {
       setIsOptimizing(false);
     }
   }, [isOptimizing, loadData]);
+
   const handleCreateFlightSubmit = useCallback(
     async (formData: FlightFormData) => {
       if (isCreating) return;
@@ -346,6 +392,7 @@ export const DashboardGantt: React.FC = () => {
             "L'heure d'arrivée doit être postérieure à l'heure de départ.",
           );
         }
+
         const response = await fetch(`${API_BASE_URL}/flights`, {
           method: 'POST',
           headers: {
@@ -362,6 +409,7 @@ export const DashboardGantt: React.FC = () => {
             avionId: formData.avionId || undefined,
           }),
         });
+
         if (!response.ok) {
           throw new Error(
             await getErrorMessage(
@@ -372,6 +420,7 @@ export const DashboardGantt: React.FC = () => {
             ),
           );
         }
+
         setIsAddModalOpen(false);
         setGlobalSuccess('Le vol a été créé avec succès.');
         await loadData();
@@ -387,6 +436,7 @@ export const DashboardGantt: React.FC = () => {
     },
     [isCreating, loadData],
   );
+
   const getWeatherIndicator = useCallback(
     (severity: number): WeatherIndicator => {
       const value = normalizeSeverity(severity);
@@ -397,107 +447,167 @@ export const DashboardGantt: React.FC = () => {
     },
     [],
   );
+
   const effectiveAnalytics = useMemo(
     () => analytics ?? buildFallbackAnalytics(flights),
     [analytics, flights],
   );
 
+  /* -------------------------------------------------------------------------- */
+  /* OTP qualifier                                                              */
+  /* -------------------------------------------------------------------------- */
+  const otpRate = clampPercentage(effectiveAnalytics.metrics.otpRate);
+  const otpTier =
+    otpRate >= 85
+      ? {
+          label: 'Excellent',
+          tone: 'text-emerald-700',
+          bg: 'bg-emerald-500',
+          chip: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+        }
+      : otpRate >= 70
+        ? {
+            label: 'Correct',
+            tone: 'text-sky-700',
+            bg: 'bg-sky-500',
+            chip: 'border-sky-200 bg-sky-50 text-sky-700',
+          }
+        : otpRate >= 50
+          ? {
+              label: 'À surveiller',
+              tone: 'text-amber-700',
+              bg: 'bg-amber-500',
+              chip: 'border-amber-200 bg-amber-50 text-amber-700',
+            }
+          : {
+              label: 'Critique',
+              tone: 'text-rose-700',
+              bg: 'bg-rose-500',
+              chip: 'border-rose-200 bg-rose-50 text-rose-700',
+            };
+
+  /* -------------------------------------------------------------------------- */
+  /* KPI cards                                                                  */
+  /* -------------------------------------------------------------------------- */
   const kpiCards = useMemo(
     () => [
       {
+        key: 'total',
         label: 'Total vols',
         value: effectiveAnalytics.metrics.totalFlights,
         icon: <Plane className="h-4 w-4" />,
-        tone: 'bg-emerald-700 text-white',
+        variant: 'primary' as const,
         sub: 'Planning actuel',
       },
       {
-        label: 'OTP',
-        value: `${clampPercentage(effectiveAnalytics.metrics.otpRate)}%`,
+        key: 'otp',
+        label: 'Ponctualité',
+        value: `${otpRate}%`,
         icon: <Gauge className="h-4 w-4" />,
-        tone: 'bg-emerald-50 text-emerald-700',
-        sub: 'Ponctualité globale',
+        variant:
+          otpRate >= 85 ? ('success' as const) : otpRate >= 60 ? ('info' as const) : ('warning' as const),
+        sub: otpTier.label,
       },
       {
+        key: 'delayed',
         label: 'Retardés',
         value: effectiveAnalytics.metrics.delayedCount,
         icon: <Clock className="h-4 w-4" />,
-        tone: 'bg-slate-100 text-slate-600',
+        variant:
+          effectiveAnalytics.metrics.delayedCount > 0
+            ? ('warning' as const)
+            : ('neutral' as const),
         sub: 'À surveiller',
       },
       {
+        key: 'inflight',
         label: 'En vol',
         value: effectiveAnalytics.metrics.inFlightCount,
         icon: <Activity className="h-4 w-4" />,
-        tone: 'bg-slate-100 text-slate-600',
+        variant: 'info' as const,
         sub: 'Opérations actives',
       },
       {
+        key: 'cancelled',
         label: 'Annulés',
         value: effectiveAnalytics.metrics.cancelledCount,
         icon: <AlertCircle className="h-4 w-4" />,
-        tone: 'bg-slate-100 text-slate-600',
+        variant:
+          effectiveAnalytics.metrics.cancelledCount > 0
+            ? ('danger' as const)
+            : ('neutral' as const),
         sub: 'Action requise',
       },
     ],
-    [effectiveAnalytics],
+    [effectiveAnalytics, otpRate, otpTier.label],
   );
+
   return (
-    <div className="min-h-screen bg-slate-50 p-3 text-slate-800 antialiased sm:p-4">
-      <div className="mx-auto max-w-[1480px] space-y-3">
-        <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
-          <div className="flex flex-col gap-3 px-4 py-3.5 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-700 text-white">
-                <Plane className="h-4 w-4 rotate-45" />
-                <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-400" />
+    <div className="min-h-screen bg-slate-50 p-3 text-slate-800 antialiased sm:p-4 lg:p-5">
+      <div className="mx-auto max-w-[1480px] space-y-4">
+        {/* ═══════════════ HEADER ═══════════════ */}
+        <header className={`${SURFACE} p-4 sm:p-5`}>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            {/* Identité */}
+            <div className="flex min-w-0 items-center gap-3.5">
+              <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm shadow-emerald-600/20">
+                <Plane className="h-5 w-5 rotate-45" />
+                <span className="absolute -bottom-0.5 -right-0.5 flex h-3 w-3 items-center justify-center rounded-full border-2 border-white bg-emerald-400">
+                  <span className="h-1 w-1 animate-ping rounded-full bg-white" />
+                </span>
               </div>
               <div className="min-w-0">
-                <h1 className="truncate text-base font-bold tracking-tight text-slate-900">
-                  Airline Operations Control
-                </h1>
-                <p className="mt-0.5 truncate text-[11px] text-slate-500">
+                <div className="flex items-center gap-2">
+                  <h1 className="truncate text-lg font-bold tracking-tight text-slate-900 sm:text-xl">
+                    Airline Operations Control
+                  </h1>
+                </div>
+                <p className="mt-0.5 truncate text-xs text-slate-500">
                   Supervision des vols, rotations et ressources opérationnelles
                 </p>
               </div>
             </div>
+
+            {/* Actions */}
             <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
               <button
                 type="button"
                 onClick={() => void loadData()}
                 disabled={isFetching}
-                className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
+                className={`inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:opacity-50 ${FOCUS_RING}`}
               >
                 <RefreshCw
                   className={`h-3.5 w-3.5 ${isFetching ? 'animate-spin' : ''}`}
                 />
                 Actualiser
               </button>
+
               <button
                 type="button"
                 onClick={triggerOptimization}
                 disabled={isOptimizing || isFetching}
-                className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-[11px] font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:opacity-50"
+                className={`inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 text-xs font-semibold text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100 disabled:opacity-50 ${FOCUS_RING}`}
               >
                 <Cpu
-                  className={`h-3.5 w-3.5 ${
-                    isOptimizing ? 'animate-spin' : ''
-                  }`}
+                  className={`h-3.5 w-3.5 ${isOptimizing ? 'animate-spin' : ''}`}
                 />
                 {isOptimizing ? 'Analyse...' : 'Optimiser'}
               </button>
+
               <button
                 type="button"
                 onClick={() => setIsAddModalOpen(true)}
                 disabled={isCreating}
-                className="col-span-2 inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-emerald-700 px-3.5 text-[11px] font-semibold text-white transition hover:bg-emerald-800 disabled:opacity-50 sm:col-span-1"
+                className={`col-span-2 inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-50 sm:col-span-1 ${FOCUS_RING}`}
               >
-                <Plus className="h-3.5 w-3.5" />
+                <Plus className="h-4 w-4" />
                 Nouveau vol
               </button>
             </div>
           </div>
-        </section>
+        </header>
+
+        {/* ═══════════════ ALERTES GLOBALES ═══════════════ */}
         {globalError && (
           <AlertMessage
             type="error"
@@ -514,64 +624,95 @@ export const DashboardGantt: React.FC = () => {
             onClose={() => setGlobalSuccess(null)}
           />
         )}
-        <section className="grid grid-cols-2 gap-2.5 md:grid-cols-3 xl:grid-cols-5">
-          {kpiCards.map((item, index) => (
-            <article
-              key={item.label}
-              className="relative rounded-xl border border-slate-200 bg-white px-3.5 py-3 shadow-sm transition hover:border-slate-300"
-            >
-              {index === 0 && (
-                <div className="absolute inset-x-0 top-0 h-0.5 rounded-t-xl bg-emerald-700" />
-              )}
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <span className="block truncate text-[9px] font-bold uppercase tracking-[0.1em] text-slate-400">
-                    {item.label}
-                  </span>
-                  <strong className="mt-1.5 block text-xl font-bold leading-none text-slate-900 sm:text-2xl">
-                    {item.value}
-                  </strong>
-                </div>
-                <div
-                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${item.tone}`}
-                >
-                  {item.icon}
-                </div>
-              </div>
-              <p className="mt-2 text-[9px] text-slate-400">{item.sub}</p>
-            </article>
+
+        {/* ═══════════════ KPI ═══════════════ */}
+        <section className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+          {kpiCards.map(card => (
+            <KpiCard
+              key={card.key}
+              label={card.label}
+              value={card.value}
+              sub={card.sub}
+              icon={card.icon}
+              variant={card.variant}
+            />
           ))}
         </section>
-        <section className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex min-w-0 items-center gap-2.5">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
-                <BarChart3 className="h-4 w-4" />
+
+        {/* ═══════════════ OTP ═══════════════ */}
+        <section className={`${SURFACE} p-4 sm:p-5`}>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            {/* Bloc identité OTP */}
+            <div className="flex items-center gap-3.5">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+                <BarChart3 className="h-5 w-5" />
               </div>
-              <div className="min-w-0">
-                <h2 className="truncate text-[11px] font-bold text-slate-800">
-                  Ponctualité opérationnelle
-                </h2>
-                <p className="mt-0.5 truncate text-[9px] text-slate-400">
-                  On-Time Performance du planning
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-sm font-semibold text-slate-900">
+                    Ponctualité opérationnelle
+                  </h2>
+                </div>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  On-Time Performance du planning en cours
                 </p>
               </div>
             </div>
-            <span className="shrink-0 font-mono text-lg font-bold text-slate-900">
-              {clampPercentage(effectiveAnalytics.metrics.otpRate)}%
-            </span>
-          </div>
-          <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100">
-            <div
-              className="h-full rounded-full bg-emerald-700 transition-all duration-500"
-              style={{
-                width: `${clampPercentage(
-                  effectiveAnalytics.metrics.otpRate,
-                )}%`,
-              }}
-            />
+
+            {/* Métriques + jauge */}
+            <div className="flex flex-wrap items-center gap-4 sm:gap-6">
+              {/* Métriques secondaires */}
+              <div className="flex items-center gap-4">
+                <div className="text-right">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                    À l'heure
+                  </p>
+                  <p className="mt-0.5 font-mono text-sm font-bold text-emerald-700">
+                    {effectiveAnalytics.metrics.onTimeCount}
+                  </p>
+                </div>
+                <div className="h-8 w-px bg-slate-200" />
+                <div className="text-right">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                    Effectués
+                  </p>
+                  <p className="mt-0.5 font-mono text-sm font-bold text-slate-700">
+                    {effectiveAnalytics.metrics.effectueCount}
+                  </p>
+                </div>
+              </div>
+
+              {/* Jauge OTP */}
+              <div className="flex min-w-[220px] flex-1 items-center gap-3 lg:flex-initial lg:min-w-[280px]">
+                <div className="relative flex-1">
+                  <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
+                    <div
+                      className={`h-full rounded-full transition-all duration-700 ${otpTier.bg}`}
+                      style={{ width: `${otpRate}%` }}
+                    />
+                  </div>
+                  <div className="mt-1.5 flex items-center justify-between text-[10px] text-slate-400">
+                    <span>0%</span>
+                    <span>50%</span>
+                    <span>100%</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <TrendingUp
+                    className={`h-4 w-4 ${otpTier.tone}`}
+                    strokeWidth={2.5}
+                  />
+                  <span className={`font-mono text-lg font-bold ${otpTier.tone}`}>
+                    {otpRate}%
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
+
+        {/* ═══════════════ PLANNING ═══════════════ */}
         <FlightPlanning
           flights={flights}
           fleetAircrafts={fleetAircrafts}
@@ -584,6 +725,8 @@ export const DashboardGantt: React.FC = () => {
           onSelectFlight={setSelectedFlight}
         />
       </div>
+
+      {/* ═══════════════ MODALES ═══════════════ */}
       <FlightAddModal
         isOpen={isAddModalOpen}
         onClose={() => {
@@ -593,6 +736,7 @@ export const DashboardGantt: React.FC = () => {
         fleetAircrafts={fleetAircrafts}
         isLoadingFleet={isLoadingFleet || isCreating}
       />
+
       <FlightDetailsModal
         selectedFlight={selectedFlight}
         onClose={() => setSelectedFlight(null)}
@@ -606,6 +750,108 @@ export const DashboardGantt: React.FC = () => {
     </div>
   );
 };
+
+/* ========================================================================== */
+/* COMPOSANTS ANNEXES                                                         */
+/* ========================================================================== */
+
+/* -------------------- KPI Card -------------------- */
+
+type KpiVariant =
+  | 'primary'
+  | 'success'
+  | 'info'
+  | 'warning'
+  | 'danger'
+  | 'neutral';
+
+const KpiCard: React.FC<{
+  label: string;
+  value: number | string;
+  sub: string;
+  icon: React.ReactNode;
+  variant?: KpiVariant;
+}> = ({ label, value, sub, icon, variant = 'neutral' }) => {
+  const styles: Record<
+    KpiVariant,
+    { ring: string; icon: string; value: string; accent: string | null }
+  > = {
+    primary: {
+      ring: 'border-emerald-200 bg-emerald-50/40',
+      icon: 'bg-emerald-600 text-white shadow-sm shadow-emerald-600/20',
+      value: 'text-emerald-900',
+      accent: 'bg-emerald-600',
+    },
+    success: {
+      ring: 'border-emerald-200 bg-white',
+      icon: 'bg-emerald-100 text-emerald-700',
+      value: 'text-emerald-800',
+      accent: null,
+    },
+    info: {
+      ring: 'border-sky-200 bg-white',
+      icon: 'bg-sky-100 text-sky-700',
+      value: 'text-sky-800',
+      accent: null,
+    },
+    warning: {
+      ring: 'border-amber-200 bg-amber-50/40',
+      icon: 'bg-amber-100 text-amber-700',
+      value: 'text-amber-800',
+      accent: 'bg-amber-500',
+    },
+    danger: {
+      ring: 'border-rose-200 bg-rose-50/40',
+      icon: 'bg-rose-100 text-rose-700',
+      value: 'text-rose-800',
+      accent: 'bg-rose-500',
+    },
+    neutral: {
+      ring: 'border-slate-200 bg-white',
+      icon: 'bg-slate-100 text-slate-600',
+      value: 'text-slate-900',
+      accent: null,
+    },
+  };
+
+  const s = styles[variant];
+
+  return (
+    <article
+      className={`relative overflow-hidden rounded-2xl border px-4 py-3.5 shadow-sm transition hover:shadow-md ${s.ring}`}
+    >
+      {s.accent && (
+        <span
+          className={`absolute inset-x-0 top-0 h-0.5 ${s.accent}`}
+          aria-hidden
+        />
+      )}
+
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <span className="block truncate text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+            {label}
+          </span>
+          <strong
+            className={`mt-2 block text-2xl font-bold leading-none tabular-nums sm:text-3xl ${s.value}`}
+          >
+            {value}
+          </strong>
+        </div>
+        <div
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${s.icon}`}
+        >
+          {icon}
+        </div>
+      </div>
+
+      <p className="mt-2.5 text-[10px] font-medium text-slate-400">{sub}</p>
+    </article>
+  );
+};
+
+/* -------------------- Alert Message -------------------- */
+
 const AlertMessage: React.FC<{
   type: 'error' | 'success';
   title: string;
@@ -613,43 +859,56 @@ const AlertMessage: React.FC<{
   onClose: () => void;
 }> = ({ type, title, message, onClose }) => {
   const success = type === 'success';
+
   return (
     <div
-      className={`flex items-start gap-2.5 rounded-lg border px-3.5 py-3 ${
+      className={`flex items-start gap-3 rounded-2xl border px-4 py-3.5 shadow-sm ${
         success
-          ? 'border-emerald-200 bg-emerald-50'
-          : 'border-rose-200 bg-rose-50'
+          ? 'border-emerald-200 bg-emerald-50/60'
+          : 'border-rose-200 bg-rose-50/60'
       }`}
+      role="alert"
     >
-      {success ? (
-        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-      ) : (
-        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" />
-      )}
+      <div
+        className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
+          success
+            ? 'bg-emerald-100 text-emerald-700'
+            : 'bg-rose-100 text-rose-600'
+        }`}
+      >
+        {success ? (
+          <CheckCircle2 className="h-4 w-4" />
+        ) : (
+          <XCircle className="h-4 w-4" />
+        )}
+      </div>
+
       <div className="min-w-0 flex-1">
         <p
-          className={`text-[11px] font-bold ${
+          className={`text-xs font-semibold ${
             success ? 'text-emerald-800' : 'text-rose-800'
           }`}
         >
           {title}
         </p>
         <p
-          className={`mt-0.5 text-[11px] leading-4 ${
+          className={`mt-0.5 text-xs leading-5 ${
             success ? 'text-emerald-700' : 'text-rose-700'
           }`}
         >
           {message}
         </p>
       </div>
+
       <button
         type="button"
         onClick={onClose}
-        className={`flex h-6 w-6 items-center justify-center rounded-md ${
+        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition ${
           success
             ? 'text-emerald-600 hover:bg-emerald-100'
             : 'text-rose-500 hover:bg-rose-100'
         }`}
+        aria-label="Fermer"
       >
         <X className="h-3.5 w-3.5" />
       </button>

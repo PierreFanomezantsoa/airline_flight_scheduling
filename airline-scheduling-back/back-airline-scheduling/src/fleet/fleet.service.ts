@@ -164,16 +164,29 @@ export class FleetService {
     id: string,
     heuresVolees: number,
   ): Promise<Aircraft> {
-    const aircraft = await manager.findOne(Aircraft, {
-      where: { id },
-      relations: ['type'],
-      lock: { mode: 'pessimistic_write' },
-    });
+    // ⚠️ CORRECTION : le verrou pessimiste NE DOIT PAS être combiné à une
+    // jointure externe (LEFT JOIN). PostgreSQL refuse `FOR UPDATE` sur le
+    // côté nullable d'un LEFT JOIN (erreur 0A000).
+    //
+    // On verrouille donc uniquement la table `aircrafts` via QueryBuilder,
+    // puis on charge la relation `type` séparément (elle n'a pas besoin
+    // d'être verrouillée car on ne la modifie pas).
+    const aircraft = await manager
+      .createQueryBuilder(Aircraft, 'aircraft')
+      .setLock('pessimistic_write')
+      .where('aircraft.id = :id', { id })
+      .getOne();
 
     if (!aircraft) {
       throw new NotFoundException(`Avion "${id}" introuvable.`);
     }
 
+    // Chargement de la relation hors verrou (lecture seule)
+    aircraft.type = aircraft.typeId
+      ? await manager.findOne(AircraftType, { where: { id: aircraft.typeId } })
+      : null;
+
+    // Mise à jour des compteurs
     aircraft.heuresDeVolTotales =
       Number(aircraft.heuresDeVolTotales || 0) + heuresVolees;
 

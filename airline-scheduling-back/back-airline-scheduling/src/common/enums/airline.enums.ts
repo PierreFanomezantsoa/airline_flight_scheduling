@@ -22,11 +22,11 @@ export enum MaintenanceType {
 
 export enum MaintenanceStatus {
   PLANNED = 'Planned',
-  IN_PROGRESS = 'In Progress',
+  IN_PROGRESS = 'In_Progress',   // ⬅️ underscore (CHANGEMENT)
+  PENDING_REVIEW = 'Pending_Review',
   COMPLETED = 'Completed',
   CANCELLED = 'Cancelled',
 }
-
 export enum CrewRole {
   CAPTAIN = 'Captain',
   FIRST_OFFICER = 'First Officer',

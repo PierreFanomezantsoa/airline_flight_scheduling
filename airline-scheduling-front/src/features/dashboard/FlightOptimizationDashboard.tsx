@@ -539,7 +539,7 @@ export const FlightOptimizationDashboard: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <div className="mx-auto max-w-[1500px] space-y-4 p-3 text-slate-800 sm:p-5">
+      <div className="mx-auto max-w-375 space-y-4 p-3 text-slate-800 sm:p-5">
         {/* HEADER */}
         <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div className="flex flex-col gap-4 p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
@@ -708,7 +708,7 @@ export const FlightOptimizationDashboard: React.FC = () => {
               ))}
             </div>
           ) : conflictCount === 0 ? (
-            <div className="flex min-h-[180px] items-center justify-center px-4 py-8 text-center">
+            <div className="flex min-h-45 items-center justify-center px-4 py-8 text-center">
               <div>
                 <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50">
                   <CheckCircle2 className="h-6 w-6 text-emerald-600" />
@@ -1052,7 +1052,7 @@ export const FlightOptimizationDashboard: React.FC = () => {
           </header>
 
           {loading ? (
-            <div className="flex min-h-[200px] items-center justify-center">
+            <div className="flex min-h-50 items-center justify-center">
               <div className="text-center">
                 <RefreshCw className="mx-auto h-7 w-7 animate-spin text-emerald-600" />
                 <p className="mt-2 text-sm font-medium text-slate-500">
@@ -1061,7 +1061,7 @@ export const FlightOptimizationDashboard: React.FC = () => {
               </div>
             </div>
           ) : filteredFlights.length === 0 ? (
-            <div className="flex min-h-[200px] items-center justify-center px-4 text-center">
+            <div className="flex min-h-50 items-center justify-center px-4 text-center">
               <div>
                 <Plane className="mx-auto h-8 w-8 text-slate-300" />
                 <p className="mt-2 text-sm font-semibold text-slate-700">
@@ -1510,7 +1510,7 @@ export const FlightOptimizationDashboard: React.FC = () => {
             }
           }}
         >
-          <div className="w-full rounded-t-3xl border border-slate-200 bg-white shadow-2xl sm:max-w-[430px] sm:rounded-2xl">
+          <div className="w-full rounded-t-3xl border border-slate-200 bg-white shadow-2xl sm:max-w-107.5 sm:rounded-2xl">
             <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-slate-200 sm:hidden" />
 
             <div className="flex items-center justify-between border-b border-slate-100 px-4 py-4">

@@ -12,6 +12,7 @@ import {
 
 import { CreateMaintenanceSlotDto } from './dto/create-maintenance-slot.dto';
 import { UpdateMaintenanceSlotDto } from './dto/update-maintenance-slot.dto';
+import { ExtendMaintenanceSlotDto } from './dto/extend-maintenance-slot.dto';
 import { MaintenanceService } from './maintenance.service';
 
 @Controller('maintenance')
@@ -30,6 +31,11 @@ export class MaintenanceController {
    * installer @nestjs/schedule.
    *
    * PATCH /maintenance/sync-expired
+   *
+   * ⚠️ Depuis l'ajout de la fenêtre PENDING_REVIEW :
+   * cet endpoint effectue DEUX opérations :
+   *   1. IN_PROGRESS/PLANNED → PENDING_REVIEW (fin dépassée)
+   *   2. PENDING_REVIEW → COMPLETED (autoCloseAt dépassé)
    */
   @Patch('sync-expired')
   syncExpiredMaintenances() {
@@ -40,20 +46,15 @@ export class MaintenanceController {
    * Vérifie la disponibilité d'un appareil avant de créer
    * un créneau de maintenance.
    *
-   * IMPORTANT : cette route doit rester AVANT @Get(':id'),
+   * ⚠️ Cette route doit rester AVANT @Get(':id'),
    * sinon "check-availability" est interprété comme un UUID
    * et ParseUUIDPipe renvoie 400 Bad Request.
    */
   @Get('check-availability')
   checkAvailability(
-    @Query('aircraftId')
-    aircraftId: string,
-
-    @Query('startTime')
-    startTime: string,
-
-    @Query('endTime')
-    endTime: string,
+    @Query('aircraftId') aircraftId: string,
+    @Query('startTime') startTime: string,
+    @Query('endTime') endTime: string,
   ) {
     return this.maintenanceService.checkAvailability(
       aircraftId,
@@ -63,40 +64,54 @@ export class MaintenanceController {
   }
 
   @Get(':id')
-  findOne(
-    @Param('id', ParseUUIDPipe)
-    id: string,
-  ) {
+  findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.maintenanceService.findOne(id);
   }
 
   @Post()
-  create(
-    @Body()
-    dto: CreateMaintenanceSlotDto,
-  ) {
+  create(@Body() dto: CreateMaintenanceSlotDto) {
     return this.maintenanceService.create(dto);
+  }
+
+  /**
+   * ⭐ PROLONGER une maintenance en cours.
+   *
+   * PATCH /maintenance/:id/extend
+   * Body : { additionalDays: number }
+   *
+   * Utilisable quand le créneau est IN_PROGRESS ou PENDING_REVIEW.
+   */
+  @Patch(':id/extend')
+  extend(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ExtendMaintenanceSlotDto,
+  ) {
+    return this.maintenanceService.extendSlot(id, dto.additionalDays);
+  }
+
+  /**
+   * ⭐ CLÔTURER une maintenance.
+   *
+   * PATCH /maintenance/:id/close
+   *
+   * Utilisable quand le créneau est IN_PROGRESS ou PENDING_REVIEW.
+   * Idempotent si déjà COMPLETED.
+   */
+  @Patch(':id/close')
+  close(@Param('id', ParseUUIDPipe) id: string) {
+    return this.maintenanceService.closeSlot(id);
   }
 
   @Patch(':id')
   update(
-    @Param('id', ParseUUIDPipe)
-    id: string,
-
-    @Body()
-    dto: UpdateMaintenanceSlotDto,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateMaintenanceSlotDto,
   ) {
-    return this.maintenanceService.update(
-      id,
-      dto,
-    );
+    return this.maintenanceService.update(id, dto);
   }
 
   @Delete(':id')
-  remove(
-    @Param('id', ParseUUIDPipe)
-    id: string,
-  ) {
+  remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.maintenanceService.remove(id);
   }
 }
