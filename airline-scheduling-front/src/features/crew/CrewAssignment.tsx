@@ -8,12 +8,8 @@ import {
   Loader2,
   Plane,
   ShieldCheck,
-  TrendingUp,
-  User,
   UserCheck,
   Users,
-  X,
-  XCircle,
 } from 'lucide-react';
 import { useCrewAssignments } from './useCrewAssignments';
 

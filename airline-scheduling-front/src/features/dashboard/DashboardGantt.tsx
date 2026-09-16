@@ -3,7 +3,6 @@ import {
   Activity,
   AlertCircle,
   AlertTriangle,
-  ArrowUpRight,
   BarChart3,
   CheckCircle2,
   Clock,

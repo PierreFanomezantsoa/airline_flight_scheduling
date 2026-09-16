@@ -18,7 +18,6 @@ import {
   Search,
   ShieldCheck,
   Sparkles,
-  TrendingUp,
   WandSparkles,
   X,
 } from 'lucide-react';

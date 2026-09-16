@@ -81,8 +81,6 @@ interface FlightSchedulerGanttProps {
  * ========================================================================== */
 
 const SURFACE = 'rounded-2xl border border-slate-200 bg-white shadow-sm';
-const FOCUS_RING =
-  'outline-none transition focus:ring-4 focus:ring-emerald-500/10';
 
 /* ============================================================================
  * STATUS

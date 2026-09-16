@@ -6,12 +6,9 @@ import {
   Calendar,
   CheckCircle2,
   Clock,
-  CloudLightning,
-  CloudRain,
   MapPin,
   Plane,
   Sparkles,
-  Sun,
   Timer,
   X,
 } from 'lucide-react';

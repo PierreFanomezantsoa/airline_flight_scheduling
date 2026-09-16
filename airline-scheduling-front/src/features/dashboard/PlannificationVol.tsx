@@ -4,7 +4,6 @@ import {
   ArrowRight,
   CheckCircle2,
   ChevronRight,
-  Filter,
   Plane,
   RefreshCw,
   Search,
@@ -101,8 +100,6 @@ interface FlightPlanningProps {
 const SURFACE = 'rounded-2xl border border-slate-200 bg-white shadow-sm';
 const FOCUS_RING =
   'outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10';
-const LABEL_UPPER =
-  'text-[10px] font-semibold uppercase tracking-wider text-slate-500';
 
 /* ========================================================================== */
 /* PETITS COMPOSANTS                                                         */
