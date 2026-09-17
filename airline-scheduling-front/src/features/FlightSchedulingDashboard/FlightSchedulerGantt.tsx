@@ -42,6 +42,7 @@ export interface GanttItem {
   label?: string | null;
   status?: string | null;
   shiftMinutes?: number;
+  weatherSeverity?: number | null;
 }
 
 export interface GanttPayload {
@@ -80,7 +81,8 @@ interface FlightSchedulerGanttProps {
  * DESIGN TOKENS
  * ========================================================================== */
 
-const SURFACE = 'rounded-2xl border border-slate-200 bg-white shadow-sm';
+const SURFACE =
+  'rounded-2xl border border-slate-200/80 bg-white shadow-[0_1px_3px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)]';
 
 /* ============================================================================
  * STATUS
@@ -220,19 +222,16 @@ const FlightSchedulerGantt: React.FC<FlightSchedulerGanttProps> = ({
       itemsByRow.set(item.rowId, rowItems);
     });
 
-    const rows = schedule.rows
-      .filter(row => itemsByRow.has(row.aircraftId))
-      .map(row => ({
-        ...row,
-        items: itemsByRow.get(row.aircraftId) ?? [],
-      }));
+    // ✅ On garde TOUTES les lignes : un appareil sans vol doit rester visible.
+    const rows = schedule.rows.map(row => ({
+      ...row,
+      items: itemsByRow.get(row.aircraftId) ?? [],
+    }));
 
     const validItems = filteredItems.filter(item => {
       const start = safeDate(item.start);
       const end = safeDate(item.end);
-      return Boolean(
-        start && end && end.getTime() > start.getTime(),
-      );
+      return Boolean(start && end && end.getTime() > start.getTime());
     });
 
     if (validItems.length === 0) {
@@ -245,15 +244,30 @@ const FlightSchedulerGantt: React.FC<FlightSchedulerGanttProps> = ({
       };
     }
 
-    const times = validItems.flatMap(item => [
-      new Date(item.start).getTime(),
-      new Date(item.end).getTime(),
-    ]);
+    // ✅ Sécurisé : pas de spread sur grand tableau
+    let minTs = Number.POSITIVE_INFINITY;
+    let maxTs = Number.NEGATIVE_INFINITY;
+    for (const item of validItems) {
+      const s = new Date(item.start).getTime();
+      const e = new Date(item.end).getTime();
+      if (s < minTs) minTs = s;
+      if (e > maxTs) maxTs = e;
+    }
 
-    const minDate = new Date(Math.min(...times));
+    if (!Number.isFinite(minTs) || !Number.isFinite(maxTs)) {
+      return {
+        rows,
+        minTime: 0,
+        maxTime: 0,
+        totalDuration: 1,
+        hourTicks: [] as number[],
+      };
+    }
+
+    const minDate = new Date(minTs);
     minDate.setUTCHours(0, 0, 0, 0);
 
-    const maxDate = new Date(Math.max(...times));
+    const maxDate = new Date(maxTs);
     maxDate.setUTCHours(23, 59, 59, 999);
 
     const minTime = minDate.getTime();
@@ -268,8 +282,12 @@ const FlightSchedulerGantt: React.FC<FlightSchedulerGanttProps> = ({
     else if (durationDays > 1) stepHours = 6;
 
     const stepMs = stepHours * 3600 * 1000;
+
+    // ✅ Alignement sur heures rondes UTC
+    const firstTick = Math.ceil(minTime / stepMs) * stepMs;
+
     const hourTicks: number[] = [];
-    for (let time = minTime; time <= maxTime; time += stepMs) {
+    for (let time = firstTick; time <= maxTime; time += stepMs) {
       hourTicks.push(time);
     }
 
@@ -279,7 +297,12 @@ const FlightSchedulerGantt: React.FC<FlightSchedulerGanttProps> = ({
   const stats = useMemo(() => {
     let total = 0;
     let shifted = 0;
+    let activeRows = 0;
+
     ganttData.rows.forEach(row => {
+      if (row.aircraftId !== 'UNASSIGNED' && row.items.length > 0) {
+        activeRows += 1;
+      }
       row.items.forEach(item => {
         total += 1;
         const shift =
@@ -289,32 +312,43 @@ const FlightSchedulerGantt: React.FC<FlightSchedulerGanttProps> = ({
         if (shift > 0) shifted += 1;
       });
     });
-    return { total, shifted, rows: ganttData.rows.length };
+
+    return { total, shifted, rows: ganttData.rows.length, activeRows };
   }, [ganttData, assignmentLookup]);
 
+  const nowLineLeft = useMemo(() => {
+    if (!ganttData.minTime || !ganttData.maxTime) return null;
+    const now = Date.now();
+    if (now < ganttData.minTime || now > ganttData.maxTime) return null;
+    return ((now - ganttData.minTime) / ganttData.totalDuration) * 100;
+  }, [ganttData]);
+
   return (
-    <section className={`${SURFACE} p-4 sm:p-5`}>
+    <section className={`${SURFACE} overflow-hidden p-4 sm:p-5`}>
       {/* HEADER */}
       <div className="mb-4 flex flex-col gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-sm shadow-emerald-500/30">
             <BarChart3 className="h-4 w-4" />
           </div>
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-sm font-semibold text-slate-900">
+              <h2 className="text-sm font-bold text-slate-900">
                 Programmation graphique
               </h2>
               {isPreview && (
-                <span className="rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[10px] font-semibold text-sky-700">
+                <span className="inline-flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[10px] font-bold text-sky-700">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-sky-500" />
                   Prévisualisation
                 </span>
               )}
             </div>
             <p className="mt-0.5 text-xs text-slate-500">
-              {stats.total} vol{stats.total > 1 ? 's' : ''} · {stats.rows}{' '}
-              appareil{stats.rows > 1 ? 's' : ''}
-              {stats.shifted > 0 && ` · ${stats.shifted} décalé${stats.shifted > 1 ? 's' : ''}`}
+              {stats.total} vol{stats.total > 1 ? 's' : ''} · {stats.activeRows}{' '}
+              appareil{stats.activeRows > 1 ? 's' : ''} actif
+              {stats.activeRows > 1 ? 's' : ''}
+              {stats.shifted > 0 &&
+                ` · ${stats.shifted} décalé${stats.shifted > 1 ? 's' : ''}`}
             </p>
           </div>
         </div>
@@ -334,7 +368,7 @@ const FlightSchedulerGantt: React.FC<FlightSchedulerGanttProps> = ({
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-slate-300 shadow-sm">
             <Plane className="h-6 w-6" />
           </div>
-          <p className="mt-3 text-sm font-semibold text-slate-700">
+          <p className="mt-3 text-sm font-bold text-slate-700">
             Aucun élément Gantt
           </p>
           <p className="mt-1 text-xs text-slate-500">
@@ -342,28 +376,27 @@ const FlightSchedulerGantt: React.FC<FlightSchedulerGanttProps> = ({
           </p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-slate-200">
+        <div className="overflow-x-auto rounded-2xl border border-slate-200/80 bg-white">
           <div className="min-w-[1450px]">
             {/* TIME HEADER */}
-            <div className="sticky top-0 z-30 flex border-b border-slate-200 bg-white/95 backdrop-blur">
-              <div className="sticky left-0 z-40 flex w-64 shrink-0 items-center border-r border-slate-200 bg-slate-50/70 px-4 py-2.5">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+            <div className="sticky top-0 z-30 flex border-b border-slate-200 bg-gradient-to-b from-slate-50 to-white">
+              <div className="sticky left-0 z-40 flex w-64 shrink-0 items-center border-r border-slate-200 bg-slate-50/90 px-4 py-2.5 backdrop-blur">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
                   Appareil / position
                 </span>
               </div>
 
-              <div className="relative h-11 flex-1 bg-white">
+              <div className="relative h-11 flex-1">
                 {ganttData.hourTicks.map(tick => {
                   const left =
-                    ((tick - ganttData.minTime) / ganttData.totalDuration) *
-                    100;
+                    ((tick - ganttData.minTime) / ganttData.totalDuration) * 100;
                   return (
                     <div
                       key={tick}
                       className="absolute top-0 flex h-full -translate-x-1/2 flex-col items-center justify-center border-l border-slate-100 pl-2"
                       style={{ left: `${left}%` }}
                     >
-                      <span className="rounded-md bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] font-bold text-slate-700">
+                      <span className="rounded-md bg-white/80 px-1.5 py-0.5 font-mono text-[10px] font-bold text-slate-700 shadow-sm ring-1 ring-slate-200/50">
                         {formatUtcTick(tick)}
                       </span>
                       <span className="mt-0.5 font-mono text-[9px] font-medium text-slate-400">
@@ -372,6 +405,16 @@ const FlightSchedulerGantt: React.FC<FlightSchedulerGanttProps> = ({
                     </div>
                   );
                 })}
+
+                {/* NOW LINE header dot */}
+                {nowLineLeft !== null && (
+                  <div
+                    className="absolute top-0 h-full w-px bg-rose-500/70"
+                    style={{ left: `${nowLineLeft}%` }}
+                  >
+                    <span className="absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rounded-full bg-rose-500 ring-2 ring-white" />
+                  </div>
+                )}
               </div>
             </div>
 
@@ -385,10 +428,10 @@ const FlightSchedulerGantt: React.FC<FlightSchedulerGanttProps> = ({
                   {/* AIRCRAFT SIDEBAR */}
                   <div className="sticky left-0 z-20 flex w-64 shrink-0 items-center gap-2.5 border-r border-slate-200 bg-white px-4 py-3 group-hover:bg-slate-50">
                     <div
-                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border ${
+                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border shadow-sm ${
                         row.aircraftId === 'UNASSIGNED'
-                          ? 'border-rose-200 bg-rose-50 text-rose-600'
-                          : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                          ? 'border-rose-200 bg-gradient-to-br from-rose-50 to-white text-rose-600'
+                          : 'border-emerald-200 bg-gradient-to-br from-emerald-50 to-white text-emerald-700'
                       }`}
                     >
                       <Plane className="h-4 w-4" />
@@ -401,14 +444,17 @@ const FlightSchedulerGantt: React.FC<FlightSchedulerGanttProps> = ({
 
                       {row.aircraftId === 'UNASSIGNED' ? (
                         <span className="mt-0.5 inline-flex items-center gap-1 text-[10px] font-semibold text-rose-600">
-                          <span className="h-1 w-1 rounded-full bg-rose-500" />
+                          <span className="h-1 w-1 animate-pulse rounded-full bg-rose-500" />
                           Affectation requise
                         </span>
                       ) : (
                         <>
                           {row.base && (
                             <span className="mt-0.5 block truncate text-[10px] font-medium text-slate-500">
-                              Base <strong className="text-slate-600">{row.base}</strong>
+                              Base{' '}
+                              <strong className="text-slate-600">
+                                {row.base}
+                              </strong>
                               {row.capacity ? ` · ${row.capacity} sièges` : ''}
                             </span>
                           )}
@@ -436,8 +482,7 @@ const FlightSchedulerGantt: React.FC<FlightSchedulerGanttProps> = ({
                     {/* Grid lines */}
                     {ganttData.hourTicks.map(tick => {
                       const left =
-                        ((tick - ganttData.minTime) /
-                          ganttData.totalDuration) *
+                        ((tick - ganttData.minTime) / ganttData.totalDuration) *
                         100;
                       return (
                         <div
@@ -447,6 +492,14 @@ const FlightSchedulerGantt: React.FC<FlightSchedulerGanttProps> = ({
                         />
                       );
                     })}
+
+                    {/* NOW LINE */}
+                    {nowLineLeft !== null && (
+                      <div
+                        className="pointer-events-none absolute bottom-0 top-0 z-10 w-px bg-rose-500/70"
+                        style={{ left: `${nowLineLeft}%` }}
+                      />
+                    )}
 
                     {/* Items */}
                     {row.items.map(item => {
@@ -482,7 +535,7 @@ const FlightSchedulerGantt: React.FC<FlightSchedulerGanttProps> = ({
                       return (
                         <div
                           key={item.id}
-                          className={`group/item absolute bottom-2 top-2 flex min-w-[125px] cursor-pointer items-center justify-between overflow-hidden rounded-lg border px-2.5 shadow-sm transition hover:z-30 hover:shadow-md ${config.bg} ${config.border}`}
+                          className={`group/item absolute bottom-2 top-2 flex min-w-[125px] cursor-pointer items-center justify-between overflow-hidden rounded-lg border px-2.5 shadow-sm transition-all duration-150 hover:z-30 hover:-translate-y-0.5 hover:shadow-md ${config.bg} ${config.border}`}
                           style={{
                             left: `${left}%`,
                             width: `${width}%`,
@@ -521,13 +574,13 @@ const FlightSchedulerGantt: React.FC<FlightSchedulerGanttProps> = ({
                               {item.flightNumber}
                             </span>
                             {shiftMinutes > 0 && (
-                              <span className="shrink-0 rounded border border-orange-200 bg-white/80 px-1 py-0.5 text-[9px] font-bold text-orange-700">
+                              <span className="shrink-0 rounded border border-orange-200 bg-white/90 px-1 py-0.5 text-[9px] font-bold text-orange-700">
                                 +{shiftMinutes}m
                               </span>
                             )}
                           </div>
 
-                          <span className="ml-1.5 hidden shrink-0 truncate rounded border border-white/60 bg-white/60 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-slate-600 sm:inline-block">
+                          <span className="ml-1.5 hidden shrink-0 truncate rounded border border-white/60 bg-white/70 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-slate-600 sm:inline-block">
                             {item.origin} → {item.destination}
                           </span>
                         </div>

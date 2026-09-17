@@ -52,11 +52,14 @@ const AUTO_SCHEDULE_GANTT_ENDPOINT = '/flights/auto-schedule/gantt';
  * DESIGN TOKENS
  * ========================================================================== */
 
-const SURFACE = 'rounded-2xl border border-slate-200 bg-white shadow-sm';
+const SURFACE =
+  'rounded-2xl border border-slate-200/80 bg-white shadow-[0_1px_3px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)]';
+
 const FOCUS_RING =
   'outline-none transition focus:border-emerald-600 focus:ring-4 focus:ring-emerald-600/10';
+
 const LABEL_UPPER =
-  'text-[10px] font-semibold uppercase tracking-wider text-slate-500';
+  'text-[10px] font-bold uppercase tracking-wider text-slate-500';
 
 /* ============================================================================
  * TYPES
@@ -278,15 +281,25 @@ export const FlightSchedulerDashboard: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('TOUS');
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
-  const [options] = useState<AutoScheduleOptions>({
+  const [options, setOptions] = useState<AutoScheduleOptions>({
     horizonDays: 7,
     turnaroundMinutes: 45,
     shiftStepMinutes: 15,
     maxShiftMinutes: 360,
   });
 
+  const updateOption = useCallback(
+    <K extends keyof AutoScheduleOptions>(
+      key: K,
+      value: AutoScheduleOptions[K],
+    ) => {
+      setOptions(prev => ({ ...prev, [key]: value }));
+    },
+    [],
+  );
+
   /* ========================================================================
-   * LOAD DATA
+   * LOAD DATA — ORDRE GARANTI : /flights → puis /analytics + /gantt
    * ====================================================================== */
 
   const fetchData = useCallback(async () => {
@@ -294,17 +307,8 @@ export const FlightSchedulerDashboard: React.FC = () => {
     setMessage(null);
 
     try {
-      const ganttUrl =
-        `${API_BASE_URL}${AUTO_SCHEDULE_GANTT_ENDPOINT}` +
-        `?horizonDays=${options.horizonDays}`;
-
-      const [flightsResponse, analyticsResponse, ganttResponse] =
-        await Promise.all([
-          fetch(`${API_BASE_URL}/flights`),
-          fetch(`${API_BASE_URL}/flights/analytics`),
-          fetch(ganttUrl),
-        ]);
-
+      // 1) ÉTAPE 1 : charger les vols (recalcule les statuts côté backend)
+      const flightsResponse = await fetch(`${API_BASE_URL}/flights`);
       if (!flightsResponse.ok) {
         throw new Error('Impossible de charger les vols.');
       }
@@ -314,6 +318,16 @@ export const FlightSchedulerDashboard: React.FC = () => {
         ? flightPayload
         : [];
       setFlights(flightList);
+
+      // 2) ÉTAPE 2 : en parallèle, analytics + gantt
+      const ganttUrl =
+        `${API_BASE_URL}${AUTO_SCHEDULE_GANTT_ENDPOINT}` +
+        `?horizonDays=${options.horizonDays}&includeTerminal=1`;
+
+      const [analyticsResponse, ganttResponse] = await Promise.all([
+        fetch(`${API_BASE_URL}/flights/analytics`),
+        fetch(ganttUrl),
+      ]);
 
       /* ANALYTICS */
       if (analyticsResponse.ok) {
@@ -456,7 +470,7 @@ export const FlightSchedulerDashboard: React.FC = () => {
   const filteredFlights = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
 
-    return normalizedFlights.filter(flight => {
+    const result = normalizedFlights.filter(flight => {
       const matchesSearch =
         !term ||
         [
@@ -474,13 +488,27 @@ export const FlightSchedulerDashboard: React.FC = () => {
 
       return matchesSearch && matchesStatus;
     });
+
+    // Tri stable : départ croissant, puis numéro de vol
+    result.sort((a, b) => {
+      const da = safeDate(a.departure)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+      const db = safeDate(b.departure)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+      if (da !== db) return da - db;
+      return String(a.flightNumber ?? '').localeCompare(
+        String(b.flightNumber ?? ''),
+      );
+    });
+
+    return result;
   }, [normalizedFlights, searchTerm, selectedStatus]);
 
-  const effectiveAnalytics =
-    analytics ?? buildFallbackAnalytics(flights);
+  const effectiveAnalytics = analytics ?? buildFallbackAnalytics(flights);
 
-  const activeSchedule =
-    (previewScenario?.gantt as GanttPayload) ?? currentGantt;
+  const activeSchedule = useMemo<GanttPayload>(() => {
+    const previewGantt = previewScenario?.gantt as GanttPayload | undefined;
+    if (previewGantt?.rows && previewGantt?.items) return previewGantt;
+    return currentGantt;
+  }, [previewScenario, currentGantt]);
 
   const activeMetrics = previewScenario?.metrics ?? currentMetrics;
   const isPreview = Boolean(previewScenario);
@@ -504,12 +532,12 @@ export const FlightSchedulerDashboard: React.FC = () => {
     <div className="min-h-screen bg-slate-50 p-3 text-slate-800 antialiased sm:p-4 lg:p-5">
       <div className="mx-auto max-w-[1600px] space-y-4">
         {/* ═══════════════ HEADER ═══════════════ */}
-        <header className={`${SURFACE} p-4 sm:p-5`}>
+        <header className={`${SURFACE} overflow-hidden p-4 sm:p-5`}>
           <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div className="flex items-center gap-3.5">
-              <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm shadow-emerald-600/20">
+              <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-700 text-white shadow-lg shadow-emerald-600/25">
                 <Plane className="h-5 w-5 rotate-45" />
-                <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-400" />
+                <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white bg-emerald-400 shadow-sm" />
               </div>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
@@ -517,17 +545,12 @@ export const FlightSchedulerDashboard: React.FC = () => {
                     Génération automatique des vols
                   </h1>
                   {isPreview && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-200 bg-sky-50 px-2.5 py-0.5 text-[10px] font-semibold text-sky-700">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-200 bg-gradient-to-br from-sky-50 to-white px-2.5 py-0.5 text-[10px] font-bold text-sky-700 shadow-sm">
                       <Sparkles className="h-3 w-3" />
                       Prévisualisation
                     </span>
                   )}
                 </div>
-                <p className="mt-0.5 text-xs text-slate-500">
-                  Horizon {options.horizonDays} jours · Turnaround{' '}
-                  {options.turnaroundMinutes} min · Décalage max{' '}
-                  {options.maxShiftMinutes} min
-                </p>
               </div>
             </div>
 
@@ -536,7 +559,7 @@ export const FlightSchedulerDashboard: React.FC = () => {
                 type="button"
                 onClick={() => void fetchData()}
                 disabled={loading || generating || applying}
-                className={`inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:opacity-50 ${FOCUS_RING}`}
+                className={`inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 text-xs font-bold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 disabled:opacity-50 ${FOCUS_RING}`}
               >
                 <RefreshCw
                   className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`}
@@ -548,7 +571,7 @@ export const FlightSchedulerDashboard: React.FC = () => {
                 type="button"
                 onClick={() => void runAutomaticGeneration(false)}
                 disabled={generating || applying}
-                className={`inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-3.5 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-50 ${FOCUS_RING}`}
+                className={`inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-700 px-3.5 text-xs font-bold text-white shadow-md shadow-emerald-600/25 transition hover:from-emerald-600 hover:to-emerald-800 hover:shadow-lg disabled:opacity-50 ${FOCUS_RING}`}
               >
                 <WandSparkles
                   className={`h-3.5 w-3.5 ${generating ? 'animate-pulse' : ''}`}
@@ -562,7 +585,7 @@ export const FlightSchedulerDashboard: React.FC = () => {
                     type="button"
                     onClick={() => void runAutomaticGeneration(true)}
                     disabled={applying}
-                    className={`inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-sky-600 px-3.5 text-xs font-semibold text-white shadow-sm transition hover:bg-sky-700 disabled:opacity-50 ${FOCUS_RING}`}
+                    className={`inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-sky-500 to-sky-700 px-3.5 text-xs font-bold text-white shadow-md shadow-sky-600/25 transition hover:from-sky-600 hover:to-sky-800 hover:shadow-lg disabled:opacity-50 ${FOCUS_RING}`}
                   >
                     <Play
                       className={`h-3.5 w-3.5 ${applying ? 'animate-pulse' : ''}`}
@@ -573,7 +596,7 @@ export const FlightSchedulerDashboard: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setPreviewScenario(null)}
-                    className={`inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 ${FOCUS_RING}`}
+                    className={`inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 text-xs font-bold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 ${FOCUS_RING}`}
                   >
                     <RotateCcw className="h-3.5 w-3.5" />
                     Retour au planning
@@ -584,7 +607,7 @@ export const FlightSchedulerDashboard: React.FC = () => {
           </div>
 
           {lastUpdatedAt && (
-            <div className="mt-3 flex items-center gap-2 border-t border-slate-100 pt-3">
+            <div className="mt-3 flex items-center justify-end border-t border-slate-100 pt-3">
               <span className="inline-flex items-center gap-1.5 text-[10px] font-medium text-slate-400">
                 <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
                 Synchronisé à{' '}
@@ -692,7 +715,7 @@ export const FlightSchedulerDashboard: React.FC = () => {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <span className="hidden items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400 sm:inline-flex">
+              <span className="hidden items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 sm:inline-flex">
                 Statut
               </span>
               {[
@@ -707,9 +730,9 @@ export const FlightSchedulerDashboard: React.FC = () => {
                   key={status}
                   type="button"
                   onClick={() => setSelectedStatus(status)}
-                  className={`h-8 shrink-0 rounded-lg border px-3 text-[10px] font-semibold transition ${FOCUS_RING} ${
+                  className={`h-8 shrink-0 rounded-lg border px-3 text-[10px] font-bold transition ${FOCUS_RING} ${
                     selectedStatus === status
-                      ? 'border-emerald-600 bg-emerald-600 text-white'
+                      ? 'border-emerald-700 bg-gradient-to-br from-emerald-500 to-emerald-700 text-white shadow-sm shadow-emerald-600/25'
                       : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
                   }`}
                 >
@@ -719,6 +742,32 @@ export const FlightSchedulerDashboard: React.FC = () => {
             </div>
           </div>
         </section>
+
+        {/* ═══════════════ NO RESULT ═══════════════ */}
+        {!loading && filteredFlights.length === 0 && flights.length > 0 && (
+          <div className="rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50/80 to-white p-4 text-center shadow-sm">
+            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100">
+              <AlertCircle className="h-5 w-5 text-amber-600" />
+            </div>
+            <p className="mt-2 text-xs font-bold text-amber-900">
+              Aucun vol ne correspond à vos filtres
+            </p>
+            <p className="mt-0.5 text-[10px] text-amber-700">
+              Ajustez la recherche ou le statut pour élargir les résultats.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setSearchTerm('');
+                setSelectedStatus('TOUS');
+              }}
+              className="mt-3 inline-flex items-center gap-1 rounded-md border border-amber-300 bg-white px-3 py-1.5 text-[10px] font-bold text-amber-800 shadow-sm transition hover:bg-amber-100"
+            >
+              <RotateCcw className="h-3 w-3" />
+              Réinitialiser les filtres
+            </button>
+          </div>
+        )}
 
         {/* ═══════════════ GANTT ═══════════════ */}
         <FlightSchedulerGantt
@@ -777,7 +826,7 @@ function MetricCard({
     },
     primary: {
       ring: 'border-emerald-200 bg-emerald-50/40',
-      icon: 'bg-emerald-600 text-white shadow-sm shadow-emerald-600/20',
+      icon: 'bg-gradient-to-br from-emerald-500 to-emerald-700 text-white shadow-sm shadow-emerald-600/25',
       value: 'text-emerald-900',
       accent: 'bg-emerald-600',
     },
@@ -811,7 +860,7 @@ function MetricCard({
 
   return (
     <article
-      className={`relative overflow-hidden rounded-2xl border px-4 py-3.5 shadow-sm transition hover:shadow-md ${s.ring}`}
+      className={`relative overflow-hidden rounded-2xl border px-4 py-3.5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${s.ring}`}
     >
       {s.accent && (
         <span
@@ -852,22 +901,22 @@ function AlertBanner({
 }) {
   const config = {
     success: {
-      ring: 'border-emerald-200 bg-emerald-50/60',
-      icon: 'bg-emerald-100 text-emerald-700',
+      ring: 'border-emerald-200 bg-gradient-to-br from-emerald-50/80 to-white',
+      icon: 'bg-gradient-to-br from-emerald-500 to-emerald-700 text-white shadow-sm shadow-emerald-600/25',
       title: 'text-emerald-800',
       text: 'text-emerald-700',
       Icon: CheckCircle2,
     },
     error: {
-      ring: 'border-rose-200 bg-rose-50/60',
-      icon: 'bg-rose-100 text-rose-700',
+      ring: 'border-rose-200 bg-gradient-to-br from-rose-50/80 to-white',
+      icon: 'bg-gradient-to-br from-rose-500 to-rose-700 text-white shadow-sm shadow-rose-600/25',
       title: 'text-rose-800',
       text: 'text-rose-700',
       Icon: AlertCircle,
     },
     info: {
-      ring: 'border-sky-200 bg-sky-50/60',
-      icon: 'bg-sky-100 text-sky-700',
+      ring: 'border-sky-200 bg-gradient-to-br from-sky-50/80 to-white',
+      icon: 'bg-gradient-to-br from-sky-500 to-sky-700 text-white shadow-sm shadow-sky-600/25',
       title: 'text-sky-800',
       text: 'text-sky-700',
       Icon: Info,
@@ -882,13 +931,13 @@ function AlertBanner({
       role="alert"
     >
       <div
-        className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${config.icon}`}
+        className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${config.icon}`}
       >
         <Icon className="h-4 w-4" />
       </div>
 
       <div className="min-w-0 flex-1">
-        <p className={`text-xs font-semibold ${config.title}`}>
+        <p className={`text-xs font-bold ${config.title}`}>
           {type === 'success'
             ? 'Opération réussie'
             : type === 'error'

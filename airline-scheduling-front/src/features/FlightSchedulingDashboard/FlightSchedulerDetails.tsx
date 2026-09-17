@@ -1,24 +1,15 @@
 import React, { useMemo } from 'react';
 import {
-  Bar,
-  BarChart,
-  Cell,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
-import {
   AlertTriangle,
   CheckCircle2,
   Layers,
-  Plane,
   Sparkles,
-  TrendingUp,
 } from 'lucide-react';
 import type { FlightStatus } from './FlightSchedulerGantt';
+
+/* ============================================================================
+ * TYPES
+ * ========================================================================== */
 
 export interface Flight {
   id: string;
@@ -86,6 +77,17 @@ interface FlightSchedulerDetailsProps {
   previewScenario: AutoScheduleResponse | null;
 }
 
+/* ============================================================================
+ * DESIGN TOKENS
+ * ========================================================================== */
+
+const SURFACE =
+  'rounded-2xl border border-slate-200/80 bg-white shadow-[0_1px_3px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)]';
+
+/* ============================================================================
+ * PALETTE STATUTS
+ * ========================================================================== */
+
 interface StatusConfigItem {
   bar: string;
   badgeBg: string;
@@ -94,33 +96,35 @@ interface StatusConfigItem {
 
 const STATUS_CONFIG: Record<FlightStatus, StatusConfigItem> = {
   Planifié: {
-    bar: '#3b82f6',
+    bar: 'from-blue-500 to-blue-600',
     badgeBg: 'border-blue-200 bg-blue-50 text-blue-700',
     dot: 'bg-blue-500',
   },
   'En Vol': {
-    bar: '#f59e0b',
+    bar: 'from-amber-500 to-amber-600',
     badgeBg: 'border-amber-200 bg-amber-50 text-amber-700',
     dot: 'bg-amber-500 animate-pulse',
   },
   Retardé: {
-    bar: '#f97316',
+    bar: 'from-orange-500 to-orange-600',
     badgeBg: 'border-orange-200 bg-orange-50 text-orange-700',
     dot: 'bg-orange-500',
   },
   Annulé: {
-    bar: '#ef4444',
+    bar: 'from-rose-500 to-rose-600',
     badgeBg: 'border-rose-200 bg-rose-50 text-rose-700',
     dot: 'bg-rose-500',
   },
   Effectué: {
-    bar: '#10b981',
+    bar: 'from-emerald-500 to-emerald-600',
     badgeBg: 'border-emerald-200 bg-emerald-50 text-emerald-700',
     dot: 'bg-emerald-500',
   },
 };
 
-const SURFACE = 'rounded-2xl border border-slate-200 bg-white shadow-sm';
+/* ============================================================================
+ * HELPERS
+ * ========================================================================== */
 
 const normalizeFlightStatus = (value?: string | null): FlightStatus => {
   const normalized = String(value ?? '').trim().toUpperCase().replace(/_/g, ' ');
@@ -149,56 +153,22 @@ const formatDateTime = (value?: string | null): string => {
   });
 };
 
+const getWeatherBadgeClass = (severity: number): string => {
+  if (severity >= 0.85) return 'border-rose-200 bg-rose-50 text-rose-700';
+  if (severity >= 0.70) return 'border-orange-200 bg-orange-50 text-orange-700';
+  if (severity >= 0.50) return 'border-amber-200 bg-amber-50 text-amber-700';
+  if (severity >= 0.30) return 'border-sky-200 bg-sky-50 text-sky-700';
+  return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+};
+
+/* ============================================================================
+ * COMPONENT
+ * ========================================================================== */
+
 const FlightSchedulerDetails: React.FC<FlightSchedulerDetailsProps> = ({
   flights,
-  analytics,
   previewScenario,
 }) => {
-  const pieChartData = useMemo(
-    () =>
-      [
-        {
-          name: 'Planifiés',
-          value: analytics.onTimeCount,
-          color: STATUS_CONFIG.Planifié.bar,
-        },
-        {
-          name: 'En Vol',
-          value: analytics.inFlightCount,
-          color: STATUS_CONFIG['En Vol'].bar,
-        },
-        {
-          name: 'Retardés',
-          value: analytics.delayedCount,
-          color: STATUS_CONFIG.Retardé.bar,
-        },
-        {
-          name: 'Annulés',
-          value: analytics.cancelledCount,
-          color: STATUS_CONFIG.Annulé.bar,
-        },
-        {
-          name: 'Effectués',
-          value: analytics.completedCount,
-          color: STATUS_CONFIG.Effectué.bar,
-        },
-      ].filter(item => item.value > 0),
-    [analytics],
-  );
-
-  const barChartData = useMemo(() => {
-    const hourly: Record<string, number> = {};
-    flights.forEach(flight => {
-      const departure = safeDate(flight.departure);
-      if (!departure) return;
-      const hour = `${departure.getHours().toString().padStart(2, '0')}h`;
-      hourly[hour] = (hourly[hour] ?? 0) + 1;
-    });
-    return Object.keys(hourly)
-      .sort((a, b) => parseInt(a, 10) - parseInt(b, 10))
-      .map(hour => ({ hour, vols: hourly[hour] }));
-  }, [flights]);
-
   const scenarioUnassigned = previewScenario?.metrics.unassignedFlights ?? 0;
 
   return (
@@ -206,14 +176,14 @@ const FlightSchedulerDetails: React.FC<FlightSchedulerDetailsProps> = ({
       {/* ═══════════════ SCENARIO RESULT ═══════════════ */}
       {previewScenario && (
         <section className="grid gap-3 xl:grid-cols-2">
-          {/* Left : metrics */}
-          <div className={`${SURFACE} p-4 sm:p-5`}>
-            <header className="mb-3 flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-50 text-sky-700">
+          {/* Left : métriques du générateur */}
+          <div className={`${SURFACE} overflow-hidden p-4 sm:p-5`}>
+            <header className="mb-4 flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-sky-600 text-white shadow-sm shadow-sky-500/30">
                 <Sparkles className="h-4 w-4" />
               </div>
               <div>
-                <h3 className="text-sm font-semibold text-slate-900">
+                <h3 className="text-sm font-bold text-slate-900">
                   Résultat du générateur
                 </h3>
                 <p className="mt-0.5 text-[10px] text-slate-500">
@@ -246,20 +216,20 @@ const FlightSchedulerDetails: React.FC<FlightSchedulerDetailsProps> = ({
             </div>
           </div>
 
-          {/* Right : unassigned */}
+          {/* Right : vols non affectés */}
           <div
-            className={`rounded-2xl border p-4 shadow-sm sm:p-5 ${
+            className={`overflow-hidden rounded-2xl border shadow-[0_1px_3px_rgba(15,23,42,0.04)] p-4 sm:p-5 ${
               scenarioUnassigned > 0
-                ? 'border-amber-200 bg-amber-50/40'
-                : 'border-emerald-200 bg-emerald-50/40'
+                ? 'border-amber-200 bg-gradient-to-br from-amber-50/80 to-white'
+                : 'border-emerald-200 bg-gradient-to-br from-emerald-50/80 to-white'
             }`}
           >
-            <header className="mb-3 flex items-center gap-2.5">
+            <header className="mb-4 flex items-center gap-3">
               <div
-                className={`flex h-8 w-8 items-center justify-center rounded-lg ${
+                className={`flex h-9 w-9 items-center justify-center rounded-xl shadow-sm ${
                   scenarioUnassigned > 0
-                    ? 'bg-amber-100 text-amber-700'
-                    : 'bg-emerald-100 text-emerald-700'
+                    ? 'bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-amber-500/30'
+                    : 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-emerald-500/30'
                 }`}
               >
                 {scenarioUnassigned > 0 ? (
@@ -269,7 +239,7 @@ const FlightSchedulerDetails: React.FC<FlightSchedulerDetailsProps> = ({
                 )}
               </div>
               <div className="min-w-0">
-                <h3 className="text-sm font-semibold text-slate-900">
+                <h3 className="text-sm font-bold text-slate-900">
                   Vols non affectés
                 </h3>
                 <p className="mt-0.5 text-[10px] text-slate-500">
@@ -292,7 +262,7 @@ const FlightSchedulerDetails: React.FC<FlightSchedulerDetailsProps> = ({
                 {(previewScenario.unassigned ?? []).map(item => (
                   <div
                     key={item.flightId}
-                    className="flex items-center justify-between gap-3 rounded-lg border border-amber-200 bg-white px-3 py-2"
+                    className="flex items-center justify-between gap-3 rounded-lg border border-amber-200 bg-white px-3 py-2 shadow-sm transition hover:border-amber-300 hover:shadow"
                   >
                     <div className="min-w-0">
                       <span className="font-mono text-xs font-bold text-slate-900">
@@ -302,7 +272,7 @@ const FlightSchedulerDetails: React.FC<FlightSchedulerDetailsProps> = ({
                         {item.origin} → {item.destination}
                       </span>
                     </div>
-                    <span className="shrink-0 rounded-md border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-700">
+                    <span className="shrink-0 rounded-md border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-700">
                       {item.reason}
                     </span>
                   </div>
@@ -313,141 +283,15 @@ const FlightSchedulerDetails: React.FC<FlightSchedulerDetailsProps> = ({
         </section>
       )}
 
-      {/* ═══════════════ CHARTS ═══════════════ */}
-      <section className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-        {/* Pie chart */}
-        <div className={`${SURFACE} p-4 sm:p-5`}>
-          <header className="mb-2 flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
-              <TrendingUp className="h-4 w-4" />
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold text-slate-900">
-                Répartition par statut
-              </h3>
-              <p className="mt-0.5 text-[10px] text-slate-500">
-                Distribution des vols
-              </p>
-            </div>
-          </header>
-
-          <div className="relative h-56 w-full sm:h-60">
-            {pieChartData.length > 0 ? (
-              <>
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={pieChartData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={55}
-                      outerRadius={78}
-                      paddingAngle={4}
-                      dataKey="value"
-                    >
-                      {pieChartData.map((entry, index) => (
-                        <Cell
-                          key={`status-${entry.name}-${index}`}
-                          fill={entry.color}
-                          stroke="#ffffff"
-                          strokeWidth={2}
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      contentStyle={{
-                        borderRadius: 12,
-                        border: '1px solid #e2e8f0',
-                        fontSize: 12,
-                      }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-2xl font-bold tabular-nums text-slate-900">
-                    {analytics.totalFlights}
-                  </span>
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                    Vols
-                  </span>
-                </div>
-              </>
-            ) : (
-              <div className="flex h-full items-center justify-center text-xs text-slate-400">
-                Aucune donnée disponible
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Bar chart */}
-        <div className={`${SURFACE} p-4 sm:p-5`}>
-          <header className="mb-2 flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-50 text-sky-700">
-              <Plane className="h-4 w-4" />
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold text-slate-900">
-                Départs par tranche horaire
-              </h3>
-              <p className="mt-0.5 text-[10px] text-slate-500">
-                Distribution horaire des vols
-              </p>
-            </div>
-          </header>
-
-          <div className="h-56 w-full sm:h-60">
-            {barChartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={barChartData}
-                  margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
-                >
-                  <XAxis
-                    dataKey="hour"
-                    stroke="#94a3b8"
-                    tick={{ fill: '#64748b', fontSize: 11 }}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    stroke="#94a3b8"
-                    tick={{ fill: '#64748b', fontSize: 11 }}
-                    tickLine={false}
-                    allowDecimals={false}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      borderRadius: 12,
-                      border: '1px solid #e2e8f0',
-                      fontSize: 12,
-                    }}
-                  />
-                  <Bar
-                    dataKey="vols"
-                    fill="#059669"
-                    radius={[6, 6, 0, 0]}
-                    barSize={24}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex h-full items-center justify-center text-xs text-slate-400">
-                Aucun départ enregistré
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
-
       {/* ═══════════════ REGISTRE ═══════════════ */}
       <section className={`${SURFACE} overflow-hidden`}>
-        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3.5 sm:px-5">
+        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/40 px-4 py-3.5 sm:px-5">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
               <Layers className="h-4 w-4" />
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-slate-900">
+              <h3 className="text-sm font-bold text-slate-900">
                 Registre des vols
               </h3>
               <p className="mt-0.5 text-[10px] text-slate-500">
@@ -472,11 +316,10 @@ const FlightSchedulerDetails: React.FC<FlightSchedulerDetailsProps> = ({
               return (
                 <article
                   key={flight.id}
-                  className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
+                  className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md"
                 >
                   <span
-                    className="block h-1"
-                    style={{ backgroundColor: config.bar }}
+                    className={`block h-1 bg-gradient-to-r ${config.bar}`}
                   />
 
                   <div className="p-3">
@@ -534,6 +377,21 @@ const FlightSchedulerDetails: React.FC<FlightSchedulerDetailsProps> = ({
                           'Non assigné'}
                       </span>
                     </div>
+
+                    {typeof flight.weatherSeverity === 'number' && (
+                      <div className="mt-2 flex items-center justify-between border-t border-slate-100 pt-2">
+                        <span className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">
+                          Météo
+                        </span>
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-semibold ${getWeatherBadgeClass(
+                            flight.weatherSeverity,
+                          )}`}
+                        >
+                          {Math.round(flight.weatherSeverity * 100)}%
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </article>
               );
@@ -543,14 +401,15 @@ const FlightSchedulerDetails: React.FC<FlightSchedulerDetailsProps> = ({
 
         {/* DESKTOP */}
         <div className="hidden overflow-x-auto md:block">
-          <table className="w-full min-w-[900px] text-left text-xs">
+          <table className="w-full min-w-[1000px] text-left text-xs">
             <thead className="border-b border-slate-200 bg-slate-50/70">
-              <tr className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+              <tr className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
                 <th className="px-5 py-3">Vol</th>
                 <th className="px-4 py-3">Itinéraire</th>
                 <th className="px-4 py-3">Départ</th>
                 <th className="px-4 py-3">Arrivée</th>
                 <th className="px-4 py-3">Appareil</th>
+                <th className="px-4 py-3">Météo</th>
                 <th className="px-5 py-3 text-right">Statut</th>
               </tr>
             </thead>
@@ -558,7 +417,7 @@ const FlightSchedulerDetails: React.FC<FlightSchedulerDetailsProps> = ({
               {flights.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={6}
+                    colSpan={7}
                     className="px-4 py-10 text-center text-xs text-slate-400"
                   >
                     Aucun vol trouvé
@@ -572,7 +431,7 @@ const FlightSchedulerDetails: React.FC<FlightSchedulerDetailsProps> = ({
                   return (
                     <tr
                       key={flight.id}
-                      className="transition hover:bg-emerald-50/30"
+                      className="group transition hover:bg-emerald-50/30"
                     >
                       <td className="px-5 py-3.5 font-mono text-xs font-bold text-slate-900">
                         {flight.flightNumber}
@@ -594,6 +453,19 @@ const FlightSchedulerDetails: React.FC<FlightSchedulerDetailsProps> = ({
                         {flight.aircraftModel ||
                           flight.aircraft ||
                           'Non assigné'}
+                      </td>
+                      <td className="px-4 py-3.5">
+                        {typeof flight.weatherSeverity === 'number' ? (
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] font-semibold ${getWeatherBadgeClass(
+                              flight.weatherSeverity,
+                            )}`}
+                          >
+                            {Math.round(flight.weatherSeverity * 100)}%
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-slate-300">—</span>
+                        )}
                       </td>
                       <td className="px-5 py-3.5 text-right">
                         <span
@@ -632,19 +504,24 @@ function SmallValue({
 }) {
   const tones = {
     neutral: 'border-slate-200 bg-white text-slate-800',
-    success: 'border-emerald-200 bg-emerald-50/60 text-emerald-800',
-    warning: 'border-amber-200 bg-amber-50/60 text-amber-800',
-    info: 'border-sky-200 bg-sky-50/60 text-sky-800',
+    success:
+      'border-emerald-200 bg-gradient-to-br from-emerald-50/80 to-white text-emerald-800',
+    warning:
+      'border-amber-200 bg-gradient-to-br from-amber-50/80 to-white text-amber-800',
+    info: 'border-sky-200 bg-gradient-to-br from-sky-50/80 to-white text-sky-800',
   } as const;
 
   return (
     <div
-      className={`rounded-xl border p-3 transition ${tones[variant]}`}
+      className={`rounded-xl border p-3 shadow-sm transition hover:shadow-md ${tones[variant]}`}
     >
-      <span className="block truncate text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+      <span className="block truncate text-[10px] font-bold uppercase tracking-wider text-slate-500">
         {label}
       </span>
-      <strong className="mt-1 block truncate text-sm font-bold tabular-nums text-slate-800">
+      <strong
+        className="mt-1 block truncate text-sm font-bold tabular-nums text-slate-800"
+        title={String(value)}
+      >
         {value}
       </strong>
     </div>

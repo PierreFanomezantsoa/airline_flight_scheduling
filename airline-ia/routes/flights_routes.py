@@ -5,11 +5,15 @@ extraits vers services/ et common/ afin de garder cette couche centrée sur HTTP
 """
 from __future__ import annotations
 
+import logging
 import uuid
 from collections import defaultdict
 from datetime import datetime, timezone, timedelta
 
 from flask import Blueprint, jsonify, request
+from sqlalchemy.orm import joinedload
+from werkzeug.exceptions import BadRequest
+
 from models import db, Flight
 
 from common.datetime_utils import ensure_utc, format_to_local_time
@@ -31,11 +35,76 @@ from services.weather.risk_engine import (
 )
 
 
+logger = logging.getLogger(__name__)
+
+
 # =============================================================================
 # BLUEPRINT — DOIT ÊTRE DÉCLARÉ AVANT TOUTE ROUTE
 # =============================================================================
 
 flights_bp = Blueprint("flights", __name__)
+
+
+# =============================================================================
+# CONSTANTES
+# =============================================================================
+
+# Limite de sécurité pour éviter OOM sur gros volumes.
+MAX_FLIGHTS_PER_REQUEST = 2000
+
+# Statuts terminaux qui ne doivent JAMAIS être écrasés par la météo.
+TERMINAL_STATUSES = {
+    "Cancelled",
+    "Annulé",
+    "Annule",
+    "Effectué",
+    "Effectue",
+    "Done",
+    "Completed",
+}
+
+# Statuts d'annulation reconnus (FR + EN).
+CANCELLED_STATUSES = {
+    "Cancelled",
+    "Canceled",
+    "Annulé",
+    "Annule",
+    "ANNULE",
+    "ANNULÉ",
+}
+
+
+# =============================================================================
+# HELPERS DE VALIDATION
+# =============================================================================
+
+def _is_terminal_status(status: str | None) -> bool:
+    return str(status or "").strip() in TERMINAL_STATUSES
+
+
+def _is_cancelled_status(status: str | None) -> bool:
+    return str(status or "").strip() in CANCELLED_STATUSES
+
+
+def _parse_iso_datetime(raw: str | None, field_name: str = "date") -> datetime:
+    """Parse une date ISO avec message d'erreur explicite."""
+    if not raw:
+        raise BadRequest(f"Le champ '{field_name}' est requis.")
+    try:
+        return ensure_utc(
+            datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+        )
+    except (ValueError, TypeError) as exc:
+        raise BadRequest(
+            f"Le champ '{field_name}' n'est pas une date ISO valide : {exc}"
+        )
+
+
+def _safe_float(value, default: float = 0.0) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
 
 
 # =============================================================================
@@ -97,7 +166,7 @@ def get_weather_by_airport():
     }
     """
     try:
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
 
         dep_airport = (data.get("aeroportDepart") or "").strip().upper()
         arr_airport = (data.get("aeroportArrivee") or "").strip().upper()
@@ -110,8 +179,8 @@ def get_weather_by_airport():
                 "message": "Départ, arrivée et horaires sont requis.",
             }), 400
 
-        dep_time = ensure_utc(datetime.fromisoformat(dep_raw.replace("Z", "+00:00")))
-        arr_time = ensure_utc(datetime.fromisoformat(arr_raw.replace("Z", "+00:00")))
+        dep_time = _parse_iso_datetime(dep_raw, "heureDepart")
+        arr_time = _parse_iso_datetime(arr_raw, "heureArrivee")
 
         if arr_time <= dep_time:
             return jsonify({
@@ -119,7 +188,11 @@ def get_weather_by_airport():
                 "message": "L'arrivée doit être postérieure au départ.",
             }), 400
 
-        stopovers = data.get("aeroportEscale") or data.get("escale") or data.get("stopovers")
+        stopovers = (
+            data.get("aeroportEscale")
+            or data.get("escale")
+            or data.get("stopovers")
+        )
 
         # Détail ML local par aéroport
         local_detail = local_weather_ml.assess_flight_detailed(
@@ -131,8 +204,12 @@ def get_weather_by_airport():
         )
 
         # Détail API par aéroport (résilient)
-        dep_api = resilient_weather_service.get_severity_detail(dep_airport, dep_time)
-        arr_api = resilient_weather_service.get_severity_detail(arr_airport, arr_time)
+        dep_api = resilient_weather_service.get_severity_detail(
+            dep_airport, dep_time
+        )
+        arr_api = resilient_weather_service.get_severity_detail(
+            arr_airport, arr_time
+        )
 
         return jsonify({
             "status": "success",
@@ -154,7 +231,10 @@ def get_weather_by_airport():
             "trustedForAutomaticStatus": False,
         }), 200
 
+    except BadRequest as exc:
+        return jsonify({"status": "error", "message": str(exc)}), 400
     except Exception as exc:
+        logger.exception("Erreur sur POST /flights/weather/airports")
         return jsonify({
             "status": "error",
             "message": str(exc),
@@ -168,7 +248,15 @@ def get_weather_by_airport():
 @flights_bp.route("/flights", methods=["GET"])
 def get_flights():
     try:
-        flights = Flight.query.all()
+        # joinedload évite le N+1 sur flight.avion
+        flights = (
+            Flight.query
+            .options(joinedload(Flight.avion))
+            .order_by(Flight.heureDepart.asc())
+            .limit(MAX_FLIGHTS_PER_REQUEST)
+            .all()
+        )
+
         updated_flights = []
         has_changes = False
 
@@ -180,19 +268,14 @@ def get_flights():
         # - cache partagé 180 secondes.
         # ---------------------------------------------------------------------
         weather_enabled = (
-            request.args.get(
-                "weather",
-                "1",
-            )
+            request.args.get("weather", "1")
             not in ["0", "false", "False"]
         )
 
         if weather_enabled:
-            weather_assessments = (
-                weather_engine.assess_many_flights(
-                    flights,
-                    force_refresh=False,
-                )
+            weather_assessments = weather_engine.assess_many_flights(
+                flights,
+                force_refresh=False,
             )
         else:
             weather_assessments = {
@@ -206,19 +289,19 @@ def get_flights():
             dep_utc = ensure_utc(flight.heureDepart)
             arr_utc = ensure_utc(flight.heureArrivee)
 
-            assessment = weather_assessments.get(
-                str(flight.id),
-                {},
-            )
-
+            assessment = weather_assessments.get(str(flight.id), {})
             current_status = flight.statut
 
-            derived_status = determine_operational_status(
-                current_status=current_status,
-                dep_time=dep_utc,
-                arr_time=arr_utc,
-                weather_assessment=assessment,
-            )
+            # On ne laisse PAS la météo écraser un statut terminal.
+            if _is_terminal_status(current_status):
+                derived_status = current_status
+            else:
+                derived_status = determine_operational_status(
+                    current_status=current_status,
+                    dep_time=dep_utc,
+                    arr_time=arr_utc,
+                    weather_assessment=assessment,
+                )
 
             # Le ML local enrichit l'affichage / l'aide OCC, mais ne participe
             # pas à determine_operational_status(). Si ?weather=0, aucun
@@ -239,32 +322,27 @@ def get_flights():
                 has_changes = True
 
             duration_minutes = None
-
             if dep_utc and arr_utc:
                 duration_minutes = int(
                     (arr_utc - dep_utc).total_seconds() / 60
                 )
 
             local_dep_str = format_to_local_time(
-                dep_utc,
-                flight.aeroportDepart,
+                dep_utc, flight.aeroportDepart
             )
-
             local_arr_str = format_to_local_time(
-                arr_utc,
-                flight.aeroportArrivee,
+                arr_utc, flight.aeroportArrivee
             )
 
-            stopover_code = getattr(
-                flight,
-                "aeroportEscale",
-                None,
-            )
+            stopover_code = getattr(flight, "aeroportEscale", None)
+            stopover_duration = getattr(flight, "dureeEscale", None)
 
-            stopover_duration = getattr(
-                flight,
-                "dureeEscale",
-                None,
+            # weatherSeverity sécurisé : jamais None
+            raw_score = assessment.get("score")
+            weather_severity = (
+                _safe_float(raw_score, 0.5)
+                if raw_score is not None
+                else 0.5
             )
 
             updated_flights.append(
@@ -277,14 +355,10 @@ def get_flights():
                     "destination": flight.aeroportArrivee,
                     "route": build_route_string(flight),
                     "departure": (
-                        dep_utc.isoformat()
-                        if dep_utc
-                        else None
+                        dep_utc.isoformat() if dep_utc else None
                     ),
                     "arrival": (
-                        arr_utc.isoformat()
-                        if arr_utc
-                        else None
+                        arr_utc.isoformat() if arr_utc else None
                     ),
                     "localDeparture": local_dep_str,
                     "localArrival": local_arr_str,
@@ -299,62 +373,44 @@ def get_flights():
                         flight.avion.immatriculation
                         if getattr(flight, "avion", None)
                         and getattr(
-                            flight.avion,
-                            "immatriculation",
-                            None,
+                            flight.avion, "immatriculation", None
                         )
                         else "Sans Immat"
                     ),
 
-                    # -----------------------------------------------------------------
-                    # Compatibilité frontend existante :
-                    # weatherSeverity reste disponible.
-                    # -----------------------------------------------------------------
-                    "weatherSeverity": assessment.get(
-                        "score",
-                        0.5,
-                    ),
+                    # Compatibilité frontend existante
+                    "weatherSeverity": weather_severity,
 
-                    # -----------------------------------------------------------------
                     # Nouvelles données IA / OCC
-                    # -----------------------------------------------------------------
                     "weatherAI": assessment,
                     "weatherRiskLevel": assessment.get(
-                        "riskLevel",
-                        "UNKNOWN",
+                        "riskLevel", "UNKNOWN"
                     ),
                     "weatherRiskLabel": assessment.get(
-                        "riskLabel",
-                        "Indéterminé",
+                        "riskLabel", "Indéterminé"
                     ),
                     "weatherConfidence": assessment.get(
-                        "confidence",
-                        0.0,
+                        "confidence", 0.0
                     ),
                     "weatherRecommendedAction": assessment.get(
-                        "recommendedAction",
+                        "recommendedAction"
                     ),
                     "weatherRecommendedActionLabel": assessment.get(
-                        "recommendedActionLabel",
+                        "recommendedActionLabel"
                     ),
-                    "weatherUpdatedAt": assessment.get(
-                        "evaluatedAt",
-                    ),
+                    "weatherUpdatedAt": assessment.get("evaluatedAt"),
                     "weatherForecastPhase": assessment.get(
-                        "forecastPhase",
+                        "forecastPhase"
                     ),
                     "weatherForecastPhaseLabel": assessment.get(
-                        "forecastPhaseLabel",
+                        "forecastPhaseLabel"
                     ),
-                    "weatherNextReviewAt": assessment.get(
-                        "nextReviewAt",
-                    ),
+                    "weatherNextReviewAt": assessment.get("nextReviewAt"),
                     "weatherRefreshAfterSeconds": assessment.get(
-                        "refreshAfterSeconds",
+                        "refreshAfterSeconds"
                     ),
                     "weatherCanAffectStatus": assessment.get(
-                        "canAffectStatus",
-                        False,
+                        "canAffectStatus", False
                     ),
 
                     "legs": build_legs_payload(flight),
@@ -368,11 +424,7 @@ def get_flights():
 
     except Exception as exc:
         db.session.rollback()
-
-        print(
-            f"Erreur critique lors de GET /flights : {str(exc)}"
-        )
-
+        logger.exception("Erreur critique lors de GET /flights")
         return (
             jsonify(
                 {
@@ -401,65 +453,34 @@ def assess_weather_before_flight():
     - départ + arrivée + escale(s).
     """
     try:
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
 
-        dep_airport = (
-            data.get("aeroportDepart")
-            or ""
-        ).strip().upper()
-
-        arr_airport = (
-            data.get("aeroportArrivee")
-            or ""
-        ).strip().upper()
-
+        dep_airport = (data.get("aeroportDepart") or "").strip().upper()
+        arr_airport = (data.get("aeroportArrivee") or "").strip().upper()
         dep_raw = data.get("heureDepart")
         arr_raw = data.get("heureArrivee")
 
         if not dep_airport or not arr_airport:
-            return (
-                jsonify(
-                    {
-                        "status": "error",
-                        "message": "Aéroports de départ et d'arrivée requis.",
-                    }
-                ),
-                400,
-            )
+            return jsonify({
+                "status": "error",
+                "message": "Aéroports de départ et d'arrivée requis.",
+            }), 400
 
         if not dep_raw or not arr_raw:
-            return (
-                jsonify(
-                    {
-                        "status": "error",
-                        "message": "Horaires de départ et d'arrivée requis.",
-                    }
-                ),
-                400,
-            )
+            return jsonify({
+                "status": "error",
+                "message": "Horaires de départ et d'arrivée requis.",
+            }), 400
 
-        dep_time = ensure_utc(
-            datetime.fromisoformat(
-                dep_raw.replace("Z", "+00:00")
-            )
-        )
-
-        arr_time = ensure_utc(
-            datetime.fromisoformat(
-                arr_raw.replace("Z", "+00:00")
-            )
-        )
+        dep_time = _parse_iso_datetime(dep_raw, "heureDepart")
+        arr_time = _parse_iso_datetime(arr_raw, "heureArrivee")
 
         if arr_time <= dep_time:
-            return (
-                jsonify(
-                    {
-                        "status": "error",
-                        "message": "L'arrivée doit être postérieure au départ.",
-                    }
-                ),
-                400,
-            )
+            return jsonify({
+                "status": "error",
+                "message": "L'arrivée doit être postérieure au départ.",
+            }), 400
+
         assessment = weather_engine.assess_flight(
             dep_airport=dep_airport,
             arr_airport=arr_airport,
@@ -478,26 +499,19 @@ def assess_weather_before_flight():
             stopovers=data.get("aeroportEscale"),
         )
 
-        return (
-            jsonify(
-                {
-                    "status": "success",
-                    "weatherAI": assessment,
-                }
-            ),
-            200,
-        )
+        return jsonify({
+            "status": "success",
+            "weatherAI": assessment,
+        }), 200
 
+    except BadRequest as exc:
+        return jsonify({"status": "error", "message": str(exc)}), 400
     except Exception as exc:
-        return (
-            jsonify(
-                {
-                    "status": "error",
-                    "message": "Impossible d'évaluer la météo du vol.",
-                }
-            ),
-            500,
-        )
+        logger.exception("Erreur sur POST /flights/weather/assess")
+        return jsonify({
+            "status": "error",
+            "message": "Impossible d'évaluer la météo du vol.",
+        }), 500
 
 
 # =============================================================================
@@ -514,11 +528,15 @@ def get_flights_fast():
       1) charger /flights/fast immédiatement ;
       2) charger /flights/weather-alerts ensuite ;
       3) fusionner les alertes météo en arrière-plan.
-
-    Très utile sur machine 8 Go / CPU ancien.
     """
     try:
-        flights = Flight.query.all()
+        flights = (
+            Flight.query
+            .options(joinedload(Flight.avion))
+            .order_by(Flight.heureDepart.asc())
+            .limit(MAX_FLIGHTS_PER_REQUEST)
+            .all()
+        )
 
         payload = []
 
@@ -527,11 +545,9 @@ def get_flights_fast():
             arr_utc = ensure_utc(flight.heureArrivee)
 
             duration_minutes = None
-
             if dep_utc and arr_utc:
                 duration_minutes = int(
-                    (arr_utc - dep_utc).total_seconds()
-                    / 60
+                    (arr_utc - dep_utc).total_seconds() / 60
                 )
 
             payload.append(
@@ -542,22 +558,16 @@ def get_flights_fast():
                     "destination": flight.aeroportArrivee,
                     "route": build_route_string(flight),
                     "departure": (
-                        dep_utc.isoformat()
-                        if dep_utc
-                        else None
+                        dep_utc.isoformat() if dep_utc else None
                     ),
                     "arrival": (
-                        arr_utc.isoformat()
-                        if arr_utc
-                        else None
+                        arr_utc.isoformat() if arr_utc else None
                     ),
                     "localDeparture": format_to_local_time(
-                        dep_utc,
-                        flight.aeroportDepart,
+                        dep_utc, flight.aeroportDepart
                     ),
                     "localArrival": format_to_local_time(
-                        arr_utc,
-                        flight.aeroportArrivee,
+                        arr_utc, flight.aeroportArrivee
                     ),
                     "durationMinutes": duration_minutes,
                     "status": flight.statut,
@@ -568,15 +578,9 @@ def get_flights_fast():
                     ),
                     "aircraftModel": (
                         flight.avion.immatriculation
-                        if getattr(
-                            flight,
-                            "avion",
-                            None,
-                        )
+                        if getattr(flight, "avion", None)
                         and getattr(
-                            flight.avion,
-                            "immatriculation",
-                            None,
+                            flight.avion, "immatriculation", None
                         )
                         else "Sans Immat"
                     ),
@@ -588,15 +592,11 @@ def get_flights_fast():
         return jsonify(payload), 200
 
     except Exception as exc:
-        return (
-            jsonify(
-                {
-                    "status": "error",
-                    "message": str(exc),
-                }
-            ),
-            500,
-        )
+        logger.exception("Erreur sur GET /flights/fast")
+        return jsonify({
+            "status": "error",
+            "message": str(exc),
+        }), 500
 
 
 # =============================================================================
@@ -616,29 +616,28 @@ def get_weather_alerts():
     """
     try:
         horizon_hours = request.args.get(
-            "horizonHours",
-            default=24,
-            type=int,
+            "horizonHours", default=24, type=int
         )
-
         horizon_hours = max(
             1,
-            min(
-                horizon_hours,
-                WEATHER_PLANNING_MAX_HOURS,
-            ),
+            min(horizon_hours, WEATHER_PLANNING_MAX_HOURS),
         )
 
         now_utc = datetime.now(timezone.utc)
-        horizon_end = now_utc + timedelta(
-            hours=horizon_hours
-        )
+        horizon_end = now_utc + timedelta(hours=horizon_hours)
 
-        flights = Flight.query.filter(
-            Flight.heureDepart >= now_utc,
-            Flight.heureDepart <= horizon_end,
-            Flight.statut != "Cancelled",
-        ).all()
+        # Filtre SQL minimal, puis filtre Python pour les variantes d'annulation
+        all_flights = (
+            Flight.query
+            .filter(Flight.heureDepart >= now_utc)
+            .filter(Flight.heureDepart <= horizon_end)
+            .order_by(Flight.heureDepart.asc())
+            .limit(MAX_FLIGHTS_PER_REQUEST)
+            .all()
+        )
+        flights = [
+            f for f in all_flights if not _is_cancelled_status(f.statut)
+        ]
 
         alerts = []
 
@@ -666,67 +665,54 @@ def get_weather_alerts():
 
             monitor_score = assessment.get("advisoryScore")
             if not isinstance(monitor_score, (int, float)):
-                monitor_score = assessment.get("score", 0)
+                monitor_score = _safe_float(assessment.get("score"), 0.0)
 
             if (
-                monitor_score
-                >= WEATHER_MONITOR_THRESHOLD
-                or not assessment.get(
-                    "dataAvailable",
-                    True,
-                )
+                monitor_score >= WEATHER_MONITOR_THRESHOLD
+                or not assessment.get("dataAvailable", True)
             ):
-                alerts.append(
-                    {
-                        "flightId": str(flight.id),
-                        "flightNumber": flight.numeroVol,
-                        "origin": flight.aeroportDepart,
-                        "destination": flight.aeroportArrivee,
-                        "departure": (
-                            ensure_utc(
-                                flight.heureDepart
-                            ).isoformat()
-                            if flight.heureDepart
-                            else None
-                        ),
-                        "status": flight.statut,
-                        "weatherAI": assessment,
-                    }
-                )
+                alerts.append({
+                    "flightId": str(flight.id),
+                    "flightNumber": flight.numeroVol,
+                    "origin": flight.aeroportDepart,
+                    "destination": flight.aeroportArrivee,
+                    "departure": (
+                        ensure_utc(flight.heureDepart).isoformat()
+                        if flight.heureDepart
+                        else None
+                    ),
+                    "status": flight.statut,
+                    "weatherAI": assessment,
+                })
 
         alerts.sort(
-            key=lambda item: (
+            key=lambda item: _safe_float(
                 item["weatherAI"].get("advisoryScore")
-                if isinstance(item["weatherAI"].get("advisoryScore"), (int, float))
-                else item["weatherAI"].get("score", 0)
+                if isinstance(
+                    item["weatherAI"].get("advisoryScore"),
+                    (int, float),
+                )
+                else item["weatherAI"].get("score"),
+                0.0,
             ),
             reverse=True,
         )
 
-        return (
-            jsonify(
-                {
-                    "status": "success",
-                    "generatedAt": now_utc.isoformat(),
-                    "refreshAfterSeconds": 60,
-                    "horizonHours": horizon_hours,
-                    "totalAlerts": len(alerts),
-                    "alerts": alerts,
-                }
-            ),
-            200,
-        )
+        return jsonify({
+            "status": "success",
+            "generatedAt": now_utc.isoformat(),
+            "refreshAfterSeconds": 60,
+            "horizonHours": horizon_hours,
+            "totalAlerts": len(alerts),
+            "alerts": alerts,
+        }), 200
 
     except Exception as exc:
-        return (
-            jsonify(
-                {
-                    "status": "error",
-                    "message": str(exc),
-                }
-            ),
-            500,
-        )
+        logger.exception("Erreur sur GET /flights/weather-alerts")
+        return jsonify({
+            "status": "error",
+            "message": str(exc),
+        }), 500
 
 
 @flights_bp.route("/flights/weather-outlook", methods=["GET"])
@@ -736,38 +722,27 @@ def get_weather_outlook():
 
     Exemple :
         GET /flights/weather-outlook?horizonDays=30
-
-    Cette route inclut les vols entre maintenant et J-30.
-    - J-30 → J-7 : tendance stratégique, sans décision automatique.
-    - J-7  → J-1 : prévision planning.
-    - J-1  → H-2 : surveillance tactique.
-    - H-2  → départ : décision OCC court terme.
-
-    Si le fournisseur réel ne couvre que 7 jours, la zone J-30 → J-7
-    retourne une évaluation "LONG_RANGE_MONITOR" sans faux score.
     """
     try:
         horizon_days = request.args.get(
-            "horizonDays",
-            default=30,
-            type=int,
+            "horizonDays", default=30, type=int
         )
-
-        horizon_days = max(
-            1,
-            min(horizon_days, 30),
-        )
+        horizon_days = max(1, min(horizon_days, 30))
 
         now_utc = datetime.now(timezone.utc)
-        horizon_end = now_utc + timedelta(
-            days=horizon_days
-        )
+        horizon_end = now_utc + timedelta(days=horizon_days)
 
-        flights = Flight.query.filter(
-            Flight.heureDepart >= now_utc,
-            Flight.heureDepart <= horizon_end,
-            Flight.statut != "Cancelled",
-        ).all()
+        all_flights = (
+            Flight.query
+            .filter(Flight.heureDepart >= now_utc)
+            .filter(Flight.heureDepart <= horizon_end)
+            .order_by(Flight.heureDepart.asc())
+            .limit(MAX_FLIGHTS_PER_REQUEST)
+            .all()
+        )
+        flights = [
+            f for f in all_flights if not _is_cancelled_status(f.statut)
+        ]
 
         assessments = weather_engine.assess_many_flights(
             flights,
@@ -775,7 +750,6 @@ def get_weather_outlook():
         )
 
         items = []
-
         phase_counts = defaultdict(int)
 
         for flight in flights:
@@ -786,8 +760,6 @@ def get_weather_outlook():
                 ),
             )
 
-            # Au-delà de l'horizon fournisseur, le ML local fournit une
-            # climatologie consultative avec confiance réduite.
             assessment = _enrich_with_local_ml(
                 assessment,
                 dep_airport=flight.aeroportDepart,
@@ -797,99 +769,76 @@ def get_weather_outlook():
                 stopovers=getattr(flight, "aeroportEscale", None),
             )
 
-            phase = assessment.get(
-                "forecastPhase",
-                "UNKNOWN",
-            )
-
+            phase = assessment.get("forecastPhase", "UNKNOWN")
             phase_counts[phase] += 1
 
-            items.append(
-                {
-                    "flightId": str(flight.id),
-                    "flightNumber": flight.numeroVol,
-                    "origin": flight.aeroportDepart,
-                    "destination": flight.aeroportArrivee,
-                    "departure": (
-                        ensure_utc(
-                            flight.heureDepart
-                        ).isoformat()
-                        if flight.heureDepart
-                        else None
-                    ),
-                    "status": flight.statut,
-                    "forecastPhase": phase,
-                    "forecastPhaseLabel": assessment.get(
-                        "forecastPhaseLabel"
-                    ),
-                    "weatherAI": assessment,
-                }
-            )
+            items.append({
+                "flightId": str(flight.id),
+                "flightNumber": flight.numeroVol,
+                "origin": flight.aeroportDepart,
+                "destination": flight.aeroportArrivee,
+                "departure": (
+                    ensure_utc(flight.heureDepart).isoformat()
+                    if flight.heureDepart
+                    else None
+                ),
+                "status": flight.statut,
+                "forecastPhase": phase,
+                "forecastPhaseLabel": assessment.get(
+                    "forecastPhaseLabel"
+                ),
+                "weatherAI": assessment,
+            })
 
-        # Les vols les plus proches et les risques réellement chiffrés
-        # sont affichés en priorité.
         items.sort(
             key=lambda item: (
                 item["departure"] or "",
-                -(
+                -_safe_float(
                     (
                         item["weatherAI"].get("advisoryScore")
-                        if isinstance(item["weatherAI"].get("advisoryScore"), (int, float))
+                        if isinstance(
+                            item["weatherAI"].get("advisoryScore"),
+                            (int, float),
+                        )
                         else item["weatherAI"].get("score")
-                    )
-                    if isinstance(
-                        (
-                            item["weatherAI"].get("advisoryScore")
-                            if isinstance(item["weatherAI"].get("advisoryScore"), (int, float))
-                            else item["weatherAI"].get("score")
-                        ),
-                        (int, float),
-                    )
-                    else -1
+                    ),
+                    -1.0,
                 ),
             )
         )
 
-        return (
-            jsonify(
-                {
-                    "status": "success",
-                    "generatedAt": now_utc.isoformat(),
-                    "horizonDays": horizon_days,
-                    "providerForecastMaxHours": (
-                        WEATHER_PROVIDER_MAX_FORECAST_HOURS
-                    ),
-                    "lifecycle": {
-                        "J30_J7": "STRATEGIC",
-                        "J7_J1": "PLANNING",
-                        "J1_H2": "TACTICAL",
-                        "H2_DEP": "OPERATIONAL",
-                    },
-                    "phaseCounts": dict(phase_counts),
-                    "totalFlights": len(items),
-                    "flights": items,
-                }
+        return jsonify({
+            "status": "success",
+            "generatedAt": now_utc.isoformat(),
+            "horizonDays": horizon_days,
+            "providerForecastMaxHours": (
+                WEATHER_PROVIDER_MAX_FORECAST_HOURS
             ),
-            200,
-        )
+            "lifecycle": {
+                "J30_J7": "STRATEGIC",
+                "J7_J1": "PLANNING",
+                "J1_H2": "TACTICAL",
+                "H2_DEP": "OPERATIONAL",
+            },
+            "phaseCounts": dict(phase_counts),
+            "totalFlights": len(items),
+            "flights": items,
+        }), 200
 
     except Exception as exc:
-        return (
-            jsonify(
-                {
-                    "status": "error",
-                    "message": str(exc),
-                }
-            ),
-            500,
-        )
+        logger.exception("Erreur sur GET /flights/weather-outlook")
+        return jsonify({
+            "status": "error",
+            "message": str(exc),
+        }), 500
 
 
 @flights_bp.route("/flights/weather/local-assess", methods=["POST"])
 def assess_weather_local_only():
     """Évalue un vol uniquement avec le ML local (consultatif OCC)."""
     try:
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
+
         dep_airport = (data.get("aeroportDepart") or "").strip().upper()
         arr_airport = (data.get("aeroportArrivee") or "").strip().upper()
         dep_raw = data.get("heureDepart")
@@ -901,8 +850,9 @@ def assess_weather_local_only():
                 "message": "Départ, arrivée et horaires sont requis.",
             }), 400
 
-        dep_time = ensure_utc(datetime.fromisoformat(dep_raw.replace("Z", "+00:00")))
-        arr_time = ensure_utc(datetime.fromisoformat(arr_raw.replace("Z", "+00:00")))
+        dep_time = _parse_iso_datetime(dep_raw, "heureDepart")
+        arr_time = _parse_iso_datetime(arr_raw, "heureArrivee")
+
         if arr_time <= dep_time:
             return jsonify({
                 "status": "error",
@@ -916,12 +866,17 @@ def assess_weather_local_only():
             arr_time=arr_time,
             stopovers=data.get("aeroportEscale"),
         )
+
         return jsonify({
             "status": "success",
             "localML": local_assessment,
             "trustedForAutomaticStatus": False,
         }), 200
+
+    except BadRequest as exc:
+        return jsonify({"status": "error", "message": str(exc)}), 400
     except Exception as exc:
+        logger.exception("Erreur sur POST /flights/weather/local-assess")
         return jsonify({
             "status": "error",
             "message": str(exc),
@@ -931,12 +886,19 @@ def assess_weather_local_only():
 @flights_bp.route("/flights/weather/status", methods=["GET"])
 def get_weather_system_status():
     """État de résilience météo : circuit API et disponibilité du ML local."""
-    return jsonify({
-        "status": "success",
-        "weather": resilient_weather_service.status(),
-        "localML": local_weather_ml.status(),
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-    }), 200
+    try:
+        return jsonify({
+            "status": "success",
+            "weather": resilient_weather_service.status(),
+            "localML": local_weather_ml.status(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }), 200
+    except Exception as exc:
+        logger.exception("Erreur sur GET /flights/weather/status")
+        return jsonify({
+            "status": "error",
+            "message": str(exc),
+        }), 500
 
 
 @flights_bp.route("/flights/weather/refresh", methods=["POST"])
@@ -952,29 +914,21 @@ def force_weather_refresh():
     try:
         weather_engine.clear_cache()
 
-        return (
-            jsonify(
-                {
-                    "status": "success",
-                    "message": "Cache météo invalidé. La prochaine lecture forcera une actualisation.",
-                    "timestamp": datetime.now(
-                        timezone.utc
-                    ).isoformat(),
-                }
+        return jsonify({
+            "status": "success",
+            "message": (
+                "Cache météo invalidé. La prochaine lecture "
+                "forcera une actualisation."
             ),
-            200,
-        )
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }), 200
 
     except Exception as exc:
-        return (
-            jsonify(
-                {
-                    "status": "error",
-                    "message": str(exc),
-                }
-            ),
-            500,
-        )
+        logger.exception("Erreur sur POST /flights/weather/refresh")
+        return jsonify({
+            "status": "error",
+            "message": str(exc),
+        }), 500
 
 
 # =============================================================================
@@ -984,71 +938,65 @@ def force_weather_refresh():
 @flights_bp.route("/flights", methods=["POST"])
 def create_flight():
     try:
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
 
-        dep_airport = data["aeroportDepart"].strip().upper()
-        arr_airport = data["aeroportArrivee"].strip().upper()
+        # ---------------------------------------------------------------
+        # Validation stricte
+        # ---------------------------------------------------------------
+        numero_vol = str(data.get("numeroVol") or "").strip().upper()
+        dep_airport = str(data.get("aeroportDepart") or "").strip().upper()
+        arr_airport = str(data.get("aeroportArrivee") or "").strip().upper()
+
+        if not numero_vol:
+            return jsonify({
+                "status": "error",
+                "message": "Numéro de vol requis.",
+            }), 400
+
+        if not dep_airport or not arr_airport:
+            return jsonify({
+                "status": "error",
+                "message": "Aéroports de départ et d'arrivée requis.",
+            }), 400
+
+        dep_time = _parse_iso_datetime(data.get("heureDepart"), "heureDepart")
+        arr_time = _parse_iso_datetime(data.get("heureArrivee"), "heureArrivee")
+
+        if arr_time <= dep_time:
+            return jsonify({
+                "status": "error",
+                "message": "L'heure d'arrivée doit être postérieure au départ.",
+            }), 400
 
         stopover_input = (
             data.get("aeroportEscale")
             or data.get("escale")
             or data.get("stopovers")
         )
-
-        stopover_airport = normalize_stopover_storage(
-            stopover_input
-        )
-
+        stopover_airport = normalize_stopover_storage(stopover_input)
         stopover_duration = parse_stopover_duration(data)
 
-        dep_time = datetime.fromisoformat(
-            data["heureDepart"].replace(
-                "Z",
-                "+00:00",
-            )
-        )
-
-        arr_time = datetime.fromisoformat(
-            data["heureArrivee"].replace(
-                "Z",
-                "+00:00",
-            )
-        )
-
-        dep_time = ensure_utc(dep_time)
-        arr_time = ensure_utc(arr_time)
-
-        if arr_time <= dep_time:
-            return (
-                jsonify(
-                    {
-                        "status": "error",
-                        "message": "L'heure d'arrivée doit être postérieure au départ.",
-                    }
-                ),
-                400,
-            )
         avion_id = data.get("avionId") or None
 
+        # ---------------------------------------------------------------
+        # Conflit avion
+        # ---------------------------------------------------------------
         conflicting_flight = check_aircraft_conflict(
-            avion_id,
-            dep_time,
-            arr_time,
+            avion_id, dep_time, arr_time
         )
-        if conflicting_flight:
-            return (
-                jsonify(
-                    {
-                        "status": "error",
-                        "code": "AIRCRAFT_CONFLICT",
-                        "message": (
-                            f"Cet appareil est déjà assigné au vol "
-                            f"{conflicting_flight.numeroVol} sur ce créneau horaire."
-                        ),
-                    }
+        if conflicting_flight and hasattr(conflicting_flight, "numeroVol"):
+            return jsonify({
+                "status": "error",
+                "code": "AIRCRAFT_CONFLICT",
+                "message": (
+                    f"Cet appareil est déjà assigné au vol "
+                    f"{conflicting_flight.numeroVol} sur ce créneau horaire."
                 ),
-                409,
-            )
+            }), 409
+
+        # ---------------------------------------------------------------
+        # Météo
+        # ---------------------------------------------------------------
         weather_assessment = weather_engine.assess_flight(
             dep_airport=dep_airport,
             arr_airport=arr_airport,
@@ -1057,10 +1005,11 @@ def create_flight():
             stopovers=stopover_airport,
             force_refresh=False,
         )
-        frontend_status = data.get(
-            "status",
-            "Planifié",
-        )
+
+        # ---------------------------------------------------------------
+        # Statut initial : intention utilisateur > météo
+        # ---------------------------------------------------------------
+        frontend_status = data.get("status", "Planifié")
         status_mapping = {
             "Planifié": "Scheduled",
             "Retardé": "Delayed",
@@ -1068,38 +1017,21 @@ def create_flight():
             "Annulé": "Cancelled",
             "Effectué": "Effectué",
         }
-
-        initial_status = status_mapping.get(
-            frontend_status,
-            "Scheduled",
-        )
+        initial_status = status_mapping.get(frontend_status, "Scheduled")
 
         now_utc = datetime.now(timezone.utc)
 
-        if arr_time < now_utc:
+        if _is_cancelled_status(initial_status):
+            pass  # respecté
+        elif arr_time < now_utc:
             initial_status = "Effectué"
-
         elif (
-            weather_assessment.get(
-                "canAffectStatus",
-                False,
-            )
-            and weather_assessment.get(
-                "recommendedAction"
-            )
-            in [
-                "GROUND_HOLD_REVIEW",
-                "DELAY_REVIEW",
-            ]
-            and weather_assessment.get(
-                "minutesToDeparture",
-                9999,
-            )
-            <= 120
+            weather_assessment.get("canAffectStatus", False)
+            and weather_assessment.get("recommendedAction")
+            in ["GROUND_HOLD_REVIEW", "DELAY_REVIEW"]
+            and weather_assessment.get("minutesToDeparture", 9999) <= 120
         ):
-            # Important :
-            # météo sévère => retard / revue OCC,
-            # pas annulation automatique.
+            # météo sévère => retard / revue OCC, pas annulation automatique.
             initial_status = "Delayed"
 
         response_weather_assessment = _enrich_with_local_ml(
@@ -1113,7 +1045,7 @@ def create_flight():
 
         new_flight = Flight(
             id=str(uuid.uuid4()),
-            numeroVol=data["numeroVol"].strip().upper(),
+            numeroVol=numero_vol,
             aeroportDepart=dep_airport,
             aeroportEscale=stopover_airport,
             dureeEscale=stopover_duration,
@@ -1127,37 +1059,25 @@ def create_flight():
         db.session.add(new_flight)
         db.session.commit()
 
-        return (
-            jsonify(
-                {
-                    "status": "success",
-                    "id": str(new_flight.id),
-                    "assigned_status": initial_status,
-                    "weatherSeverity": response_weather_assessment.get(
-                        "score"
-                    ),
-                    "weatherAI": response_weather_assessment,
-                }
-            ),
-            201,
-        )
+        return jsonify({
+            "status": "success",
+            "id": str(new_flight.id),
+            "assigned_status": initial_status,
+            "weatherSeverity": response_weather_assessment.get("score"),
+            "weatherAI": response_weather_assessment,
+        }), 201
+
+    except BadRequest as exc:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": str(exc)}), 400
 
     except Exception as exc:
         db.session.rollback()
-
-        print(
-            f"Erreur lors de la création du vol : {str(exc)}"
-        )
-
-        return (
-            jsonify(
-                {
-                    "status": "error",
-                    "message": f"Erreur de traitement : {str(exc)}",
-                }
-            ),
-            500,
-        )
+        logger.exception("Erreur lors de la création du vol")
+        return jsonify({
+            "status": "error",
+            "message": f"Erreur de traitement : {str(exc)}",
+        }), 500
 
 
 # =============================================================================
@@ -1167,63 +1087,47 @@ def create_flight():
 @flights_bp.route("/flights/<id>", methods=["PUT"])
 def update_flight(id):
     try:
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
 
         flight = db.session.get(Flight, id)
-
         if not flight:
-            return (
-                jsonify(
-                    {
-                        "status": "error",
-                        "message": "Vol introuvable",
-                    }
-                ),
-                404,
-            )
+            return jsonify({
+                "status": "error",
+                "message": "Vol introuvable",
+            }), 404
 
-        dep_airport = data["aeroportDepart"].strip().upper()
-        arr_airport = data["aeroportArrivee"].strip().upper()
+        numero_vol = str(data.get("numeroVol") or "").strip().upper()
+        dep_airport = str(data.get("aeroportDepart") or "").strip().upper()
+        arr_airport = str(data.get("aeroportArrivee") or "").strip().upper()
+
+        if not numero_vol:
+            return jsonify({
+                "status": "error",
+                "message": "Numéro de vol requis.",
+            }), 400
+
+        if not dep_airport or not arr_airport:
+            return jsonify({
+                "status": "error",
+                "message": "Aéroports de départ et d'arrivée requis.",
+            }), 400
+
+        dep_time = _parse_iso_datetime(data.get("heureDepart"), "heureDepart")
+        arr_time = _parse_iso_datetime(data.get("heureArrivee"), "heureArrivee")
+
+        if arr_time <= dep_time:
+            return jsonify({
+                "status": "error",
+                "message": "L'heure d'arrivée doit être postérieure au départ.",
+            }), 400
 
         stopover_input = (
             data.get("aeroportEscale")
             or data.get("escale")
             or data.get("stopovers")
         )
-
-        stopover_airport = normalize_stopover_storage(
-            stopover_input
-        )
-
+        stopover_airport = normalize_stopover_storage(stopover_input)
         stopover_duration = parse_stopover_duration(data)
-
-        dep_time = datetime.fromisoformat(
-            data["heureDepart"].replace(
-                "Z",
-                "+00:00",
-            )
-        )
-
-        arr_time = datetime.fromisoformat(
-            data["heureArrivee"].replace(
-                "Z",
-                "+00:00",
-            )
-        )
-
-        dep_time = ensure_utc(dep_time)
-        arr_time = ensure_utc(arr_time)
-
-        if arr_time <= dep_time:
-            return (
-                jsonify(
-                    {
-                        "status": "error",
-                        "message": "L'heure d'arrivée doit être postérieure au départ.",
-                    }
-                ),
-                400,
-            )
 
         avion_id = data.get("avionId") or None
 
@@ -1233,21 +1137,15 @@ def update_flight(id):
             arr_time,
             current_flight_id=id,
         )
-
-        if conflicting_flight:
-            return (
-                jsonify(
-                    {
-                        "status": "error",
-                        "code": "AIRCRAFT_CONFLICT",
-                        "message": (
-                            f"Cet appareil est déjà assigné au vol "
-                            f"{conflicting_flight.numeroVol} sur ce créneau horaire."
-                        ),
-                    }
+        if conflicting_flight and hasattr(conflicting_flight, "numeroVol"):
+            return jsonify({
+                "status": "error",
+                "code": "AIRCRAFT_CONFLICT",
+                "message": (
+                    f"Cet appareil est déjà assigné au vol "
+                    f"{conflicting_flight.numeroVol} sur ce créneau horaire."
                 ),
-                409,
-            )
+            }), 409
 
         weather_assessment = weather_engine.assess_flight(
             dep_airport=dep_airport,
@@ -1258,11 +1156,7 @@ def update_flight(id):
             force_refresh=False,
         )
 
-        frontend_status = data.get(
-            "status",
-            flight.statut,
-        )
-
+        frontend_status = data.get("status", flight.statut)
         status_mapping = {
             "Planifié": "Scheduled",
             "Retardé": "Delayed",
@@ -1270,38 +1164,23 @@ def update_flight(id):
             "Annulé": "Cancelled",
             "Effectué": "Effectué",
         }
-
-        new_status = status_mapping.get(
-            frontend_status,
-            frontend_status,
-        )
+        new_status = status_mapping.get(frontend_status, frontend_status)
 
         now_utc = datetime.now(timezone.utc)
 
-        if arr_time < now_utc:
+        # Priorité : Annulé/Effectué manuels > météo > statut initial
+        if _is_cancelled_status(new_status) or new_status in {
+            "Effectué",
+            "Effectue",
+        }:
+            pass
+        elif arr_time < now_utc:
             new_status = "Effectué"
-
         elif (
-            new_status not in [
-                "Cancelled",
-                "Effectué",
-            ]
-            and weather_assessment.get(
-                "canAffectStatus",
-                False,
-            )
-            and weather_assessment.get(
-                "recommendedAction"
-            )
-            in [
-                "GROUND_HOLD_REVIEW",
-                "DELAY_REVIEW",
-            ]
-            and weather_assessment.get(
-                "minutesToDeparture",
-                9999,
-            )
-            <= 120
+            weather_assessment.get("canAffectStatus", False)
+            and weather_assessment.get("recommendedAction")
+            in ["GROUND_HOLD_REVIEW", "DELAY_REVIEW"]
+            and weather_assessment.get("minutesToDeparture", 9999) <= 120
         ):
             new_status = "Delayed"
 
@@ -1314,7 +1193,7 @@ def update_flight(id):
             stopovers=stopover_airport,
         )
 
-        flight.numeroVol = data["numeroVol"].strip().upper()
+        flight.numeroVol = numero_vol
         flight.aeroportDepart = dep_airport
         flight.aeroportEscale = stopover_airport
         flight.dureeEscale = stopover_duration
@@ -1326,33 +1205,25 @@ def update_flight(id):
 
         db.session.commit()
 
-        return (
-            jsonify(
-                {
-                    "status": "success",
-                    "message": "Vol mis à jour",
-                    "assigned_status": new_status,
-                    "weatherSeverity": response_weather_assessment.get(
-                        "score"
-                    ),
-                    "weatherAI": response_weather_assessment,
-                }
-            ),
-            200,
-        )
+        return jsonify({
+            "status": "success",
+            "message": "Vol mis à jour",
+            "assigned_status": new_status,
+            "weatherSeverity": response_weather_assessment.get("score"),
+            "weatherAI": response_weather_assessment,
+        }), 200
+
+    except BadRequest as exc:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": str(exc)}), 400
 
     except Exception as exc:
         db.session.rollback()
-
-        return (
-            jsonify(
-                {
-                    "status": "error",
-                    "message": str(exc),
-                }
-            ),
-            500,
-        )
+        logger.exception("Erreur lors de la mise à jour du vol %s", id)
+        return jsonify({
+            "status": "error",
+            "message": str(exc),
+        }), 500
 
 
 # =============================================================================
@@ -1363,40 +1234,24 @@ def update_flight(id):
 def delete_flight(id):
     try:
         flight = db.session.get(Flight, id)
-
         if not flight:
-            return (
-                jsonify(
-                    {
-                        "status": "error",
-                        "message": "Vol introuvable",
-                    }
-                ),
-                404,
-            )
+            return jsonify({
+                "status": "error",
+                "message": "Vol introuvable",
+            }), 404
 
         db.session.delete(flight)
         db.session.commit()
 
-        return (
-            jsonify(
-                {
-                    "status": "success",
-                    "message": "Vol supprimé",
-                }
-            ),
-            200,
-        )
+        return jsonify({
+            "status": "success",
+            "message": "Vol supprimé",
+        }), 200
 
     except Exception as exc:
         db.session.rollback()
-
-        return (
-            jsonify(
-                {
-                    "status": "error",
-                    "message": str(exc),
-                }
-            ),
-            500,
-        )
+        logger.exception("Erreur lors de la suppression du vol %s", id)
+        return jsonify({
+            "status": "error",
+            "message": str(exc),
+        }), 500
