@@ -133,6 +133,10 @@ class ResilientWeatherService:
         self._circuit_open_until = 0.0
         self._last_good: dict[tuple[str, str], dict] = {}
 
+    # =========================================================================
+    # Utilitaires internes
+    # =========================================================================
+
     @staticmethod
     def _bucket(airport_code: str, target_time: datetime) -> tuple[str, str]:
         target = _ensure_utc(target_time)
@@ -192,9 +196,14 @@ class ResilientWeatherService:
             "error": "API indisponible; dernière valeur API valide réutilisée.",
         }
 
-    def _try_api(self, airport_code: str, target_time: datetime) -> tuple[float, str | None]:
+    def _try_api(
+        self, airport_code: str, target_time: datetime
+    ) -> tuple[float | None, str | None]:
         if self._circuit_is_open():
-            return None, "Circuit API météo temporairement ouvert après plusieurs échecs."
+            return (
+                None,
+                "Circuit API météo temporairement ouvert après plusieurs échecs.",
+            )
 
         last_error = None
         for attempt in range(WEATHER_API_RETRIES):
@@ -210,6 +219,10 @@ class ResilientWeatherService:
                 if attempt + 1 < WEATHER_API_RETRIES:
                     time.sleep(WEATHER_API_RETRY_DELAY_SECONDS)
         return None, last_error or "Erreur API météo inconnue"
+
+    # =========================================================================
+    # API publique
+    # =========================================================================
 
     def get_severity(self, airport_code: str, target_time: datetime) -> dict:
         airport = (airport_code or "").strip().upper()
@@ -263,7 +276,8 @@ class ResilientWeatherService:
             stale = self._get_stale_cache(airport, target)
             if stale:
                 stale["error"] = (
-                    f"API indisponible: {api_error}; ML local indisponible: {ml_exc}. "
+                    f"API indisponible: {api_error}; "
+                    f"ML local indisponible: {ml_exc}. "
                     "Utilisation du cache API antérieur."
                 )
                 return stale
@@ -283,6 +297,15 @@ class ResilientWeatherService:
                     f"ML local indisponible: {ml_exc}"
                 ),
             }
+
+    def get_severity_detail(
+        self, airport_code: str, target_time: datetime
+    ) -> dict:
+        """Comme get_severity() mais expose la source et le détail par aéroport."""
+        result = self.get_severity(airport_code, target_time)
+        result["airport"] = (airport_code or "").strip().upper()
+        result["targetTime"] = _ensure_utc(target_time).isoformat()
+        return result
 
     def status(self) -> dict:
         with self._lock:

@@ -30,8 +30,17 @@ from services.weather.risk_engine import (
     determine_operational_status,
 )
 
+
+# =============================================================================
+# BLUEPRINT — DOIT ÊTRE DÉCLARÉ AVANT TOUTE ROUTE
+# =============================================================================
+
 flights_bp = Blueprint("flights", __name__)
 
+
+# =============================================================================
+# HELPERS LOCAUX
+# =============================================================================
 
 def _enrich_with_local_ml(
     assessment,
@@ -67,6 +76,89 @@ def _enrich_with_local_ml(
         enriched["localMLAvailable"] = False
         enriched["localMLTrustedForAutomaticStatus"] = False
         return enriched
+
+
+# =============================================================================
+# POST /flights/weather/airports  — Prévision détaillée par aéroport
+# =============================================================================
+
+@flights_bp.route("/flights/weather/airports", methods=["POST"])
+def get_weather_by_airport():
+    """
+    Prévision météo détaillée par aéroport.
+
+    Body JSON :
+    {
+        "aeroportDepart": "LFPG",
+        "aeroportArrivee": "KJFK",
+        "heureDepart": "2025-01-15T10:00:00Z",
+        "heureArrivee": "2025-01-15T18:00:00Z",
+        "aeroportEscale": "EGLL"   // optionnel
+    }
+    """
+    try:
+        data = request.get_json() or {}
+
+        dep_airport = (data.get("aeroportDepart") or "").strip().upper()
+        arr_airport = (data.get("aeroportArrivee") or "").strip().upper()
+        dep_raw = data.get("heureDepart")
+        arr_raw = data.get("heureArrivee")
+
+        if not dep_airport or not arr_airport or not dep_raw or not arr_raw:
+            return jsonify({
+                "status": "error",
+                "message": "Départ, arrivée et horaires sont requis.",
+            }), 400
+
+        dep_time = ensure_utc(datetime.fromisoformat(dep_raw.replace("Z", "+00:00")))
+        arr_time = ensure_utc(datetime.fromisoformat(arr_raw.replace("Z", "+00:00")))
+
+        if arr_time <= dep_time:
+            return jsonify({
+                "status": "error",
+                "message": "L'arrivée doit être postérieure au départ.",
+            }), 400
+
+        stopovers = data.get("aeroportEscale") or data.get("escale") or data.get("stopovers")
+
+        # Détail ML local par aéroport
+        local_detail = local_weather_ml.assess_flight_detailed(
+            dep_airport=dep_airport,
+            arr_airport=arr_airport,
+            dep_time=dep_time,
+            arr_time=arr_time,
+            stopovers=stopovers,
+        )
+
+        # Détail API par aéroport (résilient)
+        dep_api = resilient_weather_service.get_severity_detail(dep_airport, dep_time)
+        arr_api = resilient_weather_service.get_severity_detail(arr_airport, arr_time)
+
+        return jsonify({
+            "status": "success",
+            "airports": {
+                "departure": {
+                    "code": dep_airport,
+                    "time": dep_time.isoformat(),
+                    "api": dep_api,
+                    "localML": local_detail["departure"],
+                },
+                "arrival": {
+                    "code": arr_airport,
+                    "time": arr_time.isoformat(),
+                    "api": arr_api,
+                    "localML": local_detail["arrival"],
+                },
+                "stopovers": local_detail.get("stopovers", []),
+            },
+            "trustedForAutomaticStatus": False,
+        }), 200
+
+    except Exception as exc:
+        return jsonify({
+            "status": "error",
+            "message": str(exc),
+        }), 500
 
 
 # =============================================================================
@@ -290,8 +382,6 @@ def get_flights():
             ),
             500,
         )
-
-
 
 
 # =============================================================================
@@ -637,7 +727,6 @@ def get_weather_alerts():
             ),
             500,
         )
-
 
 
 @flights_bp.route("/flights/weather-outlook", methods=["GET"])

@@ -24,6 +24,7 @@ import {
   Cpu,
   RefreshCw,
   ShieldAlert,
+  Activity,
 } from 'lucide-react';
 
 /* ============================================================================
@@ -207,6 +208,44 @@ export interface WeatherPointPreview {
   error?: string | null;
 }
 
+/**
+ * Point retourné par le ML local (runtime).
+ */
+export interface WeatherLocalMLPoint {
+  airport?: string;
+
+  available?: boolean;
+
+  source?: string;
+
+  score?: number | null;
+
+  riskLevel?: WeatherRiskLevel;
+  riskLabel?: string;
+
+  confidence?: number | null;
+
+  recommendedAction?: string;
+
+  error?: string | null;
+}
+
+/**
+ * Détail ML local d'un vol (départ / arrivée / escales).
+ */
+export interface WeatherLocalMLDetail {
+  available?: boolean;
+
+  source?: string;
+
+  departure?: WeatherLocalMLPoint | null;
+  arrival?: WeatherLocalMLPoint | null;
+
+  stopovers?: WeatherLocalMLPoint[];
+
+  evaluatedAt?: string | null;
+}
+
 export interface WeatherAIPreview {
   engine?: string;
 
@@ -237,6 +276,25 @@ export interface WeatherAIPreview {
   arrival?: WeatherPointPreview | null;
 
   stopovers?: WeatherPointPreview[];
+
+  /* ---------------------------------------------------------------- */
+  /* AJOUTS : ML local + advisory + état dégradé                      */
+  /* ---------------------------------------------------------------- */
+
+  advisoryScore?: number | null;
+
+  advisorySource?: string;
+
+  advisoryRiskLevel?: WeatherRiskLevel;
+  advisoryRiskLabel?: string;
+
+  localML?: WeatherLocalMLDetail | null;
+  localMLAvailable?: boolean;
+
+  degraded?: boolean;
+  apiAvailable?: boolean;
+  mlAvailable?: boolean;
+  stale?: boolean;
 }
 
 interface WeatherPreviewResponse {
@@ -920,6 +978,80 @@ const getWeatherPreviewStyle =
         'text-emerald-700',
     };
   };
+
+/**
+ * Badge indiquant la provenance du score météo.
+ *
+ * - API              : fournisseur principal
+ * - API + ML         : fusion API (dominante) + ML local consultatif
+ * - ML local         : API indisponible, fallback ML
+ * - Dégradé          : cache stale / mode neutre
+ */
+const getWeatherSourceBadge = (
+  preview?:
+    | WeatherAIPreview
+    | null,
+) => {
+  if (!preview) {
+    return null;
+  }
+
+  if (
+    preview.degraded ||
+    preview.stale
+  ) {
+    return {
+      label: 'Dégradé',
+      className:
+        'border-amber-300 bg-amber-100 text-amber-800',
+      title:
+        'Source dégradée : décision OCC requise',
+    };
+  }
+
+  const source =
+    preview.advisorySource ||
+    '';
+
+  if (
+    source.includes(
+      'LOCAL_ML',
+    ) &&
+    !source.includes(
+      'API_PLUS',
+    )
+  ) {
+    return {
+      label: 'ML local',
+      className:
+        'border-violet-300 bg-violet-100 text-violet-800',
+      title:
+        'Score ML local consultatif — non décisionnel',
+    };
+  }
+
+  if (
+    source.includes(
+      'API_PLUS_LOCAL_ML',
+    )
+  ) {
+    return {
+      label: 'API + ML',
+      className:
+        'border-emerald-300 bg-emerald-100 text-emerald-800',
+      title:
+        'Fusion API (80%) + ML local (20%)',
+    };
+  }
+
+  return {
+    label: 'API',
+    className:
+      'border-sky-300 bg-sky-100 text-sky-800',
+    title:
+      'Fournisseur météo principal',
+  };
+};
 
 const calculateArrivalGMT =
   (
@@ -1729,6 +1861,11 @@ export const FlightAddModal:
 
     /* =========================================================================
      * WEATHER
+     *
+     * Améliorations :
+     * - debounce sécurisé (cancelled flag) ;
+     * - parsing tolérant du payload (weatherAI racine OU airports détaillé) ;
+     * - mapping vers WeatherAIPreview enrichi (localML, advisory, degraded).
      * ======================================================================= */
 
     useEffect(() => {
@@ -1774,6 +1911,9 @@ export const FlightAddModal:
 
       const controller =
         new AbortController();
+
+      let cancelled =
+        false;
 
       const timeoutId =
         window.setTimeout(
@@ -1837,7 +1977,21 @@ export const FlightAddModal:
                 );
 
               const payload:
-                WeatherPreviewResponse =
+                WeatherPreviewResponse & {
+                  airports?: {
+                    departure?: {
+                      code?: string;
+                      api?: WeatherPointPreview;
+                      localML?: WeatherLocalMLPoint;
+                    };
+                    arrival?: {
+                      code?: string;
+                      api?: WeatherPointPreview;
+                      localML?: WeatherLocalMLPoint;
+                    };
+                    stopovers?: WeatherLocalMLPoint[];
+                  };
+                } =
                   await response
                     .json()
                     .catch(
@@ -1851,8 +2005,7 @@ export const FlightAddModal:
                     );
 
               if (
-                !response.ok ||
-                !payload.weatherAI
+                !response.ok
               ) {
                 throw new Error(
                   payload.message ||
@@ -1860,8 +2013,148 @@ export const FlightAddModal:
                 );
               }
 
+              /* -------------------------------------------------------------               * Deux formats supportés :
+               * 1) { weatherAI: {...} }        (endpoint /assess)
+               * 2) { airports: {...}, ... }    (endpoint /airports détaillé)
+               * ----------------------------------------------------------- */
+
+              let mapped:
+                WeatherAIPreview | null =
+                null;
+
+              if (
+                payload.weatherAI
+              ) {
+                mapped = {
+                  ...payload.weatherAI,
+                };
+              } else if (
+                payload.airports
+              ) {
+                const {
+                  departure: dep,
+                  arrival: arr,
+                  stopovers: stops,
+                } =
+                  payload.airports;
+
+                mapped = {
+                  evaluatedAt:
+                    new Date().toISOString(),
+
+                  departure:
+                    dep?.api ||
+                    (dep?.localML
+                      ? {
+                          airport:
+                            dep.code,
+                          severity:
+                            dep.localML
+                              .score ??
+                            null,
+                          available:
+                            dep.localML
+                              .available,
+                        }
+                      : null),
+
+                  arrival:
+                    arr?.api ||
+                    (arr?.localML
+                      ? {
+                          airport:
+                            arr.code,
+                          severity:
+                            arr.localML
+                              .score ??
+                            null,
+                          available:
+                            arr.localML
+                              .available,
+                        }
+                      : null),
+
+                  localML: {
+                    available: true,
+                    source: 'LOCAL_ML',
+                    departure:
+                      dep?.localML ||
+                      null,
+                    arrival:
+                      arr?.localML ||
+                      null,
+                    stopovers:
+                      stops || [],
+                  },
+
+                  localMLAvailable:
+                    true,
+
+                  degraded: false,
+                };
+              }
+
+              if (!mapped) {
+                throw new Error(
+                  'Prévision météo indisponible.',
+                );
+              }
+
+              /* -------------------------------------------------------------
+               * Fallback : si l'API n'a pas fourni departure/arrival mais
+               * que le ML local les a, on les expose pour l'affichage.
+               * ----------------------------------------------------------- */
+
+              if (
+                !mapped.departure &&
+                mapped.localML
+                  ?.departure
+              ) {
+                mapped.departure = {
+                  airport:
+                    mapped.localML
+                      .departure
+                      .airport,
+                  severity:
+                    mapped.localML
+                      .departure
+                      .score ??
+                    null,
+                  available:
+                    mapped.localML
+                      .departure
+                      .available,
+                };
+              }
+
+              if (
+                !mapped.arrival &&
+                mapped.localML
+                  ?.arrival
+              ) {
+                mapped.arrival = {
+                  airport:
+                    mapped.localML
+                      .arrival
+                      .airport,
+                  severity:
+                    mapped.localML
+                      .arrival
+                      .score ??
+                    null,
+                  available:
+                    mapped.localML
+                      .arrival
+                      .available,
+                };
+              }
+
+              if (cancelled) {
+                return;
+              }
+
               setWeatherPreview(
-                payload.weatherAI,
+                mapped,
               );
             } catch (
               error:
@@ -1873,6 +2166,10 @@ export const FlightAddModal:
                 error.name ===
                   'AbortError'
               ) {
+                return;
+              }
+
+              if (cancelled) {
                 return;
               }
 
@@ -1893,6 +2190,7 @@ export const FlightAddModal:
               );
             } finally {
               if (
+                !cancelled &&
                 !controller
                   .signal
                   .aborted
@@ -1907,11 +2205,17 @@ export const FlightAddModal:
         );
 
       return () => {
+        cancelled = true;
+
         window.clearTimeout(
           timeoutId,
         );
 
         controller.abort();
+
+        setIsWeatherChecking(
+          false,
+        );
       };
     }, [
       isOpen,
@@ -2534,6 +2838,11 @@ export const FlightAddModal:
     /* =========================================================================
      * RENDER
      * ======================================================================= */
+
+    const weatherSourceBadge =
+      getWeatherSourceBadge(
+        weatherPreview,
+      );
 
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
@@ -3437,6 +3746,10 @@ export const FlightAddModal:
 
                   <div className="min-w-0 flex-1">
 
+                    {/* ---------------------------------------------------
+                        EN-TÊTE + BADGES
+                    --------------------------------------------------- */}
+
                     <div className="flex flex-wrap items-center gap-2">
 
                       <span className="text-[8px] font-black uppercase tracking-[0.14em] opacity-70">
@@ -3452,14 +3765,46 @@ export const FlightAddModal:
                             ).badge
                           }`}
                         >
-                          {weatherPreview.riskLabel ||
+                          {weatherPreview.advisoryRiskLabel ||
+                            weatherPreview.riskLabel ||
                             weatherPreview.riskLevel ||
                             'Évalué'}
                         </span>
 
                       )}
 
+                      {weatherPreview &&
+                        weatherSourceBadge && (
+
+                        <span
+                          title={
+                            weatherSourceBadge.title
+                          }
+                          className={`rounded-full border px-2 py-0.5 text-[8px] font-black uppercase ${weatherSourceBadge.className}`}
+                        >
+                          {
+                            weatherSourceBadge.label
+                          }
+                        </span>
+
+                      )}
+
+                      {weatherPreview?.degraded && (
+
+                        <span
+                          title="Donnée partiellement fiable — vérification OCC recommandée"
+                          className="rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[8px] font-black uppercase text-amber-800"
+                        >
+                          ⚠ Dégradé
+                        </span>
+
+                      )}
+
                     </div>
+
+                    {/* ---------------------------------------------------
+                        CONTENU
+                    --------------------------------------------------- */}
 
                     {isWeatherChecking ? (
 
@@ -3471,6 +3816,8 @@ export const FlightAddModal:
 
                       <>
 
+                        {/* SCORES GLOBAUX */}
+
                         <div className="mt-2 flex flex-wrap gap-2">
 
                           <span className="rounded-lg border border-white/70 bg-white/70 px-2 py-1 font-mono text-[9px] font-black">
@@ -3480,6 +3827,21 @@ export const FlightAddModal:
                             )}
                           </span>
 
+                          {typeof weatherPreview.advisoryScore ===
+                            'number' && (
+
+                            <span
+                              title="Score consultatif (API + ML local)"
+                              className="rounded-lg border border-white/70 bg-white/70 px-2 py-1 font-mono text-[9px] font-black"
+                            >
+                              Conseil{' '}
+                              {formatWeatherPercent(
+                                weatherPreview.advisoryScore,
+                              )}
+                            </span>
+
+                          )}
+
                           <span className="rounded-lg border border-white/70 bg-white/70 px-2 py-1 font-mono text-[9px] font-black">
                             Confiance{' '}
                             {formatWeatherPercent(
@@ -3488,6 +3850,8 @@ export const FlightAddModal:
                           </span>
 
                         </div>
+
+                        {/* RECOMMANDATION */}
 
                         <div className="mt-2 rounded-lg border border-white/70 bg-white/70 p-2.5">
 
@@ -3507,7 +3871,11 @@ export const FlightAddModal:
 
                         </div>
 
+                        {/* DÉTAIL PAR AÉROPORT */}
+
                         <div className="mt-2 grid grid-cols-2 gap-2">
+
+                          {/* DÉPART */}
 
                           <div className="rounded-lg border border-white/70 bg-white/60 p-2">
 
@@ -3517,11 +3885,34 @@ export const FlightAddModal:
 
                             <span className="mt-0.5 block font-mono text-[9px] font-black">
                               {formatWeatherPercent(
-                                weatherPreview.departure?.severity,
+                                weatherPreview.departure
+                                  ?.severity ??
+                                  weatherPreview
+                                    .localML
+                                    ?.departure
+                                    ?.score,
                               )}
                             </span>
 
+                            {weatherPreview.localML
+                              ?.departure
+                              ?.riskLabel && (
+
+                              <span className="mt-0.5 block text-[8px] font-semibold opacity-70">
+                                ML :{' '}
+                                {
+                                  weatherPreview
+                                    .localML
+                                    .departure
+                                    .riskLabel
+                                }
+                              </span>
+
+                            )}
+
                           </div>
+
+                          {/* ARRIVÉE */}
 
                           <div className="rounded-lg border border-white/70 bg-white/60 p-2 text-right">
 
@@ -3531,13 +3922,137 @@ export const FlightAddModal:
 
                             <span className="mt-0.5 block font-mono text-[9px] font-black">
                               {formatWeatherPercent(
-                                weatherPreview.arrival?.severity,
+                                weatherPreview.arrival
+                                  ?.severity ??
+                                  weatherPreview
+                                    .localML
+                                    ?.arrival
+                                    ?.score,
                               )}
                             </span>
+
+                            {weatherPreview.localML
+                              ?.arrival
+                              ?.riskLabel && (
+
+                              <span className="mt-0.5 block text-[8px] font-semibold opacity-70">
+                                ML :{' '}
+                                {
+                                  weatherPreview
+                                    .localML
+                                    .arrival
+                                    .riskLabel
+                                }
+                              </span>
+
+                            )}
 
                           </div>
 
                         </div>
+
+                        {/* ESCALES */}
+
+                        {weatherPreview.localML
+                          ?.stopovers &&
+                          weatherPreview
+                            .localML
+                            .stopovers
+                            .length >
+                            0 && (
+
+                          <div className="mt-2 rounded-lg border border-white/70 bg-white/60 p-2">
+
+                            <span className="block text-[8px] font-black uppercase opacity-60">
+                              Escale
+                              {weatherPreview
+                                .localML
+                                .stopovers
+                                .length >
+                              1
+                                ? 's'
+                                : ''}
+                            </span>
+
+                            <div className="mt-1 flex flex-wrap gap-2">
+
+                              {weatherPreview.localML.stopovers.map(
+                                (
+                                  stop,
+                                  idx,
+                                ) => (
+
+                                  <span
+                                    key={`${stop.airport}-${idx}`}
+                                    className="inline-flex items-center gap-1 rounded-md border border-white/70 bg-white px-2 py-0.5 font-mono text-[9px] font-black"
+                                  >
+
+                                    {
+                                      stop.airport
+                                    }
+
+                                    <span className="opacity-60">
+                                      {formatWeatherPercent(
+                                        stop.score,
+                                      )}
+                                    </span>
+
+                                  </span>
+
+                                ),
+                              )}
+
+                            </div>
+
+                          </div>
+
+                        )}
+
+                        {/* AVERTISSEMENT DÉGRADÉ */}
+
+                        {weatherPreview.degraded && (
+
+                          <div className="mt-2 flex items-start gap-1.5 rounded-lg border border-amber-200 bg-amber-50/80 p-2">
+
+                            <AlertCircle className="mt-0.5 h-3 w-3 shrink-0 text-amber-600" />
+
+                            <p className="text-[8px] font-semibold leading-3.5 text-amber-800">
+                              Source dégradée :{' '}
+                              {weatherPreview
+                                .localML
+                                ?.source ||
+                                'ML local'}
+                              . Décision OCC requise avant affectation.
+                            </p>
+
+                          </div>
+
+                        )}
+
+                        {/* HORODATAGE */}
+
+                        {weatherPreview.evaluatedAt && (
+
+                          <p className="mt-1 text-right text-[8px] font-semibold text-slate-500/80">
+
+                            <Activity className="mr-1 inline h-2.5 w-2.5" />
+
+                            Évalué à{' '}
+
+                            {new Date(
+                              weatherPreview.evaluatedAt,
+                            ).toLocaleTimeString(
+                              'fr-FR',
+                              {
+                                hour: '2-digit',
+                                minute:
+                                  '2-digit',
+                              },
+                            )}
+
+                          </p>
+
+                        )}
 
                       </>
 

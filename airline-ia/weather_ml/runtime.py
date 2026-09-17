@@ -301,6 +301,44 @@ class LocalWeatherML:
                 "trustedForAutomaticStatus": False,
             }
 
+    def assess_flight_detailed(
+        self,
+        *,
+        dep_airport: str,
+        arr_airport: str,
+        dep_time: datetime | str,
+        arr_time: datetime | str,
+        stopovers: str | Iterable[str] | None = None,
+    ) -> dict[str, Any]:
+        """Retourne le détail par aéroport : départ, arrivée, escales."""
+        dep_point = self.predict_point(dep_airport, dep_time)
+        arr_point = self.predict_point(arr_airport, arr_time)
+
+        stopover_codes: list[str] = []
+        if isinstance(stopovers, str):
+            raw = stopovers.replace(";", ",").replace("|", ",")
+            stopover_codes = [x.strip().upper() for x in raw.split(",") if x.strip()]
+        elif stopovers:
+            stopover_codes = [str(x).strip().upper() for x in stopovers if str(x).strip()]
+
+        dep_dt = _utc(dep_time)
+        arr_dt = _utc(arr_time)
+        midpoint = dep_dt + (arr_dt - dep_dt) / 2
+        stopover_points = [
+            {"airport": code, **self.predict_point(code, midpoint)}
+            for code in stopover_codes
+        ]
+
+        return {
+            "available": dep_point.get("available") or arr_point.get("available"),
+            "source": "LOCAL_ML",
+            "departure": dep_point,
+            "arrival": arr_point,
+            "stopovers": stopover_points,
+            "evaluatedAt": datetime.now(timezone.utc).isoformat(),
+            "trustedForAutomaticStatus": False,
+        }
+
     def assess_flight(
         self,
         *,
