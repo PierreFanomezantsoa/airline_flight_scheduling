@@ -1,5 +1,4 @@
 import React, {
-  useCallback,
   useEffect,
   useMemo,
   useState,
@@ -84,6 +83,17 @@ interface RawGanttRow extends GanttRow {
   positionActuelle?: string | null;
   currentAirport?: string | null;
 }
+
+/* ============================================================================
+ * OPTIONS PAR DÉFAUT (constantes, non modifiables depuis l'IHM)
+ * ========================================================================== */
+
+const OPTIONS: AutoScheduleOptions = {
+  horizonDays: 7,
+  turnaroundMinutes: 45,
+  shiftStepMinutes: 15,
+  maxShiftMinutes: 360,
+};
 
 /* ============================================================================
  * STATUS
@@ -281,28 +291,12 @@ export const FlightSchedulerDashboard: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('TOUS');
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
-  const [options, setOptions] = useState<AutoScheduleOptions>({
-    horizonDays: 7,
-    turnaroundMinutes: 45,
-    shiftStepMinutes: 15,
-    maxShiftMinutes: 360,
-  });
-
-  const updateOption = useCallback(
-    <K extends keyof AutoScheduleOptions>(
-      key: K,
-      value: AutoScheduleOptions[K],
-    ) => {
-      setOptions(prev => ({ ...prev, [key]: value }));
-    },
-    [],
-  );
 
   /* ========================================================================
    * LOAD DATA — ORDRE GARANTI : /flights → puis /analytics + /gantt
    * ====================================================================== */
 
-  const fetchData = useCallback(async () => {
+  const fetchData = React.useCallback(async () => {
     setLoading(true);
     setMessage(null);
 
@@ -322,7 +316,7 @@ export const FlightSchedulerDashboard: React.FC = () => {
       // 2) ÉTAPE 2 : en parallèle, analytics + gantt
       const ganttUrl =
         `${API_BASE_URL}${AUTO_SCHEDULE_GANTT_ENDPOINT}` +
-        `?horizonDays=${options.horizonDays}&includeTerminal=1`;
+        `?horizonDays=${OPTIONS.horizonDays}&includeTerminal=1`;
 
       const [analyticsResponse, ganttResponse] = await Promise.all([
         fetch(`${API_BASE_URL}/flights/analytics`),
@@ -379,7 +373,7 @@ export const FlightSchedulerDashboard: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [options.horizonDays]);
+  }, []);
 
   useEffect(() => {
     void fetchData();
@@ -406,7 +400,7 @@ export const FlightSchedulerDashboard: React.FC = () => {
             'Content-Type': 'application/json',
             Accept: 'application/json',
           },
-          body: JSON.stringify({ ...options, apply }),
+          body: JSON.stringify({ ...OPTIONS, apply }),
         },
       );
 
