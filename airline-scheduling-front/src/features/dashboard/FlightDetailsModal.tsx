@@ -1,4 +1,6 @@
-import React, { useEffect } from 'react';
+import { useEffect, useId } from 'react';
+import type { FC, ReactNode } from 'react';
+
 import {
   AlertCircle,
   AlertTriangle,
@@ -42,24 +44,47 @@ interface FlightDetailsModalProps {
 /* ========================================================================== */
 
 const SURFACE_INNER = 'rounded-xl border border-slate-200 bg-white';
-const SURFACE_INNER_SOFT = 'rounded-xl border border-slate-200 bg-white';
+
 const LABEL_UPPER =
   'text-[10px] font-semibold uppercase tracking-wider text-slate-500';
+
 const FOCUS_RING =
   'outline-none transition focus:ring-4 focus:ring-emerald-500/10';
+
+/**
+ * Bande d'accent colorée en haut de la modale selon le statut.
+ * Le fallback `slate-300` évite `undefined` si un nouveau statut apparaît.
+ */
+const STATUS_BAR_CLASSES: Record<FlightStatus, string> = {
+  Scheduled: 'bg-emerald-500',
+  Delayed: 'bg-amber-500',
+  Cancelled: 'bg-rose-500',
+  'In-Flight': 'bg-sky-500',
+  Effectué: 'bg-slate-400',
+};
 
 /* ========================================================================== */
 /* HELPERS                                                                    */
 /* ========================================================================== */
 
-const normalizeSeverity = (value?: number | null) =>
+const normalizeSeverity = (value?: number | null): number =>
   Math.min(1, Math.max(0, Number(value ?? 0)));
+
+/**
+ * Classe Tailwind de la jauge météo selon le niveau de sévérité.
+ */
+const getSeverityBarClass = (value: number): string => {
+  if (value >= 0.8) return 'bg-rose-500';
+  if (value >= 0.7) return 'bg-orange-500';
+  if (value >= 0.4) return 'bg-amber-500';
+  return 'bg-emerald-500';
+};
 
 /* ========================================================================== */
 /* SOUS-COMPOSANTS                                                            */
 /* ========================================================================== */
 
-const StatusBadge: React.FC<{ style: StatusStyle }> = ({ style }) => (
+const StatusBadge: FC<{ style: StatusStyle }> = ({ style }) => (
   <span
     className={`inline-flex h-6 items-center gap-1.5 rounded-md border bg-white px-2 text-[10px] font-semibold ${style.badge}`}
   >
@@ -68,13 +93,21 @@ const StatusBadge: React.FC<{ style: StatusStyle }> = ({ style }) => (
   </span>
 );
 
-const SectionTitle: React.FC<{
-  icon: React.ReactNode;
+interface SectionTitleProps {
+  icon: ReactNode;
   title: string;
   hint?: string;
   tone?: 'emerald' | 'sky' | 'slate';
-  rightSlot?: React.ReactNode;
-}> = ({ icon, title, hint, tone = 'emerald', rightSlot }) => {
+  rightSlot?: ReactNode;
+}
+
+const SectionTitle: FC<SectionTitleProps> = ({
+  icon,
+  title,
+  hint,
+  tone = 'emerald',
+  rightSlot,
+}) => {
   const tones = {
     emerald: 'bg-emerald-50 text-emerald-700',
     sky: 'bg-sky-50 text-sky-700',
@@ -107,7 +140,7 @@ const SectionTitle: React.FC<{
 /* COMPONENT                                                                  */
 /* ========================================================================== */
 
-export const FlightDetailsModal: React.FC<FlightDetailsModalProps> = ({
+export const FlightDetailsModal: FC<FlightDetailsModalProps> = ({
   selectedFlight,
   onClose,
   statusStyles,
@@ -117,6 +150,13 @@ export const FlightDetailsModal: React.FC<FlightDetailsModalProps> = ({
   displayRoute,
   getWeatherIndicator,
 }) => {
+  // Identifiant stable pour lier le dialog à son titre (a11y)
+  const titleId = useId();
+
+  /* ------------------------------------------------------------------------
+   * BODY LOCK + ESCAPE
+   * ---------------------------------------------------------------------- */
+
   useEffect(() => {
     if (!selectedFlight) return;
 
@@ -137,6 +177,10 @@ export const FlightDetailsModal: React.FC<FlightDetailsModalProps> = ({
 
   if (!selectedFlight) return null;
 
+  /* ------------------------------------------------------------------------
+   * DERIVED VALUES
+   * ---------------------------------------------------------------------- */
+
   const statusStyle =
     statusStyles[selectedFlight.status] ?? statusStyles.Scheduled;
 
@@ -149,22 +193,24 @@ export const FlightDetailsModal: React.FC<FlightDetailsModalProps> = ({
   const isCancelled = selectedFlight.status === 'Cancelled';
   const isDone = selectedFlight.status === 'Effectué';
 
-  const statusBarClass = {
-    Scheduled: 'bg-emerald-500',
-    Delayed: 'bg-amber-500',
-    Cancelled: 'bg-rose-500',
-    'In-Flight': 'bg-sky-500',
-    Effectué: 'bg-slate-400',
-  }[selectedFlight.status];
+  const statusBarClass =
+    STATUS_BAR_CLASSES[selectedFlight.status] ?? 'bg-slate-300';
 
-  const hasLegs = selectedFlight.legs && selectedFlight.legs.length > 0;
+  // Narrowing sans `!` — évite l'assertion non-null
+  const legs = selectedFlight.legs ?? [];
+  const hasLegs = legs.length > 0;
+
+  const isSevere = severityValue >= 0.7;
+  const isUnstable = severityValue >= 0.4;
+
+  const weatherTone: 'emerald' | 'sky' = isUnstable ? 'sky' : 'emerald';
 
   return (
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={`Détails du vol ${selectedFlight.flightNumber}`}
-      onMouseDown={event => {
+      aria-labelledby={titleId}
+      onMouseDown={(event) => {
         if (event.currentTarget === event.target) onClose();
       }}
       className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/45 backdrop-blur-sm sm:items-center sm:p-4"
@@ -203,7 +249,10 @@ export const FlightDetailsModal: React.FC<FlightDetailsModalProps> = ({
 
             <div className="min-w-0">
               <p className={LABEL_UPPER}>Fiche opérationnelle</p>
-              <h3 className="mt-0.5 truncate font-mono text-base font-bold tracking-wide text-slate-900 sm:text-lg">
+              <h3
+                id={titleId}
+                className="mt-0.5 truncate font-mono text-base font-bold tracking-wide text-slate-900 sm:text-lg"
+              >
                 {selectedFlight.flightNumber}
               </h3>
             </div>
@@ -222,9 +271,9 @@ export const FlightDetailsModal: React.FC<FlightDetailsModalProps> = ({
           </div>
         </header>
 
-        {/* ═══════════════ CONTENU (compact) ═══════════════ */}
+        {/* ═══════════════ CONTENU ═══════════════ */}
         <div className="flex-1 overflow-y-auto overscroll-contain bg-white px-5 py-4 sm:overflow-visible">
-          {/* ─────────── HERO ROUTE (fond blanc) ─────────── */}
+          {/* ─────────── HERO ROUTE ─────────── */}
           <section className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <div
               className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full bg-slate-100/60"
@@ -338,13 +387,13 @@ export const FlightDetailsModal: React.FC<FlightDetailsModalProps> = ({
             </div>
           </section>
 
-          {/* ─────────── MÉTÉO (compacte, 2 colonnes) ─────────── */}
+          {/* ─────────── MÉTÉO ─────────── */}
           <section className={`${SURFACE_INNER} mt-3 p-3.5`}>
             <SectionTitle
               icon={weather.icon}
               title="Météo opérationnelle"
               hint={`Indice : ${severityValue.toFixed(2)} / 1.00`}
-              tone={severityValue >= 0.4 ? 'sky' : 'emerald'}
+              tone={weatherTone}
               rightSlot={
                 <span
                   className={`inline-flex h-6 items-center gap-1.5 rounded-md border bg-white px-2 text-[10px] font-semibold ${weather.badge}`}
@@ -354,7 +403,6 @@ export const FlightDetailsModal: React.FC<FlightDetailsModalProps> = ({
               }
             />
 
-            {/* Jauge + reco sur la même ligne */}
             <div className="grid gap-2.5 sm:grid-cols-[1fr_1.4fr]">
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between text-[10px] font-medium text-slate-500">
@@ -366,15 +414,9 @@ export const FlightDetailsModal: React.FC<FlightDetailsModalProps> = ({
                 </div>
                 <div className="h-2 overflow-hidden rounded-full bg-slate-100">
                   <div
-                    className={`h-full rounded-full transition-all duration-500 ${
-                      severityValue >= 0.8
-                        ? 'bg-rose-500'
-                        : severityValue >= 0.7
-                          ? 'bg-orange-500'
-                          : severityValue >= 0.4
-                            ? 'bg-amber-500'
-                            : 'bg-emerald-500'
-                    }`}
+                    className={`h-full rounded-full transition-all duration-500 ${getSeverityBarClass(
+                      severityValue,
+                    )}`}
                     style={{ width: `${Math.max(4, severityPct)}%` }}
                   />
                 </div>
@@ -382,25 +424,25 @@ export const FlightDetailsModal: React.FC<FlightDetailsModalProps> = ({
 
               <div
                 className={`flex items-start gap-2 rounded-lg border bg-white p-2.5 ${
-                  severityValue >= 0.7
+                  isSevere
                     ? 'border-rose-200'
-                    : severityValue >= 0.4
+                    : isUnstable
                       ? 'border-amber-200'
                       : 'border-emerald-200'
                 }`}
               >
-                {severityValue >= 0.7 ? (
+                {isSevere ? (
                   <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-rose-600" />
-                ) : severityValue >= 0.4 ? (
+                ) : isUnstable ? (
                   <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
                 ) : (
                   <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
                 )}
                 <p
                   className={`text-[10px] font-medium leading-4 ${
-                    severityValue >= 0.7
+                    isSevere
                       ? 'text-rose-800'
-                      : severityValue >= 0.4
+                      : isUnstable
                         ? 'text-amber-800'
                         : 'text-emerald-800'
                   }`}
@@ -411,7 +453,7 @@ export const FlightDetailsModal: React.FC<FlightDetailsModalProps> = ({
             </div>
           </section>
 
-          {/* ─────────── TRONÇONS (compact) ─────────── */}
+          {/* ─────────── TRONÇONS ─────────── */}
           {hasLegs && (
             <section className={`${SURFACE_INNER} mt-3 p-3.5`}>
               <SectionTitle
@@ -420,7 +462,7 @@ export const FlightDetailsModal: React.FC<FlightDetailsModalProps> = ({
                 tone="emerald"
                 rightSlot={
                   <span className="rounded-lg border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-600">
-                    {selectedFlight.legs!.length}
+                    {legs.length}
                   </span>
                 }
               />
@@ -431,7 +473,7 @@ export const FlightDetailsModal: React.FC<FlightDetailsModalProps> = ({
                   aria-hidden
                 />
 
-                {selectedFlight.legs!.map((leg, index) => (
+                {legs.map((leg, index) => (
                   <li
                     key={`${leg.aeroportDepart}-${leg.aeroportArrivee}-${index}`}
                     className="relative"
@@ -443,7 +485,7 @@ export const FlightDetailsModal: React.FC<FlightDetailsModalProps> = ({
                       <span className="h-1 w-1 rounded-full bg-white" />
                     </span>
 
-                    <div className={`${SURFACE_INNER_SOFT} px-2.5 py-2`}>
+                    <div className={`${SURFACE_INNER} px-2.5 py-2`}>
                       <div className="flex items-center justify-between gap-2">
                         <span className="rounded border border-emerald-200 bg-white px-1.5 py-0.5 font-mono text-[10px] font-bold text-emerald-700">
                           {leg.aeroportDepart}

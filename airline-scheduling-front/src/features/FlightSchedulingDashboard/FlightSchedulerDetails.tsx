@@ -1,9 +1,15 @@
-import React from 'react';
+// src/features/FlightSchedulingDashboard/FlightSchedulerDetails.tsx
+
+import type { FC } from 'react';
 import {
   AlertTriangle,
   CheckCircle2,
   Sparkles,
 } from 'lucide-react';
+
+/* ============================================================================
+ * TYPES
+ * ========================================================================== */
 
 export interface Flight {
   id: string;
@@ -73,17 +79,69 @@ interface FlightSchedulerDetailsProps {
   previewScenario: AutoScheduleResponse | null;
 }
 
-const FlightSchedulerDetails: React.FC<FlightSchedulerDetailsProps> = ({
+/* ============================================================================
+ * SOUS-COMPOSANTS
+ * ========================================================================== */
+
+interface SmallValueProps {
+  label: string;
+  value: string | number;
+}
+
+const SmallValue: FC<SmallValueProps> = ({ label, value }) => {
+  const stringValue = String(value);
+  return (
+    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+      <span className="block truncate text-[10px] font-medium uppercase tracking-wide text-slate-500">
+        {label}
+      </span>
+      <strong
+        className="mt-1 block truncate text-sm font-semibold tabular-nums text-slate-800"
+        title={stringValue}
+      >
+        {stringValue}
+      </strong>
+    </div>
+  );
+};
+
+interface UnassignedFlightRowProps {
+  item: AutoScheduleUnassigned;
+}
+
+const UnassignedFlightRow: FC<UnassignedFlightRowProps> = ({ item }) => (
+  <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2">
+    <div className="min-w-0">
+      <span className="font-mono text-xs font-semibold text-slate-900">
+        {item.flightNumber || 'N/A'}
+      </span>
+      <span className="ml-2 font-mono text-[10px] text-slate-500">
+        {item.origin || '—'} → {item.destination || '—'}
+      </span>
+    </div>
+    <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wide text-amber-700">
+      {item.reason || 'Non affecté'}
+    </span>
+  </div>
+);
+
+/* ============================================================================
+ * COMPOSANT PRINCIPAL
+ * ========================================================================== */
+
+const FlightSchedulerDetails: FC<FlightSchedulerDetailsProps> = ({
   previewScenario,
 }) => {
-  // Pas de scénario = rien à afficher
+  // Pas de scénario prévisualisé = rien à afficher
   if (!previewScenario) return null;
 
   const scenarioUnassigned = previewScenario.metrics.unassignedFlights ?? 0;
+  const unassignedList = previewScenario.unassigned ?? [];
+  const hasUnassigned = unassignedList.length > 0;
 
   return (
     <section className="grid gap-4 xl:grid-cols-2">
-      {/* Left : métriques du générateur */}
+      {/* ─────────── MÉTRIQUES DU GÉNÉRATEUR ─────────── */}
       <div className="rounded-xl border border-slate-200 bg-white p-5">
         <header className="mb-4 flex items-center gap-3">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-50 text-sky-600">
@@ -119,7 +177,7 @@ const FlightSchedulerDetails: React.FC<FlightSchedulerDetailsProps> = ({
         </div>
       </div>
 
-      {/* Right : vols non affectés */}
+      {/* ─────────── VOLS NON AFFECTÉS ─────────── */}
       <div className="rounded-xl border border-slate-200 bg-white p-5">
         <header className="mb-4 flex items-center gap-3">
           <div
@@ -147,32 +205,20 @@ const FlightSchedulerDetails: React.FC<FlightSchedulerDetailsProps> = ({
           </div>
         </header>
 
-        {(previewScenario.unassigned ?? []).length === 0 ? (
+        {!hasUnassigned ? (
           <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5">
             <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
             <p className="text-xs font-medium text-slate-700">
-              Aucun vol en attente d'affectation dans ce scénario.
+              Aucun vol en attente d&apos;affectation dans ce scénario.
             </p>
           </div>
         ) : (
           <div className="max-h-44 space-y-2 overflow-y-auto pr-1">
-            {(previewScenario.unassigned ?? []).map(item => (
-              <div
-                key={item.flightId}
-                className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2"
-              >
-                <div className="min-w-0">
-                  <span className="font-mono text-xs font-semibold text-slate-900">
-                    {item.flightNumber}
-                  </span>
-                  <span className="ml-2 font-mono text-[10px] text-slate-500">
-                    {item.origin} → {item.destination}
-                  </span>
-                </div>
-                <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wide text-amber-700">
-                  {item.reason}
-                </span>
-              </div>
+            {unassignedList.map((item, index) => (
+              <UnassignedFlightRow
+                key={`${item.flightId}-${index}`}
+                item={item}
+              />
             ))}
           </div>
         )}
@@ -180,21 +226,5 @@ const FlightSchedulerDetails: React.FC<FlightSchedulerDetailsProps> = ({
     </section>
   );
 };
-
-function SmallValue({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-      <span className="block truncate text-[10px] font-medium uppercase tracking-wide text-slate-500">
-        {label}
-      </span>
-      <strong
-        className="mt-1 block truncate text-sm font-semibold tabular-nums text-slate-800"
-        title={String(value)}
-      >
-        {value}
-      </strong>
-    </div>
-  );
-}
 
 export default FlightSchedulerDetails;

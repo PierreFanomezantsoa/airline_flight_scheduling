@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import {
   AlertTriangle,
   ArrowRight,
@@ -17,9 +18,37 @@ import {
   XCircle,
 } from 'lucide-react';
 
-const ML_API_BASE_URL =
-  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL) ||
-  'http://localhost:5000';
+/* ============================================================================
+ * CONFIGURATION API — Python (port 5000 en dev, /python en prod via Nginx)
+ * ============================================================================
+ *
+ * Les routes /flights/conflicts et /flights/conflicts/:id/decision sont
+ * hébergées sur le service Python (Flask).
+ *
+ *   DEV  → VITE_PYTHON_BASE_URL = http://localhost:5000
+ *   PROD → VITE_PYTHON_BASE_URL = /python
+ * ========================================================================== */
+
+const FALLBACK_PYTHON_URL: string = import.meta.env.PROD
+  ? '/python'
+  : 'http://localhost:5000';
+
+const RAW_PYTHON_BASE_URL: string =
+  import.meta.env.VITE_PYTHON_BASE_URL || FALLBACK_PYTHON_URL;
+
+const ML_API_BASE_URL: string = RAW_PYTHON_BASE_URL.replace(/\/+$/, '');
+
+if (import.meta.env.DEV) {
+  // eslint-disable-next-line no-console
+  console.info('[FlightOptimizationDashboard] Python API :', {
+    baseUrl: ML_API_BASE_URL,
+    fallbackUsed: !import.meta.env.VITE_PYTHON_BASE_URL,
+  });
+}
+
+/* ============================================================================
+ * TYPES
+ * ========================================================================== */
 
 type ConflictSeverity = 'CRITICAL' | 'HIGH' | 'MEDIUM';
 type OccDecision = 'PENDING' | 'APPROVED' | 'REJECTED';
@@ -90,9 +119,9 @@ type TabKey = 'all' | 'pending' | 'approved' | 'rejected';
 
 const ITEMS_PER_PAGE = 8;
 
-// ═══════════════════════════════════════════════════════════════
-// DESIGN TOKENS
-// ═══════════════════════════════════════════════════════════════
+/* ============================================================================
+ * DESIGN TOKENS
+ * ========================================================================== */
 
 const SURFACE = 'rounded-xl border border-slate-200 bg-white';
 
@@ -105,9 +134,27 @@ const BTN_SECONDARY =
 const BADGE =
   'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-medium';
 
-// ═══════════════════════════════════════════════════════════════
-// CONFIG
-// ═══════════════════════════════════════════════════════════════
+/* ============================================================================
+ * HELPERS
+ * ========================================================================== */
+
+/**
+ * Transforme une erreur quelconque en message lisible.
+ */
+const getFriendlyError = (error: unknown, fallback: string): string => {
+  if (error instanceof Error) {
+    // Message backend NestJS typique : "Impossible de joindre l'API..."
+    if (error.message.includes('Failed to fetch')) {
+      return 'Impossible de contacter le serveur. Vérifiez votre connexion.';
+    }
+    return error.message || fallback;
+  }
+  return fallback;
+};
+
+/* ============================================================================
+ * CONFIG
+ * ========================================================================== */
 
 const CONFLICT_SEVERITY = {
   CRITICAL: {
@@ -157,9 +204,9 @@ const getConflictTypeLabel = (type: string) =>
 const getProposalActionLabel = (action?: string) =>
   action ? PROPOSAL_LABELS[action] || action : 'Proposition OCC';
 
-// ═══════════════════════════════════════════════════════════════
-// COMPOSANT PRINCIPAL
-// ═══════════════════════════════════════════════════════════════
+/* ============================================================================
+ * COMPOSANT PRINCIPAL
+ * ========================================================================== */
 
 export const FlightOptimizationDashboard: React.FC = () => {
   const [conflictResult, setConflictResult] =
@@ -179,6 +226,10 @@ export const FlightOptimizationDashboard: React.FC = () => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
 
+  /* =========================================================================
+   * CHARGEMENT DES CONFLITS
+   * ======================================================================= */
+
   const loadConflicts = async (silent = false) => {
     try {
       setLoadingConflicts(true);
@@ -191,10 +242,10 @@ export const FlightOptimizationDashboard: React.FC = () => {
       const data = await response.json().catch(() => null);
 
       if (!response.ok) {
-        throw new Error(
-          data?.message ||
-            `Erreur détection conflits HTTP ${response.status}`,
-        );
+        const backendMessage =
+          (data && typeof data.message === 'string' && data.message) ||
+          `Erreur détection conflits HTTP ${response.status}`;
+        throw new Error(backendMessage);
       }
 
       const result = data as ConflictDetectionResult;
@@ -216,18 +267,24 @@ export const FlightOptimizationDashboard: React.FC = () => {
 
       setLastConflictScanAt(new Date());
       setConflictError(null);
-    } catch (err: any) {
-      console.error('Erreur détection conflits :', err);
+    } catch (error: unknown) {
+      console.error('Erreur détection conflits :', error);
       if (!silent) {
         setConflictError(
-          err?.message ||
+          getFriendlyError(
+            error,
             'Impossible de détecter les conflits de vols.',
+          ),
         );
       }
     } finally {
       setLoadingConflicts(false);
     }
   };
+
+  /* =========================================================================
+   * DÉCISION OCC
+   * ======================================================================= */
 
   const submitOccDecision = async (
     conflict: FlightConflict,
@@ -269,10 +326,10 @@ export const FlightOptimizationDashboard: React.FC = () => {
       const data = await response.json().catch(() => null);
 
       if (!response.ok) {
-        throw new Error(
-          data?.message ||
-            `Erreur validation OCC HTTP ${response.status}`,
-        );
+        const backendMessage =
+          (data && typeof data.message === 'string' && data.message) ||
+          `Erreur validation OCC HTTP ${response.status}`;
+        throw new Error(backendMessage);
       }
 
       setOccDecisions(current => ({
@@ -281,16 +338,19 @@ export const FlightOptimizationDashboard: React.FC = () => {
       }));
 
       await loadConflicts(true);
-    } catch (err: any) {
-      console.error('Erreur validation OCC :', err);
+    } catch (error: unknown) {
+      console.error('Erreur validation OCC :', error);
       setConflictError(
-        err?.message ||
-          'Impossible d’enregistrer la décision OCC.',
+        getFriendlyError(error, 'Impossible d’enregistrer la décision OCC.'),
       );
     } finally {
       setProcessingConflictId(null);
     }
   };
+
+  /* =========================================================================
+   * CYCLE DE VIE
+   * ======================================================================= */
 
   useEffect(() => {
     void loadConflicts(true);
@@ -319,6 +379,10 @@ export const FlightOptimizationDashboard: React.FC = () => {
       );
     };
   }, []);
+
+  /* =========================================================================
+   * DONNÉES DÉRIVÉES
+   * ======================================================================= */
 
   const conflicts = useMemo(
     () => conflictResult?.conflicts ?? [],
@@ -409,6 +473,10 @@ export const FlightOptimizationDashboard: React.FC = () => {
   const toggleExpand = (id: string) => {
     setExpandedId(current => (current === id ? null : id));
   };
+
+  /* =========================================================================
+   * RENDER
+   * ======================================================================= */
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -505,7 +573,7 @@ export const FlightOptimizationDashboard: React.FC = () => {
 
         {/* ═══════════════ CARTE PRINCIPALE ═══════════════ */}
         <section className={SURFACE}>
-          {/* TOOLBAR : recherche arrondie + filtres pills */}
+          {/* TOOLBAR */}
           <div className="flex flex-col gap-4 border-b border-slate-200 p-4 lg:flex-row lg:items-center lg:justify-between lg:gap-6 lg:px-6">
             <div className="relative w-full lg:max-w-md">
               <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -624,236 +692,17 @@ export const FlightOptimizationDashboard: React.FC = () => {
                         CONFLICT_SEVERITY[conflict.severity];
 
                       return (
-                        <React.Fragment key={conflict.id}>
-                          <tr
-                            onClick={() => toggleExpand(conflict.id)}
-                            className="cursor-pointer border-b border-slate-100 transition-colors hover:bg-slate-50/60"
-                          >
-                            <td className="px-4 py-3.5 sm:px-6">
-                              <ChevronDown
-                                className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${
-                                  isExpanded ? 'rotate-180' : ''
-                                }`}
-                              />
-                            </td>
-
-                            <td className="px-3 py-3.5">
-                              <span
-                                className={`${BADGE} ${severityVisual.className}`}
-                              >
-                                <span
-                                  className={`h-1.5 w-1.5 rounded-full ${severityVisual.dot}`}
-                                />
-                                {severityVisual.label}
-                              </span>
-                            </td>
-
-                            <td className="px-3 py-3.5">
-                              <span className="text-xs font-medium text-slate-800">
-                                {getConflictTypeLabel(conflict.type)}
-                              </span>
-                            </td>
-
-                            <td className="px-3 py-3.5">
-                              <div className="flex flex-wrap items-center gap-1.5">
-                                <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 font-mono text-[11px] font-semibold text-slate-700">
-                                  {conflict.flightA.numeroVol}
-                                </span>
-                                {conflict.flightB && (
-                                  <>
-                                    <ArrowRight className="h-3 w-3 text-slate-300" />
-                                    <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 font-mono text-[11px] font-semibold text-slate-700">
-                                      {conflict.flightB.numeroVol}
-                                    </span>
-                                  </>
-                                )}
-                              </div>
-                              <p className="mt-1 font-mono text-[10px] text-slate-400">
-                                {conflict.flightA.aeroportDepart}
-                                <span className="mx-1">→</span>
-                                {conflict.flightA.aeroportArrivee}
-                              </p>
-                            </td>
-
-                            <td className="px-3 py-3.5">
-                              {conflict.aircraftRegistration ? (
-                                <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-50 px-2 py-0.5 font-mono text-[11px] font-semibold text-emerald-700">
-                                  <Plane className="h-3 w-3" />
-                                  {conflict.aircraftRegistration}
-                                </span>
-                              ) : (
-                                <span className="text-[11px] text-slate-400">
-                                  —
-                                </span>
-                              )}
-                            </td>
-
-                            <td className="px-3 py-3.5">
-                              <div className="flex items-center gap-2">
-                                <div className="h-1.5 w-16 overflow-hidden rounded-full bg-slate-100">
-                                  <div
-                                    className="h-full rounded-full bg-slate-500 transition-all"
-                                    style={{ width: `${probability}%` }}
-                                  />
-                                </div>
-                                <span className="font-mono text-[11px] font-semibold tabular-nums text-slate-600">
-                                  {probability}%
-                                </span>
-                              </div>
-                            </td>
-
-                            <td className="px-3 py-3.5">
-                              {conflict.proposal ? (
-                                <span className="text-xs font-medium text-sky-700">
-                                  {getProposalActionLabel(
-                                    conflict.proposal.action,
-                                  )}
-                                </span>
-                              ) : (
-                                <span className="text-[11px] text-slate-400">
-                                  Information
-                                </span>
-                              )}
-                            </td>
-
-                            <td className="px-3 py-3.5">
-                              <DecisionBadge decision={decision} />
-                            </td>
-                          </tr>
-
-                          {isExpanded && (
-                            <tr className="border-b border-slate-100 bg-slate-50/40">
-                              <td colSpan={8} className="px-4 py-5 sm:px-6">
-                                <div className="space-y-4">
-                                  <div>
-                                    <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                                      Anomalie détectée
-                                    </span>
-                                    <p className="mt-1.5 text-sm leading-6 text-slate-700">
-                                      {conflict.reason}
-                                    </p>
-                                  </div>
-
-                                  {(conflict.overlapMinutes != null ||
-                                    conflict.gapMinutes != null) && (
-                                    <div className="flex flex-wrap gap-2">
-                                      {conflict.overlapMinutes != null &&
-                                        conflict.overlapMinutes > 0 && (
-                                          <span className="rounded-md bg-rose-50 px-2.5 py-1 font-mono text-[11px] font-medium text-rose-700">
-                                            Chevauchement :{' '}
-                                            {Math.round(
-                                              conflict.overlapMinutes,
-                                            )}{' '}
-                                            min
-                                          </span>
-                                        )}
-                                      {conflict.gapMinutes != null && (
-                                        <span className="rounded-md bg-slate-100 px-2.5 py-1 font-mono text-[11px] font-medium text-slate-600">
-                                          Intervalle :{' '}
-                                          {Math.round(
-                                            conflict.gapMinutes,
-                                          )}{' '}
-                                          min
-                                        </span>
-                                      )}
-                                    </div>
-                                  )}
-
-                                  <div className="rounded-lg border border-emerald-200/70 bg-emerald-50/40 p-3.5">
-                                    <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-700">
-                                      <Sparkles className="h-3 w-3" />
-                                      Recommandation
-                                    </span>
-                                    <p className="mt-1.5 text-sm leading-6 text-slate-700">
-                                      {conflict.recommendation}
-                                    </p>
-                                  </div>
-
-                                  {conflict.proposal && (
-                                    <div className="rounded-lg border border-sky-200/70 bg-sky-50/40 p-3.5">
-                                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                                        <span className="text-[10px] font-semibold uppercase tracking-wider text-sky-700">
-                                          Proposition de résolution
-                                        </span>
-                                        <span className="w-fit rounded-md border border-sky-200 bg-white px-2.5 py-1 text-[11px] font-medium text-sky-700">
-                                          {getProposalActionLabel(
-                                            conflict.proposal.action,
-                                          )}
-                                        </span>
-                                      </div>
-                                      <p className="mt-2 text-sm leading-6 text-slate-700">
-                                        {conflict.proposal.description}
-                                      </p>
-                                    </div>
-                                  )}
-
-                                  <div className="border-t border-slate-200 pt-4">
-                                    {decision === 'APPROVED' ? (
-                                      <span className="inline-flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700">
-                                        <CheckCircle2 className="h-3.5 w-3.5" />
-                                        Validé par OCC
-                                      </span>
-                                    ) : decision === 'REJECTED' ? (
-                                      <span className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-3 py-2 text-xs font-medium text-slate-600">
-                                        <XCircle className="h-3.5 w-3.5" />
-                                        Proposition rejetée
-                                      </span>
-                                    ) : conflict.proposal ? (
-                                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-                                        <button
-                                          type="button"
-                                          onClick={e => {
-                                            e.stopPropagation();
-                                            void submitOccDecision(
-                                              conflict,
-                                              'REJECTED',
-                                            );
-                                          }}
-                                          disabled={
-                                            processingConflictId ===
-                                            conflict.id
-                                          }
-                                          className={BTN_SECONDARY}
-                                        >
-                                          <XCircle className="h-3.5 w-3.5" />
-                                          Rejeter
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={e => {
-                                            e.stopPropagation();
-                                            void submitOccDecision(
-                                              conflict,
-                                              'APPROVED',
-                                            );
-                                          }}
-                                          disabled={
-                                            processingConflictId ===
-                                            conflict.id
-                                          }
-                                          className={BTN_PRIMARY}
-                                        >
-                                          {processingConflictId ===
-                                          conflict.id ? (
-                                            <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                                          ) : (
-                                            <CheckCircle2 className="h-3.5 w-3.5" />
-                                          )}
-                                          Valider OCC
-                                        </button>
-                                      </div>
-                                    ) : (
-                                      <span className="text-xs text-slate-500">
-                                        Information uniquement — aucune
-                                        action automatique.
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              </td>
-                            </tr>
-                          )}
-                        </React.Fragment>
+                        <ConflictRow
+                          key={conflict.id}
+                          conflict={conflict}
+                          decision={decision}
+                          isExpanded={isExpanded}
+                          probability={probability}
+                          severityVisual={severityVisual}
+                          processingConflictId={processingConflictId}
+                          onToggleExpand={toggleExpand}
+                          onSubmitDecision={submitOccDecision}
+                        />
                       );
                     })}
                   </tbody>
@@ -927,9 +776,246 @@ export const FlightOptimizationDashboard: React.FC = () => {
   );
 };
 
-// ═══════════════════════════════════════════════════════════════
-// SOUS-COMPOSANTS
-// ═══════════════════════════════════════════════════════════════
+/* ============================================================================
+ * SOUS-COMPOSANTS
+ * ========================================================================== */
+
+interface ConflictRowProps {
+  conflict: FlightConflict;
+  decision: OccDecision;
+  isExpanded: boolean;
+  probability: number;
+  severityVisual: { label: string; className: string; dot: string };
+  processingConflictId: string | null;
+  onToggleExpand: (id: string) => void;
+  onSubmitDecision: (
+    conflict: FlightConflict,
+    decision: Exclude<OccDecision, 'PENDING'>,
+  ) => Promise<void>;
+}
+
+function ConflictRow({
+  conflict,
+  decision,
+  isExpanded,
+  probability,
+  severityVisual,
+  processingConflictId,
+  onToggleExpand,
+  onSubmitDecision,
+}: ConflictRowProps) {
+  const isProcessing = processingConflictId === conflict.id;
+
+  return (
+    <>
+      <tr
+        onClick={() => onToggleExpand(conflict.id)}
+        className="cursor-pointer border-b border-slate-100 transition-colors hover:bg-slate-50/60"
+      >
+        <td className="px-4 py-3.5 sm:px-6">
+          <ChevronDown
+            className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${
+              isExpanded ? 'rotate-180' : ''
+            }`}
+          />
+        </td>
+
+        <td className="px-3 py-3.5">
+          <span className={`${BADGE} ${severityVisual.className}`}>
+            <span
+              className={`h-1.5 w-1.5 rounded-full ${severityVisual.dot}`}
+            />
+            {severityVisual.label}
+          </span>
+        </td>
+
+        <td className="px-3 py-3.5">
+          <span className="text-xs font-medium text-slate-800">
+            {getConflictTypeLabel(conflict.type)}
+          </span>
+        </td>
+
+        <td className="px-3 py-3.5">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 font-mono text-[11px] font-semibold text-slate-700">
+              {conflict.flightA.numeroVol}
+            </span>
+            {conflict.flightB && (
+              <>
+                <ArrowRight className="h-3 w-3 text-slate-300" />
+                <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 font-mono text-[11px] font-semibold text-slate-700">
+                  {conflict.flightB.numeroVol}
+                </span>
+              </>
+            )}
+          </div>
+          <p className="mt-1 font-mono text-[10px] text-slate-400">
+            {conflict.flightA.aeroportDepart}
+            <span className="mx-1">→</span>
+            {conflict.flightA.aeroportArrivee}
+          </p>
+        </td>
+
+        <td className="px-3 py-3.5">
+          {conflict.aircraftRegistration ? (
+            <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-50 px-2 py-0.5 font-mono text-[11px] font-semibold text-emerald-700">
+              <Plane className="h-3 w-3" />
+              {conflict.aircraftRegistration}
+            </span>
+          ) : (
+            <span className="text-[11px] text-slate-400">—</span>
+          )}
+        </td>
+
+        <td className="px-3 py-3.5">
+          <div className="flex items-center gap-2">
+            <div className="h-1.5 w-16 overflow-hidden rounded-full bg-slate-100">
+              <div
+                className="h-full rounded-full bg-slate-500 transition-all"
+                style={{ width: `${probability}%` }}
+              />
+            </div>
+            <span className="font-mono text-[11px] font-semibold tabular-nums text-slate-600">
+              {probability}%
+            </span>
+          </div>
+        </td>
+
+        <td className="px-3 py-3.5">
+          {conflict.proposal ? (
+            <span className="text-xs font-medium text-sky-700">
+              {getProposalActionLabel(conflict.proposal.action)}
+            </span>
+          ) : (
+            <span className="text-[11px] text-slate-400">Information</span>
+          )}
+        </td>
+
+        <td className="px-3 py-3.5">
+          <DecisionBadge decision={decision} />
+        </td>
+      </tr>
+
+      {isExpanded && (
+        <tr className="border-b border-slate-100 bg-slate-50/40">
+          <td colSpan={8} className="px-4 py-5 sm:px-6">
+            <div className="space-y-4">
+              <div>
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                  Anomalie détectée
+                </span>
+                <p className="mt-1.5 text-sm leading-6 text-slate-700">
+                  {conflict.reason}
+                </p>
+              </div>
+
+              {(conflict.overlapMinutes != null ||
+                conflict.gapMinutes != null) && (
+                <div className="flex flex-wrap gap-2">
+                  {conflict.overlapMinutes != null &&
+                    conflict.overlapMinutes > 0 && (
+                      <span className="rounded-md bg-rose-50 px-2.5 py-1 font-mono text-[11px] font-medium text-rose-700">
+                        Chevauchement :{' '}
+                        {Math.round(conflict.overlapMinutes)} min
+                      </span>
+                    )}
+                  {conflict.gapMinutes != null && (
+                    <span className="rounded-md bg-slate-100 px-2.5 py-1 font-mono text-[11px] font-medium text-slate-600">
+                      Intervalle : {Math.round(conflict.gapMinutes)} min
+                    </span>
+                  )}
+                </div>
+              )}
+
+              <div className="rounded-lg border border-emerald-200/70 bg-emerald-50/40 p-3.5">
+                <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-700">
+                  <Sparkles className="h-3 w-3" />
+                  Recommandation
+                </span>
+                <p className="mt-1.5 text-sm leading-6 text-slate-700">
+                  {conflict.recommendation}
+                </p>
+              </div>
+
+              {conflict.proposal && (
+                <div className="rounded-lg border border-sky-200/70 bg-sky-50/40 p-3.5">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-sky-700">
+                      Proposition de résolution
+                    </span>
+                    <span className="w-fit rounded-md border border-sky-200 bg-white px-2.5 py-1 text-[11px] font-medium text-sky-700">
+                      {getProposalActionLabel(conflict.proposal.action)}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-sm leading-6 text-slate-700">
+                    {conflict.proposal.description}
+                  </p>
+                </div>
+              )}
+
+              <div className="border-t border-slate-200 pt-4">
+                {decision === 'APPROVED' ? (
+                  <span className="inline-flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Validé par OCC
+                  </span>
+                ) : decision === 'REJECTED' ? (
+                  <span className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-3 py-2 text-xs font-medium text-slate-600">
+                    <XCircle className="h-3.5 w-3.5" />
+                    Proposition rejetée
+                  </span>
+                ) : conflict.proposal ? (
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+                    <button
+                      type="button"
+                      onClick={e => {
+                        e.stopPropagation();
+                        void onSubmitDecision(conflict, 'REJECTED');
+                      }}
+                      disabled={isProcessing}
+                      className={BTN_SECONDARY}
+                    >
+                      <XCircle className="h-3.5 w-3.5" />
+                      Rejeter
+                    </button>
+                    <button
+                      type="button"
+                      onClick={e => {
+                        e.stopPropagation();
+                        void onSubmitDecision(conflict, 'APPROVED');
+                      }}
+                      disabled={isProcessing}
+                      className={BTN_PRIMARY}
+                    >
+                      {isProcessing ? (
+                        <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                      )}
+                      Valider OCC
+                    </button>
+                  </div>
+                ) : (
+                  <span className="text-xs text-slate-500">
+                    Information uniquement — aucune action automatique.
+                  </span>
+                )}
+              </div>
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
+interface KpiCardProps {
+  icon: ReactNode;
+  label: string;
+  value: number | string;
+  hint: string;
+  compact?: boolean;
+}
 
 function KpiCard({
   icon,
@@ -937,13 +1023,7 @@ function KpiCard({
   value,
   hint,
   compact = false,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: number | string;
-  hint: string;
-  compact?: boolean;
-}) {
+}: KpiCardProps) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4">
       <div className="flex items-center gap-2 text-slate-500">
@@ -964,17 +1044,14 @@ function KpiCard({
   );
 }
 
-function PillButton({
-  active,
-  onClick,
-  label,
-  count,
-}: {
+interface PillButtonProps {
   active: boolean;
   onClick: () => void;
   label: string;
   count?: number;
-}) {
+}
+
+function PillButton({ active, onClick, label, count }: PillButtonProps) {
   return (
     <button
       type="button"
@@ -1024,15 +1101,13 @@ function DecisionBadge({ decision }: { decision: OccDecision }) {
   );
 }
 
-function EmptyState({
-  tab,
-  search,
-  hasConflicts,
-}: {
+interface EmptyStateProps {
   tab: TabKey;
   search: string;
   hasConflicts: boolean;
-}) {
+}
+
+function EmptyState({ tab, search, hasConflicts }: EmptyStateProps) {
   let title = 'Aucun conflit détecté';
   let description =
     'Les vols actuellement planifiés respectent les contraintes analysées.';

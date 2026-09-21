@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { FC, ReactNode } from 'react';
 import {
   AlertCircle,
   AlertTriangle,
@@ -25,18 +26,42 @@ import FlightSchedulerDetails, {
   type AutoScheduleResponse,
   type Flight,
 } from './FlightSchedulerDetails';
+import { getAuthSession } from '../Api/apiService';
 
-const API_BASE_URL =
-  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL) ||
-  (typeof globalThis !== 'undefined' &&
-    (globalThis as any).process?.env?.REACT_APP_API_BASE_URL) ||
-  'http://localhost:5000';
+/* ============================================================================
+ * CONFIGURATION API — Python (port 5000 en dev, /python en prod via Nginx)
+ * ============================================================================
+ *
+ * Toutes les routes appelées ici (/flights/*, /flights/analytics,
+ * /flights/auto-schedule/*) sont hébergées sur le service Python (Flask).
+ * ========================================================================== */
+
+const FALLBACK_PYTHON_URL: string = import.meta.env.PROD
+  ? '/python'
+  : 'http://localhost:5000';
+
+const RAW_PYTHON_BASE_URL: string =
+  import.meta.env.VITE_PYTHON_BASE_URL || FALLBACK_PYTHON_URL;
+
+const API_BASE_URL: string = RAW_PYTHON_BASE_URL.replace(/\/+$/, '');
+
+if (import.meta.env.DEV) {
+  // eslint-disable-next-line no-console
+  console.info('[FlightSchedulerDashboard] Python API :', {
+    baseUrl: API_BASE_URL,
+    fallbackUsed: !import.meta.env.VITE_PYTHON_BASE_URL,
+  });
+}
 
 const AUTO_SCHEDULE_GENERATE_ENDPOINT = '/flights/auto-schedule/generate';
 const AUTO_SCHEDULE_GANTT_ENDPOINT = '/flights/auto-schedule/gantt';
 
 const FOCUS_RING =
   'outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10';
+
+/* ============================================================================
+ * TYPES
+ * ========================================================================== */
 
 interface AutoScheduleOptions {
   horizonDays: number;
@@ -58,6 +83,55 @@ interface RawGanttRow extends GanttRow {
   currentAirport?: string | null;
 }
 
+/* ============================================================================
+ * HELPERS — FETCH
+ * ========================================================================== */
+
+/**
+ * Construit les headers standard avec token JWT si session active.
+ */
+function buildHeaders(extra?: HeadersInit): HeadersInit {
+  const session = getAuthSession();
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+    ...((extra as Record<string, string>) || {}),
+  };
+  if (session?.token) {
+    headers.Authorization = `Bearer ${session.token}`;
+  }
+  return headers;
+}
+
+/**
+ * Fetch vers l'API Python avec headers standard.
+ */
+async function fetchPython(
+  path: string,
+  options: RequestInit = {},
+): Promise<Response> {
+  return fetch(`${API_BASE_URL}${path}`, {
+    ...options,
+    headers: buildHeaders(options.headers),
+  });
+}
+
+/**
+ * Transforme une erreur quelconque en message lisible.
+ */
+function getFriendlyError(error: unknown, fallback: string): string {
+  if (error instanceof Error) {
+    if (error.message.includes('Failed to fetch')) {
+      return 'Impossible de contacter le serveur. Vérifiez votre connexion.';
+    }
+    return error.message || fallback;
+  }
+  return fallback;
+}
+
+/* ============================================================================
+ * CONSTANTES
+ * ========================================================================== */
+
 const OPTIONS: AutoScheduleOptions = {
   horizonDays: 7,
   turnaroundMinutes: 45,
@@ -65,7 +139,11 @@ const OPTIONS: AutoScheduleOptions = {
   maxShiftMinutes: 360,
 };
 
-const normalizeFlightStatus = (value?: string | null) => {
+/* ============================================================================
+ * HELPERS MÉTIER
+ * ========================================================================== */
+
+const normalizeFlightStatus = (value?: string | null): string => {
   const normalized = String(value ?? '').trim().toUpperCase().replace(/_/g, ' ');
   if (['IN-FLIGHT', 'IN FLIGHT', 'EN VOL'].includes(normalized)) return 'En Vol';
   if (['DELAYED', 'RETARDÉ', 'RETARDE', 'SHIFTED'].includes(normalized)) return 'Retardé';
@@ -93,35 +171,56 @@ const flightBelongsToAircraft = (flight: Flight, row: GanttRow): boolean => {
 
 const inferAircraftPosition = (row: GanttRow, flights: Flight[]): string | null => {
   if (row.aircraftId === 'UNASSIGNED') return null;
-  const aircraftFlights = flights.filter(flight => flightBelongsToAircraft(flight, row));
+  const aircraftFlights = flights.filter((flight) => flightBelongsToAircraft(flight, row));
   const now = Date.now();
-  const inFlight = aircraftFlights.find(flight => normalizeFlightStatus(flight.status) === 'En Vol');
+
+  const inFlight = aircraftFlights.find(
+    (flight) => normalizeFlightStatus(flight.status) === 'En Vol',
+  );
   if (inFlight?.destination) return inFlight.destination;
+
   const completed = aircraftFlights
-    .filter(flight => {
+    .filter((flight) => {
       const arrival = safeDate(flight.arrival);
-      return normalizeFlightStatus(flight.status) === 'Effectué' || Boolean(arrival && arrival.getTime() <= now);
+      return (
+        normalizeFlightStatus(flight.status) === 'Effectué' ||
+        Boolean(arrival && arrival.getTime() <= now)
+      );
     })
     .sort((a, b) => (safeDate(b.arrival)?.getTime() ?? 0) - (safeDate(a.arrival)?.getTime() ?? 0))[0];
   if (completed?.destination) return completed.destination;
+
   const next = aircraftFlights
-    .filter(flight => {
+    .filter((flight) => {
       const departure = safeDate(flight.departure);
       return Boolean(departure && departure.getTime() > now);
     })
-    .sort((a, b) => (safeDate(a.departure)?.getTime() ?? Number.MAX_SAFE_INTEGER) - (safeDate(b.departure)?.getTime() ?? Number.MAX_SAFE_INTEGER))[0];
+    .sort(
+      (a, b) =>
+        (safeDate(a.departure)?.getTime() ?? Number.MAX_SAFE_INTEGER) -
+        (safeDate(b.departure)?.getTime() ?? Number.MAX_SAFE_INTEGER),
+    )[0];
   return next?.origin ?? null;
 };
 
-const normalizeGanttPayload = (payload: any, flights: Flight[]): GanttPayload => {
-  const gantt = payload?.gantt ?? payload ?? {};
+const normalizeGanttPayload = (payload: unknown, flights: Flight[]): GanttPayload => {
+  const raw = (payload ?? {}) as {
+    gantt?: { rows?: RawGanttRow[]; items?: unknown[]; timezone?: string };
+    rows?: RawGanttRow[];
+    items?: unknown[];
+    timezone?: string;
+  };
+  const gantt = raw.gantt ?? raw;
   const rows: RawGanttRow[] = Array.isArray(gantt.rows) ? gantt.rows : [];
+
   return {
     timezone: gantt.timezone ?? 'UTC',
-    items: Array.isArray(gantt.items) ? gantt.items : [],
-    rows: rows.map(row => {
+    items: Array.isArray(gantt.items) ? (gantt.items as GanttPayload['items']) : [],
+    rows: rows.map((row) => {
       const base = row.base || row.baseAttache || row.homeBase || row.baseAirport || null;
-      const currentPosition = row.currentPosition || row.positionActuelle || row.currentAirport || null;
+      const currentPosition =
+        row.currentPosition || row.positionActuelle || row.currentAirport || null;
+
       const normalized: GanttRow = {
         aircraftId: row.aircraftId,
         aircraftRegistration: row.aircraftRegistration,
@@ -130,24 +229,30 @@ const normalizeGanttPayload = (payload: any, flights: Flight[]): GanttPayload =>
         currentPosition,
         status: row.status ?? null,
       };
-      if (!normalized.currentPosition) normalized.currentPosition = inferAircraftPosition(normalized, flights);
+
+      if (!normalized.currentPosition) {
+        normalized.currentPosition = inferAircraftPosition(normalized, flights);
+      }
+
       return normalized;
     }),
   };
 };
 
 const buildFallbackAnalytics = (flights: Flight[]): AnalyticsMetrics => {
-  const statuses = flights.map(flight => normalizeFlightStatus(flight.status));
-  const count = (status: string) => statuses.filter(c => c === status).length;
+  const statuses = flights.map((flight) => normalizeFlightStatus(flight.status));
+  const count = (status: string) => statuses.filter((c) => c === status).length;
   const onTimeCount = count('Planifié');
   const delayedCount = count('Retardé');
   const inFlightCount = count('En Vol');
   const cancelledCount = count('Annulé');
   const completedCount = count('Effectué');
   const denominator = Math.max(0, flights.length - cancelledCount - inFlightCount);
+
   return {
     totalFlights: flights.length,
-    otpRate: denominator > 0 ? Number(((onTimeCount / denominator) * 100).toFixed(1)) : 0,
+    otpRate:
+      denominator > 0 ? Number(((onTimeCount / denominator) * 100).toFixed(1)) : 0,
     onTimeCount,
     delayedCount,
     inFlightCount,
@@ -156,25 +261,38 @@ const buildFallbackAnalytics = (flights: Flight[]): AnalyticsMetrics => {
   };
 };
 
-const getErrorMessage = async (response: Response, fallback: string): Promise<string> => {
+const getErrorMessage = async (
+  response: Response,
+  fallback: string,
+): Promise<string> => {
   try {
     const payload = await response.json();
+    if (Array.isArray(payload?.message)) return payload.message.join(' | ');
     return payload?.message || payload?.error || fallback;
   } catch {
     return fallback;
   }
 };
 
-export const FlightSchedulerDashboard: React.FC = () => {
+/* ============================================================================
+ * COMPOSANT PRINCIPAL
+ * ========================================================================== */
+
+export const FlightSchedulerDashboard: FC = () => {
   const [flights, setFlights] = useState<Flight[]>([]);
   const [analytics, setAnalytics] = useState<AnalyticsMetrics | null>(null);
-  const [currentGantt, setCurrentGantt] = useState<GanttPayload>({ rows: [], items: [], timezone: 'UTC' });
+  const [currentGantt, setCurrentGantt] = useState<GanttPayload>({
+    rows: [],
+    items: [],
+    timezone: 'UTC',
+  });
   const [currentMetrics, setCurrentMetrics] = useState<AutoScheduleMetrics>({
     totalFlights: 0,
     assignedFlights: 0,
     unassignedFlights: 0,
   });
-  const [previewScenario, setPreviewScenario] = useState<AutoScheduleResponse | null>(null);
+  const [previewScenario, setPreviewScenario] =
+    useState<AutoScheduleResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [applying, setApplying] = useState(false);
@@ -182,20 +300,27 @@ export const FlightSchedulerDashboard: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('TOUS');
 
-  const fetchData = React.useCallback(async () => {
+  /* -------------------------------------------------------------------------
+   * CHARGEMENT
+   * ----------------------------------------------------------------------- */
+
+  const fetchData = useCallback(async () => {
     setLoading(true);
     setMessage(null);
+
     try {
-      const flightsResponse = await fetch(`${API_BASE_URL}/flights`);
-      if (!flightsResponse.ok) throw new Error('Impossible de charger les vols.');
+      const flightsResponse = await fetchPython('/flights', { method: 'GET' });
+      if (!flightsResponse.ok) {
+        throw new Error('Impossible de charger les vols.');
+      }
       const flightPayload = await flightsResponse.json();
       const flightList: Flight[] = Array.isArray(flightPayload) ? flightPayload : [];
       setFlights(flightList);
 
-      const ganttUrl = `${API_BASE_URL}${AUTO_SCHEDULE_GANTT_ENDPOINT}?horizonDays=${OPTIONS.horizonDays}&includeTerminal=1`;
+      const ganttUrl = `${AUTO_SCHEDULE_GANTT_ENDPOINT}?horizonDays=${OPTIONS.horizonDays}&includeTerminal=1`;
       const [analyticsResponse, ganttResponse] = await Promise.all([
-        fetch(`${API_BASE_URL}/flights/analytics`),
-        fetch(ganttUrl),
+        fetchPython('/flights/analytics', { method: 'GET' }),
+        fetchPython(ganttUrl, { method: 'GET' }),
       ]);
 
       if (analyticsResponse.ok) {
@@ -208,7 +333,8 @@ export const FlightSchedulerDashboard: React.FC = () => {
           delayedCount: Number(metrics.delayedCount) || 0,
           inFlightCount: Number(metrics.inFlightCount) || 0,
           cancelledCount: Number(metrics.cancelledCount) || 0,
-          completedCount: Number(metrics.completedCount ?? metrics.effectueCount) || 0,
+          completedCount:
+            Number(metrics.completedCount ?? metrics.effectueCount) || 0,
         });
       } else {
         setAnalytics(buildFallbackAnalytics(flightList));
@@ -221,16 +347,15 @@ export const FlightSchedulerDashboard: React.FC = () => {
         setCurrentMetrics(
           payload?.metrics ?? {
             totalFlights: gantt.items.length,
-            assignedFlights: gantt.items.filter(item => item.rowId !== 'UNASSIGNED').length,
-            unassignedFlights: gantt.items.filter(item => item.rowId === 'UNASSIGNED').length,
+            assignedFlights: gantt.items.filter((item) => item.rowId !== 'UNASSIGNED').length,
+            unassignedFlights: gantt.items.filter((item) => item.rowId === 'UNASSIGNED').length,
           },
         );
       }
-
     } catch (error: unknown) {
       setMessage({
         type: 'error',
-        text: error instanceof Error ? error.message : 'Erreur lors du chargement.',
+        text: getFriendlyError(error, 'Erreur lors du chargement.'),
       });
     } finally {
       setLoading(false);
@@ -241,27 +366,42 @@ export const FlightSchedulerDashboard: React.FC = () => {
     void fetchData();
   }, [fetchData]);
 
+  /* -------------------------------------------------------------------------
+   * GÉNÉRATION / APPLICATION
+   * ----------------------------------------------------------------------- */
+
   const runAutomaticGeneration = async (apply: boolean) => {
     if (generating || applying) return;
+
     if (apply) setApplying(true);
     else setGenerating(true);
     setMessage(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}${AUTO_SCHEDULE_GENERATE_ENDPOINT}`, {
+      const response = await fetchPython(AUTO_SCHEDULE_GENERATE_ENDPOINT, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...OPTIONS, apply }),
       });
 
-      if (!response.ok) throw new Error(await getErrorMessage(response, 'Impossible de générer le planning.'));
+      if (!response.ok) {
+        throw new Error(
+          await getErrorMessage(response, 'Impossible de générer le planning.'),
+        );
+      }
 
       const rawResult = await response.json();
-      const result = { ...rawResult, gantt: normalizeGanttPayload(rawResult, flights) } as AutoScheduleResponse;
+      const result = {
+        ...rawResult,
+        gantt: normalizeGanttPayload(rawResult, flights),
+      } as AutoScheduleResponse;
 
       if (apply) {
         setPreviewScenario(null);
-        setMessage({ type: 'success', text: result.message || 'La programmation a été appliquée.' });
+        setMessage({
+          type: 'success',
+          text: result.message || 'La programmation a été appliquée.',
+        });
         await fetchData();
         return;
       }
@@ -270,40 +410,55 @@ export const FlightSchedulerDashboard: React.FC = () => {
       const unassigned = result.metrics.unassignedFlights ?? 0;
       setMessage({
         type: unassigned > 0 ? 'info' : 'success',
-        text: unassigned > 0
-          ? `Scénario : ${result.metrics.assignedFlights}/${result.metrics.totalFlights} vols affectés.`
-          : 'Scénario généré avec succès.',
+        text:
+          unassigned > 0
+            ? `Scénario : ${result.metrics.assignedFlights}/${result.metrics.totalFlights} vols affectés.`
+            : 'Scénario généré avec succès.',
       });
     } catch (error: unknown) {
-      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Erreur de génération.' });
+      setMessage({
+        type: 'error',
+        text: getFriendlyError(error, 'Erreur de génération.'),
+      });
     } finally {
       setGenerating(false);
       setApplying(false);
     }
   };
 
+  /* -------------------------------------------------------------------------
+   * DONNÉES DÉRIVÉES
+   * ----------------------------------------------------------------------- */
+
   const normalizedFlights = useMemo(
-    () => flights.map(flight => ({ ...flight, status: normalizeFlightStatus(flight.status) })),
+    () =>
+      flights.map((flight) => ({
+        ...flight,
+        status: normalizeFlightStatus(flight.status),
+      })),
     [flights],
   );
 
   const filteredFlights = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
-    const result = normalizedFlights.filter(flight => {
+    const result = normalizedFlights.filter((flight) => {
       const matchesSearch =
         !term ||
         [flight.flightNumber, flight.origin, flight.destination, flight.aircraft, flight.aircraftModel]
           .filter(Boolean)
-          .some(value => String(value).toLowerCase().includes(term));
-      const matchesStatus = selectedStatus === 'TOUS' || flight.status === selectedStatus;
+          .some((value) => String(value).toLowerCase().includes(term));
+      const matchesStatus =
+        selectedStatus === 'TOUS' || flight.status === selectedStatus;
       return matchesSearch && matchesStatus;
     });
+
     result.sort((a, b) => {
       const da = safeDate(a.departure)?.getTime() ?? Number.MAX_SAFE_INTEGER;
       const db = safeDate(b.departure)?.getTime() ?? Number.MAX_SAFE_INTEGER;
       if (da !== db) return da - db;
       return String(a.flightNumber ?? '').localeCompare(String(b.flightNumber ?? ''));
     });
+
     return result;
   }, [normalizedFlights, searchTerm, selectedStatus]);
 
@@ -320,8 +475,10 @@ export const FlightSchedulerDashboard: React.FC = () => {
 
   const assignmentLookup = useMemo(() => {
     const map = new Map<string, AutoScheduleAssignment>();
-    const assignments = previewScenario?.assignments as AutoScheduleAssignment[] | undefined;
-    assignments?.forEach(assignment => map.set(assignment.flightId, assignment));
+    const assignments = previewScenario?.assignments as
+      | AutoScheduleAssignment[]
+      | undefined;
+    assignments?.forEach((assignment) => map.set(assignment.flightId, assignment));
     return map;
   }, [previewScenario]);
 
@@ -334,10 +491,14 @@ export const FlightSchedulerDashboard: React.FC = () => {
     { id: 'Annulé', label: 'Annulés' },
   ];
 
+  /* -------------------------------------------------------------------------
+   * RENDER
+   * ----------------------------------------------------------------------- */
+
   return (
     <div className="min-h-screen bg-slate-50 p-4 sm:p-6">
       <div className="mx-auto max-w-375 space-y-5">
-        {/* ═══════════════ HEADER (sans Météo) ═══════════════ */}
+        {/* ═══════════════ HEADER ═══════════════ */}
         <header className="flex flex-wrap items-center justify-end gap-2.5">
           <button
             type="button"
@@ -348,6 +509,7 @@ export const FlightSchedulerDashboard: React.FC = () => {
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             Actualiser
           </button>
+
           {previewScenario ? (
             <button
               type="button"
@@ -372,7 +534,11 @@ export const FlightSchedulerDashboard: React.FC = () => {
         </header>
 
         {message && (
-          <AlertBanner type={message.type} message={message.text} onClose={() => setMessage(null)} />
+          <AlertBanner
+            type={message.type}
+            message={message.text}
+            onClose={() => setMessage(null)}
+          />
         )}
 
         {/* ═══════════════ KPI CARDS ═══════════════ */}
@@ -406,7 +572,7 @@ export const FlightSchedulerDashboard: React.FC = () => {
             label="Appareils actifs"
             value={
               previewScenario?.metrics.operationalAircraft ??
-              activeSchedule.rows.filter(row => row.aircraftId !== 'UNASSIGNED').length
+              activeSchedule.rows.filter((row) => row.aircraftId !== 'UNASSIGNED').length
             }
             hint="En opération"
             icon={<Plane className="h-4 w-4" />}
@@ -444,16 +610,15 @@ export const FlightSchedulerDashboard: React.FC = () => {
           </div>
         )}
 
-        {/* ═══════════════ SEARCH + GANTT (même div) ═══════════════ */}
+        {/* ═══════════════ SEARCH + GANTT ═══════════════ */}
         <section className="rounded-xl border border-slate-200 bg-white">
-          {/* Search + Filtres */}
           <div className="border-b border-slate-100 p-4">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="relative w-full lg:max-w-[320px]">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
                   value={searchTerm}
-                  onChange={event => setSearchTerm(event.target.value)}
+                  onChange={(event) => setSearchTerm(event.target.value)}
                   placeholder="Rechercher un vol, appareil..."
                   className={`h-10 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-9 text-sm text-slate-700 placeholder:text-slate-400 ${FOCUS_RING}`}
                 />
@@ -473,7 +638,7 @@ export const FlightSchedulerDashboard: React.FC = () => {
                 <span className="hidden items-center gap-1.5 text-xs font-medium text-slate-500 sm:inline-flex">
                   Filtrer :
                 </span>
-                {tabs.map(tab => (
+                {tabs.map((tab) => (
                   <button
                     key={tab.id}
                     type="button"
@@ -491,7 +656,6 @@ export const FlightSchedulerDashboard: React.FC = () => {
             </div>
           </div>
 
-          {/* Gantt */}
           <FlightSchedulerGantt
             schedule={activeSchedule}
             searchTerm={searchTerm}
@@ -501,7 +665,7 @@ export const FlightSchedulerDashboard: React.FC = () => {
           />
         </section>
 
-        {/* ═══════════════ TABLEAU (section séparée) ═══════════════ */}
+        {/* ═══════════════ TABLEAU ═══════════════ */}
         <section className="rounded-xl border border-slate-200 bg-white">
           <FlightSchedulerDetails
             flights={filteredFlights}
@@ -514,20 +678,25 @@ export const FlightSchedulerDashboard: React.FC = () => {
   );
 };
 
-/* ═══════════════ KPI CARD ═══════════════ */
-function KpiCard({
+/* ============================================================================
+ * KPI CARD
+ * ========================================================================== */
+
+interface KpiCardProps {
+  label: string;
+  value: string | number;
+  hint: string;
+  icon: ReactNode;
+  isWarning?: boolean;
+}
+
+const KpiCard: FC<KpiCardProps> = ({
   label,
   value,
   hint,
   icon,
   isWarning = false,
-}: {
-  label: string;
-  value: string | number;
-  hint: string;
-  icon: React.ReactNode;
-  isWarning?: boolean;
-}) {
+}) => {
   return (
     <article className="rounded-xl border border-slate-200 bg-white p-5 transition hover:border-slate-300">
       <div className="flex items-start justify-between gap-3">
@@ -552,17 +721,19 @@ function KpiCard({
       </div>
     </article>
   );
-}
+};
 
-function AlertBanner({
-  type,
-  message,
-  onClose,
-}: {
+/* ============================================================================
+ * ALERT BANNER
+ * ========================================================================== */
+
+interface AlertBannerProps {
   type: 'success' | 'error' | 'info';
   message: string;
   onClose: () => void;
-}) {
+}
+
+const AlertBanner: FC<AlertBannerProps> = ({ type, message, onClose }) => {
   const config = {
     success: {
       ring: 'border-emerald-200 bg-emerald-50/60',
@@ -570,6 +741,7 @@ function AlertBanner({
       title: 'text-emerald-800',
       text: 'text-emerald-700',
       Icon: CheckCircle2,
+      label: 'Opération réussie',
     },
     error: {
       ring: 'border-rose-200 bg-rose-50/60',
@@ -577,6 +749,7 @@ function AlertBanner({
       title: 'text-rose-800',
       text: 'text-rose-700',
       Icon: AlertCircle,
+      label: 'Erreur',
     },
     info: {
       ring: 'border-sky-200 bg-sky-50/60',
@@ -584,19 +757,24 @@ function AlertBanner({
       title: 'text-sky-800',
       text: 'text-sky-700',
       Icon: Info,
+      label: 'Information',
     },
   }[type];
+
   const Icon = config.Icon;
 
   return (
-    <div className={`flex items-start gap-3 rounded-xl border px-4 py-3.5 ${config.ring}`} role="alert">
-      <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${config.icon}`}>
+    <div
+      className={`flex items-start gap-3 rounded-xl border px-4 py-3.5 ${config.ring}`}
+      role="alert"
+    >
+      <div
+        className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${config.icon}`}
+      >
         <Icon className="h-4 w-4" />
       </div>
       <div className="min-w-0 flex-1">
-        <p className={`text-sm font-medium ${config.title}`}>
-          {type === 'success' ? 'Opération réussie' : type === 'error' ? 'Erreur' : 'Information'}
-        </p>
+        <p className={`text-sm font-medium ${config.title}`}>{config.label}</p>
         <p className={`mt-0.5 text-xs leading-5 ${config.text}`}>{message}</p>
       </div>
       <button
@@ -615,6 +793,6 @@ function AlertBanner({
       </button>
     </div>
   );
-}
+};
 
 export default FlightSchedulerDashboard;

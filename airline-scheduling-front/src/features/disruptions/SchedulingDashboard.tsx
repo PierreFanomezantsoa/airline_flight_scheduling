@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { 
-  Layers, 
-  Clock, 
-  Plus, 
-  Trash2, 
-  RefreshCw, 
-  Loader2, 
+import { useCallback, useEffect, useState } from 'react';
+import {
+  Layers,
+  Clock,
+  Plus,
+  Trash2,
+  RefreshCw,
+  Loader2,
   AlertCircle,
   ArrowRight,
   CheckCircle2,
@@ -15,12 +15,38 @@ import {
   X,
   AlertTriangle,
   Activity,
-  ChevronRight
+  ChevronRight,
 } from 'lucide-react';
 
-const BACKEND_URL = 'http://localhost:3001';
+/* ============================================================================
+ * CONFIGURATION API — NestJS (port 3001 en dev, /api en prod via Nginx)
+ * ============================================================================
+ *
+ *   DEV  → VITE_API_BASE_URL = http://localhost:3001
+ *   PROD → VITE_API_BASE_URL = /api
+ * ========================================================================== */
 
-// --- Types ---
+const FALLBACK_API_URL: string = import.meta.env.PROD
+  ? '/api'
+  : 'http://localhost:3001';
+
+const RAW_API_BASE_URL: string =
+  import.meta.env.VITE_API_BASE_URL || FALLBACK_API_URL;
+
+const BACKEND_URL: string = RAW_API_BASE_URL.replace(/\/+$/, '');
+
+if (import.meta.env.DEV) {
+  // eslint-disable-next-line no-console
+  console.info('[SchedulingDashboard] API :', {
+    baseUrl: BACKEND_URL,
+    fallbackUsed: !import.meta.env.VITE_API_BASE_URL,
+  });
+}
+
+/* ============================================================================
+ * TYPES
+ * ========================================================================== */
+
 export interface Avion {
   id: number;
   nom: string;
@@ -52,11 +78,52 @@ export interface ToastMessage {
   message: string;
 }
 
+/* ============================================================================
+ * HELPERS
+ * ========================================================================== */
+
 const toLocalISOString = (dateInput: string | Date): string => {
   const d = new Date(dateInput);
   const offset = d.getTimezoneOffset() * 60000;
   return new Date(d.getTime() - offset).toISOString().slice(0, 16);
 };
+
+/**
+ * Extrait le message d'erreur renvoyé par le backend NestJS.
+ */
+function extractBackendMessage(payload: unknown): string | null {
+  if (!payload || typeof payload !== 'object') return null;
+
+  const data = payload as { message?: unknown; error?: unknown };
+
+  if (Array.isArray(data.message)) {
+    return (data.message as string[]).join(' | ');
+  }
+  if (typeof data.message === 'string' && data.message.trim()) {
+    return data.message;
+  }
+  if (typeof data.error === 'string' && data.error.trim()) {
+    return data.error;
+  }
+  return null;
+}
+
+/**
+ * Transforme une erreur quelconque en message lisible.
+ */
+function getFriendlyError(error: unknown, fallback: string): string {
+  if (error instanceof Error) {
+    if (error.message.includes('Failed to fetch')) {
+      return 'Impossible de contacter le serveur. Vérifiez votre connexion.';
+    }
+    return error.message || fallback;
+  }
+  return fallback;
+}
+
+/* ============================================================================
+ * COMPOSANT
+ * ========================================================================== */
 
 export const SchedulingDashboard: React.FC = () => {
   const [lignes, setLignes] = useState<Avion[]>([]);
@@ -82,11 +149,15 @@ export const SchedulingDashboard: React.FC = () => {
     tacheId: '',
     ligneId: '',
     dateDebut: '',
-    dateFin: ''
+    dateFin: '',
   });
 
   const [creneauEnModification, setCreneauEnModification] = useState<VolPlanifie | null>(null);
   const [moveForm, setMoveForm] = useState({ ligneId: '', dateDebut: '', dateFin: '' });
+
+  /* =========================================================================
+   * ESC KEY
+   * ======================================================================= */
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -99,6 +170,10 @@ export const SchedulingDashboard: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [creneauToDelete, creneauEnModification]);
 
+  /* =========================================================================
+   * CHARGEMENT DES DONNÉES
+   * ======================================================================= */
+
   const chargerDonneesOrdonnancement = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -107,32 +182,45 @@ export const SchedulingDashboard: React.FC = () => {
       const fin = new Date('2026-12-31T23:59:59.000Z').toISOString();
 
       const [resLignes, resCalendrier, resTaches] = await Promise.all([
-        fetch(`${BACKEND_URL}/api/ordonnancement/lignes`),
-        fetch(`${BACKEND_URL}/api/ordonnancement/calendrier?debut=${debut}&fin=${fin}`),
-        fetch(`${BACKEND_URL}/api/ordonnancement/taches/en-attente`)
+        fetch(`${BACKEND_URL}/api/ordonnancement/lignes`, {
+          headers: { Accept: 'application/json' },
+        }),
+        fetch(
+          `${BACKEND_URL}/api/ordonnancement/calendrier?debut=${debut}&fin=${fin}`,
+          { headers: { Accept: 'application/json' } },
+        ),
+        fetch(`${BACKEND_URL}/api/ordonnancement/taches/en-attente`, {
+          headers: { Accept: 'application/json' },
+        }),
       ]);
 
       if (!resLignes.ok || !resCalendrier.ok || !resTaches.ok) {
-        throw new Error("Échec du chargement des données opérationnelles.");
+        throw new Error('Échec du chargement des données opérationnelles.');
       }
 
       setLignes(await resLignes.json());
       setCreneaux(await resCalendrier.json());
       setTachesEnAttente(await resTaches.json());
-    } catch (err: any) {
-      setError(err.message || "Erreur de communication avec le serveur.");
+    } catch (err: unknown) {
+      setError(
+        getFriendlyError(err, 'Erreur de communication avec le serveur.'),
+      );
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    chargerDonneesOrdonnancement();
+    void chargerDonneesOrdonnancement();
   }, [chargerDonneesOrdonnancement]);
+
+  /* =========================================================================
+   * CALCUL DATE FIN
+   * ======================================================================= */
 
   const recalculerDateFin = (tacheId: string, dateDebut: string) => {
     if (!tacheId || !dateDebut) return '';
-    const vol = tachesEnAttente.find(t => t.id === Number(tacheId));
+    const vol = tachesEnAttente.find((t) => t.id === Number(tacheId));
     if (!vol) return '';
 
     const debutDate = new Date(dateDebut);
@@ -143,14 +231,18 @@ export const SchedulingDashboard: React.FC = () => {
   const handleTacheChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const tacheId = e.target.value;
     const dateFin = recalculerDateFin(tacheId, assignForm.dateDebut);
-    setAssignForm(prev => ({ ...prev, tacheId, dateFin: dateFin || prev.dateFin }));
+    setAssignForm((prev) => ({ ...prev, tacheId, dateFin: dateFin || prev.dateFin }));
   };
 
   const handleDateDebutChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const dateDebut = e.target.value;
     const dateFin = recalculerDateFin(assignForm.tacheId, dateDebut);
-    setAssignForm(prev => ({ ...prev, dateDebut, dateFin: dateFin || prev.dateFin }));
+    setAssignForm((prev) => ({ ...prev, dateDebut, dateFin: dateFin || prev.dateFin }));
   };
+
+  /* =========================================================================
+   * AFFECTATION
+   * ======================================================================= */
 
   const handleAssignerTache = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -160,7 +252,7 @@ export const SchedulingDashboard: React.FC = () => {
     const tacheIdNum = Number(assignForm.tacheId);
 
     if (!ligneIdNum || !tacheIdNum) {
-      const msg = "Veuillez sélectionner un vol et un appareil valides.";
+      const msg = 'Veuillez sélectionner un vol et un appareil valides.';
       setError(msg);
       showToast(msg, 'error');
       return;
@@ -170,7 +262,7 @@ export const SchedulingDashboard: React.FC = () => {
     const fin = new Date(assignForm.dateFin);
 
     if (debut >= fin) {
-      const msg = "L'arrivée doit être strictly postérieure au départ.";
+      const msg = "L'arrivée doit être strictement postérieure au départ.";
       setError(msg);
       showToast(msg, 'error');
       return;
@@ -180,30 +272,37 @@ export const SchedulingDashboard: React.FC = () => {
     try {
       const response = await fetch(`${BACKEND_URL}/api/ordonnancement/assigner`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({
           ligneId: ligneIdNum,
           tacheId: tacheIdNum,
           dateDebut: debut.toISOString(),
-          dateFin: fin.toISOString()
-        })
+          dateFin: fin.toISOString(),
+        }),
       });
 
-      const data = await response.json();
+      const data = await response.json().catch(() => null);
       if (!response.ok) {
-        throw new Error(Array.isArray(data.message) ? data.message.join(' | ') : data.message);
+        throw new Error(
+          extractBackendMessage(data) || "Erreur lors de l'affectation.",
+        );
       }
 
       await chargerDonneesOrdonnancement();
       setAssignForm({ tacheId: '', ligneId: '', dateDebut: '', dateFin: '' });
-      showToast("Vol planifié avec succès !", 'success');
-    } catch (err: any) {
-      setError(err.message);
-      showToast(err.message || "Erreur lors de la planification.", 'error');
+      showToast('Vol planifié avec succès !', 'success');
+    } catch (err: unknown) {
+      const message = getFriendlyError(err, 'Erreur lors de la planification.');
+      setError(message);
+      showToast(message, 'error');
     } finally {
       setSubmitting(false);
     }
   };
+
+  /* =========================================================================
+   * DÉPLACEMENT
+   * ======================================================================= */
 
   const handleDeplacerCreneau = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -222,31 +321,41 @@ export const SchedulingDashboard: React.FC = () => {
 
     setSubmitting(true);
     try {
-      const response = await fetch(`${BACKEND_URL}/api/ordonnancement/deplacer/${creneauEnModification.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ligneId: moveForm.ligneId ? Number(moveForm.ligneId) : undefined,
-          dateDebut: debut.toISOString(),
-          dateFin: fin.toISOString()
-        })
-      });
+      const response = await fetch(
+        `${BACKEND_URL}/api/ordonnancement/deplacer/${creneauEnModification.id}`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({
+            ligneId: moveForm.ligneId ? Number(moveForm.ligneId) : undefined,
+            dateDebut: debut.toISOString(),
+            dateFin: fin.toISOString(),
+          }),
+        },
+      );
 
-      const data = await response.json();
+      const data = await response.json().catch(() => null);
       if (!response.ok) {
-        throw new Error(Array.isArray(data.message) ? data.message.join(' | ') : data.message);
+        throw new Error(
+          extractBackendMessage(data) || 'Erreur lors de la reprogrammation.',
+        );
       }
 
       setCreneauEnModification(null);
       await chargerDonneesOrdonnancement();
-      showToast("Reprogrammation effectuée !", 'success');
-    } catch (err: any) {
-      setError(err.message);
-      showToast(err.message || "Erreur lors de la reprogrammation.", 'error');
+      showToast('Reprogrammation effectuée !', 'success');
+    } catch (err: unknown) {
+      const message = getFriendlyError(err, 'Erreur lors de la reprogrammation.');
+      setError(message);
+      showToast(message, 'error');
     } finally {
       setSubmitting(false);
     }
   };
+
+  /* =========================================================================
+   * SUPPRESSION
+   * ======================================================================= */
 
   const confirmerRetraitPlanification = async () => {
     if (!creneauToDelete) return;
@@ -256,18 +365,20 @@ export const SchedulingDashboard: React.FC = () => {
     setActionIdLoading(id);
 
     try {
-      const response = await fetch(`${BACKEND_URL}/api/ordonnancement/desordonnancer/${id}`, {
-        method: 'DELETE'
-      });
+      const response = await fetch(
+        `${BACKEND_URL}/api/ordonnancement/desordonnancer/${id}`,
+        { method: 'DELETE', headers: { Accept: 'application/json' } },
+      );
 
-      if (!response.ok) throw new Error("Échec du retrait de la planification.");
-      
+      if (!response.ok) throw new Error('Échec du retrait de la planification.');
+
       setCreneauToDelete(null);
       await chargerDonneesOrdonnancement();
-      showToast("Vol remis en attente.", 'success');
-    } catch (err: any) {
-      setError(err.message);
-      showToast(err.message || "Erreur lors du retrait du vol.", 'error');
+      showToast('Vol remis en attente.', 'success');
+    } catch (err: unknown) {
+      const message = getFriendlyError(err, 'Erreur lors du retrait du vol.');
+      setError(message);
+      showToast(message, 'error');
     } finally {
       setActionIdLoading(null);
     }
@@ -278,9 +389,13 @@ export const SchedulingDashboard: React.FC = () => {
     setMoveForm({
       ligneId: String(creneau.ligne?.id || ''),
       dateDebut: toLocalISOString(creneau.dateDebut),
-      dateFin: toLocalISOString(creneau.dateFin)
+      dateFin: toLocalISOString(creneau.dateFin),
     });
   };
+
+  /* =========================================================================
+   * LOADING
+   * ======================================================================= */
 
   if (loading) {
     return (
@@ -289,21 +404,26 @@ export const SchedulingDashboard: React.FC = () => {
           <div className="w-16 h-16 border-4 border-emerald-500/20 border-t-emerald-400 rounded-full animate-spin" />
           <Plane className="w-6 h-6 text-emerald-400 absolute animate-pulse" />
         </div>
-        <p className="text-xs font-semibold tracking-widest text-slate-400 uppercase mt-5">Synchronisation Ops Center...</p>
+        <p className="text-xs font-semibold tracking-widest text-slate-400 uppercase mt-5">
+          Synchronisation Ops Center...
+        </p>
       </div>
     );
   }
 
+  /* =========================================================================
+   * RENDER
+   * ======================================================================= */
+
   return (
     <div className="space-y-6 p-2 md:p-6 max-w-7xl mx-auto bg-slate-50/50 min-h-screen text-slate-800">
-      
       {/* MODAL SUPPRESSION */}
       {creneauToDelete && (
-        <div 
+        <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-150"
           onClick={() => !actionIdLoading && setCreneauToDelete(null)}
         >
-          <div 
+          <div
             className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-200 space-y-5"
             onClick={(e) => e.stopPropagation()}
           >
@@ -313,11 +433,15 @@ export const SchedulingDashboard: React.FC = () => {
                   <AlertTriangle className="w-6 h-6" />
                 </div>
                 <div>
-                  <h3 className="text-base font-black text-slate-900 tracking-tight">Désordonnancer ce vol ?</h3>
-                  <p className="text-xs text-slate-500 font-medium">Le vol repassera dans le carnet d'attente.</p>
+                  <h3 className="text-base font-black text-slate-900 tracking-tight">
+                    Désordonnancer ce vol ?
+                  </h3>
+                  <p className="text-xs text-slate-500 font-medium">
+                    Le vol repassera dans le carnet d'attente.
+                  </p>
                 </div>
               </div>
-              <button 
+              <button
                 onClick={() => setCreneauToDelete(null)}
                 disabled={actionIdLoading !== null}
                 className="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition cursor-pointer"
@@ -328,13 +452,18 @@ export const SchedulingDashboard: React.FC = () => {
 
             <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 space-y-2">
               <div className="flex justify-between items-center">
-                <span className="font-extrabold text-slate-900 text-sm">{creneauToDelete.tache?.nomProduit}</span>
+                <span className="font-extrabold text-slate-900 text-sm">
+                  {creneauToDelete.tache?.nomProduit}
+                </span>
                 <span className="font-mono text-[10px] font-black text-emerald-700 bg-emerald-100/60 border border-emerald-200/80 px-2 py-0.5 rounded-md">
                   {creneauToDelete.tache?.referenceCommande}
                 </span>
               </div>
               <p className="text-xs text-slate-600">
-                Appareil : <span className="font-bold text-slate-800">{creneauToDelete.ligne?.nom} ({creneauToDelete.ligne?.code})</span>
+                Appareil :{' '}
+                <span className="font-bold text-slate-800">
+                  {creneauToDelete.ligne?.nom} ({creneauToDelete.ligne?.code})
+                </span>
               </p>
             </div>
 
@@ -372,10 +501,10 @@ export const SchedulingDashboard: React.FC = () => {
 
       {/* TOAST NOTIFICATION */}
       {toast && (
-        <div 
+        <div
           className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-2xl border text-xs font-bold transition-all animate-in fade-in slide-in-from-bottom-5 ${
-            toast.type === 'success' 
-              ? 'bg-slate-900 text-emerald-400 border-emerald-500/30' 
+            toast.type === 'success'
+              ? 'bg-slate-900 text-emerald-400 border-emerald-500/30'
               : 'bg-slate-900 text-rose-400 border-rose-500/30'
           }`}
         >
@@ -385,8 +514,8 @@ export const SchedulingDashboard: React.FC = () => {
             <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" />
           )}
           <span>{toast.message}</span>
-          <button 
-            onClick={() => setToast(null)} 
+          <button
+            onClick={() => setToast(null)}
             className="ml-3 p-1 hover:bg-white/10 rounded-lg transition shrink-0 cursor-pointer"
           >
             <X className="w-3.5 h-3.5 opacity-70 hover:opacity-100" />
@@ -413,7 +542,7 @@ export const SchedulingDashboard: React.FC = () => {
             </p>
           </div>
 
-          <button 
+          <button
             onClick={chargerDonneesOrdonnancement}
             className="flex items-center gap-2 px-4 py-2.5 text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white rounded-2xl transition-all shadow-sm active:scale-95 cursor-pointer"
           >
@@ -424,20 +553,29 @@ export const SchedulingDashboard: React.FC = () => {
         {/* METRICS QUICK VIEW */}
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-6 pt-6 border-t border-slate-100 relative z-10">
           <div className="bg-slate-50 rounded-2xl p-3 border border-slate-200/60">
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Avions Actifs</p>
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+              Avions Actifs
+            </p>
             <p className="text-lg font-black text-slate-900 mt-0.5">
-              {lignes.filter(l => l.estActif).length} <span className="text-xs font-normal text-slate-400">/ {lignes.length}</span>
+              {lignes.filter((l) => l.estActif).length}{' '}
+              <span className="text-xs font-normal text-slate-400">/ {lignes.length}</span>
             </p>
           </div>
 
           <div className="bg-emerald-50/60 rounded-2xl p-3 border border-emerald-100">
-            <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">Vols Planifiés</p>
+            <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">
+              Vols Planifiés
+            </p>
             <p className="text-lg font-black text-emerald-600 mt-0.5">{creneaux.length}</p>
           </div>
 
           <div className="col-span-2 md:col-span-1 bg-amber-50/60 rounded-2xl p-3 border border-amber-100">
-            <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">En Attente</p>
-            <p className="text-lg font-black text-amber-600 mt-0.5">{tachesEnAttente.length}</p>
+            <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">
+              En Attente
+            </p>
+            <p className="text-lg font-black text-amber-600 mt-0.5">
+              {tachesEnAttente.length}
+            </p>
           </div>
         </div>
       </div>
@@ -462,26 +600,34 @@ export const SchedulingDashboard: React.FC = () => {
                 <Move className="w-4 h-4 text-indigo-300" />
               </div>
               <h4 className="text-sm font-extrabold tracking-wide">
-                Reprogrammer le vol : <span className="text-indigo-300">{creneauEnModification.tache?.referenceCommande}</span>
+                Reprogrammer le vol :{' '}
+                <span className="text-indigo-300">
+                  {creneauEnModification.tache?.referenceCommande}
+                </span>
               </h4>
             </div>
-            <button 
-              onClick={() => setCreneauEnModification(null)} 
+            <button
+              onClick={() => setCreneauEnModification(null)}
               className="p-1.5 hover:bg-indigo-800 rounded-xl transition text-indigo-300 hover:text-white cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
 
-          <form onSubmit={handleDeplacerCreneau} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 items-end">
+          <form
+            onSubmit={handleDeplacerCreneau}
+            className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 items-end"
+          >
             <div>
-              <label className="block text-[10px] font-extrabold text-indigo-300 uppercase mb-1.5">Changer l'appareil</label>
+              <label className="block text-[10px] font-extrabold text-indigo-300 uppercase mb-1.5">
+                Changer l'appareil
+              </label>
               <select
                 value={moveForm.ligneId}
                 onChange={(e) => setMoveForm({ ...moveForm, ligneId: e.target.value })}
                 className="w-full px-3.5 py-2.5 border border-indigo-700 rounded-xl text-xs bg-indigo-950 text-white font-semibold focus:ring-2 focus:ring-emerald-400 outline-none"
               >
-                {lignes.map(l => (
+                {lignes.map((l) => (
                   <option key={l.id} value={l.id} disabled={!l.estActif}>
                     {l.nom} ({l.code}) {!l.estActif ? ' - Maintenance' : ''}
                   </option>
@@ -489,9 +635,11 @@ export const SchedulingDashboard: React.FC = () => {
               </select>
             </div>
             <div>
-              <label className="block text-[10px] font-extrabold text-indigo-300 uppercase mb-1.5">Nouveau Départ</label>
-              <input 
-                type="datetime-local" 
+              <label className="block text-[10px] font-extrabold text-indigo-300 uppercase mb-1.5">
+                Nouveau Départ
+              </label>
+              <input
+                type="datetime-local"
                 value={moveForm.dateDebut}
                 onChange={(e) => setMoveForm({ ...moveForm, dateDebut: e.target.value })}
                 className="w-full px-3.5 py-2.5 border border-indigo-700 rounded-xl text-xs bg-indigo-950 text-white font-mono focus:ring-2 focus:ring-emerald-400 outline-none"
@@ -499,21 +647,23 @@ export const SchedulingDashboard: React.FC = () => {
               />
             </div>
             <div>
-              <label className="block text-[10px] font-extrabold text-indigo-300 uppercase mb-1.5">Nouvelle Arrivée</label>
-              <input 
-                type="datetime-local" 
+              <label className="block text-[10px] font-extrabold text-indigo-300 uppercase mb-1.5">
+                Nouvelle Arrivée
+              </label>
+              <input
+                type="datetime-local"
                 value={moveForm.dateFin}
                 onChange={(e) => setMoveForm({ ...moveForm, dateFin: e.target.value })}
                 className="w-full px-3.5 py-2.5 border border-indigo-700 rounded-xl text-xs bg-indigo-950 text-white font-mono focus:ring-2 focus:ring-emerald-400 outline-none"
                 required
               />
             </div>
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               disabled={submitting}
               className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-xl text-xs font-black uppercase cursor-pointer transition flex items-center justify-center gap-2 disabled:opacity-50 shadow-lg"
             >
-              {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Valider les modifications"}
+              {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Valider les modifications'}
             </button>
           </form>
         </div>
@@ -525,24 +675,39 @@ export const SchedulingDashboard: React.FC = () => {
           <h2 className="text-sm font-black uppercase tracking-wider text-slate-700 flex items-center gap-2">
             <Clock className="w-4 h-4 text-emerald-700" /> Planning des Rotations par Appareil
           </h2>
-          <span className="text-xs font-semibold text-slate-400">Total : {lignes.length} avions</span>
+          <span className="text-xs font-semibold text-slate-400">
+            Total : {lignes.length} avions
+          </span>
         </div>
 
         <div className="grid grid-cols-1 gap-4">
-          {lignes.map(avion => {
-            const volsAppareil = creneaux.filter(c => c.ligne?.id === avion.id);
+          {lignes.map((avion) => {
+            const volsAppareil = creneaux.filter((c) => c.ligne?.id === avion.id);
 
             return (
-              <div key={avion.id} className="border border-slate-200/80 rounded-2xl bg-white overflow-hidden shadow-xs hover:border-slate-300 transition-all">
+              <div
+                key={avion.id}
+                className="border border-slate-200/80 rounded-2xl bg-white overflow-hidden shadow-xs hover:border-slate-300 transition-all"
+              >
                 {/* Header Avion */}
                 <div className="bg-slate-50/80 px-4 py-3 flex justify-between items-center border-b border-slate-100">
                   <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-xl ${avion.estActif ? 'bg-slate-900 text-emerald-400' : 'bg-amber-100 text-amber-800'}`}>
+                    <div
+                      className={`p-2 rounded-xl ${
+                        avion.estActif
+                          ? 'bg-slate-900 text-emerald-400'
+                          : 'bg-amber-100 text-amber-800'
+                      }`}
+                    >
                       <Plane className="w-4 h-4" />
                     </div>
                     <div>
-                      <span className="text-xs font-extrabold text-slate-900">{avion.nom}</span>
-                      <p className="text-[10px] text-slate-400 font-medium">Capacité : {avion.capacitePassagers} passagers</p>
+                      <span className="text-xs font-extrabold text-slate-900">
+                        {avion.nom}
+                      </span>
+                      <p className="text-[10px] text-slate-400 font-medium">
+                        Capacité : {avion.capacitePassagers} passagers
+                      </p>
                     </div>
                   </div>
 
@@ -569,28 +734,42 @@ export const SchedulingDashboard: React.FC = () => {
                       Aucun vol assigné — Appareil disponible pour programmation.
                     </div>
                   ) : (
-                    volsAppareil.map(creneau => (
-                      <div key={creneau.id} className="py-3 first:pt-0 last:pb-0 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    volsAppareil.map((creneau) => (
+                      <div
+                        key={creneau.id}
+                        className="py-3 first:pt-0 last:pb-0 flex flex-col md:flex-row md:items-center justify-between gap-4"
+                      >
                         <div className="flex items-start gap-3">
                           <div className="p-2.5 bg-emerald-50 text-emerald-700 rounded-xl shrink-0 mt-0.5 border border-emerald-100">
                             <Layers className="w-4 h-4" />
                           </div>
                           <div className="space-y-1">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-xs font-black text-slate-900">{creneau.tache?.nomProduit}</span>
+                              <span className="text-xs font-black text-slate-900">
+                                {creneau.tache?.nomProduit}
+                              </span>
                               <span className="text-[10px] font-mono text-emerald-700 font-extrabold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/60">
                                 {creneau.tache?.referenceCommande}
                               </span>
                             </div>
-                            
-                            {/* Dates et Durée */}
+
                             <div className="flex items-center gap-2 text-[11px] font-medium text-slate-600 flex-wrap pt-0.5">
                               <span className="bg-slate-100 px-2 py-0.5 rounded-md text-slate-800 font-mono text-[10px] font-bold">
-                                {new Date(creneau.dateDebut).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                                {new Date(creneau.dateDebut).toLocaleString('fr-FR', {
+                                  day: '2-digit',
+                                  month: '2-digit',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
                               </span>
                               <ArrowRight className="w-3 h-3 text-slate-400" />
                               <span className="bg-slate-100 px-2 py-0.5 rounded-md text-slate-800 font-mono text-[10px] font-bold">
-                                {new Date(creneau.dateFin).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                                {new Date(creneau.dateFin).toLocaleString('fr-FR', {
+                                  day: '2-digit',
+                                  month: '2-digit',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
                               </span>
                               <span className="text-[10px] font-extrabold text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-md ml-1">
                                 {creneau.tache?.dureeEstimeeHeures}h de vol
@@ -599,7 +778,6 @@ export const SchedulingDashboard: React.FC = () => {
                           </div>
                         </div>
 
-                        {/* Actions */}
                         <div className="flex items-center justify-end gap-2 border-t md:border-t-0 pt-2 md:pt-0">
                           <button
                             onClick={() => initierModification(creneau)}
@@ -628,14 +806,15 @@ export const SchedulingDashboard: React.FC = () => {
 
       {/* SECTION 2 : FORMULAIRE D'AFFECTATION & CARNET EN ATTENTE */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
         {/* FORMULAIRE NOUVEAU VOL */}
         <div className="lg:col-span-5 bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-5 h-fit">
           <div className="border-b border-slate-100 pb-3">
             <h3 className="text-sm font-black uppercase tracking-wider text-slate-800 flex items-center gap-2">
               <Plus className="w-4 h-4 text-emerald-600" /> Nouvelle Affectation
             </h3>
-            <p className="text-xs text-slate-400 font-medium">Planifier un vol du carnet vers la flotte.</p>
+            <p className="text-xs text-slate-400 font-medium">
+              Planifier un vol du carnet vers la flotte.
+            </p>
           </div>
 
           <form onSubmit={handleAssignerTache} className="space-y-4">
@@ -650,7 +829,7 @@ export const SchedulingDashboard: React.FC = () => {
                 required
               >
                 <option value="">Aéro-ligne en attente...</option>
-                {tachesEnAttente.map(t => (
+                {tachesEnAttente.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.referenceCommande} — {t.nomProduit} ({t.dureeEstimeeHeures}h)
                   </option>
@@ -664,13 +843,15 @@ export const SchedulingDashboard: React.FC = () => {
               </label>
               <select
                 value={assignForm.ligneId}
-                onChange={(e) => setAssignForm(prev => ({ ...prev, ligneId: e.target.value }))}
+                onChange={(e) => setAssignForm((prev) => ({ ...prev, ligneId: e.target.value }))}
                 className="w-full px-3.5 py-2.5 border border-slate-200 rounded-2xl text-xs font-semibold bg-slate-50/50 text-slate-800 focus:bg-white focus:ring-2 focus:ring-emerald-500 outline-none transition cursor-pointer"
                 required
               >
                 <option value="">Attribuer à un avion disponible...</option>
-                {lignes.filter(l => l.estActif).map(l => (
-                  <option key={l.id} value={l.id}>{l.nom} ({l.code})</option>
+                {lignes.filter((l) => l.estActif).map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.nom} ({l.code})
+                  </option>
                 ))}
               </select>
             </div>
@@ -680,7 +861,7 @@ export const SchedulingDashboard: React.FC = () => {
                 <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1.5">
                   3. Horaires Décollage
                 </label>
-                <input 
+                <input
                   type="datetime-local"
                   value={assignForm.dateDebut}
                   onChange={handleDateDebutChange}
@@ -691,12 +872,13 @@ export const SchedulingDashboard: React.FC = () => {
 
               <div>
                 <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1.5">
-                  4. Atterrissage <span className="text-emerald-600 font-normal italic">(Calculé)</span>
+                  4. Atterrissage{' '}
+                  <span className="text-emerald-600 font-normal italic">(Calculé)</span>
                 </label>
-                <input 
+                <input
                   type="datetime-local"
                   value={assignForm.dateFin}
-                  onChange={(e) => setAssignForm(prev => ({ ...prev, dateFin: e.target.value }))}
+                  onChange={(e) => setAssignForm((prev) => ({ ...prev, dateFin: e.target.value }))}
                   className="w-full px-3 py-2.5 border border-slate-200 rounded-2xl text-xs font-semibold bg-slate-50/50 text-slate-800 font-mono focus:bg-white focus:ring-2 focus:ring-emerald-500 outline-none"
                   required
                 />
@@ -727,7 +909,9 @@ export const SchedulingDashboard: React.FC = () => {
               <h3 className="text-sm font-black uppercase tracking-wider text-slate-800 flex items-center gap-2">
                 <ListTodo className="w-4 h-4 text-amber-600" /> Carnet de Vols en Attente
               </h3>
-              <p className="text-xs text-slate-400 font-medium">Vols nécessitant l'attribution d'un appareil et d'un créneau.</p>
+              <p className="text-xs text-slate-400 font-medium">
+                Vols nécessitant l'attribution d'un appareil et d'un créneau.
+              </p>
             </div>
             <span className="text-xs font-extrabold bg-amber-50 text-amber-700 border border-amber-200 px-3 py-1 rounded-full">
               {tachesEnAttente.length} en attente
@@ -738,35 +922,48 @@ export const SchedulingDashboard: React.FC = () => {
             {tachesEnAttente.length === 0 ? (
               <div className="py-12 text-center text-slate-400 space-y-2">
                 <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto opacity-80" />
-                <p className="text-xs font-medium">Tous les vols du carnet sont actuellement planifiés !</p>
+                <p className="text-xs font-medium">
+                  Tous les vols du carnet sont actuellement planifiés !
+                </p>
               </div>
             ) : (
               tachesEnAttente.map((tache) => (
-                <div 
-                  key={tache.id} 
+                <div
+                  key={tache.id}
                   className="p-4 rounded-2xl border border-slate-100 bg-slate-50/50 hover:bg-slate-50 transition flex items-center justify-between gap-4"
                 >
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-extrabold text-slate-900">{tache.nomProduit}</span>
+                      <span className="text-xs font-extrabold text-slate-900">
+                        {tache.nomProduit}
+                      </span>
                       <span className="text-[10px] font-mono font-bold text-slate-500 bg-white border border-slate-200 px-2 py-0.5 rounded-md">
                         {tache.referenceCommande}
                       </span>
                     </div>
                     <div className="flex items-center gap-3 text-[11px] text-slate-500 font-medium">
-                      <span>Passagers / Charge : <strong className="text-slate-700">{tache.quantiteAProduire}</strong></span>
+                      <span>
+                        Passagers / Charge :{' '}
+                        <strong className="text-slate-700">{tache.quantiteAProduire}</strong>
+                      </span>
                       <span>•</span>
-                      <span>Durée estimée : <strong className="text-slate-700">{tache.dureeEstimeeHeures}h</strong></span>
+                      <span>
+                        Durée estimée :{' '}
+                        <strong className="text-slate-700">{tache.dureeEstimeeHeures}h</strong>
+                      </span>
                     </div>
                   </div>
 
                   <button
                     onClick={() => {
-                      const calculatedFin = recalculerDateFin(String(tache.id), assignForm.dateDebut);
-                      setAssignForm(prev => ({
+                      const calculatedFin = recalculerDateFin(
+                        String(tache.id),
+                        assignForm.dateDebut,
+                      );
+                      setAssignForm((prev) => ({
                         ...prev,
                         tacheId: String(tache.id),
-                        dateFin: calculatedFin || prev.dateFin
+                        dateFin: calculatedFin || prev.dateFin,
                       }));
                     }}
                     className="px-3 py-2 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 rounded-xl transition cursor-pointer flex items-center gap-1 shrink-0"
@@ -779,9 +976,9 @@ export const SchedulingDashboard: React.FC = () => {
             )}
           </div>
         </div>
-
       </div>
-
     </div>
   );
 };
+
+export default SchedulingDashboard;

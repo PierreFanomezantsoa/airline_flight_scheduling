@@ -1,4 +1,7 @@
-import React, { useMemo, useState } from 'react';
+// src/features/dashboard/PlannificationVol.tsx
+
+import { useMemo, useState } from 'react';
+import type { FC, ReactNode } from 'react';
 import {
   Activity,
   ArrowRight,
@@ -19,10 +22,18 @@ import {
 
 export type FlightStatus =
   | 'Scheduled'
+  | 'Planifié'
   | 'Delayed'
+  | 'Retardé'
   | 'Cancelled'
+  | 'Annulé'
   | 'In-Flight'
-  | 'Effectué';
+  | 'En Vol'
+  | 'Effectué'
+  | 'Ponctuel'
+  | 'On-Time'
+  | 'Completed'
+  | string;
 
 export type StatusFilter = 'ALL' | FlightStatus | 'UNASSIGNED';
 
@@ -70,7 +81,7 @@ export interface StatusStyle {
 
 export interface WeatherIndicator {
   label: string;
-  icon: React.ReactNode;
+  icon: ReactNode;
   badge: string;
   recommendation: string;
 }
@@ -92,7 +103,7 @@ interface FlightPlanningProps {
   getWeatherIndicator: (severity: number) => WeatherIndicator;
   onSelectFlight: (flight: Flight) => void;
   /** Contenu rendu au-dessus — dans le même div et le même fond blanc */
-  topHeader?: React.ReactNode;
+  topHeader?: ReactNode;
 }
 
 /* ========================================================================== */
@@ -102,29 +113,112 @@ interface FlightPlanningProps {
 const FOCUS_RING =
   'outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10';
 
-const STATUS_BADGE_MAP: Record<FlightStatus, { badge: string; dot: string }> = {
-  Scheduled: { badge: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-500' },
-  Delayed: { badge: 'bg-amber-100 text-amber-700', dot: 'bg-amber-500' },
-  Cancelled: { badge: 'bg-rose-100 text-rose-700', dot: 'bg-rose-500' },
-  'In-Flight': { badge: 'bg-sky-100 text-sky-700', dot: 'bg-sky-500' },
-  Effectué: { badge: 'bg-slate-100 text-slate-600', dot: 'bg-slate-400' },
+/**
+ * ✅ Map étendue pour couvrir tous les statuts possibles (FR + EN).
+ * Chaque entrée contient : classes du badge + couleur du dot.
+ */
+const STATUS_BADGE_MAP: Record<
+  string,
+  { badge: string; dot: string }
+> = {
+  // Anglais
+  Scheduled: {
+    badge: 'bg-emerald-100 text-emerald-700',
+    dot: 'bg-emerald-500',
+  },
+  Delayed: {
+    badge: 'bg-amber-100 text-amber-700',
+    dot: 'bg-amber-500',
+  },
+  Cancelled: {
+    badge: 'bg-rose-100 text-rose-700',
+    dot: 'bg-rose-500',
+  },
+  'In-Flight': {
+    badge: 'bg-sky-100 text-sky-700',
+    dot: 'bg-sky-500',
+  },
+  Completed: {
+    badge: 'bg-slate-100 text-slate-600',
+    dot: 'bg-slate-400',
+  },
+  'On-Time': {
+    badge: 'bg-emerald-100 text-emerald-700',
+    dot: 'bg-emerald-500',
+  },
+
+  // Français
+  Planifié: {
+    badge: 'bg-emerald-100 text-emerald-700',
+    dot: 'bg-emerald-500',
+  },
+  'En attente': {
+    badge: 'bg-slate-100 text-slate-700',
+    dot: 'bg-slate-500',
+  },
+  Ponctuel: {
+    badge: 'bg-emerald-100 text-emerald-700',
+    dot: 'bg-emerald-500',
+  },
+  Retardé: {
+    badge: 'bg-amber-100 text-amber-700',
+    dot: 'bg-amber-500',
+  },
+  'En Vol': {
+    badge: 'bg-sky-100 text-sky-700',
+    dot: 'bg-sky-500',
+  },
+  Annulé: {
+    badge: 'bg-rose-100 text-rose-700',
+    dot: 'bg-rose-500',
+  },
+  Effectué: {
+    badge: 'bg-slate-100 text-slate-600',
+    dot: 'bg-slate-400',
+  },
 };
+
+/**
+ * ✅ Fallback ultime si le statut est totalement inconnu.
+ */
+const DEFAULT_STATUS_STYLE = {
+  badge: 'bg-slate-100 text-slate-600',
+  dot: 'bg-slate-400',
+};
+
+/** Filtres statiques (évite de recréer le tableau à chaque render) */
+const FILTERS: ReadonlyArray<readonly [StatusFilter, string]> = [
+  ['ALL', 'Tous'],
+  ['Scheduled', 'Planifiés'],
+  ['Delayed', 'Retardés'],
+  ['In-Flight', 'En vol'],
+  ['Effectué', 'Effectués'],
+  ['Cancelled', 'Annulés'],
+  ['UNASSIGNED', 'Non assignés'],
+];
 
 /* ========================================================================== */
 /* PETITS COMPOSANTS                                                          */
 /* ========================================================================== */
 
-const StatusBadge: React.FC<{ status: FlightStatus; label: string }> = ({
-  status,
-  label,
-}) => {
-  const config = STATUS_BADGE_MAP[status];
+interface StatusBadgeProps {
+  status: FlightStatus;
+  label: string;
+}
+
+const StatusBadge: FC<StatusBadgeProps> = ({ status, label }) => {
+  // ✅ Fallback à 3 niveaux : map exacte → Scheduled → default
+  const config =
+    STATUS_BADGE_MAP[String(status)] ??
+    STATUS_BADGE_MAP.Scheduled ??
+    DEFAULT_STATUS_STYLE;
+
   return (
     <span
       className={`inline-flex h-6 items-center gap-1.5 rounded-full px-2.5 text-[11px] font-medium ${config.badge}`}
     >
       <span className={`h-1.5 w-1.5 rounded-full ${config.dot}`} />
-      {label}
+      {label || String(status)}
     </span>
   );
 };
@@ -133,9 +227,9 @@ const StatusBadge: React.FC<{ status: FlightStatus; label: string }> = ({
 /* LOADING SKELETON                                                           */
 /* ========================================================================== */
 
-const LoadingSkeleton: React.FC = () => (
+const LoadingSkeleton: FC = () => (
   <div className="space-y-3 p-4 sm:p-5">
-    {[1, 2, 3].map(row => (
+    {[1, 2, 3].map((row) => (
       <div
         key={row}
         className="animate-pulse overflow-hidden rounded-xl border border-slate-200 bg-white"
@@ -148,7 +242,7 @@ const LoadingSkeleton: React.FC = () => (
           </div>
 
           <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
-            {[1, 2, 3].map(item => (
+            {[1, 2, 3].map((item) => (
               <div
                 key={item}
                 className="rounded-xl border border-slate-100 bg-slate-50/70 p-4"
@@ -180,7 +274,7 @@ interface FlightCardProps {
   onSelectFlight: (flight: Flight) => void;
 }
 
-const FlightCard: React.FC<FlightCardProps> = ({
+const FlightCard: FC<FlightCardProps> = ({
   flight,
   mode,
   statusStyles,
@@ -190,12 +284,25 @@ const FlightCard: React.FC<FlightCardProps> = ({
   getWeatherIndicator,
   onSelectFlight,
 }) => {
-  const statusStyle = statusStyles[flight.status] ?? statusStyles.Scheduled;
+  // ✅ Fallback sûr pour le style du statut
+  const statusStyle =
+    statusStyles[String(flight.status)] ??
+    statusStyles.Scheduled ??
+    {
+      label: String(flight.status ?? 'Inconnu'),
+      dot: 'bg-slate-400',
+      badge: 'border-slate-200 bg-slate-100 text-slate-600',
+      border: 'border-l-slate-400',
+      card: '',
+    };
+
   const weather = getWeatherIndicator(flight.weatherSeverity);
   const compact = mode === 'desktop';
   const isUnassigned = flight.aircraft === UNASSIGNED_AIRCRAFT;
-  const isDone = flight.status === 'Effectué';
-  const isInFlight = flight.status === 'In-Flight';
+  const isDone =
+    flight.status === 'Effectué' || flight.status === 'Completed';
+  const isInFlight =
+    flight.status === 'In-Flight' || flight.status === 'En Vol';
 
   return (
     <button
@@ -308,7 +415,7 @@ const FlightCard: React.FC<FlightCardProps> = ({
 /* COMPOSANT PRINCIPAL DU PLANNING                                            */
 /* ========================================================================== */
 
-export const FlightPlanning: React.FC<FlightPlanningProps> = ({
+export const FlightPlanning: FC<FlightPlanningProps> = ({
   flights,
   fleetAircrafts,
   isFetching,
@@ -323,18 +430,22 @@ export const FlightPlanning: React.FC<FlightPlanningProps> = ({
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
 
+  /* ---------------------------------------------------------------------- */
+  /* FLIGHTS FILTRÉS                                                        */
+  /* ---------------------------------------------------------------------- */
+
   const filteredFlights = useMemo(() => {
     const needle = searchQuery.trim().toLowerCase();
 
     return flights
-      .filter(flight => {
+      .filter((flight) => {
         if (statusFilter === 'ALL') return true;
         if (statusFilter === 'UNASSIGNED') {
           return flight.aircraft === UNASSIGNED_AIRCRAFT;
         }
         return flight.status === statusFilter;
       })
-      .filter(flight => {
+      .filter((flight) => {
         if (!needle) return true;
 
         return [
@@ -346,7 +457,7 @@ export const FlightPlanning: React.FC<FlightPlanningProps> = ({
           flight.aircraftModel,
         ]
           .filter(Boolean)
-          .some(value => String(value).toLowerCase().includes(needle));
+          .some((value) => String(value).toLowerCase().includes(needle));
       })
       .sort(
         (a, b) =>
@@ -354,10 +465,14 @@ export const FlightPlanning: React.FC<FlightPlanningProps> = ({
       );
   }, [flights, searchQuery, statusFilter]);
 
+  /* ---------------------------------------------------------------------- */
+  /* GROUPES PAR AÉRONEF                                                    */
+  /* ---------------------------------------------------------------------- */
+
   const flightsByAircraft = useMemo(() => {
     const groups = new Map<string, Flight[]>();
 
-    filteredFlights.forEach(flight => {
+    filteredFlights.forEach((flight) => {
       const key = flight.aircraft || UNASSIGNED_AIRCRAFT;
       groups.set(key, [...(groups.get(key) ?? []), flight]);
     });
@@ -369,10 +484,14 @@ export const FlightPlanning: React.FC<FlightPlanningProps> = ({
     });
   }, [filteredFlights]);
 
+  /* ---------------------------------------------------------------------- */
+  /* LOOKUP AÉRONEFS                                                        */
+  /* ---------------------------------------------------------------------- */
+
   const aircraftLookup = useMemo(
     () =>
       new Map(
-        fleetAircrafts.map(aircraft => [
+        fleetAircrafts.map((aircraft) => [
           aircraft.id,
           aircraft.immatriculation || aircraft.model,
         ]),
@@ -380,30 +499,33 @@ export const FlightPlanning: React.FC<FlightPlanningProps> = ({
     [fleetAircrafts],
   );
 
-  const activeFilterCount =
-    (statusFilter !== 'ALL' ? 1 : 0) + (searchQuery.trim() ? 1 : 0);
+  /* ---------------------------------------------------------------------- */
+  /* COMPTEURS                                                              */
+  /* ---------------------------------------------------------------------- */
+
+  const activeFilterCount = useMemo(
+    () =>
+      (statusFilter !== 'ALL' ? 1 : 0) + (searchQuery.trim() ? 1 : 0),
+    [statusFilter, searchQuery],
+  );
+
+  const aircraftWithFlightsCount = useMemo(
+    () =>
+      flightsByAircraft.filter(([key]) => key !== UNASSIGNED_AIRCRAFT).length,
+    [flightsByAircraft],
+  );
+
+  /* ---------------------------------------------------------------------- */
+  /* ACTIONS                                                                */
+  /* ---------------------------------------------------------------------- */
 
   const resetFilters = () => {
     setStatusFilter('ALL');
     setSearchQuery('');
   };
 
-  const filters: Array<[StatusFilter, string]> = [
-    ['ALL', 'Tous'],
-    ['Scheduled', 'Planifiés'],
-    ['Delayed', 'Retardés'],
-    ['In-Flight', 'En vol'],
-    ['Effectué', 'Effectués'],
-    ['Cancelled', 'Annulés'],
-    ['UNASSIGNED', 'Non assignés'],
-  ];
-
-  const aircraftWithFlightsCount = flightsByAircraft.filter(
-    ([key]) => key !== UNASSIGNED_AIRCRAFT,
-  ).length;
-
   /* ══════════════════════════════════════════════════════════════════════ */
-  /* UN SEUL DIV — UN SEUL FOND BLANC — TOUT DEDANS                       */
+  /* RENDER                                                                */
   /* ══════════════════════════════════════════════════════════════════════ */
   return (
     <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
@@ -419,7 +541,7 @@ export const FlightPlanning: React.FC<FlightPlanningProps> = ({
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               value={searchQuery}
-              onChange={event => setSearchQuery(event.target.value)}
+              onChange={(event) => setSearchQuery(event.target.value)}
               placeholder="Vol, aéroport, appareil..."
               className={`h-10 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-9 text-sm text-slate-700 placeholder:text-slate-400 ${FOCUS_RING}`}
             />
@@ -441,7 +563,7 @@ export const FlightPlanning: React.FC<FlightPlanningProps> = ({
               Filtrer :
             </span>
 
-            {filters.map(([value, label]) => {
+            {FILTERS.map(([value, label]) => {
               const active = statusFilter === value;
               const isUnassigned = value === 'UNASSIGNED';
 
@@ -489,7 +611,8 @@ export const FlightPlanning: React.FC<FlightPlanningProps> = ({
               Planning des rotations
             </h2>
             <p className="mt-0.5 text-xs text-slate-500">
-              {filteredFlights.length} vol{filteredFlights.length > 1 ? 's' : ''} ·{' '}
+              {filteredFlights.length} vol
+              {filteredFlights.length > 1 ? 's' : ''} ·{' '}
               {aircraftWithFlightsCount} appareil
               {aircraftWithFlightsCount > 1 ? 's' : ''}
             </p>
@@ -537,7 +660,7 @@ export const FlightPlanning: React.FC<FlightPlanningProps> = ({
           <div className="divide-y divide-slate-100 lg:hidden">
             {flightsByAircraft.map(([aircraft, aircraftFlights]) => {
               const fallbackLabel =
-                aircraftFlights.find(flight => flight.aircraftModel)
+                aircraftFlights.find((flight) => flight.aircraftModel)
                   ?.aircraftModel || 'Appareil inconnu';
 
               const aircraftLabel =
@@ -574,7 +697,7 @@ export const FlightPlanning: React.FC<FlightPlanningProps> = ({
                   </div>
 
                   <div className="grid gap-2.5 sm:grid-cols-2">
-                    {aircraftFlights.map(flight => (
+                    {aircraftFlights.map((flight) => (
                       <FlightCard
                         key={flight.id}
                         flight={flight}
@@ -607,7 +730,7 @@ export const FlightPlanning: React.FC<FlightPlanningProps> = ({
             <div className="divide-y divide-slate-100">
               {flightsByAircraft.map(([aircraft, aircraftFlights]) => {
                 const fallbackLabel =
-                  aircraftFlights.find(flight => flight.aircraftModel)
+                  aircraftFlights.find((flight) => flight.aircraftModel)
                     ?.aircraftModel || 'Appareil inconnu';
 
                 const aircraftLabel =
@@ -665,7 +788,7 @@ export const FlightPlanning: React.FC<FlightPlanningProps> = ({
                     </aside>
 
                     <div className="grid grid-cols-1 gap-3 p-4 xl:grid-cols-2 2xl:grid-cols-3">
-                      {aircraftFlights.map(flight => (
+                      {aircraftFlights.map((flight) => (
                         <FlightCard
                           key={flight.id}
                           flight={flight}

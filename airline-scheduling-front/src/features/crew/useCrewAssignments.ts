@@ -1,6 +1,16 @@
-import { useState, useEffect, useCallback } from 'react';
+// src/features/crew/useCrewAssignments.ts
 
-// Structure d'un Vol
+import { useCallback, useEffect, useRef, useState } from 'react';
+
+import {
+  ApiError,
+  authFetch,
+} from '../Api/apiService';
+
+// =============================================================================
+// TYPES
+// =============================================================================
+
 export interface FlightOption {
   id: string;
   numeroVol: string;
@@ -11,7 +21,6 @@ export interface FlightOption {
   statut?: string;
 }
 
-// Structure d'un Utilisateur / Membre d'équipage
 export interface CrewMember {
   id: string;
   nom: string;
@@ -23,7 +32,6 @@ export interface CrewMember {
   volAssigne: FlightOption | null;
 }
 
-// Structure complète d'une affectation (DTO retourné par GET /crew-assignments)
 export interface CrewAssignmentDTO {
   id: string;
   vol: FlightOption;
@@ -38,7 +46,150 @@ export interface CrewAssignmentDTO {
   heuresReposAvant: number;
 }
 
-const API_BASE_URL = 'http://localhost:3001'; // Ajuster selon votre port NestJS
+// =============================================================================
+// TYPES INTERNES (payload brut de l'API)
+// =============================================================================
+
+interface RawFlight {
+  id: string;
+  numeroVol?: string;
+  flightNumber?: string;
+  code?: string;
+  aeroportDepart?: string;
+  origin?: string;
+  aeroportArrivee?: string;
+  destination?: string;
+  heureDepart?: string;
+  heureArrivee?: string;
+  statut?: string;
+}
+
+interface RawUser {
+  id: string;
+  email?: string;
+  nom?: string;
+  firstName?: string;
+  lastName?: string;
+  role?: string;
+  niveauTechnique?: string;
+  niveauMetier?: string;
+  heuresReposAvant?: number;
+  restTimeHours?: number;
+}
+
+// =============================================================================
+// HELPERS
+// =============================================================================
+
+/**
+ * Transforme une erreur quelconque en message utilisateur lisible.
+ */
+function getFriendlyError(error: unknown): string {
+  if (error instanceof ApiError) {
+    switch (error.status) {
+      case 0:
+        return 'Impossible de contacter le serveur. Vérifiez votre connexion.';
+      case 401:
+        return 'Votre session a expiré. Veuillez vous reconnecter.';
+      case 403:
+        return "Vous n'avez pas l'autorisation d'accéder à ces données.";
+      case 404:
+        return 'Ressource introuvable.';
+      case 500:
+      case 502:
+      case 503:
+        return 'Le serveur rencontre un problème. Veuillez réessayer plus tard.';
+      default:
+        return error.message || 'Erreur lors du chargement des données.';
+    }
+  }
+
+  if (error instanceof Error) {
+    return error.message || 'Une erreur inattendue est survenue.';
+  }
+
+  return 'Une erreur inattendue est survenue.';
+}
+
+/**
+ * Lit une réponse JSON de manière sécurisée.
+ */
+async function readJson<T>(response: Response): Promise<T> {
+  if (response.status === 204) return undefined as T;
+  try {
+    return (await response.json()) as T;
+  } catch {
+    return undefined as T;
+  }
+}
+
+/**
+ * Extrait le message d'erreur d'une réponse NestJS.
+ */
+async function extractErrorMessage(response: Response, fallback: string): Promise<string> {
+  try {
+    const payload = await response.json();
+    if (Array.isArray(payload?.message)) {
+      return payload.message.join(', ');
+    }
+    if (typeof payload?.message === 'string') {
+      return payload.message;
+    }
+    if (typeof payload?.error === 'string') {
+      return payload.error;
+    }
+    return fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+/**
+ * Normalise un vol brut en `FlightOption`.
+ */
+function normalizeFlight(raw: RawFlight): FlightOption {
+  return {
+    id: raw.id,
+    numeroVol: raw.numeroVol || raw.flightNumber || raw.code || 'N/A',
+    aeroportDepart: raw.aeroportDepart || raw.origin || '—',
+    aeroportArrivee: raw.aeroportArrivee || raw.destination || '—',
+    heureDepart: raw.heureDepart,
+    heureArrivee: raw.heureArrivee,
+    statut: raw.statut || 'Scheduled',
+  };
+}
+
+/**
+ * Normalise un utilisateur brut + son affectation éventuelle en `CrewMember`.
+ */
+function normalizeCrewMember(
+  raw: RawUser,
+  assignment: CrewAssignmentDTO | undefined,
+): CrewMember {
+  const fallbackName =
+    `${raw.firstName || ''} ${raw.lastName || ''}`.trim() || raw.email || 'Utilisateur';
+
+  return {
+    id: raw.id,
+    email: raw.email || '',
+    nom: raw.nom || fallbackName,
+    role: raw.role || "Membre d'équipage",
+    niveauTechnique: raw.niveauTechnique,
+    niveauMetier: raw.niveauMetier,
+    heuresReposAvant:
+      assignment?.heuresReposAvant ??
+      raw.heuresReposAvant ??
+      raw.restTimeHours ??
+      12,
+    volAssigne: assignment?.vol
+      ? normalizeFlight(assignment.vol as RawFlight)
+      : null,
+  };
+}
+
+// =============================================================================
+// HOOK
+// =============================================================================
 
 export const useCrewAssignments = () => {
   const [flights, setFlights] = useState<FlightOption[]>([]);
@@ -47,104 +198,134 @@ export const useCrewAssignments = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Charger les vols, les utilisateurs et les affectations existantes
+  // Permet d'annuler les requêtes en cours si démontage
+  const abortRef = useRef<AbortController | null>(null);
+
+  // ===========================================================================
+  // CHARGEMENT
+  // ===========================================================================
+
   const fetchData = useCallback(async () => {
+    // Annule la requête précédente si elle est encore en cours
+    abortRef.current?.abort();
+    abortRef.current = new AbortController();
+
     setLoading(true);
     setError(null);
+
     try {
+      const signal = abortRef.current.signal;
+
+      // ✅ Utilise authFetch : gère l'URL (/api en prod) + le token JWT
       const [flightsRes, usersRes, assignmentsRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/flights`),
-        fetch(`${API_BASE_URL}/users`),
-        fetch(`${API_BASE_URL}/crew-assignments`),
+        authFetch('/flights', { method: 'GET', signal }),
+        authFetch('/users', { method: 'GET', signal }),
+        authFetch('/crew-assignments', { method: 'GET', signal }),
       ]);
 
-      if (!flightsRes.ok || !usersRes.ok || !assignmentsRes.ok) {
-        throw new Error('Erreur lors du chargement des données depuis le serveur.');
+      if (!flightsRes.ok) {
+        throw new ApiError(
+          await extractErrorMessage(flightsRes, 'Impossible de charger les vols.'),
+          flightsRes.status,
+        );
       }
 
-      const flightsData: FlightOption[] = await flightsRes.json();
-      const usersData: any[] = await usersRes.json();
-      const assignmentsData: CrewAssignmentDTO[] = await assignmentsRes.json();
-
-      // 1. Normalisation de la liste des vols
-      const formattedFlights: FlightOption[] = flightsData.map((f: any) => ({
-        id: f.id,
-        numeroVol: f.numeroVol || f.flightNumber || f.code || 'N/A',
-        aeroportDepart: f.aeroportDepart || f.origin || 'TNR',
-        aeroportArrivee: f.aeroportArrivee || f.destination || 'WHE',
-        heureDepart: f.heureDepart,
-        heureArrivee: f.heureArrivee,
-        statut: f.statut || 'Scheduled',
-      }));
-
-      // 2. Mappage des utilisateurs avec leurs affectations NestJS et heures de repos
-      const formattedCrew: CrewMember[] = usersData.map((u: any) => {
-        // Trouver la dernière affectation active pour cet utilisateur
-        const activeAssignment = assignmentsData.find(
-          (a) => a.utilisateur?.id === u.id
+      if (!usersRes.ok) {
+        throw new ApiError(
+          await extractErrorMessage(usersRes, 'Impossible de charger les utilisateurs.'),
+          usersRes.status,
         );
+      }
 
-        return {
-          id: u.id,
-          email: u.email || '',
-          nom: u.nom || `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email,
-          role: u.role || 'Membre d\'équipage',
-          niveauTechnique: u.niveauTechnique,
-          niveauMetier: u.niveauMetier,
-          // Récupère la valeur depuis l'affectation, sinon depuis l'utilisateur, sinon 12h par défaut
-          heuresReposAvant: activeAssignment?.heuresReposAvant ?? u.heuresReposAvant ?? u.restTimeHours ?? 12,
-          volAssigne: activeAssignment?.vol ? {
-            id: activeAssignment.vol.id,
-            numeroVol: activeAssignment.vol.numeroVol,
-            aeroportDepart: activeAssignment.vol.aeroportDepart,
-            aeroportArrivee: activeAssignment.vol.aeroportArrivee,
-            heureDepart: activeAssignment.vol.heureDepart,
-            heureArrivee: activeAssignment.vol.heureArrivee,
-            statut: activeAssignment.vol.statut,
-          } : null,
-        };
+      if (!assignmentsRes.ok) {
+        throw new ApiError(
+          await extractErrorMessage(
+            assignmentsRes,
+            'Impossible de charger les affectations.',
+          ),
+          assignmentsRes.status,
+        );
+      }
+
+      const flightsData = (await readJson<RawFlight[]>(flightsRes)) ?? [];
+      const usersData = (await readJson<RawUser[]>(usersRes)) ?? [];
+      const assignmentsData =
+        (await readJson<CrewAssignmentDTO[]>(assignmentsRes)) ?? [];
+
+      // Normalisation
+      const formattedFlights = flightsData.map(normalizeFlight);
+
+      const formattedCrew = usersData.map((raw) => {
+        const activeAssignment = assignmentsData.find(
+          (a) => a.utilisateur?.id === raw.id,
+        );
+        return normalizeCrewMember(raw, activeAssignment);
       });
 
       setFlights(formattedFlights);
       setCrew(formattedCrew);
       setAssignments(assignmentsData);
-    } catch (err: any) {
-      setError(err.message || 'Impossible de contacter le serveur NestJS.');
+    } catch (err: unknown) {
+      // Ignore les erreurs d'annulation
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        return;
+      }
+      setError(getFriendlyError(err));
     } finally {
       setLoading(false);
     }
   }, []);
 
+  // ===========================================================================
+  // CYCLE DE VIE
+  // ===========================================================================
+
   useEffect(() => {
-    fetchData();
+    void fetchData();
+
+    return () => {
+      // Annule la requête au démontage
+      abortRef.current?.abort();
+    };
   }, [fetchData]);
 
-  // Créer ou mettre à jour une affectation (POST /crew-assignments)
-  const assignCrewMember = async (volId: string, utilisateurId: string, heuresReposAvant: number) => {
-    const response = await fetch(`${API_BASE_URL}/crew-assignments`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        volId,
-        utilisateurId,
-        heuresReposAvant,
-      }),
-    });
+  // ===========================================================================
+  // CRÉATION D'UNE AFFECTATION
+  // ===========================================================================
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(
-        Array.isArray(errorData.message)
-          ? errorData.message.join(', ')
-          : errorData.message || "Erreur lors de l'affectation du membre."
-      );
-    }
+  const assignCrewMember = useCallback(
+    async (
+      volId: string,
+      utilisateurId: string,
+      heuresReposAvant: number,
+    ): Promise<void> => {
+      // ✅ authFetch gère automatiquement l'URL et le token
+      const response = await authFetch('/crew-assignments', {
+        method: 'POST',
+        body: JSON.stringify({
+          volId,
+          utilisateurId,
+          heuresReposAvant,
+        }),
+      });
 
-    // Synchronisation automatique après création
-    await fetchData();
-  };
+      if (!response.ok) {
+        const message = await extractErrorMessage(
+          response,
+          "Erreur lors de l'affectation du membre.",
+        );
+        throw new ApiError(message, response.status);
+      }
+
+      // Synchronisation après succès
+      await fetchData();
+    },
+    [fetchData],
+  );
+
+  // ===========================================================================
+  // RETURN
+  // ===========================================================================
 
   return {
     flights,

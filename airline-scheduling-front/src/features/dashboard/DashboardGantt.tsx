@@ -1,3 +1,5 @@
+// src/features/dashboard/DashboardGantt.tsx
+
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Activity,
@@ -27,9 +29,18 @@ import {
   type WeatherIndicator,
 } from './PlannificationVol';
 
-const API_BASE_URL =
-  (import.meta as unknown as { env?: Record<string, string> }).env
-    ?.VITE_API_BASE_URL ?? 'http://localhost:5000';
+// ✅ Deux helpers : pythonRequestJson/pythonFetch pour Flask (port 5000),
+//    requestJson pour NestJS (port 3001 → /fleet)
+import {
+  ApiError,
+  authFetch,
+  pythonFetch,
+  pythonRequestJson,
+} from '../Api/apiService';
+
+/* ============================================================================
+ * TYPES
+ * ========================================================================== */
 
 interface Analytics {
   metrics: {
@@ -44,8 +55,16 @@ interface Analytics {
   distributions: Record<string, number>;
 }
 
+/* ============================================================================
+ * DESIGN TOKENS
+ * ========================================================================== */
+
 const FOCUS_RING =
   'outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10';
+
+/* ============================================================================
+ * HELPERS
+ * ========================================================================== */
 
 const clampPercentage = (value: number) =>
   Math.min(100, Math.max(0, Number.isFinite(value) ? value : 0));
@@ -53,21 +72,101 @@ const clampPercentage = (value: number) =>
 const normalizeSeverity = (value?: number | null) =>
   Math.min(1, Math.max(0, Number(value ?? 0)));
 
-const getErrorMessage = async (
+/**
+ * ✅ Détecte un AbortError quel que soit son format :
+ *   - DOMException avec name === 'AbortError'
+ *   - Error avec name === 'AbortError'
+ *   - Objet quelconque avec name === 'AbortError'
+ *
+ * Nécessaire car les helpers de fetch rejettent maintenant l'AbortError brut
+ * (sans le wrapper dans ApiError), et React StrictMode provoque
+ * des annulations volontaires au montage/démontage.
+ */
+function isAbortError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  if (error instanceof DOMException) {
+    return error.name === 'AbortError';
+  }
+  return (error as { name?: string }).name === 'AbortError';
+}
+
+/**
+ * Extrait un message d'erreur lisible depuis une réponse HTTP.
+ */
+async function getErrorMessage(
   response: Response,
   fallback: string,
-): Promise<string> => {
+): Promise<string> {
   try {
     const payload = await response.json();
-    if (Array.isArray(payload?.message)) return payload.message.join(' | ');
+
+    if (Array.isArray(payload?.message)) {
+      return payload.message.join(' | ');
+    }
     if (typeof payload?.message === 'object' && payload?.message?.message) {
       return payload.message.message;
     }
-    return payload?.message || payload?.error || fallback;
+    if (typeof payload?.message === 'string') {
+      return payload.message;
+    }
+    return payload?.error || fallback;
   } catch {
     return fallback;
   }
-};
+}
+
+/**
+ * Transforme une erreur quelconque en message utilisateur lisible.
+ * Adapté aux deux environnements dev / prod (via ApiError).
+ */
+function getFriendlyError(error: unknown, fallback: string): string {
+  if (error instanceof ApiError) {
+    switch (error.status) {
+      case 0:
+        return 'Impossible de contacter le serveur. Vérifiez votre connexion.';
+      case 401:
+        return 'Votre session a expiré. Veuillez vous reconnecter.';
+      case 403:
+        return "Vous n'avez pas l'autorisation d'accéder à ces données.";
+      case 404:
+        return 'Ressource introuvable.';
+      case 500:
+      case 502:
+      case 503:
+        return 'Le serveur rencontre un problème. Veuillez réessayer plus tard.';
+      default:
+        return error.message || fallback;
+    }
+  }
+
+  if (error instanceof Error) {
+    return error.message || fallback;
+  }
+
+  return fallback;
+}
+
+/**
+ * Requête JSON via authFetch (NestJS uniquement — /fleet, /users, etc.)
+ */
+async function requestJson<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const response = await authFetch(path, options);
+
+  if (!response.ok) {
+    const message = await getErrorMessage(
+      response,
+      `Erreur serveur HTTP ${response.status}`,
+    );
+    throw new ApiError(message, response.status);
+  }
+
+  if (response.status === 204) return undefined as T;
+  return response.json() as Promise<T>;
+}
+
+/* ============================================================================
+ * FALLBACK ANALYTICS
+ * ========================================================================== */
 
 const buildFallbackAnalytics = (flights: Flight[]): Analytics => {
   const totalFlights = flights.length;
@@ -97,6 +196,10 @@ const buildFallbackAnalytics = (flights: Flight[]): Analytics => {
     distributions: {},
   };
 };
+
+/* ============================================================================
+ * STATUS STYLES
+ * ========================================================================== */
 
 const STATUS_STYLES: Record<FlightStatus, StatusStyle> = {
   Scheduled: {
@@ -136,6 +239,10 @@ const STATUS_STYLES: Record<FlightStatus, StatusStyle> = {
   },
 };
 
+/* ============================================================================
+ * WEATHER CONFIG
+ * ========================================================================== */
+
 const WEATHER_CONFIG = {
   extreme: {
     label: 'Extrême',
@@ -167,6 +274,10 @@ const WEATHER_CONFIG = {
   },
 };
 
+/* ============================================================================
+ * COMPOSANT PRINCIPAL
+ * ========================================================================== */
+
 export const DashboardGantt: React.FC = () => {
   const [flights, setFlights] = useState<Flight[]>([]);
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
@@ -176,6 +287,10 @@ export const DashboardGantt: React.FC = () => {
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [globalSuccess, setGlobalSuccess] = useState<string | null>(null);
+
+  /* ===========================================================================
+   * FORMATTERS
+   * =========================================================================== */
 
   const formatDateTime = useCallback((dateString?: string | null) => {
     if (!dateString) return '--/-- --:--';
@@ -226,34 +341,39 @@ export const DashboardGantt: React.FC = () => {
       .join(' → ');
   }, []);
 
+  /* ===========================================================================
+   * CHARGEMENT
+   * ===========================================================================
+   * ✅ Backend Python (Flask, port 5000) :
+   *      /flights           → pythonRequestJson
+   *      /flights/analytics → pythonRequestJson
+   *
+   * ✅ Backend NestJS (port 3001) :
+   *      /fleet/aircrafts   → requestJson (authFetch)
+   * =========================================================================== */
+
   const loadData = useCallback(async (signal?: AbortSignal) => {
     setIsFetching(true);
     setGlobalError(null);
+
     try {
-      const flightsResponse = await fetch(`${API_BASE_URL}/flights`, {
+      // ✅ VOLS — Python (Flask)
+      const flightsList = await pythonRequestJson<Flight[]>('/flights', {
+        method: 'GET',
         signal,
       });
-      if (!flightsResponse.ok) {
-        throw new Error(
-          await getErrorMessage(
-            flightsResponse,
-            `Erreur API Vols : statut ${flightsResponse.status}`,
-          ),
-        );
-      }
-      const flightsPayload = await flightsResponse.json();
-      const flightsList: Flight[] = Array.isArray(flightsPayload)
-        ? flightsPayload
-        : [];
-      setFlights(flightsList);
 
+      setFlights(Array.isArray(flightsList) ? flightsList : []);
+
+      // ✅ Analytics — Python + Fleet — NestJS (en parallèle)
       const [analyticsResult, fleetResult] = await Promise.allSettled([
-        fetch(`${API_BASE_URL}/flights/analytics`, { signal }),
-        fetch(`${API_BASE_URL}/fleet/aircrafts`, { signal }),
+        pythonRequestJson<Analytics>('/flights/analytics', { signal }),
+        requestJson<AircraftData[]>('/fleet/aircrafts', { signal }),
       ]);
 
-      if (analyticsResult.status === 'fulfilled' && analyticsResult.value.ok) {
-        const payload = await analyticsResult.value.json();
+      // Analytics (Python)
+      if (analyticsResult.status === 'fulfilled' && analyticsResult.value) {
+        const payload = analyticsResult.value;
         setAnalytics({
           ...payload,
           metrics: {
@@ -267,18 +387,19 @@ export const DashboardGantt: React.FC = () => {
         setAnalytics(buildFallbackAnalytics(flightsList));
       }
 
-      if (fleetResult.status === 'fulfilled' && fleetResult.value.ok) {
-        const payload = await fleetResult.value.json();
-        setFleetAircrafts(Array.isArray(payload) ? payload : []);
+      // Fleet (NestJS)
+      if (fleetResult.status === 'fulfilled' && Array.isArray(fleetResult.value)) {
+        setFleetAircrafts(fleetResult.value);
       } else {
         setFleetAircrafts([]);
       }
     } catch (error: unknown) {
-      if ((error as Error).name === 'AbortError') return;
+      // ✅ AbortError ignoré silencieusement
+      if (isAbortError(error)) return;
+
       console.error("Erreur d'appel API :", error);
       setGlobalError(
-        (error as Error).message ||
-          'Impossible de se connecter au serveur central.',
+        getFriendlyError(error, 'Impossible de se connecter au serveur central.'),
       );
     } finally {
       setIsFetching(false);
@@ -291,29 +412,37 @@ export const DashboardGantt: React.FC = () => {
     return () => controller.abort();
   }, [loadData]);
 
+  /* ===========================================================================
+   * OPTIMISATION — Python (Flask)
+   * =========================================================================== */
+
   const triggerOptimization = useCallback(async () => {
     if (isOptimizing) return;
     setIsOptimizing(true);
     setGlobalError(null);
     setGlobalSuccess(null);
+
     try {
-      const response = await fetch(`${API_BASE_URL}/flights/optimize`, {
+      // ✅ Python via pythonFetch (URL /python en prod, localhost:5000 en dev)
+      const response = await pythonFetch('/flights/optimize', {
         method: 'POST',
         headers: { Accept: 'application/json' },
       });
+
       if (!response.ok) {
         if (response.status === 404) {
-          throw new Error(
-            "La route POST /flights/optimize n'est pas disponible dans le backend Flask.",
+          throw new ApiError(
+            "La route POST /flights/optimize n'est pas disponible.",
+            404,
           );
         }
-        throw new Error(
-          await getErrorMessage(
-            response,
-            "Le moteur d'optimisation a rencontré une anomalie.",
-          ),
+        const message = await getErrorMessage(
+          response,
+          "Le moteur d'optimisation a rencontré une anomalie.",
         );
+        throw new ApiError(message, response.status);
       }
+
       let message = 'Planning optimisé avec succès.';
       try {
         const payload = await response.json();
@@ -321,18 +450,28 @@ export const DashboardGantt: React.FC = () => {
       } catch {
         // Réponse vide autorisée.
       }
+
       setGlobalSuccess(message);
       await loadData();
     } catch (error: unknown) {
+      // ✅ AbortError ignoré silencieusement
+      if (isAbortError(error)) return;
+
       console.error('Erreur optimisation :', error);
       setGlobalError(
-        (error as Error).message ||
+        getFriendlyError(
+          error,
           "Erreur réseau lors de la communication avec le moteur d'optimisation.",
+        ),
       );
     } finally {
       setIsOptimizing(false);
     }
   }, [isOptimizing, loadData]);
+
+  /* ===========================================================================
+   * MÉTÉO
+   * =========================================================================== */
 
   const getWeatherIndicator = useCallback(
     (severity: number): WeatherIndicator => {
@@ -345,12 +484,17 @@ export const DashboardGantt: React.FC = () => {
     [],
   );
 
+  /* ===========================================================================
+   * DERIVED
+   * =========================================================================== */
+
   const effectiveAnalytics = useMemo(
     () => analytics ?? buildFallbackAnalytics(flights),
     [analytics, flights],
   );
 
   const otpRate = clampPercentage(effectiveAnalytics.metrics.otpRate);
+
   const otpTier =
     otpRate >= 85
       ? { label: 'Excellent', tone: 'text-emerald-700', bg: 'bg-emerald-500' }
@@ -359,6 +503,10 @@ export const DashboardGantt: React.FC = () => {
         : otpRate >= 50
           ? { label: 'À surveiller', tone: 'text-amber-700', bg: 'bg-amber-500' }
           : { label: 'Critique', tone: 'text-rose-700', bg: 'bg-rose-500' };
+
+  /* ===========================================================================
+   * RENDER
+   * =========================================================================== */
 
   return (
     <div className="min-h-screen bg-slate-50 p-4 sm:p-5 lg:p-6">
@@ -460,7 +608,7 @@ export const DashboardGantt: React.FC = () => {
           />
         </section>
 
-        {/* ═══════════════ UN SEUL DIV : OTP + RECHERCHE + PLANNING ═══════════════ */}
+        {/* ═══════════════ FLIGHT PLANNING ═══════════════ */}
         <FlightPlanning
           flights={flights}
           fleetAircrafts={fleetAircrafts}
@@ -558,9 +706,9 @@ export const DashboardGantt: React.FC = () => {
   );
 };
 
-/* ========================================================================== */
-/* SOUS-COMPOSANTS                                                            */
-/* ========================================================================== */
+/* ============================================================================
+ * SOUS-COMPOSANTS
+ * ========================================================================== */
 
 const KpiCard: React.FC<{
   label: string;

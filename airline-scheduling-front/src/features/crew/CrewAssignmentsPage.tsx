@@ -2,6 +2,7 @@ import React, {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
@@ -29,6 +30,7 @@ import {
 } from 'lucide-react';
 
 import {
+  ApiError,
   authFetch,
   getCrewMembers,
   type PublicUser,
@@ -237,12 +239,57 @@ function extractApiError(payload: unknown, fallback: string): string {
   return fallback;
 }
 
+/**
+ * Transforme une erreur quelconque (ApiError, Error, inconnu) en message lisible.
+ * Adapté aux deux environnements dev / prod.
+ */
+function getFriendlyError(
+  error: unknown,
+  fallback = 'Une erreur est survenue.',
+): string {
+  if (error instanceof ApiError) {
+    switch (error.status) {
+      case 0:
+        return 'Impossible de contacter le serveur. Vérifiez votre connexion.';
+      case 401:
+        return 'Votre session a expiré. Veuillez vous reconnecter.';
+      case 403:
+        return "Vous n'avez pas l'autorisation d'effectuer cette action.";
+      case 404:
+        return 'Ressource introuvable.';
+      case 409:
+        return error.message || 'Un conflit empêche cette action.';
+      case 500:
+      case 502:
+      case 503:
+        return 'Le serveur rencontre un problème. Veuillez réessayer plus tard.';
+      default:
+        return error.message || fallback;
+    }
+  }
+
+  if (error instanceof Error) {
+    return error.message || fallback;
+  }
+
+  return fallback;
+}
+
+/**
+ * Requête JSON authentifiée, lève une ApiError en cas d'échec.
+ */
 async function requestJson<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await authFetch(path, options);
+
   if (!response.ok) {
     const payload = await getErrorPayload(response);
-    throw new Error(extractApiError(payload, `Erreur serveur HTTP ${response.status}`));
+    throw new ApiError(
+      extractApiError(payload, `Erreur serveur HTTP ${response.status}`),
+      response.status,
+      payload,
+    );
   }
+
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
 }
@@ -251,10 +298,6 @@ async function requestJson<T>(path: string, options: RequestInit = {}): Promise<
  * SOUS-COMPOSANTS
  * ========================================================================== */
 
-/**
- * ✅ KPI CARD — inspiré du style épuré : icône compacte en haut à droite,
- * valeur + hint alignés sur la même ligne en bas.
- */
 function KpiCard({
   label,
   value,
@@ -394,6 +437,9 @@ export const CrewAssignmentsPage: React.FC = () => {
     fonction: 'Other',
   });
 
+  // AbortController pour éviter les race conditions sur le polling
+  const pollAbortRef = useRef<AbortController | null>(null);
+
   /* LOAD MEMBERS */
   const loadCrewMembers = useCallback(async () => {
     setLoadingUsers(true);
@@ -414,7 +460,7 @@ export const CrewAssignmentsPage: React.FC = () => {
       setUsers([]);
       setMessage({
         type: 'error',
-        text: error instanceof Error ? error.message : 'Impossible de charger les membres d’équipage.',
+        text: getFriendlyError(error, 'Impossible de charger les membres d’équipage.'),
       });
     } finally {
       setLoadingUsers(false);
@@ -444,7 +490,7 @@ export const CrewAssignmentsPage: React.FC = () => {
     } catch (error: unknown) {
       setMessage({
         type: 'error',
-        text: error instanceof Error ? error.message : 'Impossible de charger les affectations équipage.',
+        text: getFriendlyError(error, 'Impossible de charger les affectations équipage.'),
       });
     } finally {
       if (!silent) setLoading(false);
@@ -455,11 +501,21 @@ export const CrewAssignmentsPage: React.FC = () => {
     void Promise.all([loadData(), loadCrewMembers()]);
   }, [loadData, loadCrewMembers]);
 
+  /* POLLING 30s avec AbortController */
   useEffect(() => {
     const timer = window.setInterval(() => {
-      if (document.visibilityState === 'visible') void loadData(true);
+      if (document.visibilityState !== 'visible') return;
+
+      pollAbortRef.current?.abort();
+      pollAbortRef.current = new AbortController();
+
+      void loadData(true);
     }, 30_000);
-    return () => window.clearInterval(timer);
+
+    return () => {
+      window.clearInterval(timer);
+      pollAbortRef.current?.abort();
+    };
   }, [loadData]);
 
   /* MODAL BODY LOCK + ESCAPE */
@@ -637,7 +693,7 @@ export const CrewAssignmentsPage: React.FC = () => {
     } catch (error: unknown) {
       setMessage({
         type: 'error',
-        text: error instanceof Error ? error.message : 'Impossible d’enregistrer l’affectation.',
+        text: getFriendlyError(error, 'Impossible d’enregistrer l’affectation.'),
       });
     } finally {
       setSaving(false);
@@ -668,7 +724,7 @@ export const CrewAssignmentsPage: React.FC = () => {
     } catch (error: unknown) {
       setMessage({
         type: 'error',
-        text: error instanceof Error ? error.message : 'Impossible de supprimer cette affectation.',
+        text: getFriendlyError(error, 'Impossible de supprimer cette affectation.'),
       });
     } finally {
       setDeletingId(null);
@@ -709,7 +765,7 @@ export const CrewAssignmentsPage: React.FC = () => {
           <AlertBanner type={message.type} text={message.text} onClose={() => setMessage(null)} />
         )}
 
-        {/* ═══════════════ KPI (style inspiré) ═══════════════ */}
+        {/* ═══════════════ KPI ═══════════════ */}
         <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <KpiCard
             label="Affectations"

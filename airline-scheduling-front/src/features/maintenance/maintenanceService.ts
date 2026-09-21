@@ -1,13 +1,41 @@
+// src/features/maintenance/maintenanceService.ts
+
 import axios from 'axios';
+import type { AxiosInstance } from 'axios';
+
+import { getAuthSession, clearAuthSession } from '../Api/apiService';
 import type { Aircraft } from '../fleet/fleetService';
 
-const API_URL =
-  import.meta.env?.VITE_API_URL ||
-  'http://localhost:3001';
+/* ============================================================================
+ * CONFIGURATION API
+ * ============================================================================
+ *
+ *   DEV  → VITE_API_BASE_URL = http://localhost:3001
+ *   PROD → VITE_API_BASE_URL = /api
+ *
+ * Nginx en production redirige /api/... vers 127.0.0.1:3001/...
+ * ========================================================================== */
 
-// ═══════════════════════════════════════════════════════════════
-// TYPES
-// ═══════════════════════════════════════════════════════════════
+const FALLBACK_API_URL: string = import.meta.env.PROD
+  ? '/api'
+  : 'http://localhost:3001';
+
+const RAW_API_BASE_URL: string =
+  import.meta.env.VITE_API_BASE_URL || FALLBACK_API_URL;
+
+const API_URL: string = RAW_API_BASE_URL.replace(/\/+$/, '');
+
+if (import.meta.env.DEV) {
+  // eslint-disable-next-line no-console
+  console.info('[maintenanceService] API :', {
+    baseUrl: API_URL,
+    fallbackUsed: !import.meta.env.VITE_API_BASE_URL,
+  });
+}
+
+/* ============================================================================
+ * TYPES
+ * ========================================================================== */
 
 /**
  * ⭐ Statuts possibles d'un créneau de maintenance.
@@ -17,7 +45,7 @@ const API_URL =
 export type MaintenanceStatus =
   | 'Planned'
   | 'In Progress'
-  | 'Pending Review'   // ⭐ nouveau — fenêtre de décision 12 h
+  | 'Pending Review' // ⭐ nouveau — fenêtre de décision 12 h
   | 'Completed'
   | 'Cancelled';
 
@@ -118,41 +146,55 @@ interface RawMaintenanceSlotResponse {
   };
 }
 
-// ═══════════════════════════════════════════════════════════════
-// SERVICE
-// ═══════════════════════════════════════════════════════════════
+/* ============================================================================
+ * SERVICE
+ * ========================================================================== */
 
 class MaintenanceService {
-  private readonly api = axios.create({
-    baseURL: API_URL,
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  });
+  private readonly api: AxiosInstance;
 
   constructor() {
+    this.api = axios.create({
+      baseURL: API_URL,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    /* ---------------------------------------------------------------------
+     * INTERCEPTEUR REQUÊTE — injecte le token JWT
+     *
+     * ✅ Utilise getAuthSession() qui cherche dans localStorage ET
+     *    sessionStorage (selon "Se souvenir de moi").
+     * ------------------------------------------------------------------- */
+
     this.api.interceptors.request.use((config) => {
-      /**
-       * Compatible localStorage + sessionStorage,
-       * selon votre logique remember-me.
-       */
-      const token =
-        localStorage.getItem('userToken') ||
-        sessionStorage.getItem('userToken') ||
-        localStorage.getItem('token') ||
-        sessionStorage.getItem('token');
-
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
+      const session = getAuthSession();
+      if (session?.token) {
+        config.headers.Authorization = `Bearer ${session.token}`;
       }
-
       return config;
     });
+
+    /* ---------------------------------------------------------------------
+     * INTERCEPTEUR RÉPONSE — gère 401
+     * ------------------------------------------------------------------- */
+
+    this.api.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        if (axios.isAxiosError(error) && error.response?.status === 401) {
+          console.warn('[maintenanceService] Session expirée (401)');
+          clearAuthSession();
+        }
+        return Promise.reject(error);
+      },
+    );
   }
 
-  // ───────────────────────────────────────────────────────────
-  // MAPPING
-  // ───────────────────────────────────────────────────────────
+  /* =======================================================================
+   * MAPPING
+   * ===================================================================== */
 
   private mapMaintenanceSlot(
     data: RawMaintenanceSlotResponse,
@@ -191,9 +233,9 @@ class MaintenanceService {
     };
   }
 
-  // ───────────────────────────────────────────────────────────
-  // LECTURE
-  // ───────────────────────────────────────────────────────────
+  /* =======================================================================
+   * LECTURE
+   * ===================================================================== */
 
   async findAll(): Promise<MaintenanceSlot[]> {
     const response = await this.api.get<RawMaintenanceSlotResponse[]>(
@@ -235,13 +277,11 @@ class MaintenanceService {
     return response.data;
   }
 
-  // ───────────────────────────────────────────────────────────
-  // ÉCRITURE
-  // ───────────────────────────────────────────────────────────
+  /* =======================================================================
+   * ÉCRITURE
+   * ===================================================================== */
 
-  async create(
-    dto: CreateMaintenanceSlotDto,
-  ): Promise<MaintenanceSlot> {
+  async create(dto: CreateMaintenanceSlotDto): Promise<MaintenanceSlot> {
     const response = await this.api.post<RawMaintenanceSlotResponse>(
       '/maintenance',
       dto,
@@ -266,9 +306,9 @@ class MaintenanceService {
     await this.api.delete(`/maintenance/${id}`);
   }
 
-  // ───────────────────────────────────────────────────────────
-  // ⭐ ACTIONS PENDING_REVIEW
-  // ───────────────────────────────────────────────────────────
+  /* =======================================================================
+   * ⭐ ACTIONS PENDING_REVIEW
+   * ===================================================================== */
 
   /**
    * ⭐ PROLONGER : ajoute N jours à un créneau en cours.
@@ -288,9 +328,11 @@ class MaintenanceService {
     id: string,
     additionalDays: number,
   ): Promise<MaintenanceSlot> {
+    const body: ExtendMaintenanceSlotDto = { additionalDays };
+
     const response = await this.api.patch<RawMaintenanceSlotResponse>(
       `/maintenance/${id}/extend`,
-      { additionalDays } satisfies ExtendMaintenanceSlotDto,
+      body,
     );
 
     return this.mapMaintenanceSlot(response.data);
@@ -310,9 +352,9 @@ class MaintenanceService {
     return this.mapMaintenanceSlot(response.data);
   }
 
-  // ───────────────────────────────────────────────────────────
-  // SYNCHRONISATION (fallback si pas de cron backend)
-  // ───────────────────────────────────────────────────────────
+  /* =======================================================================
+   * SYNCHRONISATION (fallback si pas de cron backend)
+   * ===================================================================== */
 
   /**
    * ⭐ Force la machine à états côté backend :

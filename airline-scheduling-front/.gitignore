@@ -1,24 +1,90 @@
-# Logs
+# ═══════════════════════════════════════════════════════════════
+# LOGS
+# ═══════════════════════════════════════════════════════════════
 logs
 *.log
 npm-debug.log*
-yarn-debug.log* 
+yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# ═══════════════════════════════════════════════════════════════
+# DÉPENDANCES
+# ═══════════════════════════════════════════════════════════════
 node_modules
+.pnp
+.pnp.js
+
+# ═══════════════════════════════════════════════════════════════
+# BUILD
+# ═══════════════════════════════════════════════════════════════
 dist
 dist-ssr
-*.local
+build
+out
 
-# Editor directories and files
+# ═══════════════════════════════════════════════════════════════
+# VARIABLES D'ENVIRONNEMENT
+# ═══════════════════════════════════════════════════════════════
+# Fichiers locaux contenant des SECRETS → JAMAIS commités
+.env.local
+.env.*.local
+
+# Les fichiers suivants SONT versionnés (URLs uniquement, pas de secrets) :
+# - .env.development
+# - .env.production
+# - .env.example
+
+# ═══════════════════════════════════════════════════════════════
+# ÉDITEURS
+# ═══════════════════════════════════════════════════════════════
 .vscode/*
 !.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
 .idea
-.DS_Store
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+
+# ═══════════════════════════════════════════════════════════════
+# SYSTÈME D'EXPLOITATION
+# ═══════════════════════════════════════════════════════════════
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ═══════════════════════════════════════════════════════════════
+# CACHE / OUTILS
+# ═══════════════════════════════════════════════════════════════
+.cache
+.parcel-cache
+.eslintcache
+.stylelintcache
+.npm
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+*.tsbuildinfo
+
+# ═══════════════════════════════════════════════════════════════
+# DIVERS
+# ═══════════════════════════════════════════════════════════════
+*.local
+*.pid
+*.pid.lock
+*.seed
+*.tgz
+coverage
+.nyc_output

@@ -1,9 +1,5 @@
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import {
   Activity,
   AlertTriangle,
@@ -23,13 +19,33 @@ import {
 import ConflictCard from './ConflictCard';
 
 /* ============================================================
- * CONFIG
+ * CONFIGURATION API — Python (port 5000 en dev, /python en prod)
+ * ============================================================
+ *
+ * Les routes /flights/conflicts, /flights/optimize et /flights/ml/info
+ * sont hébergées sur le service Python (Flask).
+ *
+ *   DEV  → VITE_PYTHON_BASE_URL = http://localhost:5000
+ *   PROD → VITE_PYTHON_BASE_URL = /python
  * ========================================================== */
 
-const PYTHON_API_URL =
-  (typeof import.meta !== 'undefined' &&
-    import.meta.env?.VITE_PYTHON_API_URL) ||
-  'http://localhost:5000';
+const FALLBACK_PYTHON_URL: string = import.meta.env.PROD
+  ? '/python'
+  : 'http://localhost:5000';
+
+const RAW_PYTHON_BASE_URL: string =
+  import.meta.env.VITE_PYTHON_BASE_URL || FALLBACK_PYTHON_URL;
+
+const PYTHON_API_URL: string = RAW_PYTHON_BASE_URL.replace(/\/+$/, '');
+
+if (import.meta.env.DEV) {
+  // eslint-disable-next-line no-console
+  console.info('[DisruptionCenter] Python API :', {
+    baseUrl: PYTHON_API_URL,
+    fallbackUsed: !import.meta.env.VITE_PYTHON_BASE_URL,
+  });
+}
+
 const CONFLICTS_ENDPOINT = '/flights/conflicts';
 const OPTIMIZE_ENDPOINT = '/flights/optimize';
 const ML_INFO_ENDPOINT = '/flights/ml/info';
@@ -158,6 +174,40 @@ function formatProbability(value?: number | null): string {
   return `${Math.round(clampProbability(value) * 100)}%`;
 }
 
+/**
+ * Extrait le message d'erreur renvoyé par le backend Python.
+ * Gère les formats : { message: string }, { error: string }, etc.
+ */
+function extractBackendMessage(payload: unknown): string | null {
+  if (!payload || typeof payload !== 'object') return null;
+
+  const data = payload as { message?: unknown; error?: unknown };
+
+  if (typeof data.message === 'string' && data.message.trim()) {
+    return data.message;
+  }
+  if (Array.isArray(data.message)) {
+    return (data.message as string[]).join(' | ');
+  }
+  if (typeof data.error === 'string' && data.error.trim()) {
+    return data.error;
+  }
+  return null;
+}
+
+/**
+ * Transforme une erreur quelconque en message lisible.
+ */
+function getFriendlyError(error: unknown, fallback: string): string {
+  if (error instanceof Error) {
+    if (error.message.includes('Failed to fetch')) {
+      return 'Impossible de contacter le serveur Python. Vérifiez votre connexion.';
+    }
+    return error.message || fallback;
+  }
+  return fallback;
+}
+
 function getSeverityRank(severity: string): number {
   switch (normalizeText(severity)) {
     case 'CRITICAL': return 4;
@@ -205,18 +255,22 @@ function getProbabilityBarStyle(probability: number): string {
 }
 
 function getConflictTypeLabel(type: ScheduleConflictType): string {
-  switch (type) {
+  switch (normalizeText(type)) {
     case 'UNASSIGNED_AIRCRAFT': return 'Appareil non affecté';
     case 'AIRCRAFT_OVERLAP': return 'Chevauchement appareil';
     case 'TURNAROUND_TOO_SHORT': return 'Turnaround insuffisant';
     case 'AIRCRAFT_POSITIONING': return 'Positionnement incompatible';
     case 'ML_CONFLICT_RISK': return 'Risque de conflit ML';
-    default: return type.replace(/_/g, ' ').toLowerCase();
+    default:
+      return String(type)
+        .replace(/_/g, ' ')
+        .toLowerCase()
+        .replace(/\b\w/g, c => c.toUpperCase());
   }
 }
 
 function getDetectorLabel(detector: ConflictDetector): string {
-  switch (detector) {
+  switch (normalizeText(detector)) {
     case 'DECISION_TREE': return 'Arbre de décision';
     case 'RULE': return 'Règle métier';
     default: return detector;
@@ -224,7 +278,7 @@ function getDetectorLabel(detector: ConflictDetector): string {
 }
 
 function getDetectorStyle(detector: ConflictDetector): string {
-  if (detector === 'DECISION_TREE') {
+  if (normalizeText(detector) === 'DECISION_TREE') {
     return 'border-violet-200 bg-violet-50 text-violet-700';
   }
   return 'border-sky-200 bg-sky-50 text-sky-700';
@@ -238,7 +292,7 @@ interface MetricCardProps {
   label: string;
   value: number | string;
   subtitle: string;
-  icon: React.ReactNode;
+  icon: ReactNode;
   tone?: 'default' | 'danger' | 'warning' | 'success' | 'info';
 }
 
@@ -340,10 +394,7 @@ export const DisruptionCenter: React.FC = () => {
       );
       if (!response.ok) {
         const payload = await response.json().catch(() => null);
-        const backendMessage =
-          payload && typeof payload === 'object' && 'message' in payload
-            ? String((payload as { message?: unknown }).message)
-            : null;
+        const backendMessage = extractBackendMessage(payload);
         throw new Error(
           backendMessage ||
             `Détection Python indisponible (HTTP ${response.status}).`,
@@ -365,9 +416,10 @@ export const DisruptionCenter: React.FC = () => {
       setError(null);
     } catch (currentError: unknown) {
       setError(
-        currentError instanceof Error
-          ? currentError.message
-          : 'Impossible de joindre le moteur ML Python.',
+        getFriendlyError(
+          currentError,
+          'Impossible de joindre le moteur ML Python.',
+        ),
       );
     } finally {
       if (!silent) setLoading(false);
@@ -422,10 +474,7 @@ export const DisruptionCenter: React.FC = () => {
       );
       if (!response.ok) {
         const payload = await response.json().catch(() => null);
-        const backendMessage =
-          payload && typeof payload === 'object' && 'message' in payload
-            ? String((payload as { message?: unknown }).message)
-            : null;
+        const backendMessage = extractBackendMessage(payload);
         throw new Error(
           backendMessage ||
             `Optimisation impossible (HTTP ${response.status}).`,
@@ -448,10 +497,10 @@ export const DisruptionCenter: React.FC = () => {
     } catch (currentError: unknown) {
       setMessage({
         type: 'error',
-        text:
-          currentError instanceof Error
-            ? currentError.message
-            : 'Impossible de lancer l’optimisation Python.',
+        text: getFriendlyError(
+          currentError,
+          'Impossible de lancer l’optimisation Python.',
+        ),
       });
     } finally {
       setOptimizing(false);

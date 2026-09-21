@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   AlertCircle,
   AlertTriangle,
@@ -12,6 +12,7 @@ import {
   Users,
 } from 'lucide-react';
 import { useCrewAssignments } from './useCrewAssignments';
+import { ApiError } from '../Api/apiService';
 
 /* ============================================================================
  * DESIGN TOKENS
@@ -21,6 +22,8 @@ const FOCUS_RING =
   'outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10';
 
 const MIN_REST_HOURS = 11;
+
+const FEEDBACK_AUTO_DISMISS_MS = 5000;
 
 /* ============================================================================
  * HELPERS
@@ -40,6 +43,39 @@ const formatRestHours = (hours?: number | null): string => {
   if (hours == null || !Number.isFinite(hours)) return '--';
   return `${hours.toFixed(1)} h`;
 };
+
+/**
+ * Transforme une erreur quelconque en message lisible.
+ * Fonctionne en dev et prod (via ApiError du wrapper authApi).
+ */
+function getFriendlyError(error: unknown, fallback = "Échec de l'enregistrement."): string {
+  if (error instanceof ApiError) {
+    switch (error.status) {
+      case 0:
+        return 'Impossible de contacter le serveur. Vérifiez votre connexion.';
+      case 400:
+        return error.message || 'Données invalides.';
+      case 401:
+        return 'Votre session a expiré. Veuillez vous reconnecter.';
+      case 403:
+        return "Vous n'avez pas l'autorisation d'effectuer cette affectation.";
+      case 404:
+        return 'Vol ou membre introuvable.';
+      case 409:
+        return error.message || 'Conflit : ce membre est déjà affecté.';
+      case 500:
+      case 502:
+      case 503:
+        return 'Le serveur rencontre un problème. Veuillez réessayer plus tard.';
+      default:
+        return error.message || fallback;
+    }
+  }
+  if (error instanceof Error) {
+    return error.message || fallback;
+  }
+  return fallback;
+}
 
 /* ============================================================================
  * SOUS-COMPOSANTS
@@ -109,9 +145,11 @@ function KpiCard({
 function AlertBanner({
   type,
   text,
+  onClose,
 }: {
   type: 'success' | 'error' | 'info';
   text: string;
+  onClose?: () => void;
 }) {
   const config = {
     success: {
@@ -154,6 +192,22 @@ function AlertBanner({
         <p className={`text-sm font-semibold ${config.title}`}>{config.label}</p>
         <p className={`mt-0.5 text-xs leading-5 ${config.body}`}>{text}</p>
       </div>
+      {onClose && (
+        <button
+          type="button"
+          onClick={onClose}
+          className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition ${
+            type === 'success'
+              ? 'text-emerald-600 hover:bg-emerald-100'
+              : type === 'error'
+                ? 'text-rose-500 hover:bg-rose-100'
+                : 'text-sky-600 hover:bg-sky-100'
+          }`}
+          aria-label="Fermer"
+        >
+          <span className="text-sm font-bold leading-none">×</span>
+        </button>
+      )}
     </div>
   );
 }
@@ -215,6 +269,13 @@ export const CrewAssignment: React.FC = () => {
 
   const currentSelectedUser = crew.find(m => m.id === selectedMemberId);
 
+  /* -------------------- Auto-dismiss feedback -------------------- */
+  useEffect(() => {
+    if (!feedback) return;
+    const timer = window.setTimeout(() => setFeedback(null), FEEDBACK_AUTO_DISMISS_MS);
+    return () => window.clearTimeout(timer);
+  }, [feedback]);
+
   /* -------------------- KPI stats -------------------- */
   const stats = useMemo(() => {
     const total = crew.length;
@@ -269,10 +330,10 @@ export const CrewAssignment: React.FC = () => {
         msg: `Affectation validée avec succès pour ${member.nom}.`,
       });
       setSelectedMemberId('');
-    } catch (err: any) {
+    } catch (err: unknown) {
       setFeedback({
         type: 'error',
-        msg: err.message || "Échec de l'enregistrement.",
+        msg: getFriendlyError(err),
       });
     } finally {
       setSubmitting(false);
@@ -610,7 +671,13 @@ export const CrewAssignment: React.FC = () => {
               )}
 
               {/* Feedback */}
-              {feedback && <AlertBanner type={feedback.type} text={feedback.msg} />}
+              {feedback && (
+                <AlertBanner
+                  type={feedback.type}
+                  text={feedback.msg}
+                  onClose={() => setFeedback(null)}
+                />
+              )}
             </div>
 
             <footer className="border-t border-slate-100 bg-slate-50/60 p-5">

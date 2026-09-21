@@ -1,9 +1,11 @@
-import React, {
+import {
   useCallback,
   useEffect,
   useMemo,
   useState,
+  Fragment,
 } from 'react';
+import type { FC, ReactNode } from 'react';
 
 import {
   AlertTriangle,
@@ -25,6 +27,40 @@ import {
   X,
   XCircle,
 } from 'lucide-react';
+
+import { getAuthSession } from '../Api/apiService';
+
+/* ============================================================================
+ * CONFIGURATION API — Python (port 5000 en dev, /python en prod)
+ * ============================================================================
+ *
+ * La route /flights est hébergée sur le service Python (Flask).
+ *
+ *   DEV  → VITE_PYTHON_BASE_URL = http://localhost:5000
+ *   PROD → VITE_PYTHON_BASE_URL = /python
+ * ========================================================================== */
+
+const FALLBACK_PYTHON_URL: string = import.meta.env.PROD
+  ? '/python'
+  : 'http://localhost:5000';
+
+const RAW_PYTHON_BASE_URL: string =
+  import.meta.env.VITE_PYTHON_BASE_URL || FALLBACK_PYTHON_URL;
+
+const PYTHON_BASE_URL: string = RAW_PYTHON_BASE_URL.replace(/\/+$/, '');
+
+const DEFAULT_API_URL = `${PYTHON_BASE_URL}/flights`;
+
+const PAGE_SIZE = 10;
+
+if (import.meta.env.DEV) {
+  // eslint-disable-next-line no-console
+  console.info('[FlightHistory] API :', {
+    baseUrl: PYTHON_BASE_URL,
+    apiUrl: DEFAULT_API_URL,
+    fallbackUsed: !import.meta.env.VITE_PYTHON_BASE_URL,
+  });
+}
 
 /* ============================================================================
  * TYPES
@@ -132,13 +168,6 @@ interface FlightHistoryProps {
 }
 
 /* ============================================================================
- * CONFIG
- * ========================================================================== */
-
-const DEFAULT_API_URL = 'http://localhost:5000/flights';
-const PAGE_SIZE = 10;
-
-/* ============================================================================
  * HELPERS
  * ========================================================================== */
 
@@ -235,7 +264,7 @@ const isHistoryFlight = (flight: NormalizedFlight): boolean => {
  * STATUS BADGE
  * ========================================================================== */
 
-const StatusBadge: React.FC<{ status: FlightStatus }> = ({ status }) => {
+const StatusBadge: FC<{ status: FlightStatus }> = ({ status }) => {
   const normalized = normalizeStatus(status);
   const config = {
     Completed: {
@@ -288,7 +317,7 @@ const StatusBadge: React.FC<{ status: FlightStatus }> = ({ status }) => {
  * WEATHER BADGE
  * ========================================================================== */
 
-const WeatherBadge: React.FC<{ weatherAI?: WeatherAI }> = ({ weatherAI }) => {
+const WeatherBadge: FC<{ weatherAI?: WeatherAI }> = ({ weatherAI }) => {
   if (!weatherAI) {
     return (
       <span className="inline-flex h-6 max-w-full items-center gap-1.5 truncate rounded-full border border-slate-200 bg-slate-100 px-2.5 text-[11px] font-medium text-slate-500">
@@ -339,18 +368,18 @@ const WeatherBadge: React.FC<{ weatherAI?: WeatherAI }> = ({ weatherAI }) => {
 };
 
 /* ============================================================================
- * STAT CARD
+ * SOUS-COMPOSANTS
  * ========================================================================== */
 
 interface StatCardProps {
   title: string;
   value: number | string;
-  icon: React.ReactNode;
+  icon: ReactNode;
   subtitle?: string;
   tone?: string;
 }
 
-const StatCard: React.FC<StatCardProps> = ({
+const StatCard: FC<StatCardProps> = ({
   title,
   value,
   icon,
@@ -373,34 +402,28 @@ const StatCard: React.FC<StatCardProps> = ({
   </article>
 );
 
-/* ============================================================================
- * DETAIL ITEM
- * ========================================================================== */
-
 interface DetailItemProps {
   label: string;
-  value: React.ReactNode;
+  value: ReactNode;
 }
 
-const DetailItem: React.FC<DetailItemProps> = ({ label, value }) => (
+const DetailItem: FC<DetailItemProps> = ({ label, value }) => (
   <div className="rounded-lg border border-slate-100 bg-slate-50/50 px-3.5 py-2.5">
     <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
       {label}
     </p>
-    <div className="mt-1 wrap-break-word text-xs font-semibold text-slate-800">
+    <div className="mt-1 break-words text-xs font-semibold text-slate-800">
       {value || '—'}
     </div>
   </div>
 );
 
-/* ============================================================================
- * MOBILE CARD
- * ========================================================================== */
-
-const MobileHistoryCard: React.FC<{
+interface MobileHistoryCardProps {
   flight: NormalizedFlight;
   onOpen: (flight: NormalizedFlight) => void;
-}> = ({ flight, onOpen }) => (
+}
+
+const MobileHistoryCard: FC<MobileHistoryCardProps> = ({ flight, onOpen }) => (
   <article className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
     <div className="flex items-start justify-between gap-3 border-b border-slate-100 p-4">
       <div className="flex min-w-0 items-center gap-3">
@@ -496,7 +519,7 @@ const MobileHistoryCard: React.FC<{
  * MAIN
  * ========================================================================== */
 
-const FlightHistory: React.FC<FlightHistoryProps> = ({
+const FlightHistory: FC<FlightHistoryProps> = ({
   apiUrl = DEFAULT_API_URL,
   token,
 }) => {
@@ -512,7 +535,10 @@ const FlightHistory: React.FC<FlightHistoryProps> = ({
   const [selectedFlight, setSelectedFlight] = useState<NormalizedFlight | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
 
-  /* FETCH */
+  /* -------------------------------------------------------------------------
+   * FETCH — utilise getAuthSession() pour le token
+   * ----------------------------------------------------------------------- */
+
   const fetchFlights = useCallback(
     async (showRefresh = false) => {
       try {
@@ -521,13 +547,11 @@ const FlightHistory: React.FC<FlightHistoryProps> = ({
 
         setError('');
 
-        const storedToken =
-          token ||
-          localStorage.getItem('token') ||
-          localStorage.getItem('accessToken') ||
-          localStorage.getItem('authToken');
+        // ✅ Utilise la source centralisée de session (localStorage + sessionStorage)
+        const session = getAuthSession();
+        const storedToken = token || session?.token;
 
-        const headers: HeadersInit = {};
+        const headers: HeadersInit = { Accept: 'application/json' };
         if (storedToken) {
           headers.Authorization = `Bearer ${storedToken}`;
         }
@@ -535,10 +559,14 @@ const FlightHistory: React.FC<FlightHistoryProps> = ({
         const response = await fetch(apiUrl, { method: 'GET', headers });
 
         if (!response.ok) {
-          if (response.status === 401) throw new Error('Session expirée ou accès non autorisé.');
-          if (response.status === 403) throw new Error("Accès à l'historique refusé.");
-          if (response.status === 404) throw new Error('Endpoint historique introuvable.');
-          if (response.status >= 500) throw new Error("Erreur serveur pendant le chargement de l'historique.");
+          if (response.status === 401)
+            throw new Error('Session expirée ou accès non autorisé.');
+          if (response.status === 403)
+            throw new Error("Accès à l'historique refusé.");
+          if (response.status === 404)
+            throw new Error('Endpoint historique introuvable.');
+          if (response.status >= 500)
+            throw new Error("Erreur serveur pendant le chargement de l'historique.");
           throw new Error(`Impossible de charger les vols (${response.status}).`);
         }
 
@@ -563,11 +591,16 @@ const FlightHistory: React.FC<FlightHistoryProps> = ({
           });
 
         setFlights(normalized);
-      } catch (err) {
+      } catch (err: unknown) {
         console.error('Erreur historique vols :', err);
-        if (err instanceof TypeError) setError('Impossible de contacter le serveur Flask.');
-        else if (err instanceof Error) setError(err.message);
-        else setError('Une erreur inconnue est survenue.');
+
+        if (err instanceof TypeError) {
+          setError('Impossible de contacter le serveur.');
+        } else if (err instanceof Error) {
+          setError(err.message);
+        } else {
+          setError('Une erreur inconnue est survenue.');
+        }
       } finally {
         setLoading(false);
         setRefreshing(false);
@@ -580,7 +613,10 @@ const FlightHistory: React.FC<FlightHistoryProps> = ({
     void fetchFlights();
   }, [fetchFlights]);
 
-  /* ESC / SCROLL MODAL */
+  /* -------------------------------------------------------------------------
+   * ESC + BODY LOCK QUAND MODAL OUVERTE
+   * ----------------------------------------------------------------------- */
+
   useEffect(() => {
     if (!selectedFlight) return;
 
@@ -598,7 +634,10 @@ const FlightHistory: React.FC<FlightHistoryProps> = ({
     };
   }, [selectedFlight]);
 
-  /* FILTERS */
+  /* -------------------------------------------------------------------------
+   * FILTRES
+   * ----------------------------------------------------------------------- */
+
   const filteredFlights = useMemo(() => {
     return flights.filter((flight) => {
       const query = search.trim().toLowerCase();
@@ -634,7 +673,6 @@ const FlightHistory: React.FC<FlightHistoryProps> = ({
     });
   }, [flights, search, statusFilter, dateFrom, dateTo]);
 
-  /* RESET PAGE WHEN FILTERS CHANGE */
   useEffect(() => {
     setCurrentPage(1);
   }, [search, statusFilter, dateFrom, dateTo]);
@@ -650,7 +688,10 @@ const FlightHistory: React.FC<FlightHistoryProps> = ({
     if (currentPage > totalPages) setCurrentPage(totalPages);
   }, [currentPage, totalPages]);
 
-  /* STATS */
+  /* -------------------------------------------------------------------------
+   * STATS
+   * ----------------------------------------------------------------------- */
+
   const statistics = useMemo(() => {
     const completed = flights.filter((f) => f.status === 'Completed').length;
     const delayed = flights.filter((f) => f.status === 'Delayed').length;
@@ -661,7 +702,10 @@ const FlightHistory: React.FC<FlightHistoryProps> = ({
     return { total: flights.length, completed, delayed, cancelled, completionRate };
   }, [flights]);
 
-  /* LOADING */
+  /* -------------------------------------------------------------------------
+   * LOADING
+   * ----------------------------------------------------------------------- */
+
   if (loading) {
     return (
       <div className="flex min-h-125 items-center justify-center">
@@ -680,7 +724,10 @@ const FlightHistory: React.FC<FlightHistoryProps> = ({
     );
   }
 
-  /* RENDER */
+  /* -------------------------------------------------------------------------
+   * RENDER
+   * ----------------------------------------------------------------------- */
+
   return (
     <div className="space-y-5">
       {/* HEADER (Bouton Actualiser uniquement) */}
@@ -746,9 +793,8 @@ const FlightHistory: React.FC<FlightHistoryProps> = ({
         />
       </section>
 
-      {/* TABLEAU / CARTES (Avec filtres intégrés) */}
+      {/* TABLEAU / CARTES */}
       <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        
         {/* SEARCH + FILTRES INTÉGRÉS */}
         <div className="border-b border-slate-100 p-4 sm:p-5">
           <div className="grid gap-3 xl:grid-cols-[minmax(280px,1.5fr)_200px_160px_160px]">
@@ -819,7 +865,7 @@ const FlightHistory: React.FC<FlightHistoryProps> = ({
           </div>
         ) : (
           <>
-            {/* MOBILE : cartes */}
+            {/* MOBILE */}
             <div className="space-y-3 bg-slate-50/50 p-4 md:hidden">
               {paginatedFlights.map((flight) => (
                 <MobileHistoryCard
@@ -830,18 +876,18 @@ const FlightHistory: React.FC<FlightHistoryProps> = ({
               ))}
             </div>
 
-            {/* DESKTOP : tableau */}
+            {/* DESKTOP */}
             <div className="hidden md:block">
               <table className="w-full table-fixed">
                 <colgroup>
-                  <col className="w-[12%]" /> {/* Vol */}
-                  <col className="w-[14%]" /> {/* Trajet */}
-                  <col className="w-[16%]" /> {/* Horaires */}
-                  <col className="w-[10%]" /> {/* Durée */}
-                  <col className="w-[12%]" /> {/* Avion */}
-                  <col className="w-[10%]" /> {/* Statut */}
-                  <col className="w-[14%]" /> {/* Météo */}
-                  <col className="w-[12%]" /> {/* Détails */}
+                  <col className="w-[12%]" />
+                  <col className="w-[14%]" />
+                  <col className="w-[16%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[12%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[14%]" />
+                  <col className="w-[12%]" />
                 </colgroup>
                 <thead className="border-b border-slate-200 bg-slate-50/80 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                   <tr>
@@ -859,15 +905,12 @@ const FlightHistory: React.FC<FlightHistoryProps> = ({
                   {paginatedFlights.map((flight) => {
                     const isExpanded = expandedId === flight.id;
                     return (
-                      <React.Fragment key={flight.id}>
+                      <Fragment key={flight.id}>
                         <tr
                           className={`transition-colors ${
-                            isExpanded
-                              ? 'bg-emerald-50/30'
-                              : 'hover:bg-slate-50/80'
+                            isExpanded ? 'bg-emerald-50/30' : 'hover:bg-slate-50/80'
                           }`}
                         >
-                          {/* VOL (UUID supprimé) */}
                           <td className="px-5 py-4 align-middle">
                             <div className="flex items-center gap-3">
                               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
@@ -879,7 +922,6 @@ const FlightHistory: React.FC<FlightHistoryProps> = ({
                             </div>
                           </td>
 
-                          {/* TRAJET */}
                           <td className="px-4 py-4 align-middle">
                             <div className="flex items-center gap-1.5">
                               <span className="truncate font-mono text-xs font-semibold text-slate-800">
@@ -900,55 +942,42 @@ const FlightHistory: React.FC<FlightHistoryProps> = ({
                             )}
                           </td>
 
-                          {/* HORAIRES */}
                           <td className="px-4 py-4 align-middle">
                             <div className="flex flex-col gap-1">
                               <p className="truncate font-mono text-[11px] text-slate-600">
-                                <span className="font-semibold text-slate-400">
-                                  D{' '}
-                                </span>
+                                <span className="font-semibold text-slate-400">D </span>
                                 {formatDate(flight.localDeparture)}{' '}
                                 {formatTime(flight.localDeparture)}
                               </p>
                               <p className="truncate font-mono text-[11px] text-slate-600">
-                                <span className="font-semibold text-slate-400">
-                                  A{' '}
-                                </span>
+                                <span className="font-semibold text-slate-400">A </span>
                                 {formatDate(flight.localArrival)}{' '}
                                 {formatTime(flight.localArrival)}
                               </p>
                             </div>
                           </td>
 
-                          {/* DURÉE */}
                           <td className="px-4 py-4 align-middle">
                             <span className="inline-flex items-center gap-1 font-mono text-xs font-medium text-slate-700">
-                              <Timer
-                                size={12}
-                                className="shrink-0 text-slate-400"
-                              />
+                              <Timer size={12} className="shrink-0 text-slate-400" />
                               {formatDuration(flight.durationMinutes)}
                             </span>
                           </td>
 
-                          {/* AVION (UUID supprimé) */}
                           <td className="px-4 py-4 align-middle">
                             <p className="truncate font-mono text-xs font-semibold text-slate-800">
                               {flight.aircraftRegistration}
                             </p>
                           </td>
 
-                          {/* STATUT */}
                           <td className="px-4 py-4 align-middle">
                             <StatusBadge status={flight.status} />
                           </td>
 
-                          {/* MÉTÉO */}
                           <td className="px-4 py-4 align-middle">
                             <WeatherBadge weatherAI={flight.weatherAI} />
                           </td>
 
-                          {/* ACTION */}
                           <td className="px-5 py-4 text-right align-middle">
                             <button
                               type="button"
@@ -963,16 +992,12 @@ const FlightHistory: React.FC<FlightHistoryProps> = ({
                             >
                               {isExpanded ? (
                                 <>
-                                  <span className="hidden lg:inline">
-                                    Masquer
-                                  </span>
+                                  <span className="hidden lg:inline">Masquer</span>
                                   <ChevronUp size={14} />
                                 </>
                               ) : (
                                 <>
-                                  <span className="hidden lg:inline">
-                                    Détails
-                                  </span>
+                                  <span className="hidden lg:inline">Détails</span>
                                   <ChevronDown size={14} />
                                 </>
                               )}
@@ -1051,9 +1076,7 @@ const FlightHistory: React.FC<FlightHistoryProps> = ({
                                         Escale
                                       </p>
                                       <p className="mt-1 font-mono text-xs font-semibold text-slate-700">
-                                        {formatDuration(
-                                          flight.stopoverDurationMinutes,
-                                        )}
+                                        {formatDuration(flight.stopoverDurationMinutes)}
                                       </p>
                                     </>
                                   )}
@@ -1088,15 +1111,10 @@ const FlightHistory: React.FC<FlightHistoryProps> = ({
                                     </h4>
                                   </div>
                                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                                    <DetailItem
-                                      label="Route"
-                                      value={flight.route}
-                                    />
+                                    <DetailItem label="Route" value={flight.route} />
                                     <DetailItem
                                       label="Statut final"
-                                      value={
-                                        <StatusBadge status={flight.status} />
-                                      }
+                                      value={<StatusBadge status={flight.status} />}
                                     />
                                     {flight.stopover && (
                                       <DetailItem
@@ -1123,47 +1141,33 @@ const FlightHistory: React.FC<FlightHistoryProps> = ({
                                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
                                     <DetailItem
                                       label="État"
-                                      value={
-                                        <WeatherBadge
-                                          weatherAI={flight.weatherAI}
-                                        />
-                                      }
+                                      value={<WeatherBadge weatherAI={flight.weatherAI} />}
                                     />
                                     <DetailItem
                                       label="Niveau de risque"
-                                      value={
-                                        flight.weatherAI?.riskLabel ||
-                                        'Non évalué'
-                                      }
+                                      value={flight.weatherAI?.riskLabel || 'Non évalué'}
                                     />
                                     <DetailItem
                                       label="Score météo"
                                       value={
-                                        flight.weatherAI?.riskLevel ===
-                                        'SKIPPED'
+                                        flight.weatherAI?.riskLevel === 'SKIPPED'
                                           ? 'Analyse clôturée'
-                                          : formatPercentage(
-                                              flight.weatherAI?.score,
-                                            )
+                                          : formatPercentage(flight.weatherAI?.score)
                                       }
                                     />
                                     <DetailItem
                                       label="Confiance"
                                       value={
-                                        flight.weatherAI?.riskLevel ===
-                                        'SKIPPED'
+                                        flight.weatherAI?.riskLevel === 'SKIPPED'
                                           ? '—'
-                                          : formatPercentage(
-                                              flight.weatherAI?.confidence,
-                                            )
+                                          : formatPercentage(flight.weatherAI?.confidence)
                                       }
                                     />
                                     <div className="sm:col-span-2">
                                       <DetailItem
                                         label="Recommandation"
                                         value={
-                                          flight.weatherAI
-                                            ?.recommendedActionLabel ||
+                                          flight.weatherAI?.recommendedActionLabel ||
                                           'Aucune recommandation'
                                         }
                                       />
@@ -1195,7 +1199,7 @@ const FlightHistory: React.FC<FlightHistoryProps> = ({
                             </td>
                           </tr>
                         )}
-                      </React.Fragment>
+                      </Fragment>
                     );
                   })}
                 </tbody>
@@ -1206,14 +1210,8 @@ const FlightHistory: React.FC<FlightHistoryProps> = ({
             {totalPages > 1 && (
               <div className="flex flex-col items-center justify-between gap-3 border-t border-slate-100 bg-white px-5 py-4 sm:flex-row">
                 <p className="text-xs font-medium text-slate-500">
-                  Page{' '}
-                  <span className="font-semibold text-slate-700">
-                    {currentPage}
-                  </span>{' '}
-                  sur{' '}
-                  <span className="font-semibold text-slate-700">
-                    {totalPages}
-                  </span>{' '}
+                  Page <span className="font-semibold text-slate-700">{currentPage}</span>{' '}
+                  sur <span className="font-semibold text-slate-700">{totalPages}</span>{' '}
                   — {filteredFlights.length} vol
                   {filteredFlights.length > 1 ? 's' : ''}
                 </p>
@@ -1242,11 +1240,9 @@ const FlightHistory: React.FC<FlightHistoryProps> = ({
                           previousPage != null && page - previousPage > 1;
 
                         return (
-                          <React.Fragment key={page}>
+                          <Fragment key={page}>
                             {showEllipsis && (
-                              <span className="px-1 text-xs text-slate-400">
-                                …
-                              </span>
+                              <span className="px-1 text-xs text-slate-400">…</span>
                             )}
                             <button
                               type="button"
@@ -1259,16 +1255,14 @@ const FlightHistory: React.FC<FlightHistoryProps> = ({
                             >
                               {page}
                             </button>
-                          </React.Fragment>
+                          </Fragment>
                         );
                       })}
                   </div>
 
                   <button
                     type="button"
-                    onClick={() =>
-                      setCurrentPage((p) => Math.min(totalPages, p + 1))
-                    }
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                     disabled={currentPage === totalPages}
                     className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                   >
@@ -1289,9 +1283,7 @@ const FlightHistory: React.FC<FlightHistoryProps> = ({
           aria-modal="true"
           aria-label={`Historique du vol ${selectedFlight.flightNumber}`}
           onMouseDown={(event) => {
-            if (event.currentTarget === event.target) {
-              setSelectedFlight(null);
-            }
+            if (event.currentTarget === event.target) setSelectedFlight(null);
           }}
           className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm"
         >
@@ -1349,10 +1341,7 @@ const FlightHistory: React.FC<FlightHistoryProps> = ({
               </section>
 
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                <DetailItem
-                  label="Numéro de vol"
-                  value={selectedFlight.flightNumber}
-                />
+                <DetailItem label="Numéro de vol" value={selectedFlight.flightNumber} />
                 <DetailItem
                   label="Immatriculation"
                   value={selectedFlight.aircraftRegistration}
@@ -1407,28 +1396,19 @@ const FlightHistory: React.FC<FlightHistoryProps> = ({
                 <div className="grid gap-3 sm:grid-cols-2">
                   <DetailItem
                     label="Niveau de risque"
-                    value={
-                      selectedFlight.weatherAI?.riskLabel || 'Non évalué'
-                    }
+                    value={selectedFlight.weatherAI?.riskLabel || 'Non évalué'}
                   />
                   <DetailItem
                     label="Phase météo"
-                    value={
-                      selectedFlight.weatherAI?.forecastPhaseLabel || '—'
-                    }
+                    value={selectedFlight.weatherAI?.forecastPhaseLabel || '—'}
                   />
                   <DetailItem
                     label="Action recommandée"
-                    value={
-                      selectedFlight.weatherAI?.recommendedActionLabel ||
-                      'Aucune'
-                    }
+                    value={selectedFlight.weatherAI?.recommendedActionLabel || 'Aucune'}
                   />
                   <DetailItem
                     label="Analyse effectuée"
-                    value={formatDateTime(
-                      selectedFlight.weatherAI?.evaluatedAt,
-                    )}
+                    value={formatDateTime(selectedFlight.weatherAI?.evaluatedAt)}
                   />
                 </div>
                 {selectedFlight.weatherAI?.explanation && (

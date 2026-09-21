@@ -1,5 +1,12 @@
-import React, { useMemo } from 'react';
+// src/features/FlightSchedulingDashboard/FlightSchedulerGantt.tsx
+
+import { useMemo } from 'react';
+import type { FC } from 'react';
 import { MapPin, Plane } from 'lucide-react';
+
+/* ============================================================================
+ * TYPES
+ * ========================================================================== */
 
 export type FlightStatus = 'Planifié' | 'En Vol' | 'Retardé' | 'Annulé' | 'Effectué';
 
@@ -71,6 +78,14 @@ interface StatusConfigItem {
   accent: string;
 }
 
+interface GanttRowWithItems extends GanttRow {
+  items: GanttItem[];
+}
+
+/* ============================================================================
+ * CONFIGURATION
+ * ========================================================================== */
+
 const STATUS_CONFIG: Record<FlightStatus, StatusConfigItem> = {
   Planifié: {
     bg: 'bg-blue-50 hover:bg-blue-100',
@@ -109,12 +124,17 @@ const STATUS_CONFIG: Record<FlightStatus, StatusConfigItem> = {
   },
 };
 
+/* ============================================================================
+ * HELPERS
+ * ========================================================================== */
+
 const normalizeFlightStatus = (value?: string | null): FlightStatus => {
   const normalized = String(value ?? '').trim().toUpperCase().replace(/_/g, ' ');
   if (['IN-FLIGHT', 'IN FLIGHT', 'EN VOL'].includes(normalized)) return 'En Vol';
   if (['DELAYED', 'RETARDÉ', 'RETARDE', 'SHIFTED'].includes(normalized)) return 'Retardé';
   if (['CANCELLED', 'CANCELED', 'ANNULÉ', 'ANNULE'].includes(normalized)) return 'Annulé';
-  if (['EFFECTUÉ', 'EFFECTUE', 'DONE', 'COMPLETED', 'LANDED'].includes(normalized)) return 'Effectué';
+  if (['EFFECTUÉ', 'EFFECTUE', 'DONE', 'COMPLETED', 'LANDED'].includes(normalized))
+    return 'Effectué';
   return 'Planifié';
 };
 
@@ -131,50 +151,130 @@ const formatDateTime = (value?: string | null): string => {
 };
 
 const formatUtcTick = (timestamp: number): string =>
-  new Intl.DateTimeFormat('fr-FR', { timeZone: 'UTC', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(timestamp));
+  new Intl.DateTimeFormat('fr-FR', {
+    timeZone: 'UTC',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(new Date(timestamp));
 
 const formatUtcDay = (timestamp: number): string =>
-  new Intl.DateTimeFormat('fr-FR', { timeZone: 'UTC', weekday: 'short', day: '2-digit', month: '2-digit' }).format(new Date(timestamp));
+  new Intl.DateTimeFormat('fr-FR', {
+    timeZone: 'UTC',
+    weekday: 'short',
+    day: '2-digit',
+    month: '2-digit',
+  }).format(new Date(timestamp));
 
-const FlightSchedulerGantt: React.FC<FlightSchedulerGanttProps> = ({
+/**
+ * Calcule la position en % d'un timestamp sur la timeline.
+ */
+const computeLeft = (
+  timestamp: number,
+  minTime: number,
+  totalDuration: number,
+): number => ((timestamp - minTime) / totalDuration) * 100;
+
+/**
+ * Construit le tooltip multi-lignes d'un item Gantt.
+ */
+function buildItemTooltip(
+  item: GanttItem,
+  localStart: string | null | undefined,
+  localEnd: string | null | undefined,
+  shiftMinutes: number,
+): string {
+  return [
+    `Vol ${item.flightNumber ?? ''}`,
+    `${item.origin ?? '?'} → ${item.destination ?? '?'}`,
+    `Départ UTC : ${formatDateTime(item.start)}`,
+    `Arrivée UTC : ${formatDateTime(item.end)}`,
+    localStart ? `Départ local : ${formatDateTime(localStart)}` : '',
+    localEnd ? `Arrivée locale : ${formatDateTime(localEnd)}` : '',
+    shiftMinutes > 0 ? `Décalage : +${shiftMinutes} min` : 'Aucun décalage',
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
+/* ============================================================================
+ * SOUS-COMPOSANTS
+ * ========================================================================== */
+
+interface LegendDotProps {
+  className: string;
+  label: string;
+}
+
+const LegendDot: FC<LegendDotProps> = ({ className, label }) => (
+  <span className="inline-flex items-center gap-1.5 text-[10px] font-medium text-slate-500">
+    <span className={`h-2 w-2 rounded-full ${className}`} />
+    {label}
+  </span>
+);
+
+/* ============================================================================
+ * COMPOSANT PRINCIPAL
+ * ========================================================================== */
+
+const FlightSchedulerGantt: FC<FlightSchedulerGanttProps> = ({
   schedule,
   searchTerm,
   selectedStatus,
   isPreview,
   assignmentLookup,
 }) => {
+  /* -------------------------------------------------------------------------
+   * CALCUL DES DONNÉES GANTT
+   * ----------------------------------------------------------------------- */
+
   const ganttData = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
 
-    const filteredItems = (schedule.items ?? []).filter(item => {
+    const filteredItems = (schedule.items ?? []).filter((item) => {
       const status = normalizeFlightStatus(item.status);
       const matchesStatus = selectedStatus === 'TOUS' || status === selectedStatus;
       const matchesSearch =
         !term ||
-        [item.flightNumber, item.origin, item.destination, item.aircraftRegistration, item.label]
+        [
+          item.flightNumber,
+          item.origin,
+          item.destination,
+          item.aircraftRegistration,
+          item.label,
+        ]
           .filter(Boolean)
-          .some(value => String(value).toLowerCase().includes(term));
+          .some((value) => String(value).toLowerCase().includes(term));
       return matchesStatus && matchesSearch;
     });
 
     const itemsByRow = new Map<string, GanttItem[]>();
-    filteredItems.forEach(item => {
+    filteredItems.forEach((item) => {
       const rowItems = itemsByRow.get(item.rowId) ?? [];
       rowItems.push(item);
       itemsByRow.set(item.rowId, rowItems);
     });
 
-    const rows = schedule.rows.map(row => ({ ...row, items: itemsByRow.get(row.aircraftId) ?? [] }));
+    const rows: GanttRowWithItems[] = schedule.rows.map((row) => ({
+      ...row,
+      items: itemsByRow.get(row.aircraftId) ?? [],
+    }));
 
-    const validItems = filteredItems.filter(item => {
+    const validItems = filteredItems.filter((item) => {
       const start = safeDate(item.start);
       const end = safeDate(item.end);
       return Boolean(start && end && end.getTime() > start.getTime());
     });
 
-    if (validItems.length === 0) {
-      return { rows, minTime: 0, maxTime: 0, totalDuration: 1, hourTicks: [] as number[] };
-    }
+    const emptyResult = {
+      rows,
+      minTime: 0,
+      maxTime: 0,
+      totalDuration: 1,
+      hourTicks: [] as number[],
+    };
+
+    if (validItems.length === 0) return emptyResult;
 
     let minTs = Number.POSITIVE_INFINITY;
     let maxTs = Number.NEGATIVE_INFINITY;
@@ -185,9 +285,7 @@ const FlightSchedulerGantt: React.FC<FlightSchedulerGanttProps> = ({
       if (e > maxTs) maxTs = e;
     }
 
-    if (!Number.isFinite(minTs) || !Number.isFinite(maxTs)) {
-      return { rows, minTime: 0, maxTime: 0, totalDuration: 1, hourTicks: [] as number[] };
-    }
+    if (!Number.isFinite(minTs) || !Number.isFinite(maxTs)) return emptyResult;
 
     const minDate = new Date(minTs);
     minDate.setUTCHours(0, 0, 0, 0);
@@ -215,34 +313,53 @@ const FlightSchedulerGantt: React.FC<FlightSchedulerGanttProps> = ({
     return { rows, minTime, maxTime, totalDuration, hourTicks };
   }, [schedule, searchTerm, selectedStatus]);
 
+  /* -------------------------------------------------------------------------
+   * STATISTIQUES
+   * ----------------------------------------------------------------------- */
+
   const stats = useMemo(() => {
     let total = 0;
     let shifted = 0;
     let activeRows = 0;
-    ganttData.rows.forEach(row => {
+
+    ganttData.rows.forEach((row) => {
       if (row.aircraftId !== 'UNASSIGNED' && row.items.length > 0) activeRows += 1;
-      row.items.forEach(item => {
+      row.items.forEach((item) => {
         total += 1;
-        const shift = item.shiftMinutes ?? assignmentLookup.get(item.flightId)?.shiftMinutes ?? 0;
+        const shift =
+          item.shiftMinutes ??
+          assignmentLookup.get(item.flightId)?.shiftMinutes ??
+          0;
         if (shift > 0) shifted += 1;
       });
     });
+
     return { total, shifted, rows: ganttData.rows.length, activeRows };
   }, [ganttData, assignmentLookup]);
+
+  /* -------------------------------------------------------------------------
+   * LIGNE "MAINTENANT"
+   * ----------------------------------------------------------------------- */
 
   const nowLineLeft = useMemo(() => {
     if (!ganttData.minTime || !ganttData.maxTime) return null;
     const now = Date.now();
     if (now < ganttData.minTime || now > ganttData.maxTime) return null;
-    return ((now - ganttData.minTime) / ganttData.totalDuration) * 100;
+    return computeLeft(now, ganttData.minTime, ganttData.totalDuration);
   }, [ganttData]);
+
+  /* -------------------------------------------------------------------------
+   * RENDER
+   * ----------------------------------------------------------------------- */
 
   return (
     <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-      {/* HEADER (style image : titre + count badge + légende) */}
+      {/* HEADER */}
       <div className="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2.5">
-          <h2 className="text-sm font-semibold text-slate-900">Programmation graphique</h2>
+          <h2 className="text-sm font-semibold text-slate-900">
+            Programmation graphique
+          </h2>
           <span className="inline-flex h-5 items-center rounded-md bg-slate-100 px-2 text-[11px] font-medium text-slate-600">
             {stats.total}
           </span>
@@ -253,8 +370,10 @@ const FlightSchedulerGantt: React.FC<FlightSchedulerGanttProps> = ({
             </span>
           )}
           <span className="text-xs text-slate-500">
-            · {stats.activeRows} appareil{stats.activeRows > 1 ? 's' : ''} actif{stats.activeRows > 1 ? 's' : ''}
-            {stats.shifted > 0 && ` · ${stats.shifted} décalé${stats.shifted > 1 ? 's' : ''}`}
+            · {stats.activeRows} appareil{stats.activeRows > 1 ? 's' : ''} actif
+            {stats.activeRows > 1 ? 's' : ''}
+            {stats.shifted > 0 &&
+              ` · ${stats.shifted} décalé${stats.shifted > 1 ? 's' : ''}`}
           </span>
         </div>
 
@@ -272,12 +391,17 @@ const FlightSchedulerGantt: React.FC<FlightSchedulerGanttProps> = ({
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-50 text-slate-300">
             <Plane className="h-5 w-5" />
           </div>
-          <p className="mt-3 text-sm font-medium text-slate-700">Aucun élément Gantt</p>
-          <p className="mt-1 text-xs text-slate-500">Ajustez la recherche ou les filtres de statut.</p>
+          <p className="mt-3 text-sm font-medium text-slate-700">
+            Aucun élément Gantt
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            Ajustez la recherche ou les filtres de statut.
+          </p>
         </div>
       ) : (
         <div className="overflow-x-auto">
           <div className="min-w-362.5">
+            {/* EN-TÊTE TIMELINE */}
             <div className="sticky top-0 z-30 flex border-b border-slate-200 bg-slate-50">
               <div className="sticky left-0 z-40 flex w-64 shrink-0 items-center border-r border-slate-200 bg-slate-50 px-4 py-3">
                 <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
@@ -285,8 +409,12 @@ const FlightSchedulerGantt: React.FC<FlightSchedulerGanttProps> = ({
                 </span>
               </div>
               <div className="relative h-12 flex-1">
-                {ganttData.hourTicks.map(tick => {
-                  const left = ((tick - ganttData.minTime) / ganttData.totalDuration) * 100;
+                {ganttData.hourTicks.map((tick) => {
+                  const left = computeLeft(
+                    tick,
+                    ganttData.minTime,
+                    ganttData.totalDuration,
+                  );
                   return (
                     <div
                       key={tick}
@@ -296,21 +424,31 @@ const FlightSchedulerGantt: React.FC<FlightSchedulerGanttProps> = ({
                       <span className="rounded bg-white px-1.5 py-0.5 font-mono text-[10px] font-semibold text-slate-700 shadow-sm">
                         {formatUtcTick(tick)}
                       </span>
-                      <span className="mt-0.5 font-mono text-[9px] font-medium text-slate-400">{formatUtcDay(tick)}</span>
+                      <span className="mt-0.5 font-mono text-[9px] font-medium text-slate-400">
+                        {formatUtcDay(tick)}
+                      </span>
                     </div>
                   );
                 })}
                 {nowLineLeft !== null && (
-                  <div className="absolute top-0 h-full w-px bg-rose-500" style={{ left: `${nowLineLeft}%` }}>
+                  <div
+                    className="absolute top-0 h-full w-px bg-rose-500"
+                    style={{ left: `${nowLineLeft}%` }}
+                  >
                     <span className="absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rounded-full bg-rose-500 ring-2 ring-white" />
                   </div>
                 )}
               </div>
             </div>
 
+            {/* LIGNES */}
             <div className="divide-y divide-slate-100">
-              {ganttData.rows.map(row => (
-                <div key={row.aircraftId} className="group flex items-center transition hover:bg-slate-50/60">
+              {ganttData.rows.map((row) => (
+                <div
+                  key={row.aircraftId}
+                  className="group flex items-center transition hover:bg-slate-50/60"
+                >
+                  {/* CARTE APPAREIL */}
                   <div className="sticky left-0 z-20 flex w-64 shrink-0 items-center gap-3 border-r border-slate-200 bg-white px-4 py-3 group-hover:bg-slate-50">
                     <div
                       className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border ${
@@ -351,9 +489,15 @@ const FlightSchedulerGantt: React.FC<FlightSchedulerGanttProps> = ({
                     </div>
                   </div>
 
+                  {/* TIMELINE DE LA LIGNE */}
                   <div className="relative mx-2 my-2 h-16 flex-1">
-                    {ganttData.hourTicks.map(tick => {
-                      const left = ((tick - ganttData.minTime) / ganttData.totalDuration) * 100;
+                    {/* Grille verticale */}
+                    {ganttData.hourTicks.map((tick) => {
+                      const left = computeLeft(
+                        tick,
+                        ganttData.minTime,
+                        ganttData.totalDuration,
+                      );
                       return (
                         <div
                           key={`${row.aircraftId}-${tick}`}
@@ -362,24 +506,37 @@ const FlightSchedulerGantt: React.FC<FlightSchedulerGanttProps> = ({
                         />
                       );
                     })}
+
+                    {/* Ligne "maintenant" */}
                     {nowLineLeft !== null && (
                       <div
                         className="pointer-events-none absolute bottom-0 top-0 z-10 w-px bg-rose-500/70"
                         style={{ left: `${nowLineLeft}%` }}
                       />
                     )}
-                    {row.items.map(item => {
+
+                    {/* Barres des vols */}
+                    {row.items.map((item) => {
                       const start = safeDate(item.start);
                       const end = safeDate(item.end);
                       if (!start || !end) return null;
+
                       const startMs = start.getTime();
                       const endMs = end.getTime();
-                      const left = Math.max(0, ((startMs - ganttData.minTime) / ganttData.totalDuration) * 100);
-                      const width = Math.max(0.5, ((endMs - startMs) / ganttData.totalDuration) * 100);
+                      const left = Math.max(
+                        0,
+                        computeLeft(startMs, ganttData.minTime, ganttData.totalDuration),
+                      );
+                      const width = Math.max(
+                        0.5,
+                        ((endMs - startMs) / ganttData.totalDuration) * 100,
+                      );
+
                       const status = normalizeFlightStatus(item.status);
                       const config = STATUS_CONFIG[status];
                       const assignment = assignmentLookup.get(item.flightId);
-                      const shiftMinutes = item.shiftMinutes ?? assignment?.shiftMinutes ?? 0;
+                      const shiftMinutes =
+                        item.shiftMinutes ?? assignment?.shiftMinutes ?? 0;
                       const localStart = item.localStart ?? assignment?.localDeparture;
                       const localEnd = item.localEnd ?? assignment?.localArrival;
 
@@ -388,19 +545,12 @@ const FlightSchedulerGantt: React.FC<FlightSchedulerGanttProps> = ({
                           key={item.id}
                           className={`group/item absolute bottom-2 top-2 flex min-w-31.25 cursor-pointer items-center justify-between overflow-hidden rounded-lg border px-2.5 shadow-sm transition-all duration-150 hover:z-30 hover:-translate-y-0.5 hover:shadow-md ${config.bg} ${config.border}`}
                           style={{ left: `${left}%`, width: `${width}%` }}
-                          title={[
-                            `Vol ${item.flightNumber ?? ''}`,
-                            `${item.origin ?? '?'} → ${item.destination ?? '?'}`,
-                            `Départ UTC : ${formatDateTime(item.start)}`,
-                            `Arrivée UTC : ${formatDateTime(item.end)}`,
-                            localStart ? `Départ local : ${formatDateTime(localStart)}` : '',
-                            localEnd ? `Arrivée locale : ${formatDateTime(localEnd)}` : '',
-                            shiftMinutes > 0 ? `Décalage : +${shiftMinutes} min` : 'Aucun décalage',
-                          ]
-                            .filter(Boolean)
-                            .join('\n')}
+                          title={buildItemTooltip(item, localStart, localEnd, shiftMinutes)}
                         >
-                          <span className={`absolute inset-y-0 left-0 w-1 ${config.accent}`} aria-hidden />
+                          <span
+                            className={`absolute inset-y-0 left-0 w-1 ${config.accent}`}
+                            aria-hidden
+                          />
                           <div className="flex min-w-0 flex-1 items-center gap-1.5 pl-1.5">
                             <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${config.dot}`} />
                             <span className={`truncate text-[11px] font-semibold ${config.text}`}>
@@ -428,14 +578,5 @@ const FlightSchedulerGantt: React.FC<FlightSchedulerGanttProps> = ({
     </section>
   );
 };
-
-function LegendDot({ className, label }: { className: string; label: string }) {
-  return (
-    <span className="inline-flex items-center gap-1.5 text-[10px] font-medium text-slate-500">
-      <span className={`h-2 w-2 rounded-full ${className}`} />
-      {label}
-    </span>
-  );
-}
 
 export default FlightSchedulerGantt;

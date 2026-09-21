@@ -1,11 +1,11 @@
-import React, {
+import {
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
 } from 'react';
-import axios from 'axios';
+import type { ReactNode } from 'react';
 
 import {
   Wrench,
@@ -35,6 +35,10 @@ import type { Aircraft } from '../fleet/fleetService';
 
 import { maintenanceService } from './maintenanceService';
 import type { MaintenanceSlot } from './maintenanceService';
+
+/* ============================================================================
+ * TYPES
+ * ========================================================================== */
 
 type MaintenanceType = 'Type A' | 'Type C' | 'Aircraft On Ground';
 
@@ -66,9 +70,9 @@ type AircraftLike = Aircraft & {
   } | null;
 };
 
-// ═══════════════════════════════════════════════════════════════
-// DESIGN TOKENS
-// ═══════════════════════════════════════════════════════════════
+/* ============================================================================
+ * DESIGN TOKENS
+ * ========================================================================== */
 
 const SURFACE = 'rounded-xl border border-slate-200 bg-white';
 
@@ -89,9 +93,9 @@ const LABEL = 'text-xs font-medium text-slate-500';
 const BADGE =
   'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-medium';
 
-// ═══════════════════════════════════════════════════════════════
-// HELPERS
-// ═══════════════════════════════════════════════════════════════
+/* ============================================================================
+ * HELPERS
+ * ========================================================================== */
 
 const getAircraftRegistration = (aircraft?: AircraftLike | null): string =>
   aircraft?.registration || aircraft?.immatriculation || 'Appareil inconnu';
@@ -226,23 +230,37 @@ const maintenanceRatio = (aircraft: AircraftLike): number => {
   return Math.min(100, Math.max(0, Math.round((used / limit) * 100)));
 };
 
+/* --------------------------------------------------------------------------
+ * ✅ CORRECTION : utilise maintenanceService.syncExpired() qui gère
+ * automatiquement l'URL dev/prod et le token JWT (via getAuthSession).
+ * ------------------------------------------------------------------------ */
+
 const syncExpiredMaintenances = async (): Promise<void> => {
-  const API_URL = import.meta.env?.VITE_API_URL || 'http://localhost:3001';
-  const token =
-    localStorage.getItem('userToken') ||
-    sessionStorage.getItem('userToken') ||
-    localStorage.getItem('token') ||
-    sessionStorage.getItem('token');
-  await axios.patch(`${API_URL}/maintenance/sync-expired`, undefined, {
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-  });
+  await maintenanceService.syncExpired();
 };
 
-const getAxiosErrorMessage = (error: unknown): string => {
-  if (axios.isAxiosError(error)) {
-    const data = error.response?.data as
-      | { message?: string | string[]; error?: string }
-      | undefined;
+/* --------------------------------------------------------------------------
+ * Extraction d'erreur (déjà compatible — pas de dépendance Axios ici)
+ * ------------------------------------------------------------------------ */
+
+interface AxiosErrorLike {
+  response?: {
+    status?: number;
+    data?: {
+      message?: string | string[];
+      error?: string;
+    };
+  };
+  message?: string;
+}
+
+function isAxiosErrorLike(error: unknown): error is AxiosErrorLike {
+  return Boolean(error && typeof error === 'object' && 'response' in error);
+}
+
+const getApiErrorMessage = (error: unknown): string => {
+  if (isAxiosErrorLike(error)) {
+    const data = error.response?.data;
     if (Array.isArray(data?.message)) return data.message.join(' ');
     if (typeof data?.message === 'string' && data.message.trim()) {
       return data.message;
@@ -251,15 +269,15 @@ const getAxiosErrorMessage = (error: unknown): string => {
     if (error.response?.status === 409) {
       return "Cet appareil possède déjà un créneau de maintenance qui chevauche la période demandée.";
     }
-    return error.message || 'Erreur de communication avec le serveur.';
+    if (error.message) return error.message;
   }
   if (error instanceof Error) return error.message;
   return 'Une erreur inattendue est survenue.';
 };
 
-// ═══════════════════════════════════════════════════════════════
-// COMPOSANT PRINCIPAL
-// ═══════════════════════════════════════════════════════════════
+/* ============================================================================
+ * COMPOSANT PRINCIPAL
+ * ========================================================================== */
 
 type TabKey = 'active' | 'pending' | 'history';
 
@@ -296,9 +314,9 @@ export const MaintenancePlanning: React.FC = () => {
 
   const toastTimerRef = useRef<{ [key: number]: number }>({});
 
-  // ═══════════════════════════════════════════════════════════════
-  // TOASTS
-  // ═══════════════════════════════════════════════════════════════
+  /* -----------------------------------------------------------------------
+   * TOASTS
+   * --------------------------------------------------------------------- */
 
   const showToast = useCallback(
     (message: string, type: 'success' | 'error') => {
@@ -318,9 +336,9 @@ export const MaintenancePlanning: React.FC = () => {
     };
   }, []);
 
-  // ═══════════════════════════════════════════════════════════════
-  // CHARGEMENT
-  // ═══════════════════════════════════════════════════════════════
+  /* -----------------------------------------------------------------------
+   * CHARGEMENT
+   * --------------------------------------------------------------------- */
 
   const loadData = useCallback(async () => {
     try {
@@ -350,7 +368,7 @@ export const MaintenancePlanning: React.FC = () => {
       });
     } catch (error: unknown) {
       showToast(
-        getAxiosErrorMessage(error) ||
+        getApiErrorMessage(error) ||
           'Erreur lors du chargement des données de maintenance.',
         'error',
       );
@@ -365,7 +383,7 @@ export const MaintenancePlanning: React.FC = () => {
       const data = await fleetService.getAircrafts();
       setAircrafts(data as AircraftLike[]);
     } catch (error: unknown) {
-      showToast(getAxiosErrorMessage(error), 'error');
+      showToast(getApiErrorMessage(error), 'error');
     } finally {
       setFleetRefreshing(false);
     }
@@ -375,7 +393,7 @@ export const MaintenancePlanning: React.FC = () => {
     void loadData();
   }, [loadData]);
 
-  // Polling 30s
+  /* Polling 30s */
   useEffect(() => {
     const timer = window.setInterval(() => {
       void (async () => {
@@ -395,9 +413,9 @@ export const MaintenancePlanning: React.FC = () => {
     return () => window.clearInterval(timer);
   }, []);
 
-  // ═══════════════════════════════════════════════════════════════
-  // DONNÉES DÉRIVÉES
-  // ═══════════════════════════════════════════════════════════════
+  /* -----------------------------------------------------------------------
+   * DONNÉES DÉRIVÉES
+   * --------------------------------------------------------------------- */
 
   const maintenanceAircrafts = useMemo(
     () => aircrafts.filter(isMaintenanceAircraft),
@@ -548,9 +566,9 @@ export const MaintenancePlanning: React.FC = () => {
     setPage(1);
   }, [activeTab, searchQuery]);
 
-  // ═══════════════════════════════════════════════════════════════
-  // HANDLERS
-  // ═══════════════════════════════════════════════════════════════
+  /* -----------------------------------------------------------------------
+   * HANDLERS
+   * --------------------------------------------------------------------- */
 
   const selectAircraftForPlanning = (aircraft: AircraftLike) => {
     setSelectedAircraftId(aircraft.id);
@@ -651,19 +669,14 @@ export const MaintenancePlanning: React.FC = () => {
       setFormOpen(false);
       await loadData();
     } catch (error: unknown) {
-      if (axios.isAxiosError(error)) {
+      if (isAxiosErrorLike(error)) {
         const status = error.response?.status;
-        const payload = error.response?.data as
-          | {
-              code?: string;
-              message?: string | string[];
-            }
-          | undefined;
+        const payload = error.response?.data;
         if (status === 409) {
-          const backendCode = payload?.code;
+          const backendCode = (payload as { code?: string } | undefined)?.code;
           const message = Array.isArray(payload?.message)
             ? payload.message.join(' ')
-            : payload?.message || getAxiosErrorMessage(error);
+            : payload?.message || getApiErrorMessage(error);
           showToast(
             backendCode ? `[${backendCode}] ${message}` : message,
             'error',
@@ -677,7 +690,7 @@ export const MaintenancePlanning: React.FC = () => {
           return;
         }
       }
-      showToast(getAxiosErrorMessage(error), 'error');
+      showToast(getApiErrorMessage(error), 'error');
     } finally {
       setSubmitting(false);
     }
@@ -695,7 +708,7 @@ export const MaintenancePlanning: React.FC = () => {
         );
         await loadData();
       } catch (error: unknown) {
-        showToast(getAxiosErrorMessage(error), 'error');
+        showToast(getApiErrorMessage(error), 'error');
       }
     },
     [loadData, showToast],
@@ -711,7 +724,7 @@ export const MaintenancePlanning: React.FC = () => {
         );
         await loadData();
       } catch (error: unknown) {
-        showToast(getAxiosErrorMessage(error), 'error');
+        showToast(getApiErrorMessage(error), 'error');
       }
     },
     [loadData, showToast],
@@ -747,13 +760,13 @@ export const MaintenancePlanning: React.FC = () => {
       closeDeleteModal();
       await loadData();
     } catch (error: unknown) {
-      showToast(getAxiosErrorMessage(error), 'error');
+      showToast(getApiErrorMessage(error), 'error');
     }
   };
 
-  // ═══════════════════════════════════════════════════════════════
-  // LOADING
-  // ═══════════════════════════════════════════════════════════════
+  /* -----------------------------------------------------------------------
+   * LOADING
+   * --------------------------------------------------------------------- */
 
   if (loading) {
     return (
@@ -766,9 +779,9 @@ export const MaintenancePlanning: React.FC = () => {
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════
-  // RENDU
-  // ═══════════════════════════════════════════════════════════════
+  /* -----------------------------------------------------------------------
+   * RENDU (inchangé par rapport à votre version)
+   * --------------------------------------------------------------------- */
 
   return (
     <div className="mx-auto max-w-[1600px] space-y-6 px-1 pb-10">
@@ -812,7 +825,7 @@ export const MaintenancePlanning: React.FC = () => {
         ))}
       </div>
 
-      {/* ACTIONS RAPIDES (header supprimé, actions conservées) */}
+      {/* ACTIONS RAPIDES */}
       <div className="flex items-center justify-end gap-2">
         <span className="hidden items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-medium text-slate-500 sm:inline-flex">
           <span className="relative flex h-1.5 w-1.5">
@@ -894,12 +907,9 @@ export const MaintenancePlanning: React.FC = () => {
         </section>
       )}
 
-      {/* ═══════════════════════════════════════════════════════ */}
-      {/* CARTE PRINCIPALE UNIFIÉE                              */}
-      {/* ═══════════════════════════════════════════════════════ */}
-
+      {/* CARTE PRINCIPALE */}
       <section className={SURFACE}>
-        {/* ─────────── APPAREILS NÉCESSITANT UNE INTERVENTION ─────────── */}
+        {/* APPAREILS NÉCESSITANT UNE INTERVENTION */}
         <div className="border-b border-slate-200 p-5 sm:px-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -957,7 +967,7 @@ export const MaintenancePlanning: React.FC = () => {
           </div>
         </div>
 
-        {/* ─────────── TABS ─────────── */}
+        {/* TABS */}
         <div className="flex items-center gap-1 border-b border-slate-200 px-4 sm:px-6">
           <TabButton
             active={activeTab === 'active'}
@@ -979,7 +989,7 @@ export const MaintenancePlanning: React.FC = () => {
           />
         </div>
 
-        {/* ─────────── TOOLBAR ─────────── */}
+        {/* TOOLBAR */}
         <div className="flex flex-col gap-3 border-b border-slate-100 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div className="relative w-full sm:max-w-xs">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -1020,7 +1030,7 @@ export const MaintenancePlanning: React.FC = () => {
           </div>
         </div>
 
-        {/* ─────────── TABLE ─────────── */}
+        {/* TABLE */}
         {filteredSlots.length === 0 ? (
           <EmptyState
             title={
@@ -1074,7 +1084,7 @@ export const MaintenancePlanning: React.FC = () => {
               </table>
             </div>
 
-            {/* ─────────── PAGINATION ─────────── */}
+            {/* PAGINATION */}
             <div className="flex flex-col gap-3 border-t border-slate-100 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-2 text-xs text-slate-500">
                 <span>Affichage</span>
@@ -1133,10 +1143,7 @@ export const MaintenancePlanning: React.FC = () => {
         )}
       </section>
 
-      {/* ═══════════════════════════════════════════════════════ */}
-      {/* MODALE FORMULAIRE                                      */}
-      {/* ═══════════════════════════════════════════════════════ */}
-
+      {/* MODALE FORMULAIRE */}
       {formOpen && (
         <div className="fixed inset-0 z-70 flex items-start justify-center overflow-y-auto p-4 sm:items-center">
           <button
@@ -1354,10 +1361,7 @@ export const MaintenancePlanning: React.FC = () => {
         </div>
       )}
 
-      {/* ═══════════════════════════════════════════════════════ */}
-      {/* MODALE SUPPRESSION                                     */}
-      {/* ═══════════════════════════════════════════════════════ */}
-
+      {/* MODALE SUPPRESSION */}
       {deleteModal.isOpen && (
         <div className="fixed inset-0 z-80 flex items-center justify-center p-4">
           <button
@@ -1448,21 +1452,18 @@ export const MaintenancePlanning: React.FC = () => {
   );
 };
 
-// ═══════════════════════════════════════════════════════════════
-// SOUS-COMPOSANTS
-// ═══════════════════════════════════════════════════════════════
+/* ============================================================================
+ * SOUS-COMPOSANTS
+ * ========================================================================== */
 
-function KpiCard({
-  icon,
-  label,
-  value,
-  hint,
-}: {
-  icon: React.ReactNode;
+interface KpiCardProps {
+  icon: ReactNode;
   label: string;
   value: number;
   hint: string;
-}) {
+}
+
+function KpiCard({ icon, label, value, hint }: KpiCardProps) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4">
       <div className="flex items-center gap-2 text-slate-500">
@@ -1479,19 +1480,21 @@ function KpiCard({
   );
 }
 
+interface TabButtonProps {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  count?: number;
+  accent?: boolean;
+}
+
 function TabButton({
   active,
   onClick,
   label,
   count,
   accent = false,
-}: {
-  active: boolean;
-  onClick: () => void;
-  label: string;
-  count?: number;
-  accent?: boolean;
-}) {
+}: TabButtonProps) {
   return (
     <button
       type="button"
@@ -1520,17 +1523,14 @@ function TabButton({
   );
 }
 
-function SlotTableRow({
-  slot,
-  onDelete,
-  onExtend,
-  onClose,
-}: {
+interface SlotTableRowProps {
   slot: MaintenanceSlot;
   onDelete: (slot: MaintenanceSlot) => void;
   onExtend: (slotId: string, days: number) => Promise<void> | void;
   onClose: (slotId: string) => Promise<void> | void;
-}) {
+}
+
+function SlotTableRow({ slot, onDelete, onExtend, onClose }: SlotTableRowProps) {
   const statusInfo = getStatusVisual(slot);
   const daysCount = calculateDurationInDays(slot.startTime, slot.endTime);
   const targetAircraft = slot.aircraft as AircraftLike | undefined;
@@ -1668,15 +1668,13 @@ function SlotTableRow({
   );
 }
 
-function AircraftRow({
-  aircraft,
-  hasSlot,
-  onPlan,
-}: {
+interface AircraftRowProps {
   aircraft: AircraftLike;
   hasSlot: boolean;
   onPlan: () => void;
-}) {
+}
+
+function AircraftRow({ aircraft, hasSlot, onPlan }: AircraftRowProps) {
   const ratio = maintenanceRatio(aircraft);
   const used = Number(aircraft.heuresDepuisDerniereMaintenance ?? 0);
   const limit = Number(aircraft.limiteHeuresMaintenance ?? 0);
@@ -1775,13 +1773,12 @@ function AircraftRow({
   );
 }
 
-function EmptyState({
-  title,
-  description,
-}: {
+interface EmptyStateProps {
   title: string;
   description: string;
-}) {
+}
+
+function EmptyState({ title, description }: EmptyStateProps) {
   return (
     <div className="flex min-h-56 items-center justify-center p-8 text-center">
       <div>
