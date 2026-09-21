@@ -4,13 +4,13 @@ import {
   ArrowRight,
   CheckCircle2,
   ChevronRight,
+  Filter,
   Plane,
   RefreshCw,
   Search,
   ShieldAlert,
   Timer,
   X,
-  SlidersHorizontal,
 } from 'lucide-react';
 
 /* ========================================================================== */
@@ -91,45 +91,46 @@ interface FlightPlanningProps {
   displayRoute: (flight: Flight) => string;
   getWeatherIndicator: (severity: number) => WeatherIndicator;
   onSelectFlight: (flight: Flight) => void;
+  /** Contenu rendu au-dessus — dans le même div et le même fond blanc */
+  topHeader?: React.ReactNode;
 }
 
 /* ========================================================================== */
 /* DESIGN TOKENS                                                              */
 /* ========================================================================== */
 
-const SURFACE = 'rounded-2xl border border-slate-200 bg-white shadow-sm';
 const FOCUS_RING =
   'outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10';
 
-/* ========================================================================== */
-/* PETITS COMPOSANTS                                                         */
-/* ========================================================================== */
-
-const StatusBadge: React.FC<{ style: StatusStyle }> = ({ style }) => (
-  <span
-    className={`inline-flex h-6 items-center gap-1.5 rounded-md border px-2 text-[10px] font-semibold ${style.badge}`}
-  >
-    <span className={`h-1.5 w-1.5 rounded-full ${style.dot}`} />
-    {style.label}
-  </span>
-);
-
-const WeatherPill: React.FC<{
-  weather: WeatherIndicator;
-  compact?: boolean;
-}> = ({ weather, compact = false }) => (
-  <span
-    className={`inline-flex h-6 items-center gap-1.5 rounded-md border px-2 text-[10px] font-semibold ${weather.badge}`}
-    title={weather.recommendation || weather.label}
-  >
-    {weather.icon}
-    {!compact && weather.label}
-    {compact && <span className="hidden sm:inline">{weather.label}</span>}
-  </span>
-);
+const STATUS_BADGE_MAP: Record<FlightStatus, { badge: string; dot: string }> = {
+  Scheduled: { badge: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-500' },
+  Delayed: { badge: 'bg-amber-100 text-amber-700', dot: 'bg-amber-500' },
+  Cancelled: { badge: 'bg-rose-100 text-rose-700', dot: 'bg-rose-500' },
+  'In-Flight': { badge: 'bg-sky-100 text-sky-700', dot: 'bg-sky-500' },
+  Effectué: { badge: 'bg-slate-100 text-slate-600', dot: 'bg-slate-400' },
+};
 
 /* ========================================================================== */
-/* LOADING SKELETON                                                          */
+/* PETITS COMPOSANTS                                                          */
+/* ========================================================================== */
+
+const StatusBadge: React.FC<{ status: FlightStatus; label: string }> = ({
+  status,
+  label,
+}) => {
+  const config = STATUS_BADGE_MAP[status];
+  return (
+    <span
+      className={`inline-flex h-6 items-center gap-1.5 rounded-full px-2.5 text-[11px] font-medium ${config.badge}`}
+    >
+      <span className={`h-1.5 w-1.5 rounded-full ${config.dot}`} />
+      {label}
+    </span>
+  );
+};
+
+/* ========================================================================== */
+/* LOADING SKELETON                                                           */
 /* ========================================================================== */
 
 const LoadingSkeleton: React.FC = () => (
@@ -137,7 +138,7 @@ const LoadingSkeleton: React.FC = () => (
     {[1, 2, 3].map(row => (
       <div
         key={row}
-        className="animate-pulse overflow-hidden rounded-2xl border border-slate-200 bg-white"
+        className="animate-pulse overflow-hidden rounded-xl border border-slate-200 bg-white"
       >
         <div className="grid lg:grid-cols-[220px_minmax(0,1fr)]">
           <div className="border-b border-slate-200 bg-slate-50/70 p-5 lg:border-b-0 lg:border-r">
@@ -165,7 +166,7 @@ const LoadingSkeleton: React.FC = () => (
 );
 
 /* ========================================================================== */
-/* CARTE D'UN VOL                                                            */
+/* CARTE D'UN VOL                                                             */
 /* ========================================================================== */
 
 interface FlightCardProps {
@@ -196,59 +197,41 @@ const FlightCard: React.FC<FlightCardProps> = ({
   const isDone = flight.status === 'Effectué';
   const isInFlight = flight.status === 'In-Flight';
 
-  const statusBarClass = {
-    Scheduled: 'bg-emerald-500',
-    Delayed: 'bg-amber-500',
-    Cancelled: 'bg-rose-500',
-    'In-Flight': 'bg-sky-500',
-    Effectué: 'bg-slate-400',
-  }[flight.status];
-
   return (
     <button
       type="button"
       onClick={() => onSelectFlight(flight)}
       className={[
-        'group relative w-full overflow-hidden rounded-2xl border bg-white text-left',
-        'shadow-sm transition-all duration-200',
-        'hover:-translate-y-0.5 hover:shadow-md',
+        'group relative w-full overflow-hidden rounded-xl border bg-white text-left',
+        'transition-all duration-200',
+        'hover:border-slate-300 hover:shadow-md',
         FOCUS_RING,
-        isUnassigned
-          ? 'border-rose-200 hover:border-rose-300'
-          : 'border-slate-200 hover:border-slate-300',
+        isUnassigned ? 'border-rose-200' : 'border-slate-200',
         compact ? 'p-3.5' : 'p-4',
         isDone ? 'opacity-90' : '',
       ].join(' ')}
     >
-      {/* Bande d'accent gauche */}
-      <span className={`absolute inset-y-0 left-0 w-1 ${statusBarClass}`} />
-
-      <div className="pl-1.5">
-        {/* Header : n° vol + statut */}
+      <div>
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              {isDone && (
-                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-              )}
-
-              <span className="font-mono text-sm font-bold tracking-wide text-slate-950">
+              <span className="font-mono text-sm font-bold tracking-wide text-slate-900">
                 {flight.flightNumber}
               </span>
-
-              <StatusBadge style={statusStyle} />
-
+              <StatusBadge status={flight.status} label={statusStyle.label} />
               {isInFlight && (
-                <span className="inline-flex items-center gap-1 rounded-md bg-sky-50 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-sky-700">
+                <span className="inline-flex items-center gap-1 rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-medium text-sky-700">
                   <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-sky-500" />
                   Live
                 </span>
               )}
+              {isDone && (
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+              )}
             </div>
 
             <div className="mt-2 flex items-center gap-1.5">
-              <Plane className="h-3.5 w-3.5 shrink-0 rotate-45 text-emerald-600" />
-              <span className="truncate font-mono text-xs font-semibold text-slate-600">
+              <span className="truncate font-mono text-xs font-medium text-slate-500">
                 {displayRoute(flight)}
               </span>
             </div>
@@ -257,13 +240,12 @@ const FlightCard: React.FC<FlightCardProps> = ({
           <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:text-emerald-600" />
         </div>
 
-        {/* Timeline Départ → Arrivée */}
-        <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-2 rounded-xl border border-slate-100 bg-slate-50/70 px-3 py-2.5">
+        <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-2 rounded-lg border border-slate-100 bg-slate-50/50 px-3 py-2.5">
           <div>
-            <span className="block text-[9px] font-semibold uppercase tracking-wider text-slate-400">
+            <span className="block text-[10px] font-medium text-slate-400">
               Départ
             </span>
-            <span className="mt-0.5 block font-mono text-xs font-bold text-slate-800">
+            <span className="mt-0.5 block font-mono text-xs font-semibold text-slate-800">
               {formatLocalIso(flight.localDeparture || flight.departure)}
             </span>
           </div>
@@ -275,28 +257,33 @@ const FlightCard: React.FC<FlightCardProps> = ({
           </div>
 
           <div className="text-right">
-            <span className="block text-[9px] font-semibold uppercase tracking-wider text-slate-400">
+            <span className="block text-[10px] font-medium text-slate-400">
               Arrivée
             </span>
-            <span className="mt-0.5 block font-mono text-xs font-bold text-slate-800">
+            <span className="mt-0.5 block font-mono text-xs font-semibold text-slate-800">
               {formatLocalIso(flight.localArrival || flight.arrival)}
             </span>
           </div>
         </div>
 
-        {/* Métadonnées : météo + durée + escale + alerte */}
         <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5">
-          <WeatherPill weather={weather} />
+          <span
+            className={`inline-flex h-6 items-center gap-1.5 rounded-md px-2 text-[11px] font-medium ${weather.badge}`}
+            title={weather.recommendation || weather.label}
+          >
+            {weather.icon}
+            {weather.label}
+          </span>
 
           {flight.durationMinutes != null && (
-            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-500">
+            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500">
               <Timer className="h-3 w-3 text-slate-400" />
               {formatDuration(flight.durationMinutes)}
             </span>
           )}
 
           {flight.stopover && (
-            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-500">
+            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500">
               <ArrowRight className="h-3 w-3 text-slate-400" />
               Escale
               {flight.stopoverDurationMinutes
@@ -306,7 +293,7 @@ const FlightCard: React.FC<FlightCardProps> = ({
           )}
 
           {isUnassigned && (
-            <span className="ml-auto inline-flex items-center gap-1 rounded-md border border-rose-200 bg-rose-50 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-rose-700">
+            <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-medium text-rose-700">
               <ShieldAlert className="h-3 w-3" />
               Affectation requise
             </span>
@@ -318,7 +305,7 @@ const FlightCard: React.FC<FlightCardProps> = ({
 };
 
 /* ========================================================================== */
-/* COMPOSANT PRINCIPAL DU PLANNING                                           */
+/* COMPOSANT PRINCIPAL DU PLANNING                                            */
 /* ========================================================================== */
 
 export const FlightPlanning: React.FC<FlightPlanningProps> = ({
@@ -331,11 +318,11 @@ export const FlightPlanning: React.FC<FlightPlanningProps> = ({
   displayRoute,
   getWeatherIndicator,
   onSelectFlight,
+  topHeader,
 }) => {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
 
-  /* -------------------- Filtrage + tri -------------------- */
   const filteredFlights = useMemo(() => {
     const needle = searchQuery.trim().toLowerCase();
 
@@ -367,7 +354,6 @@ export const FlightPlanning: React.FC<FlightPlanningProps> = ({
       );
   }, [flights, searchQuery, statusFilter]);
 
-  /* -------------------- Groupement par aéronef -------------------- */
   const flightsByAircraft = useMemo(() => {
     const groups = new Map<string, Flight[]>();
 
@@ -383,7 +369,6 @@ export const FlightPlanning: React.FC<FlightPlanningProps> = ({
     });
   }, [filteredFlights]);
 
-  /* -------------------- Lookup flotte -------------------- */
   const aircraftLookup = useMemo(
     () =>
       new Map(
@@ -413,29 +398,31 @@ export const FlightPlanning: React.FC<FlightPlanningProps> = ({
     ['UNASSIGNED', 'Non assignés'],
   ];
 
-  /* -------------------- Nombre d'appareils avec vols -------------------- */
   const aircraftWithFlightsCount = flightsByAircraft.filter(
     ([key]) => key !== UNASSIGNED_AIRCRAFT,
   ).length;
 
+  /* ══════════════════════════════════════════════════════════════════════ */
+  /* UN SEUL DIV — UN SEUL FOND BLANC — TOUT DEDANS                       */
+  /* ══════════════════════════════════════════════════════════════════════ */
   return (
-    <>
-      {/* ═══════════════ RECHERCHE & FILTRES ═══════════════ */}
-      <section
-        className={`sticky top-2 z-20 ${SURFACE} p-3 backdrop-blur supports-[backdrop-filter]:bg-white/85 sm:p-4`}
-      >
-        <div className="grid gap-3 xl:grid-cols-[340px_minmax(0,1fr)]">
-          {/* Recherche */}
-          <div className="relative">
-            <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+      {/* ─────────────── TOP HEADER (OTP) ─────────────── */}
+      {topHeader && (
+        <div className="border-b border-slate-100 p-5">{topHeader}</div>
+      )}
 
+      {/* ─────────────── RECHERCHE + FILTRES ─────────────── */}
+      <div className="border-b border-slate-100 p-4">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="relative w-full lg:max-w-[320px]">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               value={searchQuery}
               onChange={event => setSearchQuery(event.target.value)}
               placeholder="Vol, aéroport, appareil..."
-              className={`h-10 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-9 text-xs font-medium text-slate-700 placeholder:text-slate-400 focus:bg-white ${FOCUS_RING}`}
+              className={`h-10 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-9 text-sm text-slate-700 placeholder:text-slate-400 ${FOCUS_RING}`}
             />
-
             {searchQuery && (
               <button
                 type="button"
@@ -448,12 +435,11 @@ export const FlightPlanning: React.FC<FlightPlanningProps> = ({
             )}
           </div>
 
-          {/* Filtres */}
           <div className="flex flex-wrap items-center gap-2">
-            <div className="hidden items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400 sm:inline-flex">
-              <SlidersHorizontal className="h-3.5 w-3.5" />
-              Filtres
-            </div>
+            <span className="hidden items-center gap-1.5 text-sm font-medium text-slate-500 sm:inline-flex">
+              <Filter className="h-4 w-4 text-slate-400" />
+              Filtrer :
+            </span>
 
             {filters.map(([value, label]) => {
               const active = statusFilter === value;
@@ -464,12 +450,12 @@ export const FlightPlanning: React.FC<FlightPlanningProps> = ({
                   type="button"
                   key={value}
                   onClick={() => setStatusFilter(value)}
-                  className={`h-8 rounded-lg border px-3 text-[10px] font-semibold transition ${FOCUS_RING} ${
+                  className={`h-8 rounded-full px-3.5 text-sm font-medium transition ${
                     active
                       ? isUnassigned
-                        ? 'border-rose-600 bg-rose-600 text-white'
-                        : 'border-emerald-600 bg-emerald-600 text-white'
-                      : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                        ? 'bg-rose-600 text-white'
+                        : 'bg-emerald-600 text-white'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                   }`}
                 >
                   {label}
@@ -481,7 +467,7 @@ export const FlightPlanning: React.FC<FlightPlanningProps> = ({
               <button
                 type="button"
                 onClick={resetFilters}
-                className="ml-auto inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-[10px] font-semibold text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700"
+                className="ml-auto inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
               >
                 <X className="h-3 w-3" />
                 Réinitialiser
@@ -489,70 +475,136 @@ export const FlightPlanning: React.FC<FlightPlanningProps> = ({
             )}
           </div>
         </div>
-      </section>
+      </div>
 
-      {/* ═══════════════ PLANNING ═══════════════ */}
-      <section className={`${SURFACE} overflow-hidden`}>
-        {/* Header */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3.5 sm:px-5">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
-              <Activity className="h-4 w-4" />
-            </div>
-
-            <div>
-              <h2 className="text-sm font-semibold text-slate-900">
-                Planning des rotations
-              </h2>
-              <p className="text-[11px] text-slate-500">
-                {filteredFlights.length} vol{filteredFlights.length > 1 ? 's' : ''} ·{' '}
-                {aircraftWithFlightsCount} appareil
-                {aircraftWithFlightsCount > 1 ? 's' : ''}
-              </p>
-            </div>
+      {/* ─────────────── HEADER PLANNING ─────────────── */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
+        <div className="flex items-center gap-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+            <Activity className="h-4 w-4" />
           </div>
 
-          <div className="flex items-center gap-2">
-            {isFetching && (
-              <span className="inline-flex items-center gap-1.5 rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1 text-[10px] font-semibold text-sky-700">
-                <RefreshCw className="h-3 w-3 animate-spin" />
-                Actualisation
-              </span>
-            )}
+          <div>
+            <h2 className="text-sm font-semibold text-slate-900">
+              Planning des rotations
+            </h2>
+            <p className="mt-0.5 text-xs text-slate-500">
+              {filteredFlights.length} vol{filteredFlights.length > 1 ? 's' : ''} ·{' '}
+              {aircraftWithFlightsCount} appareil
+              {aircraftWithFlightsCount > 1 ? 's' : ''}
+            </p>
           </div>
         </div>
 
-        {/* Contenu */}
-        {isFetching && flights.length === 0 ? (
-          <LoadingSkeleton />
-        ) : flightsByAircraft.length === 0 ? (
-          <div className="flex min-h-[280px] flex-col items-center justify-center p-6 text-center">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-50 text-slate-300">
-              <Search className="h-6 w-6" />
-            </div>
-            <p className="mt-3 text-sm font-semibold text-slate-700">
-              Aucun vol trouvé
-            </p>
-            <p className="mt-1 text-xs text-slate-500">
-              {activeFilterCount > 0
-                ? 'Ajustez vos filtres ou votre recherche.'
-                : 'Aucune rotation planifiée pour le moment.'}
-            </p>
-            {activeFilterCount > 0 && (
-              <button
-                type="button"
-                onClick={resetFilters}
-                className={`mt-4 inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 ${FOCUS_RING}`}
-              >
-                <X className="h-3.5 w-3.5" />
-                Réinitialiser les filtres
-              </button>
-            )}
+        {isFetching && (
+          <span className="inline-flex items-center gap-1.5 rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-700">
+            <RefreshCw className="h-3 w-3 animate-spin" />
+            Actualisation
+          </span>
+        )}
+      </div>
+
+      {/* ─────────────── CONTENU ─────────────── */}
+      {isFetching && flights.length === 0 ? (
+        <LoadingSkeleton />
+      ) : flightsByAircraft.length === 0 ? (
+        <div className="flex min-h-[280px] flex-col items-center justify-center p-6 text-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-50 text-slate-300">
+            <Search className="h-6 w-6" />
           </div>
-        ) : (
-          <>
-            {/* ═══════ MOBILE ═══════ */}
-            <div className="divide-y divide-slate-100 lg:hidden">
+          <p className="mt-3 text-sm font-medium text-slate-700">
+            Aucun vol trouvé
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            {activeFilterCount > 0
+              ? 'Ajustez vos filtres ou votre recherche.'
+              : 'Aucune rotation planifiée pour le moment.'}
+          </p>
+          {activeFilterCount > 0 && (
+            <button
+              type="button"
+              onClick={resetFilters}
+              className={`mt-4 inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 transition hover:bg-slate-50 ${FOCUS_RING}`}
+            >
+              <X className="h-3.5 w-3.5" />
+              Réinitialiser les filtres
+            </button>
+          )}
+        </div>
+      ) : (
+        <>
+          {/* MOBILE */}
+          <div className="divide-y divide-slate-100 lg:hidden">
+            {flightsByAircraft.map(([aircraft, aircraftFlights]) => {
+              const fallbackLabel =
+                aircraftFlights.find(flight => flight.aircraftModel)
+                  ?.aircraftModel || 'Appareil inconnu';
+
+              const aircraftLabel =
+                aircraftLookup.get(aircraft) || fallbackLabel;
+
+              const isUnassigned = aircraft === UNASSIGNED_AIRCRAFT;
+
+              return (
+                <div key={aircraft} className="p-4">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5">
+                      <div
+                        className={`flex h-8 w-8 items-center justify-center rounded-lg ${
+                          isUnassigned
+                            ? 'bg-rose-50 text-rose-600'
+                            : 'bg-slate-100 text-slate-700'
+                        }`}
+                      >
+                        <Plane className="h-3.5 w-3.5" />
+                      </div>
+                      <span
+                        className={`font-mono text-sm font-bold ${
+                          isUnassigned ? 'text-rose-700' : 'text-slate-900'
+                        }`}
+                      >
+                        {isUnassigned ? 'Non assigné' : aircraftLabel}
+                      </span>
+                    </div>
+
+                    <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-medium text-slate-600">
+                      {aircraftFlights.length} vol
+                      {aircraftFlights.length > 1 ? 's' : ''}
+                    </span>
+                  </div>
+
+                  <div className="grid gap-2.5 sm:grid-cols-2">
+                    {aircraftFlights.map(flight => (
+                      <FlightCard
+                        key={flight.id}
+                        flight={flight}
+                        mode="mobile"
+                        statusStyles={statusStyles}
+                        formatLocalIso={formatLocalIso}
+                        formatDuration={formatDuration}
+                        displayRoute={displayRoute}
+                        getWeatherIndicator={getWeatherIndicator}
+                        onSelectFlight={onSelectFlight}
+                      />
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* DESKTOP */}
+          <div className="hidden lg:block">
+            <div className="grid grid-cols-[220px_minmax(0,1fr)] border-b border-slate-100 bg-slate-50/70">
+              <div className="border-r border-slate-100 px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                AÉRONEF
+              </div>
+              <div className="px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                ROTATIONS AFFECTÉES
+              </div>
+            </div>
+
+            <div className="divide-y divide-slate-100">
               {flightsByAircraft.map(([aircraft, aircraftFlights]) => {
                 const fallbackLabel =
                   aircraftFlights.find(flight => flight.aircraftModel)
@@ -564,42 +616,60 @@ export const FlightPlanning: React.FC<FlightPlanningProps> = ({
                 const isUnassigned = aircraft === UNASSIGNED_AIRCRAFT;
 
                 return (
-                  <div key={aircraft} className="p-3.5 sm:p-4">
-                    {/* Header de groupe */}
-                    <div className="mb-3 flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-2.5">
-                        <div
-                          className={`flex h-8 w-8 items-center justify-center rounded-lg ${
-                            isUnassigned
-                              ? 'bg-rose-50 text-rose-600'
-                              : 'bg-slate-100 text-slate-700'
-                          }`}
-                        >
-                          <Plane className="h-3.5 w-3.5" />
-                        </div>
-                        <span
-                          className={`font-mono text-sm font-bold ${
-                            isUnassigned
-                              ? 'text-rose-700'
-                              : 'text-slate-900'
-                          }`}
-                        >
-                          {isUnassigned ? 'Non assigné' : aircraftLabel}
+                  <div
+                    key={aircraft}
+                    className="grid grid-cols-[220px_minmax(0,1fr)]"
+                  >
+                    <aside
+                      className={`border-r border-slate-100 p-5 ${
+                        isUnassigned ? 'bg-rose-50/40' : 'bg-slate-50/40'
+                      }`}
+                    >
+                      {isUnassigned ? (
+                        <>
+                          <div className="flex items-center gap-2">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-100 text-rose-600">
+                              <ShieldAlert className="h-4 w-4" />
+                            </div>
+                            <span className="text-xs font-semibold text-rose-700">
+                              Non assigné
+                            </span>
+                          </div>
+                          <p className="mt-3 text-[10px] leading-4 text-rose-600/80">
+                            Vols en attente d'affectation
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex items-center gap-2">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+                              <Plane className="h-4 w-4" />
+                            </div>
+                            <strong className="truncate font-mono text-sm font-bold text-slate-900">
+                              {aircraftLabel}
+                            </strong>
+                          </div>
+
+                          <span className="mt-2 block font-mono text-[10px] text-slate-400">
+                            REF {aircraft.slice(0, 8).toUpperCase()}
+                          </span>
+                        </>
+                      )}
+
+                      <div className="mt-4 flex items-center gap-1.5 border-t border-slate-200/80 pt-3">
+                        <span className="text-[10px] font-medium text-slate-500">
+                          {aircraftFlights.length} rotation
+                          {aircraftFlights.length > 1 ? 's' : ''}
                         </span>
                       </div>
+                    </aside>
 
-                      <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
-                        {aircraftFlights.length} vol
-                        {aircraftFlights.length > 1 ? 's' : ''}
-                      </span>
-                    </div>
-
-                    <div className="grid gap-2.5 sm:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-3 p-4 xl:grid-cols-2 2xl:grid-cols-3">
                       {aircraftFlights.map(flight => (
                         <FlightCard
                           key={flight.id}
                           flight={flight}
-                          mode="mobile"
+                          mode="desktop"
                           statusStyles={statusStyles}
                           formatLocalIso={formatLocalIso}
                           formatDuration={formatDuration}
@@ -613,106 +683,10 @@ export const FlightPlanning: React.FC<FlightPlanningProps> = ({
                 );
               })}
             </div>
-
-            {/* ═══════ DESKTOP ═══════ */}
-            <div className="hidden lg:block">
-              <div className="grid grid-cols-[220px_minmax(0,1fr)] border-b border-slate-100 bg-slate-50/70">
-                <div className="border-r border-slate-100 px-5 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                  Aéronef
-                </div>
-                <div className="px-5 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                  Rotations affectées
-                </div>
-              </div>
-
-              <div className="divide-y divide-slate-100">
-                {flightsByAircraft.map(([aircraft, aircraftFlights]) => {
-                  const fallbackLabel =
-                    aircraftFlights.find(flight => flight.aircraftModel)
-                      ?.aircraftModel || 'Appareil inconnu';
-
-                  const aircraftLabel =
-                    aircraftLookup.get(aircraft) || fallbackLabel;
-
-                  const isUnassigned = aircraft === UNASSIGNED_AIRCRAFT;
-
-                  return (
-                    <div
-                      key={aircraft}
-                      className="grid grid-cols-[220px_minmax(0,1fr)]"
-                    >
-                      {/* Sidebar appareil */}
-                      <aside
-                        className={`border-r border-slate-100 p-5 ${
-                          isUnassigned
-                            ? 'bg-rose-50/40'
-                            : 'bg-slate-50/40'
-                        }`}
-                      >
-                        {isUnassigned ? (
-                          <>
-                            <div className="flex items-center gap-2">
-                              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-100 text-rose-600">
-                                <ShieldAlert className="h-4 w-4" />
-                              </div>
-                              <span className="text-xs font-semibold text-rose-700">
-                                Non assigné
-                              </span>
-                            </div>
-                            <p className="mt-3 text-[10px] leading-4 text-rose-600/80">
-                              Vols en attente d'affectation
-                            </p>
-                          </>
-                        ) : (
-                          <>
-                            <div className="flex items-center gap-2">
-                              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-emerald-700 ring-1 ring-slate-200">
-                                <Plane className="h-4 w-4" />
-                              </div>
-                              <strong className="truncate font-mono text-sm font-bold text-slate-900">
-                                {aircraftLabel}
-                              </strong>
-                            </div>
-
-                            <span className="mt-2 block font-mono text-[10px] text-slate-400">
-                              REF {aircraft.slice(0, 8).toUpperCase()}
-                            </span>
-                          </>
-                        )}
-
-                        <div className="mt-4 flex items-center gap-1.5 border-t border-slate-200/80 pt-3">
-                          <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                            {aircraftFlights.length} rotation
-                            {aircraftFlights.length > 1 ? 's' : ''}
-                          </span>
-                        </div>
-                      </aside>
-
-                      {/* Grille de vols */}
-                      <div className="grid grid-cols-1 gap-3 p-4 xl:grid-cols-2 2xl:grid-cols-3">
-                        {aircraftFlights.map(flight => (
-                          <FlightCard
-                            key={flight.id}
-                            flight={flight}
-                            mode="desktop"
-                            statusStyles={statusStyles}
-                            formatLocalIso={formatLocalIso}
-                            formatDuration={formatDuration}
-                            displayRoute={displayRoute}
-                            getWeatherIndicator={getWeatherIndicator}
-                            onSelectFlight={onSelectFlight}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </>
-        )}
-      </section>
-    </>
+          </div>
+        </>
+      )}
+    </section>
   );
 };
 

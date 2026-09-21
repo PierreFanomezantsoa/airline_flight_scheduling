@@ -17,11 +17,8 @@ import { useCrewAssignments } from './useCrewAssignments';
  * DESIGN TOKENS
  * ========================================================================== */
 
-const SURFACE = 'rounded-2xl border border-slate-200 bg-white shadow-sm';
 const FOCUS_RING =
-  'outline-none transition focus:border-emerald-600 focus:ring-4 focus:ring-emerald-600/10';
-const LABEL_UPPER =
-  'text-[10px] font-semibold uppercase tracking-wider text-slate-500';
+  'outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10';
 
 const MIN_REST_HOURS = 11;
 
@@ -48,87 +45,63 @@ const formatRestHours = (hours?: number | null): string => {
  * SOUS-COMPOSANTS
  * ========================================================================== */
 
-function MetricCard({
+function KpiCard({
   label,
   value,
   hint,
   icon,
-  variant = 'neutral',
+  accent = 'emerald',
 }: {
   label: string;
   value: number | string;
   hint: string;
   icon: React.ReactNode;
-  variant?: 'neutral' | 'primary' | 'success' | 'warning' | 'danger' | 'info';
+  accent?: 'emerald' | 'amber' | 'sky' | 'violet';
 }) {
-  const styles = {
-    neutral: {
-      ring: 'border-slate-200 bg-white',
-      icon: 'bg-slate-100 text-slate-600',
-      value: 'text-slate-900',
-      accent: null as string | null,
+  const accents = {
+    emerald: {
+      bg: 'bg-emerald-50',
+      text: 'text-emerald-600',
+      value: 'text-emerald-700',
+      bar: 'from-emerald-400/80 to-emerald-500/40',
     },
-    primary: {
-      ring: 'border-emerald-200 bg-emerald-50/40',
-      icon: 'bg-emerald-600 text-white shadow-sm shadow-emerald-600/20',
-      value: 'text-emerald-900',
-      accent: 'bg-emerald-600',
+    amber: {
+      bg: 'bg-amber-50',
+      text: 'text-amber-600',
+      value: 'text-amber-700',
+      bar: 'from-amber-400/80 to-amber-500/40',
     },
-    success: {
-      ring: 'border-emerald-200 bg-white',
-      icon: 'bg-emerald-100 text-emerald-700',
-      value: 'text-emerald-800',
-      accent: null,
+    sky: {
+      bg: 'bg-sky-50',
+      text: 'text-sky-600',
+      value: 'text-sky-700',
+      bar: 'from-sky-400/80 to-sky-500/40',
     },
-    info: {
-      ring: 'border-sky-200 bg-white',
-      icon: 'bg-sky-100 text-sky-700',
-      value: 'text-sky-800',
-      accent: null,
+    violet: {
+      bg: 'bg-violet-50',
+      text: 'text-violet-600',
+      value: 'text-violet-700',
+      bar: 'from-violet-400/80 to-violet-500/40',
     },
-    warning: {
-      ring: 'border-amber-200 bg-amber-50/40',
-      icon: 'bg-amber-100 text-amber-700',
-      value: 'text-amber-800',
-      accent: 'bg-amber-500',
-    },
-    danger: {
-      ring: 'border-rose-200 bg-rose-50/40',
-      icon: 'bg-rose-100 text-rose-700',
-      value: 'text-rose-800',
-      accent: 'bg-rose-500',
-    },
-  } as const;
-
-  const s = styles[variant];
+  }[accent];
 
   return (
-    <article
-      className={`relative overflow-hidden rounded-2xl border p-3.5 shadow-sm transition hover:shadow-md sm:p-4 ${s.ring}`}
-    >
-      {s.accent && (
-        <span
-          className={`absolute inset-x-0 top-0 h-0.5 ${s.accent}`}
-          aria-hidden
-        />
-      )}
-
+    <article className="group relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md">
+      <div className={`absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r ${accents.bar}`} />
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <span className={LABEL_UPPER}>{label}</span>
-          <p
-            className={`mt-2 text-2xl font-bold tabular-nums sm:text-3xl ${s.value}`}
-          >
-            {value}
-          </p>
-          <p className="mt-1 text-[10px] font-medium text-slate-400">{hint}</p>
-        </div>
+        <span className="text-[13px] font-medium text-slate-500">{label}</span>
         <div
-          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${s.icon}`}
+          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${accents.bg} ${accents.text} transition-transform group-hover:scale-110`}
         >
           {icon}
         </div>
       </div>
+      <div className="mt-5 flex items-baseline gap-2">
+        <span className={`text-[28px] font-bold tabular-nums leading-none tracking-tight ${accents.value}`}>
+          {value}
+        </span>
+      </div>
+      <p className="mt-2 text-[11px] font-medium text-slate-400">{hint}</p>
     </article>
   );
 }
@@ -142,7 +115,7 @@ function AlertBanner({
 }) {
   const config = {
     success: {
-      ring: 'border-emerald-200 bg-emerald-50/60',
+      ring: 'border-emerald-200 bg-emerald-50/70',
       icon: 'bg-emerald-100 text-emerald-700',
       title: 'text-emerald-800',
       body: 'text-emerald-700',
@@ -150,7 +123,7 @@ function AlertBanner({
       label: 'Opération réussie',
     },
     error: {
-      ring: 'border-rose-200 bg-rose-50/60',
+      ring: 'border-rose-200 bg-rose-50/70',
       icon: 'bg-rose-100 text-rose-700',
       title: 'text-rose-800',
       body: 'text-rose-700',
@@ -158,7 +131,7 @@ function AlertBanner({
       label: 'Action impossible',
     },
     info: {
-      ring: 'border-sky-200 bg-sky-50/60',
+      ring: 'border-sky-200 bg-sky-50/70',
       icon: 'bg-sky-100 text-sky-700',
       title: 'text-sky-800',
       body: 'text-sky-700',
@@ -174,15 +147,11 @@ function AlertBanner({
       className={`flex items-start gap-3 rounded-2xl border px-4 py-3.5 shadow-sm ${config.ring}`}
       role="alert"
     >
-      <div
-        className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${config.icon}`}
-      >
+      <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${config.icon}`}>
         <Icon className="h-4 w-4" />
       </div>
       <div className="min-w-0 flex-1">
-        <p className={`text-xs font-semibold ${config.title}`}>
-          {config.label}
-        </p>
+        <p className={`text-sm font-semibold ${config.title}`}>{config.label}</p>
         <p className={`mt-0.5 text-xs leading-5 ${config.body}`}>{text}</p>
       </div>
     </div>
@@ -195,20 +164,37 @@ function RestBar({ hours }: { hours: number }) {
   const isCritical = hours < MIN_REST_HOURS * 0.7;
 
   const barColor = isCritical
-    ? 'bg-rose-500'
+    ? 'bg-gradient-to-r from-rose-400 to-rose-500'
     : isOk
-      ? 'bg-emerald-500'
-      : 'bg-amber-500';
+      ? 'bg-gradient-to-r from-emerald-400 to-emerald-500'
+      : 'bg-gradient-to-r from-amber-400 to-amber-500';
 
   return (
-    <div className="w-full">
-      <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
-        <div
-          className={`h-full rounded-full transition-all duration-500 ${barColor}`}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
+    <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+      <div
+        className={`h-full rounded-full transition-all duration-500 ${barColor}`}
+        style={{ width: `${pct}%` }}
+      />
     </div>
+  );
+}
+
+function StatusDot({ status }: { status: 'available' | 'assigned' | 'rest' }) {
+  const map = {
+    available: 'bg-emerald-500 shadow-emerald-500/40',
+    assigned: 'bg-sky-500 shadow-sky-500/40',
+    rest: 'bg-amber-500 shadow-amber-500/40',
+  };
+  const label = {
+    available: 'Disponible',
+    assigned: 'En vol',
+    rest: 'Repos insuffisant',
+  };
+  return (
+    <span className="relative flex h-3 w-3" title={label[status]}>
+      <span className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-30 ${map[status]}`} />
+      <span className={`relative inline-flex h-3 w-3 rounded-full border-2 border-white shadow-sm ${map[status]}`} />
+    </span>
   );
 }
 
@@ -217,13 +203,7 @@ function RestBar({ hours }: { hours: number }) {
  * ========================================================================== */
 
 export const CrewAssignment: React.FC = () => {
-  const {
-    flights,
-    crew,
-    loading,
-    error: apiError,
-    assignCrewMember,
-  } = useCrewAssignments();
+  const { flights, crew, loading, error: apiError, assignCrewMember } = useCrewAssignments();
 
   const [selectedFlightId, setSelectedFlightId] = useState<string>('');
   const [selectedMemberId, setSelectedMemberId] = useState<string>('');
@@ -240,9 +220,7 @@ export const CrewAssignment: React.FC = () => {
     const total = crew.length;
     const assigned = crew.filter(m => Boolean(m.volAssigne)).length;
     const available = crew.filter(
-      m =>
-        !m.volAssigne &&
-        (m.heuresReposAvant ?? 0) >= MIN_REST_HOURS,
+      m => !m.volAssigne && (m.heuresReposAvant ?? 0) >= MIN_REST_HOURS,
     ).length;
     const alerts = crew.filter(
       m => (m.heuresReposAvant ?? 0) < MIN_REST_HOURS,
@@ -305,13 +283,11 @@ export const CrewAssignment: React.FC = () => {
   if (loading) {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 text-center">
-        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-lg shadow-emerald-500/25">
           <Loader2 className="h-6 w-6 animate-spin" />
         </div>
         <div>
-          <p className="text-sm font-semibold text-slate-800">
-            Chargement du registre d'équipage
-          </p>
+          <p className="text-sm font-semibold text-slate-800">Chargement du registre d'équipage</p>
           <p className="mt-1 text-xs text-slate-400">
             Synchronisation des affectations et du personnel navigant...
           </p>
@@ -321,30 +297,27 @@ export const CrewAssignment: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 p-3 text-slate-800 antialiased sm:p-4 lg:p-5">
-      <div className="mx-auto max-w-[1500px] space-y-4">
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100/50 p-4 sm:p-6">
+      <div className="mx-auto max-w-7xl space-y-6">
         {/* ═══════════════ HEADER ═══════════════ */}
-        <header className={`${SURFACE} p-4 sm:p-5`}>
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-start gap-3.5">
-              <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm shadow-emerald-600/20">
-                <Plane className="h-5 w-5 rotate-45" />
-                <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-400" />
-              </div>
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="text-lg font-bold tracking-tight text-slate-950 sm:text-xl">
-                    Affectation des équipages
-                  </h1>
-                  <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
-                    OCC
-                  </span>
-                </div>
-                <p className="mt-0.5 text-xs text-slate-500 sm:text-sm">
-                  Conformité réglementaire et affectation des agents de bord
-                </p>
-              </div>
+        <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-lg shadow-emerald-500/25">
+              <UserCheck className="h-5 w-5" />
             </div>
+            <div>
+              <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
+                Registre d'équipage
+              </h1>
+              <p className="mt-0.5 text-[13px] text-slate-500">
+                Suivi des affectations et conformité réglementaire
+              </p>
+            </div>
+          </div>
+
+          <div className="inline-flex h-10 items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50/60 px-3.5 text-xs font-semibold text-emerald-700 shadow-sm">
+            <ShieldCheck className="h-4 w-4" />
+            Réglementation {MIN_REST_HOURS}h minimum
           </div>
         </header>
 
@@ -352,69 +325,57 @@ export const CrewAssignment: React.FC = () => {
         {apiError && <AlertBanner type="error" text={apiError} />}
 
         {/* ═══════════════ KPI ═══════════════ */}
-        <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <MetricCard
+        <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <KpiCard
             label="Effectif total"
             value={stats.total}
             hint="Membres enregistrés"
             icon={<Users className="h-4 w-4" />}
-            variant="primary"
+            accent="emerald"
           />
-          <MetricCard
+          <KpiCard
             label="Disponibles"
             value={stats.available}
             hint="Repos conforme"
             icon={<UserCheck className="h-4 w-4" />}
-            variant="success"
+            accent="sky"
           />
-          <MetricCard
+          <KpiCard
             label="En vol"
             value={stats.assigned}
             hint="Actuellement affectés"
             icon={<Plane className="h-4 w-4" />}
-            variant="info"
+            accent="violet"
           />
-          <MetricCard
+          <KpiCard
             label="Alertes repos"
             value={stats.alerts}
             hint="Repos insuffisant"
             icon={<AlertTriangle className="h-4 w-4" />}
-            variant={stats.alerts > 0 ? 'warning' : 'neutral'}
+            accent="amber"
           />
         </section>
 
         {/* ═══════════════ CONTENU PRINCIPAL ═══════════════ */}
-        <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-12">
+        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
           {/* ═════════ REGISTRE ═════════ */}
-          <section
-            className={`${SURFACE} lg:col-span-7 xl:col-span-8`}
-          >
-            {/* Header section */}
-            <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3.5 sm:px-5">
+          <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm lg:col-span-7 xl:col-span-8">
+            <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
               <div className="flex items-center gap-2.5">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
-                  <Users className="h-4 w-4" />
-                </div>
-                <div>
-                  <h2 className="text-sm font-semibold text-slate-900">
-                    Registre du personnel
-                  </h2>
-                  <p className="text-[10px] text-slate-500">
-                    Statut de repos et affectation en temps réel
-                  </p>
-                </div>
+                <h2 className="text-sm font-semibold text-slate-900">Registre du personnel</h2>
+                <span className="inline-flex h-5 items-center rounded-md bg-slate-100 px-2 text-[11px] font-semibold text-slate-600 tabular-nums">
+                  {crew.length}
+                </span>
               </div>
-
-              <span className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-semibold text-slate-600">
-                {crew.length} membre{crew.length > 1 ? 's' : ''}
-              </span>
+              <p className="text-xs text-slate-500">
+                Statut de repos et affectation en temps réel
+              </p>
             </header>
 
-            {/* Liste */}
             <div className="divide-y divide-slate-100">
               {crew.length === 0 ? (
                 <div className="flex min-h-[200px] flex-col items-center justify-center p-6 text-center">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-50 text-slate-300">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-50 text-slate-300">
                     <Users className="h-6 w-6" />
                   </div>
                   <p className="mt-3 text-sm font-semibold text-slate-700">
@@ -431,35 +392,24 @@ export const CrewAssignment: React.FC = () => {
                   const isAssigned = Boolean(member.volAssigne);
                   const isAvailable = isRestOk && !isAssigned;
                   const initials = getInitials(member.nom);
+                  const status: 'available' | 'assigned' | 'rest' = isAvailable
+                    ? 'available'
+                    : isAssigned
+                      ? 'assigned'
+                      : 'rest';
 
                   return (
-                    <article
-                      key={member.id}
-                      className="group transition hover:bg-emerald-50/20"
-                    >
-                      <div className="flex flex-col gap-3 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                    <article key={member.id} className="group transition hover:bg-slate-50/70">
+                      <div className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
                         {/* Identité */}
                         <div className="flex min-w-0 items-center gap-3">
                           <div className="relative shrink-0">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-600 ring-1 ring-slate-200">
+                            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-slate-100 to-slate-200 text-xs font-bold text-slate-600 ring-1 ring-inset ring-slate-200/70">
                               {initials}
                             </div>
-                            <span
-                              className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white ${
-                                isAvailable
-                                  ? 'bg-emerald-500'
-                                  : isAssigned
-                                    ? 'bg-sky-500'
-                                    : 'bg-amber-500'
-                              }`}
-                              title={
-                                isAvailable
-                                  ? 'Disponible'
-                                  : isAssigned
-                                    ? 'En vol'
-                                    : 'Repos insuffisant'
-                              }
-                            />
+                            <div className="absolute -bottom-0.5 -right-0.5">
+                              <StatusDot status={status} />
+                            </div>
                           </div>
 
                           <div className="min-w-0">
@@ -467,16 +417,16 @@ export const CrewAssignment: React.FC = () => {
                               {member.nom}
                             </h3>
                             <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                              <span className="rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">
+                              <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600 ring-1 ring-inset ring-slate-200/70">
                                 {member.role}
                               </span>
                               {member.niveauMetier && (
-                                <span className="rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
+                                <span className="rounded-md bg-slate-50 px-1.5 py-0.5 text-[10px] font-medium text-slate-500 ring-1 ring-inset ring-slate-200/70">
                                   Niv. {member.niveauMetier}
                                 </span>
                               )}
                               {member.niveauTechnique && (
-                                <span className="rounded-md border border-sky-200 bg-sky-50 px-1.5 py-0.5 text-[10px] font-medium text-sky-700">
+                                <span className="rounded-md bg-sky-50 px-1.5 py-0.5 text-[10px] font-medium text-sky-700 ring-1 ring-inset ring-sky-200/70">
                                   Tech {member.niveauTechnique}
                                 </span>
                               )}
@@ -485,19 +435,16 @@ export const CrewAssignment: React.FC = () => {
                         </div>
 
                         {/* Stats */}
-                        <div className="flex items-center gap-3 border-t border-slate-100 pt-3 sm:border-0 sm:pt-0">
-                          {/* Repos */}
-                          <div className="min-w-[100px] flex-1 sm:flex-initial">
+                        <div className="flex items-center gap-4 border-t border-slate-100 pt-3 sm:border-0 sm:pt-0">
+                          <div className="min-w-[110px] flex-1 sm:flex-initial">
                             <div className="flex items-center justify-between gap-2">
-                              <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                              <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                                 <Clock className="h-3 w-3" />
                                 Repos
                               </span>
                               <span
-                                className={`font-mono text-[11px] font-bold ${
-                                  isRestOk
-                                    ? 'text-emerald-700'
-                                    : 'text-amber-700'
+                                className={`font-mono text-[11px] font-bold tabular-nums ${
+                                  isRestOk ? 'text-emerald-600' : 'text-amber-600'
                                 }`}
                               >
                                 {formatRestHours(restHours)}
@@ -511,19 +458,18 @@ export const CrewAssignment: React.FC = () => {
                             </p>
                           </div>
 
-                          {/* Affectation */}
                           <div className="shrink-0">
                             {member.volAssigne ? (
-                              <span className="inline-flex items-center gap-1.5 rounded-md border border-sky-200 bg-sky-50 px-2 py-1 text-[11px] font-semibold text-sky-700">
+                              <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-2.5 py-1 text-[11px] font-semibold text-sky-700 ring-1 ring-inset ring-sky-200/70">
                                 <Plane className="h-3 w-3" />
                                 Vol {member.volAssigne.numeroVol}
                               </span>
                             ) : (
                               <span
-                                className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] font-semibold ${
+                                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ring-inset ${
                                   isRestOk
-                                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                                    : 'border-amber-200 bg-amber-50 text-amber-700'
+                                    ? 'bg-emerald-50 text-emerald-700 ring-emerald-200/70'
+                                    : 'bg-amber-50 text-amber-700 ring-amber-200/70'
                                 }`}
                               >
                                 {isRestOk ? (
@@ -552,33 +498,28 @@ export const CrewAssignment: React.FC = () => {
           {/* ═════════ FORMULAIRE ═════════ */}
           <form
             onSubmit={handleAssign}
-            className={`${SURFACE} lg:col-span-5 xl:col-span-4 lg:sticky lg:top-4`}
+            className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm lg:col-span-5 lg:sticky lg:top-4 xl:col-span-4"
           >
-            {/* Header form */}
-            <header className="flex items-center gap-2.5 border-b border-slate-100 px-4 py-3.5 sm:px-5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
+            <header className="flex items-center gap-3 border-b border-slate-100 bg-gradient-to-r from-emerald-50/60 to-white px-5 py-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600 ring-1 ring-inset ring-emerald-200/70">
                 <UserCheck className="h-4 w-4" />
               </div>
               <div>
-                <h2 className="text-sm font-semibold text-slate-900">
-                  Nouvelle affectation
-                </h2>
-                <p className="text-[10px] text-slate-500">
-                  Sélectionnez un vol et un agent
-                </p>
+                <h2 className="text-sm font-semibold text-slate-900">Nouvelle affectation</h2>
+                <p className="mt-0.5 text-xs text-slate-500">Sélectionnez un vol et un agent</p>
               </div>
             </header>
 
-            <div className="space-y-4 p-4 sm:p-5">
+            <div className="space-y-4 p-5">
               {/* Vol */}
               <div>
-                <label className={`mb-1.5 block ${LABEL_UPPER}`}>
+                <label className="mb-1.5 block text-xs font-semibold text-slate-700">
                   Vol cible
                 </label>
                 <select
                   value={selectedFlightId}
                   onChange={e => setSelectedFlightId(e.target.value)}
-                  className={`h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-semibold text-slate-700 focus:bg-white ${FOCUS_RING}`}
+                  className={`h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 ${FOCUS_RING}`}
                 >
                   <option value="">Sélectionner un vol</option>
                   {flights.map(f => (
@@ -591,13 +532,13 @@ export const CrewAssignment: React.FC = () => {
 
               {/* Membre */}
               <div>
-                <label className={`mb-1.5 block ${LABEL_UPPER}`}>
+                <label className="mb-1.5 block text-xs font-semibold text-slate-700">
                   Agent d'équipage
                 </label>
                 <select
                   value={selectedMemberId}
                   onChange={e => setSelectedMemberId(e.target.value)}
-                  className={`h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-semibold text-slate-700 focus:bg-white ${FOCUS_RING}`}
+                  className={`h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 ${FOCUS_RING}`}
                 >
                   <option value="">Sélectionner un agent</option>
                   {crew.map(m => {
@@ -624,41 +565,39 @@ export const CrewAssignment: React.FC = () => {
 
               {/* Preview */}
               {currentSelectedUser && (
-                <div className="rounded-xl border border-emerald-100 bg-emerald-50/40 p-3.5">
-                  <div className="flex items-center justify-between gap-2 border-b border-emerald-100 pb-2.5">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-[10px] font-bold text-emerald-700 ring-1 ring-emerald-200">
+                <div className="rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50/60 to-white p-4">
+                  <div className="flex items-center justify-between gap-2 border-b border-emerald-100 pb-3">
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-[10px] font-bold text-emerald-700 ring-1 ring-inset ring-emerald-200/70">
                         {getInitials(currentSelectedUser.nom)}
                       </div>
                       <span className="truncate text-xs font-semibold text-slate-900">
                         {currentSelectedUser.nom}
                       </span>
                     </div>
-                    <span className="shrink-0 rounded-md border border-emerald-200 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">
+                    <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200/70">
                       {currentSelectedUser.role}
                     </span>
                   </div>
 
-                  <div className="mt-2.5 space-y-2 text-[11px]">
+                  <div className="mt-3 space-y-2 text-xs">
                     <div className="flex items-center justify-between">
                       <span className="text-slate-600">Repos cumulé</span>
                       <span
                         className={`font-mono font-bold ${
-                          (currentSelectedUser.heuresReposAvant ?? 0) >=
-                          MIN_REST_HOURS
-                            ? 'text-emerald-700'
-                            : 'text-amber-700'
+                          (currentSelectedUser.heuresReposAvant ?? 0) >= MIN_REST_HOURS
+                            ? 'text-emerald-600'
+                            : 'text-amber-600'
                         }`}
                       >
-                        {currentSelectedUser.heuresReposAvant ?? 0} h /{' '}
-                        {MIN_REST_HOURS} h
+                        {currentSelectedUser.heuresReposAvant ?? 0} h / {MIN_REST_HOURS} h
                       </span>
                     </div>
 
                     {currentSelectedUser.niveauMetier && (
                       <div className="flex items-center justify-between">
                         <span className="text-slate-600">Qualification</span>
-                        <span className="font-semibold text-slate-800">
+                        <span className="font-medium text-slate-800">
                           Niv. {currentSelectedUser.niveauMetier}
                           {currentSelectedUser.niveauTechnique
                             ? ` · Tech ${currentSelectedUser.niveauTechnique}`
@@ -671,13 +610,10 @@ export const CrewAssignment: React.FC = () => {
               )}
 
               {/* Feedback */}
-              {feedback && (
-                <AlertBanner type={feedback.type} text={feedback.msg} />
-              )}
+              {feedback && <AlertBanner type={feedback.type} text={feedback.msg} />}
             </div>
 
-            {/* Footer form */}
-            <footer className="border-t border-slate-100 p-4 sm:p-5">
+            <footer className="border-t border-slate-100 bg-slate-50/60 p-5">
               <button
                 type="submit"
                 disabled={
@@ -686,7 +622,7 @@ export const CrewAssignment: React.FC = () => {
                   submitting ||
                   Boolean(currentSelectedUser?.volAssigne)
                 }
-                className={`flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING}`}
+                className={`flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 px-4 text-xs font-semibold text-white shadow-lg shadow-emerald-500/25 transition hover:from-emerald-600 hover:to-emerald-700 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none ${FOCUS_RING}`}
               >
                 {submitting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -697,8 +633,7 @@ export const CrewAssignment: React.FC = () => {
               </button>
 
               <p className="mt-2.5 text-center text-[10px] leading-4 text-slate-400">
-                Les contrôles de repos ({MIN_REST_HOURS} h minimum) et de
-                chevauchement sont appliqués côté serveur.
+                Les contrôles de repos ({MIN_REST_HOURS} h minimum) et de chevauchement sont appliqués côté serveur.
               </p>
             </footer>
           </form>

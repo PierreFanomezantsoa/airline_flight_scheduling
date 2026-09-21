@@ -18,6 +18,8 @@ import {
   AlertCircle,
   AlertTriangle,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Gauge,
   History,
   Info,
@@ -42,9 +44,9 @@ import {
 // DESIGN TOKENS
 // =============================================================================
 
-const SURFACE = 'rounded-2xl border border-slate-200 bg-white shadow-sm';
+const SURFACE = 'rounded-xl border border-slate-200 bg-white shadow-sm';
 const FOCUS_RING =
-  'outline-none transition focus:border-emerald-600 focus:ring-4 focus:ring-emerald-600/10';
+  'outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10';
 const LABEL_UPPER =
   'text-[10px] font-semibold uppercase tracking-wider text-slate-500';
 
@@ -121,6 +123,12 @@ type Notice =
   | null;
 
 // =============================================================================
+// CONFIGURATION PAGINATION
+// =============================================================================
+
+const ITEMS_PER_PAGE = 10;
+
+// =============================================================================
 // FORMULAIRE VIDE
 // =============================================================================
 
@@ -153,7 +161,7 @@ const STATUS_OPTIONS: Array<{
 // STYLE INPUT
 // =============================================================================
 
-const inputClass = `h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 text-xs font-semibold text-slate-700 placeholder:text-slate-400 focus:bg-white ${FOCUS_RING}`;
+const inputClass = `h-11 w-full rounded-lg border border-slate-200 bg-white px-3.5 text-sm font-medium text-slate-700 placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 outline-none transition`;
 
 // =============================================================================
 // LECTURE ERREUR BACKEND
@@ -364,7 +372,7 @@ function StatusBadge({
 }) {
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[10px] font-semibold ${className}`}
+      className={`inline-flex h-6 items-center gap-1.5 rounded-full border px-2.5 text-[11px] font-medium ${className}`}
     >
       {icon}
       {label}
@@ -372,95 +380,30 @@ function StatusBadge({
   );
 }
 
-type StatVariant =
-  | 'neutral'
-  | 'primary'
-  | 'success'
-  | 'warning'
-  | 'danger'
-  | 'info';
-
 function StatCard({
   label,
   value,
   hint,
   icon,
-  variant = 'neutral',
+  tone = 'bg-slate-50 text-slate-600',
 }: {
   label: string;
   value: number;
   hint: string;
   icon: ReactNode;
-  variant?: StatVariant;
+  tone?: string;
 }) {
-  const styles: Record<
-    StatVariant,
-    { ring: string; icon: string; value: string; accent: string | null }
-  > = {
-    neutral: {
-      ring: 'border-slate-200 bg-white',
-      icon: 'bg-slate-100 text-slate-600',
-      value: 'text-slate-900',
-      accent: null,
-    },
-    primary: {
-      ring: 'border-emerald-200 bg-emerald-50/40',
-      icon: 'bg-emerald-600 text-white shadow-sm shadow-emerald-600/20',
-      value: 'text-emerald-900',
-      accent: 'bg-emerald-600',
-    },
-    success: {
-      ring: 'border-emerald-200 bg-white',
-      icon: 'bg-emerald-100 text-emerald-700',
-      value: 'text-emerald-800',
-      accent: null,
-    },
-    info: {
-      ring: 'border-sky-200 bg-white',
-      icon: 'bg-sky-100 text-sky-700',
-      value: 'text-sky-800',
-      accent: null,
-    },
-    warning: {
-      ring: 'border-amber-200 bg-amber-50/40',
-      icon: 'bg-amber-100 text-amber-700',
-      value: 'text-amber-800',
-      accent: 'bg-amber-500',
-    },
-    danger: {
-      ring: 'border-rose-200 bg-rose-50/40',
-      icon: 'bg-rose-100 text-rose-700',
-      value: 'text-rose-800',
-      accent: 'bg-rose-500',
-    },
-  };
-
-  const s = styles[variant];
-
   return (
-    <article
-      className={`relative overflow-hidden rounded-2xl border p-4 shadow-sm transition hover:shadow-md ${s.ring}`}
-    >
-      {s.accent && (
-        <span
-          className={`absolute inset-x-0 top-0 h-0.5 ${s.accent}`}
-          aria-hidden
-        />
-      )}
-
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <span className={LABEL_UPPER}>{label}</span>
-          <p className={`mt-2 text-2xl font-bold tabular-nums ${s.value}`}>
-            {formatNumber(value, 0)}
-          </p>
-          <p className="mt-1 text-[10px] font-medium text-slate-400">{hint}</p>
-        </div>
-        <div
-          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${s.icon}`}
-        >
+    <article className="flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-medium text-slate-500">{label}</span>
+        <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${tone}`}>
           {icon}
         </div>
+      </div>
+      <div className="mt-4 flex items-baseline gap-2">
+        <span className="text-3xl font-bold text-slate-900">{formatNumber(value, 0)}</span>
+        <span className="text-xs font-medium text-slate-400">{hint}</span>
       </div>
     </article>
   );
@@ -515,7 +458,7 @@ function AlertBanner({
 
   return (
     <div
-      className={`flex items-start gap-3 rounded-2xl border px-4 py-3.5 shadow-sm ${config.ring}`}
+      className={`flex items-start gap-3 rounded-xl border px-4 py-3.5 shadow-sm ${config.ring}`}
       role="alert"
     >
       <div
@@ -524,7 +467,7 @@ function AlertBanner({
         <Icon className="h-4 w-4" />
       </div>
       <div className="min-w-0 flex-1">
-        <p className={`text-xs font-semibold ${config.title}`}>
+        <p className={`text-sm font-semibold ${config.title}`}>
           {config.label}
         </p>
         <p className={`mt-0.5 text-xs leading-5 ${config.body}`}>{text}</p>
@@ -576,6 +519,9 @@ export function AircraftManagement() {
 
   const [maintenanceAircraft, setMaintenanceAircraft] =
     useState<Aircraft | null>(null);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
 
   const loadingRequestRef = useRef(false);
 
@@ -681,7 +627,7 @@ export function AircraftManagement() {
   }, [loadData]);
 
   /* ========================================================================
-   * DERIVED
+   * DERIVED & PAGINATION
    * ====================================================================== */
 
   const selectedType = useMemo(
@@ -707,6 +653,19 @@ export function AircraftManagement() {
       ].some(value => value.toLowerCase().includes(query));
     });
   }, [aircrafts, searchTerm, statusFilter]);
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter]);
+
+  // Calculate pagination slices
+  const totalPages = Math.max(1, Math.ceil(filteredAircrafts.length / ITEMS_PER_PAGE));
+  
+  const paginatedAircrafts = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredAircrafts.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredAircrafts, currentPage]);
 
   /* ========================================================================
    * MODAL ACTIONS
@@ -1094,53 +1053,28 @@ export function AircraftManagement() {
    * ====================================================================== */
 
   return (
-    <div className="min-h-screen bg-slate-50 p-3 text-slate-800 antialiased sm:p-4 lg:p-5">
-      <div className="mx-auto max-w-[1500px] space-y-4">
-        {/* ═══════════════ HEADER ═══════════════ */}
-        <header className={`${SURFACE} p-4 sm:p-5`}>
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-start gap-3.5">
-              <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm shadow-emerald-600/20">
-                <Plane className="h-5 w-5 rotate-45" />
-                <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-400" />
-              </div>
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="text-lg font-bold tracking-tight text-slate-950 sm:text-xl">
-                    Flotte d'aéronefs
-                  </h1>
-                  <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
-                    OPS
-                  </span>
-                </div>
-                <p className="mt-0.5 text-xs text-slate-500 sm:text-sm">
-                  Aéronefs physiques, maintenance et heures de vol
-                </p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 sm:flex">
-              <button
-                type="button"
-                onClick={() => void loadData()}
-                disabled={loading}
-                className={`inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:opacity-50 ${FOCUS_RING}`}
-              >
-                <RefreshCw
-                  className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`}
-                />
-                Actualiser
-              </button>
-              <button
-                type="button"
-                onClick={openCreate}
-                className={`inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-3.5 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-700 ${FOCUS_RING}`}
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Ajouter un avion
-              </button>
-            </div>
-          </div>
+    <div className="min-h-screen bg-slate-50/50 p-4 text-slate-800 antialiased sm:p-6 lg:p-8">
+      <div className="mx-auto max-w-[1500px] space-y-6">
+        
+        {/* ═══════════════ HEADER (Boutons d'action uniquement) ═══════════════ */}
+        <header className="flex flex-wrap items-center justify-end gap-3">
+          <button
+            type="button"
+            onClick={() => void loadData()}
+            disabled={loading}
+            className={`inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 ${FOCUS_RING}`}
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            Actualiser
+          </button>
+          <button
+            type="button"
+            onClick={openCreate}
+            className={`inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-medium text-white shadow-sm transition hover:bg-emerald-700 ${FOCUS_RING}`}
+          >
+            <Plus className="h-4 w-4" />
+            Ajouter un avion
+          </button>
         </header>
 
         {/* ═══════════════ NOTICE ═══════════════ */}
@@ -1153,13 +1087,13 @@ export function AircraftManagement() {
         )}
 
         {/* ═══════════════ KPI ═══════════════ */}
-        <section className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
+        <section className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
           <StatCard
             label="Total flotte"
             value={statistics?.totalAvions ?? aircrafts.length}
-            hint="Aéronefs enregistrés"
-            icon={<Plane className="h-4 w-4" />}
-            variant="primary"
+            hint="Aéronefs"
+            icon={<Plane className="h-5 w-5" />}
+            tone="bg-emerald-50 text-emerald-600"
           />
           <StatCard
             label="Actifs"
@@ -1168,8 +1102,8 @@ export function AircraftManagement() {
               aircrafts.filter(a => a.statut === AircraftStatus.ACTIVE).length
             }
             hint="Opérationnels"
-            icon={<CheckCircle2 className="h-4 w-4" />}
-            variant="success"
+            icon={<CheckCircle2 className="h-5 w-5" />}
+            tone="bg-emerald-50 text-emerald-600"
           />
           <StatCard
             label="Maintenance"
@@ -1179,8 +1113,8 @@ export function AircraftManagement() {
                 .length
             }
             hint="Immobilisés"
-            icon={<Wrench className="h-4 w-4" />}
-            variant="warning"
+            icon={<Wrench className="h-5 w-5" />}
+            tone="bg-amber-50 text-amber-600"
           />
           <StatCard
             label="Hors service"
@@ -1190,8 +1124,8 @@ export function AircraftManagement() {
                 .length
             }
             hint="Action requise"
-            icon={<AlertTriangle className="h-4 w-4" />}
-            variant="danger"
+            icon={<AlertTriangle className="h-5 w-5" />}
+            tone="bg-rose-50 text-rose-600"
           />
           <StatCard
             label="Retirés"
@@ -1200,106 +1134,84 @@ export function AircraftManagement() {
               aircrafts.filter(a => a.statut === AircraftStatus.RETIRED).length
             }
             hint="Hors flotte"
-            icon={<History className="h-4 w-4" />}
-            variant="neutral"
+            icon={<History className="h-5 w-5" />}
+            tone="bg-slate-50 text-slate-600"
           />
-        </section>
-
-        {/* ═══════════════ FILTRES ═══════════════ */}
-        <section className={`${SURFACE} p-3 sm:p-4`}>
-          <div className="grid gap-2.5 sm:grid-cols-[minmax(0,1fr)_240px_auto]">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <input
-                type="search"
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-                placeholder="Immatriculation, modèle, fabricant ou base..."
-                className={`h-10 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-9 text-xs font-medium text-slate-700 placeholder:text-slate-400 focus:bg-white ${FOCUS_RING}`}
-              />
-              {searchTerm && (
-                <button
-                  type="button"
-                  onClick={() => setSearchTerm('')}
-                  className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
-                  aria-label="Effacer la recherche"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              )}
-            </div>
-
-            <select
-              value={statusFilter}
-              onChange={e =>
-                setStatusFilter(e.target.value as AircraftStatus | 'ALL')
-              }
-              className={`h-10 rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-semibold text-slate-700 focus:bg-white ${FOCUS_RING}`}
-            >
-              <option value="ALL">Tous les statuts</option>
-              {STATUS_OPTIONS.map(option => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-
-            <div className="flex items-center justify-end">
-              <span className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-[10px] font-semibold text-slate-600">
-                {filteredAircrafts.length} appareil
-                {filteredAircrafts.length > 1 ? 's' : ''}
-              </span>
-            </div>
-          </div>
         </section>
 
         {/* ═══════════════ TABLE ═══════════════ */}
         <section className={`${SURFACE} overflow-hidden`}>
-          <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3.5 sm:px-5">
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
-                <Plane className="h-4 w-4" />
+          
+          {/* SEARCH + FILTRES INTÉGRÉS */}
+          <div className="border-b border-slate-100 p-4 sm:p-5">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="relative w-full lg:max-w-[320px]">
+                <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="search"
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                  placeholder="Immatriculation, modèle, fabricant..."
+                  className={`h-10 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-9 text-sm text-slate-700 placeholder:text-slate-400 ${FOCUS_RING}`}
+                />
+                {searchTerm && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchTerm('')}
+                    className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                    aria-label="Effacer la recherche"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
               </div>
-              <div>
-                <h2 className="text-sm font-semibold text-slate-900">
-                  Registre des aéronefs
-                </h2>
-                <p className="text-[10px] text-slate-500">
-                  Immobilisations, maintenance et potentiel utilisé
-                </p>
+
+              <div className="flex items-center gap-3">
+                <select
+                  value={statusFilter}
+                  onChange={e =>
+                    setStatusFilter(e.target.value as AircraftStatus | 'ALL')
+                  }
+                  className={`h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 ${FOCUS_RING}`}
+                >
+                  <option value="ALL">Tous les statuts</option>
+                  {STATUS_OPTIONS.map(option => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600">
+                  {filteredAircrafts.length} appareil{filteredAircrafts.length > 1 ? 's' : ''}
+                </span>
               </div>
             </div>
-
-            <span className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-semibold text-slate-600">
-              {filteredAircrafts.length} appareil
-              {filteredAircrafts.length > 1 ? 's' : ''}
-            </span>
-          </header>
+          </div>
 
           {loading ? (
             <div className="flex min-h-[240px] items-center justify-center">
               <span className="inline-flex items-center gap-2 text-sm font-medium text-slate-500">
-                <LoaderCircle className="h-4 w-4 animate-spin" />
+                <LoaderCircle className="h-5 w-5 animate-spin text-emerald-600" />
                 Chargement de la flotte...
               </span>
             </div>
           ) : filteredAircrafts.length === 0 ? (
             <div className="flex min-h-[240px] flex-col items-center justify-center p-6 text-center">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-50 text-slate-300">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-50 text-slate-400">
                 <Plane className="h-6 w-6" />
               </div>
-              <p className="mt-3 text-sm font-semibold text-slate-700">
+              <p className="mt-4 text-sm font-semibold text-slate-900">
                 Aucun avion trouvé
               </p>
-              <p className="mt-1 text-xs text-slate-500">
+              <p className="mt-1 text-sm text-slate-500">
                 Ajustez la recherche ou les filtres.
               </p>
             </div>
           ) : (
             <>
               {/* ═══════════ MOBILE / TABLETTE : CARTES COMPACTES ═══════════ */}
-              <div className="space-y-2.5 bg-slate-50/40 p-3 lg:hidden">
-                {filteredAircrafts.map(aircraft => {
+              <div className="space-y-3 bg-slate-50/50 p-4 lg:hidden">
+                {paginatedAircrafts.map(aircraft => {
                   const ratio = maintenanceRatio(aircraft);
                   const busy = actionAircraftId === aircraft.id;
                   const isRetired = aircraft.statut === AircraftStatus.RETIRED;
@@ -1314,16 +1226,16 @@ export function AircraftManagement() {
                       }`}
                     >
                       {/* Header card : immat + statut */}
-                      <div className="flex items-center justify-between gap-2 border-b border-slate-100 px-3.5 py-2.5">
-                        <div className="flex min-w-0 items-center gap-2.5">
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
+                      <div className="flex items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
                             <Plane className="h-4 w-4 rotate-45" />
                           </div>
                           <div className="min-w-0">
                             <p className="truncate font-mono text-sm font-bold text-slate-900">
                               {aircraft.immatriculation}
                             </p>
-                            <p className="mt-0.5 truncate text-[10px] text-slate-500">
+                            <p className="mt-0.5 truncate text-[11px] text-slate-500">
                               {aircraft.type?.nomModele ?? aircraft.modele}
                             </p>
                           </div>
@@ -1334,159 +1246,96 @@ export function AircraftManagement() {
                       </div>
 
                       {/* Body : infos clés en grille */}
-                      <div className="grid grid-cols-2 gap-x-3 gap-y-2 px-3.5 py-3">
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-3 px-4 py-3">
                         <div>
-                          <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">
-                            Base
-                          </p>
+                          <p className="text-[10px] font-medium text-slate-400">Base</p>
                           {aircraft.baseAttache ? (
-                            <p className="mt-0.5 font-mono text-[11px] font-bold text-slate-700">
+                            <p className="mt-0.5 font-mono text-xs font-semibold text-slate-700">
                               {aircraft.baseAttache}
                             </p>
                           ) : (
-                            <p className="mt-0.5 text-[11px] text-slate-300">
-                              —
-                            </p>
+                            <p className="mt-0.5 text-xs text-slate-300">—</p>
                           )}
                         </div>
 
                         <div>
-                          <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">
-                            Capacité
-                          </p>
-                          <p className="mt-0.5 font-mono text-[11px] font-bold text-slate-700">
-                            {aircraft.capacite}{' '}
-                            <span className="text-[9px] font-medium text-slate-400">
-                              sièges
-                            </span>
+                          <p className="text-[10px] font-medium text-slate-400">Capacité</p>
+                          <p className="mt-0.5 font-mono text-xs font-semibold text-slate-700">
+                            {aircraft.capacite} <span className="text-[10px] font-medium text-slate-400">sièges</span>
                           </p>
                         </div>
 
                         <div>
-                          <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">
-                            Heures totales
-                          </p>
-                          <p className="mt-0.5 font-mono text-[11px] font-bold text-slate-700">
-                            {formatNumber(aircraft.heuresDeVolTotales)}{' '}
-                            <span className="text-[9px] font-medium text-slate-400">
-                              h
-                            </span>
+                          <p className="text-[10px] font-medium text-slate-400">Heures totales</p>
+                          <p className="mt-0.5 font-mono text-xs font-semibold text-slate-700">
+                            {formatNumber(aircraft.heuresDeVolTotales)} <span className="text-[10px] font-medium text-slate-400">h</span>
                           </p>
                         </div>
 
                         <div>
-                          <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">
-                            Dernière maint.
-                          </p>
-                          <p className="mt-0.5 font-mono text-[11px] font-semibold text-slate-600">
+                          <p className="text-[10px] font-medium text-slate-400">Dernière maint.</p>
+                          <p className="mt-0.5 font-mono text-xs font-semibold text-slate-600">
                             {formatDate(aircraft.dateDerniereMaintenance)}
                           </p>
                         </div>
                       </div>
 
                       {/* Barre maintenance */}
-                      <div className="border-t border-slate-100 bg-slate-50/60 px-3.5 py-2.5">
+                      <div className="border-t border-slate-100 bg-slate-50/50 px-4 py-3">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">
-                            Maintenance
-                          </span>
-                          <span
-                            className={`font-mono text-[11px] font-bold ${
-                              ratio >= 90
-                                ? 'text-rose-600'
-                                : ratio >= 75
-                                  ? 'text-amber-600'
-                                  : 'text-emerald-700'
-                            }`}
-                          >
+                          <span className="text-[10px] font-medium text-slate-400">Maintenance</span>
+                          <span className={`font-mono text-xs font-bold ${ratio >= 90 ? 'text-rose-600' : ratio >= 75 ? 'text-amber-600' : 'text-emerald-600'}`}>
                             {ratio}%
                           </span>
                         </div>
-                        <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-200/70">
+                        <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-200">
                           <div
-                            className={`h-full rounded-full transition-all ${
-                              ratio >= 90
-                                ? 'bg-rose-500'
-                                : ratio >= 75
-                                  ? 'bg-amber-500'
-                                  : 'bg-emerald-500'
-                            }`}
+                            className={`h-full rounded-full transition-all ${ratio >= 90 ? 'bg-rose-500' : ratio >= 75 ? 'bg-amber-500' : 'bg-emerald-500'}`}
                             style={{ width: `${ratio}%` }}
                           />
                         </div>
-                        <div className="mt-1 flex items-center justify-between">
-                          <span className="font-mono text-[10px] text-slate-500">
-                            {formatNumber(
-                              aircraft.heuresDepuisDerniereMaintenance,
-                            )}{' '}
-                            h
-                          </span>
-                          <span className="font-mono text-[10px] text-slate-400">
-                            / {formatNumber(aircraft.limiteHeuresMaintenance)} h
-                          </span>
+                        <div className="mt-1.5 flex items-center justify-between text-[10px] font-medium text-slate-500">
+                          <span>{formatNumber(aircraft.heuresDepuisDerniereMaintenance)} h</span>
+                          <span>/ {formatNumber(aircraft.limiteHeuresMaintenance)} h</span>
                         </div>
                       </div>
 
-                      {/* Actions : 4 boutons inline */}
-                      <div className="grid grid-cols-4 gap-1.5 border-t border-slate-100 bg-slate-50/60 p-2.5">
+                      {/* Actions */}
+                      <div className="grid grid-cols-4 gap-2 border-t border-slate-100 bg-slate-50/50 p-3">
                         <button
                           type="button"
-                          onClick={() => {
-                            setHoursAircraft(aircraft);
-                            setFlightHours('');
-                            setNotice(null);
-                          }}
+                          onClick={() => { setHoursAircraft(aircraft); setFlightHours(''); setNotice(null); }}
                           disabled={busy || isRetired}
-                          title="Ajouter des heures de vol"
-                          aria-label="Ajouter des heures de vol"
-                          className={`inline-flex h-9 items-center justify-center gap-1 rounded-lg border border-slate-200 bg-white text-[10px] font-semibold text-slate-500 transition hover:border-sky-300 hover:bg-sky-50 hover:text-sky-700 disabled:opacity-35 ${FOCUS_RING}`}
+                          className={`inline-flex h-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:border-sky-300 hover:bg-sky-50 hover:text-sky-700 disabled:opacity-35 ${FOCUS_RING}`}
                         >
-                          <Gauge className="h-3.5 w-3.5" />
-                          <span className="hidden sm:inline">Heures</span>
+                          <Gauge className="h-4 w-4" />
                         </button>
 
                         <button
                           type="button"
-                          onClick={() =>
-                            openMaintenanceResetModal(aircraft)
-                          }
+                          onClick={() => openMaintenanceResetModal(aircraft)}
                           disabled={busy || isRetired}
-                          title="Réinitialiser la maintenance"
-                          aria-label="Réinitialiser la maintenance"
-                          className={`inline-flex h-9 items-center justify-center gap-1 rounded-lg border border-slate-200 bg-white text-[10px] font-semibold text-slate-500 transition hover:border-amber-300 hover:bg-amber-50 hover:text-amber-700 disabled:opacity-35 ${FOCUS_RING}`}
+                          className={`inline-flex h-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:border-amber-300 hover:bg-amber-50 hover:text-amber-700 disabled:opacity-35 ${FOCUS_RING}`}
                         >
-                          <RotateCcw
-                            className={`h-3.5 w-3.5 ${busy ? 'animate-spin' : ''}`}
-                          />
-                          <span className="hidden sm:inline">Reset</span>
+                          <RotateCcw className={`h-4 w-4 ${busy ? 'animate-spin' : ''}`} />
                         </button>
 
                         <button
                           type="button"
                           onClick={() => openEdit(aircraft)}
                           disabled={busy}
-                          title="Modifier"
-                          aria-label="Modifier"
-                          className={`inline-flex h-9 items-center justify-center gap-1 rounded-lg border border-slate-200 bg-white text-[10px] font-semibold text-slate-500 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 disabled:opacity-35 ${FOCUS_RING}`}
+                          className={`inline-flex h-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 disabled:opacity-35 ${FOCUS_RING}`}
                         >
-                          <Pencil className="h-3.5 w-3.5" />
-                          <span className="hidden sm:inline">Modifier</span>
+                          <Pencil className="h-4 w-4" />
                         </button>
 
                         <button
                           type="button"
                           onClick={() => void retireAircraft(aircraft)}
                           disabled={busy || isRetired}
-                          title={
-                            isRetired
-                              ? 'Avion déjà retiré'
-                              : "Retirer l'avion"
-                          }
-                          aria-label="Retirer l'avion"
-                          className={`inline-flex h-9 items-center justify-center gap-1 rounded-lg border border-slate-200 bg-white text-[10px] font-semibold text-slate-500 transition hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-35 ${FOCUS_RING}`}
+                          className={`inline-flex h-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-35 ${FOCUS_RING}`}
                         >
-                          <Trash2 className="h-3.5 w-3.5" />
-                          <span className="hidden sm:inline">Retirer</span>
+                          <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
                     </article>
@@ -1494,72 +1343,77 @@ export function AircraftManagement() {
                 })}
               </div>
 
-              {/* ═══════════ DESKTOP : TABLEAU COMPLET ═══════════ */}
-              <div className="hidden overflow-x-auto lg:block">
-                <table className="w-full min-w-[1100px] text-left">
-                  <thead className="border-b border-slate-200 bg-slate-50/70">
-                    <tr className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                      <th className="px-5 py-3">Immatriculation</th>
-                      <th className="px-4 py-3">Type / modèle</th>
-                      <th className="px-4 py-3">Capacité</th>
-                      <th className="px-4 py-3">Base</th>
-                      <th className="px-4 py-3">Heures totales</th>
-                      <th className="px-4 py-3">Maintenance</th>
-                      <th className="px-4 py-3">Statut</th>
-                      <th className="px-5 py-3 text-right">Actions</th>
+              {/* ═══════════ DESKTOP : TABLEAU COMPLET (SANS SCROLL) ═══════════ */}
+              <div className="hidden lg:block">
+                <table className="w-full table-fixed text-left">
+                  <colgroup>
+                    <col className="w-[14%]" />
+                    <col className="w-[14%]" />
+                    <col className="w-[10%]" />
+                    <col className="w-[8%]" />
+                    <col className="w-[10%]" />
+                    <col className="w-[16%]" />
+                    <col className="w-[10%]" />
+                    <col className="w-[18%]" />
+                  </colgroup>
+                  <thead className="border-b border-slate-200 bg-slate-50/80 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                    <tr>
+                      <th className="px-4 py-3 align-middle">Immatriculation</th>
+                      <th className="px-4 py-3 align-middle">Type / modèle</th>
+                      <th className="px-4 py-3 align-middle">Capacité</th>
+                      <th className="px-4 py-3 align-middle">Base</th>
+                      <th className="px-4 py-3 align-middle">Heures totales</th>
+                      <th className="px-4 py-3 align-middle">Maintenance</th>
+                      <th className="px-4 py-3 align-middle">Statut</th>
+                      <th className="px-4 py-3 text-right align-middle">Actions</th>
                     </tr>
                   </thead>
 
                   <tbody className="divide-y divide-slate-100">
-                    {filteredAircrafts.map(aircraft => {
+                    {paginatedAircrafts.map(aircraft => {
                       const ratio = maintenanceRatio(aircraft);
                       const busy = actionAircraftId === aircraft.id;
-                      const isRetired =
-                        aircraft.statut === AircraftStatus.RETIRED;
+                      const isRetired = aircraft.statut === AircraftStatus.RETIRED;
 
                       return (
                         <tr
                           key={aircraft.id}
-                          className="transition hover:bg-emerald-50/30"
+                          className="group transition hover:bg-emerald-50/30"
                         >
-                          <td className="px-5 py-3.5">
-                            <div className="flex items-center gap-2.5">
-                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
+                          <td className="px-4 py-4 align-middle">
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
                                 <Plane className="h-4 w-4 rotate-45" />
                               </div>
-                              <div>
-                                <p className="font-mono text-sm font-bold text-slate-900">
+                              <div className="min-w-0">
+                                <p className="truncate font-mono text-sm font-bold text-slate-900">
                                   {aircraft.immatriculation}
                                 </p>
-                                <p className="mt-0.5 text-[10px] text-slate-400">
-                                  Dernière maint. :{' '}
-                                  {formatDate(aircraft.dateDerniereMaintenance)}
+                                <p className="truncate text-[10px] text-slate-400">
+                                  Dernière maint. : {formatDate(aircraft.dateDerniereMaintenance)}
                                 </p>
                               </div>
                             </div>
                           </td>
 
-                          <td className="px-4 py-3.5">
-                            <p className="text-xs font-semibold text-slate-700">
+                          <td className="px-4 py-4 align-middle">
+                            <p className="truncate text-xs font-semibold text-slate-700">
                               {aircraft.type?.nomModele ?? aircraft.modele}
                             </p>
-                            <p className="mt-0.5 text-[10px] text-slate-400">
+                            <p className="truncate text-[10px] text-slate-400">
                               {aircraft.type?.fabricant ?? aircraft.modele}
                             </p>
                           </td>
 
-                          <td className="px-4 py-3.5">
-                            <span className="font-mono text-xs font-semibold text-slate-600">
-                              {aircraft.capacite}{' '}
-                              <span className="text-[10px] font-medium text-slate-400">
-                                sièges
-                              </span>
+                          <td className="px-4 py-4 align-middle">
+                            <span className="truncate font-mono text-xs font-semibold text-slate-600">
+                              {aircraft.capacite} <span className="text-[10px] font-medium text-slate-400">sièges</span>
                             </span>
                           </td>
 
-                          <td className="px-4 py-3.5">
+                          <td className="px-4 py-4 align-middle">
                             {aircraft.baseAttache ? (
-                              <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 font-mono text-[11px] font-bold text-slate-700">
+                              <span className="inline-block truncate rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 font-mono text-[11px] font-bold text-slate-700">
                                 {aircraft.baseAttache}
                               </span>
                             ) : (
@@ -1567,70 +1421,40 @@ export function AircraftManagement() {
                             )}
                           </td>
 
-                          <td className="px-4 py-3.5">
-                            <span className="font-mono text-xs font-semibold text-slate-700">
-                              {formatNumber(aircraft.heuresDeVolTotales)}{' '}
-                              <span className="text-[10px] font-medium text-slate-400">
-                                h
-                              </span>
+                          <td className="px-4 py-4 align-middle">
+                            <span className="truncate font-mono text-xs font-semibold text-slate-700">
+                              {formatNumber(aircraft.heuresDeVolTotales)} <span className="text-[10px] font-medium text-slate-400">h</span>
                             </span>
                           </td>
 
-                          <td className="px-4 py-3.5">
-                            <div className="min-w-[160px]">
+                          <td className="px-4 py-4 align-middle">
+                            <div className="min-w-0">
                               <div className="flex items-center justify-between gap-2">
-                                <span className="font-mono text-xs font-bold text-slate-700">
-                                  {formatNumber(
-                                    aircraft.heuresDepuisDerniereMaintenance,
-                                  )}{' '}
-                                  <span className="text-[10px] font-medium text-slate-400">
-                                    /{' '}
-                                    {formatNumber(
-                                      aircraft.limiteHeuresMaintenance,
-                                    )}{' '}
-                                    h
-                                  </span>
+                                <span className="truncate font-mono text-xs font-bold text-slate-700">
+                                  {formatNumber(aircraft.heuresDepuisDerniereMaintenance)} <span className="text-[10px] font-medium text-slate-400">/ {formatNumber(aircraft.limiteHeuresMaintenance)} h</span>
                                 </span>
-                                <span
-                                  className={`font-mono text-[11px] font-bold ${
-                                    ratio >= 90
-                                      ? 'text-rose-600'
-                                      : ratio >= 75
-                                        ? 'text-amber-600'
-                                        : 'text-emerald-700'
-                                  }`}
-                                >
+                                <span className={`font-mono text-[11px] font-bold ${ratio >= 90 ? 'text-rose-600' : ratio >= 75 ? 'text-amber-600' : 'text-emerald-600'}`}>
                                   {ratio}%
                                 </span>
                               </div>
                               <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-100">
                                 <div
-                                  className={`h-full rounded-full transition-all ${
-                                    ratio >= 90
-                                      ? 'bg-rose-500'
-                                      : ratio >= 75
-                                        ? 'bg-amber-500'
-                                        : 'bg-emerald-500'
-                                  }`}
+                                  className={`h-full rounded-full transition-all ${ratio >= 90 ? 'bg-rose-500' : ratio >= 75 ? 'bg-amber-500' : 'bg-emerald-500'}`}
                                   style={{ width: `${ratio}%` }}
                                 />
                               </div>
                             </div>
                           </td>
 
-                          <td className="px-4 py-3.5">
+                          <td className="px-4 py-4 align-middle">
                             {renderStatusBadge(aircraft.statut)}
                           </td>
 
-                          <td className="px-5 py-3.5">
+                          <td className="px-4 py-4 align-middle">
                             <div className="flex justify-end gap-1.5">
                               <button
                                 type="button"
-                                onClick={() => {
-                                  setHoursAircraft(aircraft);
-                                  setFlightHours('');
-                                  setNotice(null);
-                                }}
+                                onClick={() => { setHoursAircraft(aircraft); setFlightHours(''); setNotice(null); }}
                                 disabled={busy || isRetired}
                                 title="Ajouter des heures de vol"
                                 className={`flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:border-sky-300 hover:bg-sky-50 hover:text-sky-700 disabled:opacity-35 ${FOCUS_RING}`}
@@ -1640,16 +1464,12 @@ export function AircraftManagement() {
 
                               <button
                                 type="button"
-                                onClick={() =>
-                                  openMaintenanceResetModal(aircraft)
-                                }
+                                onClick={() => openMaintenanceResetModal(aircraft)}
                                 disabled={busy || isRetired}
                                 title="Réinitialiser la maintenance"
                                 className={`flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:border-amber-300 hover:bg-amber-50 hover:text-amber-700 disabled:opacity-35 ${FOCUS_RING}`}
                               >
-                                <RotateCcw
-                                  className={`h-3.5 w-3.5 ${busy ? 'animate-spin' : ''}`}
-                                />
+                                <RotateCcw className={`h-3.5 w-3.5 ${busy ? 'animate-spin' : ''}`} />
                               </button>
 
                               <button
@@ -1666,11 +1486,7 @@ export function AircraftManagement() {
                                 type="button"
                                 onClick={() => void retireAircraft(aircraft)}
                                 disabled={busy || isRetired}
-                                title={
-                                  isRetired
-                                    ? 'Avion déjà retiré'
-                                    : "Retirer l'avion"
-                                }
+                                title={isRetired ? 'Avion déjà retiré' : "Retirer l'avion"}
                                 className={`flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-35 ${FOCUS_RING}`}
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
@@ -1683,49 +1499,94 @@ export function AircraftManagement() {
                   </tbody>
                 </table>
               </div>
+
+              {/* ═══════════ PAGINATION ═══════════ */}
+              {totalPages > 1 && (
+                <div className="flex flex-col items-center justify-between gap-3 border-t border-slate-100 bg-white px-5 py-4 sm:flex-row">
+                  <p className="text-xs font-medium text-slate-500">
+                    Affichage <span className="font-semibold text-slate-700">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</span> à <span className="font-semibold text-slate-700">{Math.min(currentPage * ITEMS_PER_PAGE, filteredAircrafts.length)}</span> sur <span className="font-semibold text-slate-700">{filteredAircrafts.length}</span> appareils
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className={`inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING}`}
+                    >
+                      <ChevronLeft className="h-3.5 w-3.5" />
+                      Précédent
+                    </button>
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                        <button
+                          key={page}
+                          type="button"
+                          onClick={() => setCurrentPage(page)}
+                          className={`h-8 min-w-[32px] rounded-lg text-xs font-medium transition ${
+                            page === currentPage
+                              ? 'bg-emerald-600 text-white'
+                              : 'text-slate-600 hover:bg-slate-100'
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                      className={`inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING}`}
+                    >
+                      Suivant
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              )}
             </>
           )}
-        </section>
 
-        {/* ═══════════════ STATS BAS ═══════════════ */}
-        {statistics && (
-          <section className={`${SURFACE} p-4 sm:p-5`}>
-            <header className="mb-3 flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-50 text-sky-700">
-                <Gauge className="h-4 w-4" />
-              </div>
-              <div>
-                <h3 className="text-sm font-semibold text-slate-900">
-                  Statistiques globales de flotte
-                </h3>
-                <p className="text-[10px] text-slate-500">
-                  Indicateurs agrégés
-                </p>
-              </div>
-            </header>
+          {/* ═══════════════ STATS BAS INTÉGRÉES ═══════════════ */}
+          {statistics && (
+            <div className="border-t border-slate-100 p-5 sm:p-6">
+              <header className="mb-4 flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+                  <Gauge className="h-4 w-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-900">
+                    Statistiques globales de flotte
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Indicateurs agrégés
+                  </p>
+                </div>
+              </header>
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3.5">
-                <InfoMetric
-                  label="Heures flotte"
-                  value={`${formatNumber(statistics.heuresDeVolTotales)} h`}
-                />
-              </div>
-              <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3.5">
-                <InfoMetric
-                  label="Moyenne / avion"
-                  value={`${formatNumber(statistics.moyenneHeuresDeVol)} h`}
-                />
-              </div>
-              <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3.5">
-                <InfoMetric
-                  label="Capacité moyenne"
-                  value={`${formatNumber(statistics.capaciteMoyenne, 0)} sièges`}
-                />
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4">
+                  <InfoMetric
+                    label="Heures flotte"
+                    value={`${formatNumber(statistics.heuresDeVolTotales)} h`}
+                  />
+                </div>
+                <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4">
+                  <InfoMetric
+                    label="Moyenne / avion"
+                    value={`${formatNumber(statistics.moyenneHeuresDeVol)} h`}
+                  />
+                </div>
+                <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4">
+                  <InfoMetric
+                    label="Capacité moyenne"
+                    value={`${formatNumber(statistics.capaciteMoyenne, 0)} sièges`}
+                  />
+                </div>
               </div>
             </div>
-          </section>
-        )}
+          )}
+        </section>
       </div>
 
       {/* ═══════════════ MODAL CREATE / EDIT ═══════════════ */}
@@ -1740,32 +1601,20 @@ export function AircraftManagement() {
             }
           }}
         >
-          <div className="flex max-h-[94vh] w-full flex-col overflow-hidden rounded-t-3xl border border-slate-200 bg-white shadow-2xl sm:max-w-2xl sm:rounded-2xl">
+          <div className="flex max-h-[94vh] w-full flex-col overflow-hidden rounded-t-2xl border border-slate-200 bg-white shadow-2xl sm:max-w-2xl sm:rounded-2xl">
             <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-slate-200 sm:hidden" />
 
             {/* HEADER */}
-            <header className="flex items-center justify-between gap-3 border-b border-slate-100 px-5 pb-3.5 pt-4">
+            <header className="flex items-center justify-between gap-3 border-b border-slate-100 px-6 py-4">
               <div className="flex min-w-0 items-center gap-3">
-                <div
-                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
-                    editingAircraft
-                      ? 'bg-sky-50 text-sky-700'
-                      : 'bg-emerald-50 text-emerald-700'
-                  }`}
-                >
-                  {editingAircraft ? (
-                    <Pencil className="h-4 w-4" />
-                  ) : (
-                    <Plus className="h-4 w-4" />
-                  )}
+                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${editingAircraft ? 'bg-sky-50 text-sky-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                  {editingAircraft ? <Pencil className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
                 </div>
                 <div className="min-w-0">
-                  <h2 className="text-base font-bold text-slate-950">
-                    {editingAircraft
-                      ? `Modifier ${editingAircraft.immatriculation}`
-                      : 'Ajouter un avion'}
+                  <h2 className="text-base font-bold text-slate-900">
+                    {editingAircraft ? `Modifier ${editingAircraft.immatriculation}` : 'Ajouter un avion'}
                   </h2>
-                  <p className="mt-0.5 text-[11px] text-slate-500">
+                  <p className="mt-0.5 text-xs text-slate-500">
                     Champs alignés sur le backend Fleet
                   </p>
                 </div>
@@ -1775,7 +1624,7 @@ export function AircraftManagement() {
                 type="button"
                 onClick={closeModal}
                 disabled={submitting}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-400 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700 disabled:opacity-40"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700 disabled:opacity-40"
                 aria-label="Fermer"
               >
                 <X className="h-4 w-4" />
@@ -1785,9 +1634,9 @@ export function AircraftManagement() {
             {/* FORM */}
             <form
               onSubmit={handleSubmit}
-              className="flex-1 space-y-5 overflow-y-auto p-5"
+              className="flex-1 space-y-5 overflow-y-auto p-6"
             >
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                 <Field label="Immatriculation" required>
                   <input
                     name="immatriculation"
@@ -1828,11 +1677,7 @@ export function AircraftManagement() {
                 <Field
                   label="Modèle"
                   required
-                  hint={
-                    selectedType
-                      ? 'Synchronisé avec le type choisi.'
-                      : undefined
-                  }
+                  hint={selectedType ? 'Synchronisé avec le type choisi.' : undefined}
                 >
                   <input
                     name="modele"
@@ -1842,11 +1687,7 @@ export function AircraftManagement() {
                     required
                     readOnly={Boolean(selectedType)}
                     placeholder="ATR 72-600"
-                    className={`${inputClass} ${
-                      selectedType
-                        ? 'cursor-not-allowed bg-slate-100 text-slate-500'
-                        : ''
-                    }`}
+                    className={`${inputClass} ${selectedType ? 'cursor-not-allowed bg-slate-100 text-slate-500' : ''}`}
                   />
                 </Field>
 
@@ -1917,23 +1758,22 @@ export function AircraftManagement() {
               </div>
 
               {editingAircraft && (
-                <div className="flex items-start gap-2.5 rounded-xl border border-sky-100 bg-sky-50/60 p-3">
+                <div className="flex items-start gap-2.5 rounded-lg border border-sky-100 bg-sky-50/50 p-3">
                   <Info className="mt-0.5 h-4 w-4 shrink-0 text-sky-600" />
-                  <p className="text-[11px] leading-4 text-sky-800">
-                    Le compteur « heures depuis dernière maintenance » et la
-                    date de maintenance ne sont pas modifiés ici.
+                  <p className="text-xs leading-5 text-sky-800">
+                    Le compteur « heures depuis dernière maintenance » et la date de maintenance ne sont pas modifiés ici.
                   </p>
                 </div>
               )}
             </form>
 
             {/* FOOTER */}
-            <footer className="grid grid-cols-2 gap-2 border-t border-slate-100 bg-slate-50/70 px-5 py-3.5 sm:flex sm:justify-end">
+            <footer className="grid grid-cols-2 gap-3 border-t border-slate-100 bg-slate-50/70 px-6 py-4 sm:flex sm:justify-end">
               <button
                 type="button"
                 onClick={closeModal}
                 disabled={submitting}
-                className={`h-10 rounded-xl border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 disabled:opacity-50 sm:min-w-[110px] ${FOCUS_RING}`}
+                className={`h-10 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-50 sm:min-w-[110px] ${FOCUS_RING}`}
               >
                 Annuler
               </button>
@@ -1941,14 +1781,14 @@ export function AircraftManagement() {
               <button
                 type="submit"
                 disabled={submitting}
-                className={`inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50 sm:min-w-[140px] ${FOCUS_RING}`}
+                className={`inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-medium text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50 sm:min-w-[140px] ${FOCUS_RING}`}
               >
                 {submitting ? (
-                  <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                  <LoaderCircle className="h-4 w-4 animate-spin" />
                 ) : editingAircraft ? (
-                  <Pencil className="h-3.5 w-3.5" />
+                  <Pencil className="h-4 w-4" />
                 ) : (
-                  <Plus className="h-3.5 w-3.5" />
+                  <Plus className="h-4 w-4" />
                 )}
                 {editingAircraft ? 'Enregistrer' : "Créer l'avion"}
               </button>
@@ -1965,34 +1805,26 @@ export function AircraftManagement() {
           aria-modal="true"
           aria-labelledby="maintenance-reset-title"
           onMouseDown={event => {
-            if (
-              event.currentTarget === event.target &&
-              actionAircraftId !== maintenanceAircraft.id
-            ) {
+            if (event.currentTarget === event.target && actionAircraftId !== maintenanceAircraft.id) {
               closeMaintenanceResetModal();
             }
           }}
         >
-          <div className="w-full overflow-hidden rounded-t-3xl border border-slate-200 bg-white shadow-2xl sm:max-w-lg sm:rounded-2xl">
+          <div className="w-full overflow-hidden rounded-t-2xl border border-slate-200 bg-white shadow-2xl sm:max-w-lg sm:rounded-2xl">
             <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-slate-200 sm:hidden" />
 
             {/* HEADER */}
-            <header className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
+            <header className="flex items-start justify-between gap-3 border-b border-slate-100 px-6 py-4">
               <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-700">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
                   <RotateCcw className="h-4 w-4" />
                 </div>
                 <div className="min-w-0">
-                  <h2
-                    id="maintenance-reset-title"
-                    className="text-base font-bold text-slate-950"
-                  >
+                  <h2 id="maintenance-reset-title" className="text-base font-bold text-slate-900">
                     Réinitialiser la maintenance
                   </h2>
-                  <p className="mt-0.5 text-[11px] text-slate-500">
-                    {maintenanceAircraft.immatriculation} ·{' '}
-                    {maintenanceAircraft.type?.nomModele ??
-                      maintenanceAircraft.modele}
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    {maintenanceAircraft.immatriculation} · {maintenanceAircraft.type?.nomModele ?? maintenanceAircraft.modele}
                   </p>
                 </div>
               </div>
@@ -2001,7 +1833,7 @@ export function AircraftManagement() {
                 type="button"
                 onClick={closeMaintenanceResetModal}
                 disabled={actionAircraftId === maintenanceAircraft.id}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-400 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700 disabled:opacity-40"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700 disabled:opacity-40"
                 aria-label="Fermer"
               >
                 <X className="h-4 w-4" />
@@ -2009,46 +1841,41 @@ export function AircraftManagement() {
             </header>
 
             {/* BODY */}
-            <div className="space-y-3 p-5">
+            <div className="space-y-4 p-6">
               {/* Warning */}
-              <div className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50/60 p-3">
+              <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50/60 p-3.5">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
                 <div>
-                  <p className="text-xs font-semibold text-amber-900">
+                  <p className="text-sm font-semibold text-amber-900">
                     Confirmer la fin de maintenance ?
                   </p>
-                  <p className="mt-0.5 text-[11px] leading-4 text-amber-700">
-                    Le compteur, la date de maintenance et le statut seront
-                    recalculés automatiquement.
+                  <p className="mt-1 text-xs leading-5 text-amber-700">
+                    Le compteur, la date de maintenance et le statut seront recalculés automatiquement.
                   </p>
                 </div>
               </div>
 
               {/* Stats */}
-              <div className="grid grid-cols-2 gap-2.5">
-                <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-3.5">
                   <span className={LABEL_UPPER}>Compteur actuel</span>
                   <p className="mt-1 font-mono text-base font-bold text-slate-800">
-                    {formatNumber(
-                      maintenanceAircraft.heuresDepuisDerniereMaintenance,
-                    )}{' '}
-                    h
+                    {formatNumber(maintenanceAircraft.heuresDepuisDerniereMaintenance)} h
                   </p>
                 </div>
-                <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+                <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-3.5">
                   <span className={LABEL_UPPER}>Limite</span>
                   <p className="mt-1 font-mono text-base font-bold text-slate-800">
-                    {formatNumber(maintenanceAircraft.limiteHeuresMaintenance)}{' '}
-                    h
+                    {formatNumber(maintenanceAircraft.limiteHeuresMaintenance)} h
                   </p>
                 </div>
-                <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+                <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-3.5">
                   <span className={LABEL_UPPER}>Potentiel utilisé</span>
                   <p className="mt-1 font-mono text-base font-bold text-slate-800">
                     {maintenanceRatio(maintenanceAircraft)} %
                   </p>
                 </div>
-                <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+                <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-3.5">
                   <span className={LABEL_UPPER}>Dernière maint.</span>
                   <p className="mt-1 text-xs font-semibold text-slate-800">
                     {formatDate(maintenanceAircraft.dateDerniereMaintenance)}
@@ -2057,22 +1884,21 @@ export function AircraftManagement() {
               </div>
 
               {/* Info */}
-              <div className="flex items-start gap-2.5 rounded-xl border border-sky-100 bg-sky-50/60 p-3">
+              <div className="flex items-start gap-2.5 rounded-lg border border-sky-100 bg-sky-50/50 p-3">
                 <Info className="mt-0.5 h-4 w-4 shrink-0 text-sky-600" />
-                <p className="text-[11px] leading-4 text-sky-800">
-                  Après confirmation, les données seront rechargées
-                  automatiquement pour refléter les changements.
+                <p className="text-xs leading-5 text-sky-800">
+                  Après confirmation, les données seront rechargées automatiquement pour refléter les changements.
                 </p>
               </div>
             </div>
 
             {/* FOOTER */}
-            <footer className="grid grid-cols-2 gap-2 border-t border-slate-100 bg-slate-50/70 px-5 py-3.5 sm:flex sm:justify-end">
+            <footer className="grid grid-cols-2 gap-3 border-t border-slate-100 bg-slate-50/70 px-6 py-4 sm:flex sm:justify-end">
               <button
                 type="button"
                 onClick={closeMaintenanceResetModal}
                 disabled={actionAircraftId === maintenanceAircraft.id}
-                className={`h-10 rounded-xl border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 disabled:opacity-50 sm:min-w-[110px] ${FOCUS_RING}`}
+                className={`h-10 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-50 sm:min-w-[110px] ${FOCUS_RING}`}
               >
                 Annuler
               </button>
@@ -2080,16 +1906,16 @@ export function AircraftManagement() {
                 type="button"
                 onClick={() => void resetMaintenance()}
                 disabled={actionAircraftId === maintenanceAircraft.id}
-                className={`inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 text-xs font-semibold text-white shadow-sm transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50 sm:min-w-[160px] ${FOCUS_RING}`}
+                className={`inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 text-sm font-medium text-white shadow-sm transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50 sm:min-w-[160px] ${FOCUS_RING}`}
               >
                 {actionAircraftId === maintenanceAircraft.id ? (
                   <>
-                    <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                    <LoaderCircle className="h-4 w-4 animate-spin" />
                     Traitement...
                   </>
                 ) : (
                   <>
-                    <RotateCcw className="h-3.5 w-3.5" />
+                    <RotateCcw className="h-4 w-4" />
                     Confirmer
                   </>
                 )}
@@ -2111,19 +1937,19 @@ export function AircraftManagement() {
             }
           }}
         >
-          <div className="w-full overflow-hidden rounded-t-3xl border border-slate-200 bg-white shadow-2xl sm:max-w-md sm:rounded-2xl">
+          <div className="w-full overflow-hidden rounded-t-2xl border border-slate-200 bg-white shadow-2xl sm:max-w-md sm:rounded-2xl">
             <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-slate-200 sm:hidden" />
 
-            <header className="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
+            <header className="flex items-center justify-between gap-3 border-b border-slate-100 px-6 py-4">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-700">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-600">
                   <Gauge className="h-4 w-4" />
                 </div>
                 <div>
-                  <h2 className="text-base font-bold text-slate-950">
+                  <h2 className="text-base font-bold text-slate-900">
                     Ajouter des heures
                   </h2>
-                  <p className="mt-0.5 text-[11px] text-slate-500">
+                  <p className="mt-0.5 text-xs text-slate-500">
                     {hoursAircraft.immatriculation} · {hoursAircraft.modele}
                   </p>
                 </div>
@@ -2133,14 +1959,14 @@ export function AircraftManagement() {
                 type="button"
                 onClick={() => setHoursAircraft(null)}
                 disabled={submitting}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-400 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700 disabled:opacity-40"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700 disabled:opacity-40"
                 aria-label="Fermer"
               >
                 <X className="h-4 w-4" />
               </button>
             </header>
 
-            <form onSubmit={submitFlightHours} className="space-y-4 p-5">
+            <form onSubmit={submitFlightHours} className="space-y-4 p-6">
               <Field label="Heures volées" required>
                 <input
                   type="number"
@@ -2154,33 +1980,31 @@ export function AircraftManagement() {
                 />
               </Field>
 
-              <div className="flex items-start gap-2.5 rounded-xl border border-slate-100 bg-slate-50/60 p-3">
+              <div className="flex items-start gap-2.5 rounded-lg border border-slate-100 bg-slate-50/50 p-3">
                 <Info className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
-                <p className="text-[11px] leading-4 text-slate-600">
-                  Cette action augmente les heures totales et le compteur
-                  depuis maintenance. Le backend bascule automatiquement
-                  l'avion en maintenance si la limite est atteinte.
+                <p className="text-xs leading-5 text-slate-600">
+                  Cette action augmente les heures totales et le compteur depuis maintenance. Le backend bascule automatiquement l'avion en maintenance si la limite est atteinte.
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 border-t border-slate-100 pt-4 sm:flex sm:justify-end">
+              <div className="grid grid-cols-2 gap-3 border-t border-slate-100 pt-4 sm:flex sm:justify-end">
                 <button
                   type="button"
                   onClick={() => setHoursAircraft(null)}
                   disabled={submitting}
-                  className={`h-10 rounded-xl border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 disabled:opacity-50 sm:min-w-[100px] ${FOCUS_RING}`}
+                  className={`h-10 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-50 sm:min-w-[100px] ${FOCUS_RING}`}
                 >
                   Annuler
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className={`inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50 sm:min-w-[120px] ${FOCUS_RING}`}
+                  className={`inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-medium text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50 sm:min-w-[120px] ${FOCUS_RING}`}
                 >
                   {submitting ? (
-                    <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                    <LoaderCircle className="h-4 w-4 animate-spin" />
                   ) : (
-                    <Plus className="h-3.5 w-3.5" />
+                    <Plus className="h-4 w-4" />
                   )}
                   Ajouter
                 </button>
