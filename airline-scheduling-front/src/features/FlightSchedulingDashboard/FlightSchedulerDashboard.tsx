@@ -181,7 +181,6 @@ export const FlightSchedulerDashboard: React.FC = () => {
   const [message, setMessage] = useState<MessageState | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('TOUS');
-  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
 
   const fetchData = React.useCallback(async () => {
     setLoading(true);
@@ -228,7 +227,6 @@ export const FlightSchedulerDashboard: React.FC = () => {
         );
       }
 
-      setLastUpdatedAt(new Date());
     } catch (error: unknown) {
       setMessage({
         type: 'error',
@@ -338,7 +336,7 @@ export const FlightSchedulerDashboard: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 p-4 sm:p-6">
-      <div className="mx-auto max-w-[1500px] space-y-5">
+      <div className="mx-auto max-w-375 space-y-5">
         {/* ═══════════════ HEADER (sans Météo) ═══════════════ */}
         <header className="flex flex-wrap items-center justify-end gap-2.5">
           <button

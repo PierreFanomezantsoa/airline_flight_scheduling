@@ -11,7 +11,6 @@ import {
   Wrench,
   Plus,
   Calendar,
-  Clock,
   Trash2,
   Loader2,
   AlertCircle,
@@ -27,7 +26,6 @@ import {
   Filter,
   ChevronLeft,
   ChevronRight,
-  ChevronDown,
   Activity,
   ArrowUpRight,
 } from 'lucide-react';
@@ -115,16 +113,6 @@ const isMaintenanceAircraft = (aircraft: AircraftLike): boolean => {
 const isRetiredAircraft = (aircraft: AircraftLike): boolean => {
   const status = getAircraftStatus(aircraft);
   return status === 'retired' || status.includes('retir');
-};
-
-const formatRemainingTime = (ms: number): string => {
-  if (ms <= 0) return 'Expiré';
-  const hours = Math.floor(ms / 3_600_000);
-  const minutes = Math.floor((ms % 3_600_000) / 60_000);
-  const seconds = Math.floor((ms % 60_000) / 1000);
-  if (hours > 0) return `${hours}h ${String(minutes).padStart(2, '0')}min`;
-  if (minutes > 0) return `${minutes}min ${String(seconds).padStart(2, '0')}s`;
-  return `${seconds}s`;
 };
 
 const isPendingReview = (slot: MaintenanceSlot): boolean =>
@@ -483,12 +471,6 @@ export const MaintenancePlanning: React.FC = () => {
     );
   }, [slots]);
 
-  const selectedAircraft = useMemo(
-    () =>
-      aircrafts.find((aircraft) => aircraft.id === selectedAircraftId) ?? null,
-    [aircrafts, selectedAircraftId],
-  );
-
   const maintenanceSummary = useMemo(() => {
     const now = Date.now();
     let planned = 0;
@@ -775,7 +757,7 @@ export const MaintenancePlanning: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="mx-auto flex min-h-[420px] w-full max-w-[1600px] items-center justify-center">
+      <div className="mx-auto flex min-h-105 w-full max-w-[1600px] items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="h-6 w-6 animate-spin text-emerald-600" />
           <p className="text-sm text-slate-500">Chargement du planning...</p>

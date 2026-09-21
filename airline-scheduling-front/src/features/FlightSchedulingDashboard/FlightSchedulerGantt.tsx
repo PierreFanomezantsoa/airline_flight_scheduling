@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { BarChart3, MapPin, Plane } from 'lucide-react';
+import { MapPin, Plane } from 'lucide-react';
 
 export type FlightStatus = 'Planifié' | 'En Vol' | 'Retardé' | 'Annulé' | 'Effectué';
 
@@ -268,7 +268,7 @@ const FlightSchedulerGantt: React.FC<FlightSchedulerGanttProps> = ({
       </div>
 
       {ganttData.rows.length === 0 ? (
-        <div className="flex min-h-[240px] flex-col items-center justify-center p-8 text-center">
+        <div className="flex min-h-60 flex-col items-center justify-center p-8 text-center">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-50 text-slate-300">
             <Plane className="h-5 w-5" />
           </div>
@@ -277,7 +277,7 @@ const FlightSchedulerGantt: React.FC<FlightSchedulerGanttProps> = ({
         </div>
       ) : (
         <div className="overflow-x-auto">
-          <div className="min-w-[1450px]">
+          <div className="min-w-362.5">
             <div className="sticky top-0 z-30 flex border-b border-slate-200 bg-slate-50">
               <div className="sticky left-0 z-40 flex w-64 shrink-0 items-center border-r border-slate-200 bg-slate-50 px-4 py-3">
                 <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
@@ -386,7 +386,7 @@ const FlightSchedulerGantt: React.FC<FlightSchedulerGanttProps> = ({
                       return (
                         <div
                           key={item.id}
-                          className={`group/item absolute bottom-2 top-2 flex min-w-[125px] cursor-pointer items-center justify-between overflow-hidden rounded-lg border px-2.5 shadow-sm transition-all duration-150 hover:z-30 hover:-translate-y-0.5 hover:shadow-md ${config.bg} ${config.border}`}
+                          className={`group/item absolute bottom-2 top-2 flex min-w-31.25 cursor-pointer items-center justify-between overflow-hidden rounded-lg border px-2.5 shadow-sm transition-all duration-150 hover:z-30 hover:-translate-y-0.5 hover:shadow-md ${config.bg} ${config.border}`}
                           style={{ left: `${left}%`, width: `${width}%` }}
                           title={[
                             `Vol ${item.flightNumber ?? ''}`,

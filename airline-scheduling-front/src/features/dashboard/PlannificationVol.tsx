@@ -508,7 +508,7 @@ export const FlightPlanning: React.FC<FlightPlanningProps> = ({
       {isFetching && flights.length === 0 ? (
         <LoadingSkeleton />
       ) : flightsByAircraft.length === 0 ? (
-        <div className="flex min-h-[280px] flex-col items-center justify-center p-6 text-center">
+        <div className="flex min-h-70 flex-col items-center justify-center p-6 text-center">
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-50 text-slate-300">
             <Search className="h-6 w-6" />
           </div>

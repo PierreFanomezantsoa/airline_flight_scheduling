@@ -387,7 +387,7 @@ const DetailItem: React.FC<DetailItemProps> = ({ label, value }) => (
     <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
       {label}
     </p>
-    <div className="mt-1 break-words text-xs font-semibold text-slate-800">
+    <div className="mt-1 wrap-break-word text-xs font-semibold text-slate-800">
       {value || '—'}
     </div>
   </div>
@@ -661,23 +661,10 @@ const FlightHistory: React.FC<FlightHistoryProps> = ({
     return { total: flights.length, completed, delayed, cancelled, completionRate };
   }, [flights]);
 
-  const resetFilters = () => {
-    setSearch('');
-    setStatusFilter('ALL');
-    setDateFrom('');
-    setDateTo('');
-  };
-
-  const activeFilterCount =
-    (search.trim() ? 1 : 0) +
-    (statusFilter !== 'ALL' ? 1 : 0) +
-    (dateFrom ? 1 : 0) +
-    (dateTo ? 1 : 0);
-
   /* LOADING */
   if (loading) {
     return (
-      <div className="flex min-h-[500px] items-center justify-center">
+      <div className="flex min-h-125 items-center justify-center">
         <div className="rounded-2xl border border-slate-200 bg-white px-10 py-8 text-center shadow-sm">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
             <RefreshCw size={22} className="animate-spin" />
@@ -819,7 +806,7 @@ const FlightHistory: React.FC<FlightHistoryProps> = ({
         </div>
 
         {filteredFlights.length === 0 ? (
-          <div className="flex min-h-[300px] flex-col items-center justify-center p-8 text-center">
+          <div className="flex min-h-75 flex-col items-center justify-center p-8 text-center">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-50 text-slate-400">
               <Plane size={22} />
             </div>
@@ -1264,7 +1251,7 @@ const FlightHistory: React.FC<FlightHistoryProps> = ({
                             <button
                               type="button"
                               onClick={() => setCurrentPage(page)}
-                              className={`h-8 min-w-[32px] rounded-md px-2 text-xs font-medium transition ${
+                              className={`h-8 min-w-8 rounded-md px-2 text-xs font-medium transition ${
                                 page === currentPage
                                   ? 'bg-emerald-600 text-white'
                                   : 'text-slate-600 hover:bg-slate-100'

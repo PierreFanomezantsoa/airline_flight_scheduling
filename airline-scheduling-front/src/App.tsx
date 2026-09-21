@@ -570,7 +570,7 @@ function App() {
       ===================================================================== */}
       <div
         className={`flex min-h-screen w-full min-w-0 flex-col transition-[padding] duration-300 ${
-          isSidebarCollapsed ? 'md:pl-[76px]' : 'md:pl-[240px]'
+          isSidebarCollapsed ? 'md:pl-19' : 'md:pl-60'
         }`}
       >
         {/* HEADER */}

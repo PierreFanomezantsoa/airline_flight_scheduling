@@ -3,7 +3,7 @@ import {
   AlertCircle, AlertTriangle, ArrowRight, CalendarDays, CheckCircle2, Clock,
   CloudLightning, CloudRain, Cpu, Edit2, Filter, Globe, Loader2, MapPin, Plane,
   Plus, RefreshCw, Search, ShieldAlert, Sparkles, Sun, Trash2, X, XCircle,
-  MoreVertical, ArrowUpDown,
+  MoreVertical,
 } from 'lucide-react';
 import { FlightAddModal, type FlightFormData } from '../dashboard/FlightAddModal';
 
@@ -227,7 +227,7 @@ const RouteBadge: React.FC<{ origin: string; destination: string; stops?: string
   const hasStops = stops.length > 0;
 
   return (
-    <div className="min-w-[190px]">
+    <div className="min-w-47.5">
       <div className="flex flex-wrap items-center gap-1.5">
         <span className="font-mono text-xs font-bold text-slate-800">{origin}</span>
         {stops.map((stop, index) => (
@@ -542,7 +542,7 @@ export const FlightsPlanning: React.FC = () => {
     if (Number.isNaN(depDate.getTime()) || Number.isNaN(arrDate.getTime())) return <span className="text-xs italic text-slate-400">Dates non renseignées</span>;
     const formatDate = (date: Date) => `${date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })} ${date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
     return (
-      <div className="min-w-[160px]">
+      <div className="min-w-40">
         <div className="flex items-center gap-2">
           <div>
             <span className="block text-[10px] font-medium text-slate-400">Départ</span>
@@ -602,9 +602,9 @@ export const FlightsPlanning: React.FC = () => {
   }, [flights, getCalculatedStatus]);
 
   return (
-    <div className="relative mx-auto max-w-[1500px] space-y-6 pb-8 bg-slate-50/50 p-4 sm:p-6 min-h-screen">
+    <div className="relative mx-auto max-w-375 space-y-6 pb-8 bg-slate-50/50 p-4 sm:p-6 min-h-screen">
       {/* TOASTS */}
-      <div className="pointer-events-none fixed bottom-3 left-3 right-3 z-[70] flex flex-col gap-2 sm:bottom-5 sm:left-auto sm:right-5 sm:w-full sm:max-w-md">
+      <div className="pointer-events-none fixed bottom-3 left-3 right-3 z-70 flex flex-col gap-2 sm:bottom-5 sm:left-auto sm:right-5 sm:w-full sm:max-w-md">
         {toasts.map(toast => (
           <div key={toast.id} className={`pointer-events-auto flex items-start justify-between gap-3 rounded-xl border bg-white p-4 shadow-lg ${toast.type === 'success' ? 'border-emerald-200' : toast.type === 'error' ? 'border-rose-200' : 'border-sky-200'}`}>
             <div className="flex min-w-0 items-start gap-3">
@@ -711,7 +711,7 @@ export const FlightsPlanning: React.FC = () => {
         {loadingFlights ? (
           <div className="space-y-2 p-5">{[1, 2, 3, 4, 5].map(item => <div key={item} className="h-16 animate-pulse rounded-lg bg-slate-50" />)}</div>
         ) : filteredFlights.length === 0 ? (
-          <div className="flex min-h-[300px] flex-col items-center justify-center p-6 text-center">
+          <div className="flex min-h-75 flex-col items-center justify-center p-6 text-center">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-50 text-slate-400"><Plane className="h-5 w-5" /></div>
             <p className="mt-4 text-sm font-medium text-slate-900">Aucune rotation trouvée</p>
             <p className="mt-1 text-sm text-slate-500">Ajustez votre recherche ou réinitialisez les filtres.</p>
@@ -728,7 +728,7 @@ export const FlightsPlanning: React.FC = () => {
 
             {/* DESKTOP */}
             <div className="hidden overflow-x-auto sm:block">
-              <table className="w-full min-w-[1000px] border-collapse text-left">
+              <table className="w-full min-w-250 border-collapse text-left">
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50/80 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                     <th className="px-5 py-3">N° Vol</th>
@@ -774,7 +774,7 @@ export const FlightsPlanning: React.FC = () => {
                           </span>
                         </td>
                         <td className="px-4 py-4">
-                          <div className="min-w-[140px]">
+                          <div className="min-w-35">
                             <div className="flex items-center gap-2">
                               <span className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium ${weather.badge}`}>{weather.icon}{weather.label}</span>
                               <span className="font-mono text-[11px] font-medium text-slate-500">{formatWeatherPercent(weatherScore)}</span>
@@ -825,7 +825,7 @@ export const FlightsPlanning: React.FC = () => {
                       return (
                         <React.Fragment key={page}>
                           {showEllipsis && <span className="px-1 text-xs text-slate-400">…</span>}
-                          <button type="button" onClick={() => setCurrentPage(page)} className={`h-8 min-w-[32px] rounded-md px-2 text-xs font-medium transition ${page === currentPage ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>
+                          <button type="button" onClick={() => setCurrentPage(page)} className={`h-8 min-w-8 rounded-md px-2 text-xs font-medium transition ${page === currentPage ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>
                             {page}
                           </button>
                         </React.Fragment>
@@ -844,7 +844,7 @@ export const FlightsPlanning: React.FC = () => {
 
       {/* MODALE SUPPRESSION */}
       {deletingFlight && (
-        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-950/40 backdrop-blur-sm sm:items-center sm:p-4">
+        <div className="fixed inset-0 z-80 flex items-end justify-center bg-slate-950/40 backdrop-blur-sm sm:items-center sm:p-4">
           <div className="w-full rounded-t-2xl border border-slate-100 bg-white p-6 shadow-xl sm:max-w-md sm:rounded-2xl" role="dialog" aria-modal="true">
             <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-slate-200 sm:hidden" />
             <div className="flex items-start gap-4">
@@ -890,7 +890,7 @@ export const FlightsPlanning: React.FC = () => {
       />
 
       {isSubmitting && (
-        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/20 p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-90 flex items-center justify-center bg-slate-950/20 p-4 backdrop-blur-sm">
           <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-5 py-4 shadow-lg">
             <Loader2 className="h-5 w-5 animate-spin text-emerald-600" />
             <span className="text-sm font-medium text-slate-800">Synchronisation en cours...</span>
