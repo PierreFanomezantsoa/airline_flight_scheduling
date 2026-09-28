@@ -822,7 +822,7 @@ const HelpSupportPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800">
-      <div className="mx-auto max-w-[1400px] space-y-5 p-4 lg:p-6">
+      <div className="mx-auto max-w-350 space-y-5 p-4 lg:p-6">
 
         {/* =====================================================================
             CARTE UNIQUE : HERO + TOP BAR + INFO SECTION (non sticky)
@@ -973,8 +973,8 @@ const HelpSupportPage: React.FC = () => {
           </div>
 
           {/* ---------- INFO SECTION ACTIVE ---------- */}
-          <div className="flex items-center gap-3 border-t border-slate-100 bg-gradient-to-r from-emerald-50/70 to-transparent px-5 py-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-700 text-white shadow-sm">
+          <div className="flex items-center gap-3 border-t border-slate-100 bg-linear-to-r from-emerald-50/70 to-transparent px-5 py-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-emerald-500 to-emerald-700 text-white shadow-sm">
               {activeNavItem.icon}
             </span>
             <div className="min-w-0 flex-1">
@@ -1054,7 +1054,7 @@ const HelpSupportPage: React.FC = () => {
                   {expanded && (
                     <div className="border-t border-slate-100 bg-slate-50/60 p-4">
                       <div className="relative">
-                        <div className="absolute bottom-2 left-[13px] top-2 w-px bg-slate-200" />
+                        <div className="absolute bottom-2 left-3.25 top-2 w-px bg-slate-200" />
                         <ol className="relative space-y-3">
                           {guide.steps.map((step, index) => (
                             <li
@@ -1122,7 +1122,7 @@ const HelpSupportPage: React.FC = () => {
             </div>
 
             {filteredFaq.length === 0 ? (
-              <div className="flex min-h-[260px] flex-col items-center justify-center p-6 text-center">
+              <div className="flex min-h-65 flex-col items-center justify-center p-6 text-center">
                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
                   <FileQuestion className="h-6 w-6" />
                 </div>
@@ -1298,7 +1298,7 @@ const HelpSupportPage: React.FC = () => {
                   <button
                     type="submit"
                     disabled={sending}
-                    className="inline-flex h-11 min-w-[180px] items-center justify-center gap-2 rounded-xl bg-emerald-700 px-5 text-xs font-black text-white shadow-sm transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="inline-flex h-11 min-w-45 items-center justify-center gap-2 rounded-xl bg-emerald-700 px-5 text-xs font-black text-white shadow-sm transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {sending ? (
                       <RefreshCw className="h-4 w-4 animate-spin" />

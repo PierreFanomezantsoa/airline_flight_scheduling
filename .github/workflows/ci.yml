@@ -146,9 +146,6 @@ jobs:
           elif [ -f requirements.txt ]; then
             echo "-> Verification de la syntaxe Python pour airline-ia..."
 
-            python -m pip install --upgrade pip
-            pip install -r requirements.txt
-
             python -m compileall .
 
           else

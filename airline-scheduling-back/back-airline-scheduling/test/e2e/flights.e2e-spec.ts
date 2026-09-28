@@ -1,11 +1,29 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { createHmac } from 'crypto';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
+import { RolesGuard } from '../../src/auth/guards/roles.guard';
 import { FlightsController } from '../../src/flights/flights.controller';
 import { FlightsService } from '../../src/flights/flights.service';
 
 describe('FlightsController (e2e)', () => {
   let app: INestApplication;
+  const authSecret = 'e2e-only-secret';
+
+  const createToken = (role = 'Planificateur') => {
+    const encoded = Buffer.from(JSON.stringify({
+      sub: 'e2e-user',
+      role,
+      exp: Date.now() + 60_000,
+    })).toString('base64url');
+    const signature = createHmac('sha256', authSecret)
+      .update(encoded)
+      .digest('base64url');
+    return `${encoded}.${signature}`;
+  };
+
+  const authHeader = { Authorization: `Bearer ${createToken()}` };
 
   const flightsService = {
     findAll: jest.fn(),
@@ -22,7 +40,14 @@ describe('FlightsController (e2e)', () => {
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
       controllers: [FlightsController],
-      providers: [{ provide: FlightsService, useValue: flightsService }],
+      providers: [
+        { provide: FlightsService, useValue: flightsService },
+        {
+          provide: ConfigService,
+          useValue: { get: (key: string) => key === 'AUTH_SECRET' ? authSecret : undefined },
+        },
+        RolesGuard,
+      ],
     }).compile();
 
     app = moduleRef.createNestApplication();
@@ -38,7 +63,7 @@ describe('FlightsController (e2e)', () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    if (app) await app.close();
   });
 
   beforeEach(() => jest.clearAllMocks());
@@ -50,10 +75,17 @@ describe('FlightsController (e2e)', () => {
 
     const response = await request(app.getHttpServer())
       .get('/flights')
+      .set(authHeader)
       .expect(200);
 
     expect(response.body).toHaveLength(1);
     expect(response.body[0].numeroVol).toBe('AFK412');
+  });
+
+  it('GET /flights refuse une requête sans session', async () => {
+    await request(app.getHttpServer())
+      .get('/flights')
+      .expect(401);
   });
 
   it('POST /flights accepte un DTO valide', async () => {
@@ -69,6 +101,7 @@ describe('FlightsController (e2e)', () => {
 
     const response = await request(app.getHttpServer())
       .post('/flights')
+      .set(authHeader)
       .send(payload)
       .expect(201);
 
@@ -87,6 +120,7 @@ describe('FlightsController (e2e)', () => {
 
     await request(app.getHttpServer())
       .post('/flights')
+      .set(authHeader)
       .send(payload)
       .expect(400);
 
@@ -104,6 +138,7 @@ describe('FlightsController (e2e)', () => {
 
     const response = await request(app.getHttpServer())
       .get('/flights/conflicts')
+      .set(authHeader)
       .expect(200);
 
     expect(response.body.totalConflicts).toBe(1);
