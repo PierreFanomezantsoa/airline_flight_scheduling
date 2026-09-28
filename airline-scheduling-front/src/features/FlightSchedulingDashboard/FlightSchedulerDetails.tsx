@@ -26,6 +26,7 @@ export interface Flight {
   aircraftModel?: string | null;
   weatherSeverity?: number | null;
   stopover?: string | string[] | null;
+  stopoverDurationMinutes?: number | null;
   stops?: string[];
 }
 
@@ -63,6 +64,7 @@ export interface AutoScheduleResponse {
   message?: string;
   generatedAt?: string;
   strategy?: string;
+  scenarioSignature?: string;
   applied?: boolean;
   turnaroundMinutes?: number;
   shiftStepMinutes?: number;
@@ -132,15 +134,14 @@ const UnassignedFlightRow: FC<UnassignedFlightRowProps> = ({ item }) => (
 const FlightSchedulerDetails: FC<FlightSchedulerDetailsProps> = ({
   previewScenario,
 }) => {
-  // Pas de scénario prévisualisé = rien à afficher
   if (!previewScenario) return null;
 
-  const scenarioUnassigned = previewScenario.metrics.unassignedFlights ?? 0;
-  const unassignedList = previewScenario.unassigned ?? [];
+  const scenarioUnassigned = previewScenario?.metrics.unassignedFlights ?? 0;
+  const unassignedList = previewScenario?.unassigned ?? [];
   const hasUnassigned = unassignedList.length > 0;
 
   return (
-    <section className="grid gap-4 xl:grid-cols-2">
+    <section className="grid gap-4 p-4 sm:p-5 xl:grid-cols-2">
       {/* ─────────── MÉTRIQUES DU GÉNÉRATEUR ─────────── */}
       <div className="rounded-xl border border-slate-200 bg-white p-5">
         <header className="mb-4 flex items-center gap-3">

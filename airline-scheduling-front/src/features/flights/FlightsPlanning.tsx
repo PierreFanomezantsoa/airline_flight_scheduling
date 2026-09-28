@@ -711,13 +711,12 @@ export const FlightsPlanning: FC = () => {
    * ----------------------------------------------------------------------- */
 
   const getCalculatedStatus = useCallback((flight: Flight): NormalizedStatus => {
-    const rawStatus = flight.status;
-    if (['Cancelled', 'Annulé'].includes(rawStatus)) return 'Annulé';
-    if (['Delayed', 'Retardé'].includes(rawStatus)) return 'Retardé';
-    if (['In-Flight', 'En Vol'].includes(rawStatus)) return 'En Vol';
-    if (rawStatus === 'Effectué') return 'Effectué';
-    if (['On-Time', 'Ponctuel'].includes(rawStatus)) return 'Ponctuel';
-    if (['Scheduled', 'Planifié', 'En attente'].includes(rawStatus)) return 'En attente';
+    const rawStatus = String(flight.status ?? '').trim();
+    const normalizedRawStatus = rawStatus.toLowerCase();
+    if (['cancelled', 'canceled', 'annulé', 'annule'].includes(normalizedRawStatus)) return 'Annulé';
+    if (['delayed', 'retardé', 'retarde'].includes(normalizedRawStatus)) return 'Retardé';
+    if (['in-flight', 'en vol'].includes(normalizedRawStatus)) return 'En Vol';
+    if (['effectué', 'effectue', 'completed', 'done', 'landed'].includes(normalizedRawStatus)) return 'Effectué';
 
     const now = new Date();
     const dep = new Date(flight.departure);
@@ -727,6 +726,8 @@ export const FlightsPlanning: FC = () => {
       if (now >= dep && now <= arr) return 'En Vol';
       if (now > arr) return 'Effectué';
     }
+
+    if (['on-time', 'ponctuel'].includes(normalizedRawStatus)) return 'Ponctuel';
     return 'En attente';
   }, []);
 
@@ -1089,6 +1090,8 @@ export const FlightsPlanning: FC = () => {
   const filteredFlights = useMemo(() => {
     const term = searchTerm.toLowerCase().trim();
     return flights.filter((flight) => {
+      const calculatedStatus = getCalculatedStatus(flight);
+      if (calculatedStatus === 'Effectué') return false;
       const stops = normalizeStops(flight);
       const fullRoute = [flight.origin, ...stops, flight.destination]
         .join('-')
@@ -1103,7 +1106,7 @@ export const FlightsPlanning: FC = () => {
         flight.aircraftModel?.toLowerCase().includes(term);
       const matchesStatus =
         selectedStatusFilter === 'ALL' ||
-        getCalculatedStatus(flight) === selectedStatusFilter;
+        calculatedStatus === selectedStatusFilter;
       return matchesSearch && matchesStatus;
     });
   }, [flights, searchTerm, selectedStatusFilter, getCalculatedStatus]);
@@ -1124,9 +1127,11 @@ export const FlightsPlanning: FC = () => {
   }, [currentPage, totalPages]);
 
   const stats = useMemo(() => {
-    const statuses = flights.map(getCalculatedStatus);
+    const statuses = flights
+      .map(getCalculatedStatus)
+      .filter((status) => status !== 'Effectué');
     return {
-      total: flights.length,
+      total: statuses.length,
       inFlight: statuses.filter((status) => status === 'En Vol').length,
       delayed: statuses.filter((status) => status === 'Retardé').length,
       pending: statuses.filter((status) => status === 'En attente').length,

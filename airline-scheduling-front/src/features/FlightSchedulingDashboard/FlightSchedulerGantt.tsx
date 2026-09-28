@@ -1,6 +1,6 @@
 // src/features/FlightSchedulingDashboard/FlightSchedulerGantt.tsx
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import type { FC } from 'react';
 import { MapPin, Plane } from 'lucide-react';
 
@@ -31,6 +31,8 @@ export interface GanttItem {
   localEnd?: string | null;
   origin?: string | null;
   destination?: string | null;
+  stopovers?: string[];
+  stopoverDurationMinutes?: number | null;
   durationMinutes?: number | null;
   label?: string | null;
   status?: string | null;
@@ -51,6 +53,8 @@ export interface AutoScheduleAssignment {
   aircraftRegistration?: string | null;
   origin?: string | null;
   destination?: string | null;
+  stopovers?: string[];
+  stopoverDurationMinutes?: number | null;
   originalDeparture?: string;
   originalArrival?: string;
   departure: string;
@@ -150,6 +154,18 @@ const formatDateTime = (value?: string | null): string => {
   return date.toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
 };
 
+const formatDuration = (minutes?: number | null): string => {
+  if (minutes == null || !Number.isFinite(minutes) || minutes < 0) return '--';
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  return `${hours} h ${String(remainingMinutes).padStart(2, '0')} min`;
+};
+
+const getRoute = (item: GanttItem): string =>
+  [item.origin, ...(item.stopovers ?? []), item.destination]
+    .filter((airport): airport is string => Boolean(airport?.trim()))
+    .join(' → ');
+
 const formatUtcTick = (timestamp: number): string =>
   new Intl.DateTimeFormat('fr-FR', {
     timeZone: 'UTC',
@@ -184,9 +200,14 @@ function buildItemTooltip(
   localEnd: string | null | undefined,
   shiftMinutes: number,
 ): string {
+  const stopoverCount = item.stopovers?.length ?? 0;
   return [
     `Vol ${item.flightNumber ?? ''}`,
-    `${item.origin ?? '?'} → ${item.destination ?? '?'}`,
+    getRoute(item) || `${item.origin ?? '?'} → ${item.destination ?? '?'}`,
+    `Durée totale : ${formatDuration(item.durationMinutes)}`,
+    stopoverCount > 0
+      ? `${stopoverCount} escale${stopoverCount > 1 ? 's' : ''}${item.stopoverDurationMinutes != null ? ` · ${formatDuration(item.stopoverDurationMinutes)} au sol` : ''}`
+      : 'Vol direct',
     `Départ UTC : ${formatDateTime(item.start)}`,
     `Arrivée UTC : ${formatDateTime(item.end)}`,
     localStart ? `Départ local : ${formatDateTime(localStart)}` : '',
@@ -224,6 +245,8 @@ const FlightSchedulerGantt: FC<FlightSchedulerGanttProps> = ({
   isPreview,
   assignmentLookup,
 }) => {
+  const [renderedAt] = useState(() => Date.now());
+
   /* -------------------------------------------------------------------------
    * CALCUL DES DONNÉES GANTT
    * ----------------------------------------------------------------------- */
@@ -255,10 +278,12 @@ const FlightSchedulerGantt: FC<FlightSchedulerGanttProps> = ({
       itemsByRow.set(item.rowId, rowItems);
     });
 
-    const rows: GanttRowWithItems[] = schedule.rows.map((row) => ({
-      ...row,
-      items: itemsByRow.get(row.aircraftId) ?? [],
-    }));
+    const rows: GanttRowWithItems[] = schedule.rows
+      .map((row) => ({
+        ...row,
+        items: itemsByRow.get(row.aircraftId) ?? [],
+      }))
+      .filter((row) => row.items.length > 0);
 
     const validItems = filteredItems.filter((item) => {
       const start = safeDate(item.start);
@@ -343,10 +368,9 @@ const FlightSchedulerGantt: FC<FlightSchedulerGanttProps> = ({
 
   const nowLineLeft = useMemo(() => {
     if (!ganttData.minTime || !ganttData.maxTime) return null;
-    const now = Date.now();
-    if (now < ganttData.minTime || now > ganttData.maxTime) return null;
-    return computeLeft(now, ganttData.minTime, ganttData.totalDuration);
-  }, [ganttData]);
+    if (renderedAt < ganttData.minTime || renderedAt > ganttData.maxTime) return null;
+    return computeLeft(renderedAt, ganttData.minTime, ganttData.totalDuration);
+  }, [ganttData, renderedAt]);
 
   /* -------------------------------------------------------------------------
    * RENDER
@@ -539,6 +563,8 @@ const FlightSchedulerGantt: FC<FlightSchedulerGanttProps> = ({
                         item.shiftMinutes ?? assignment?.shiftMinutes ?? 0;
                       const localStart = item.localStart ?? assignment?.localDeparture;
                       const localEnd = item.localEnd ?? assignment?.localArrival;
+                      const route = getRoute(item);
+                      const stopoverCount = item.stopovers?.length ?? 0;
 
                       return (
                         <div
@@ -551,20 +577,30 @@ const FlightSchedulerGantt: FC<FlightSchedulerGanttProps> = ({
                             className={`absolute inset-y-0 left-0 w-1 ${config.accent}`}
                             aria-hidden
                           />
-                          <div className="flex min-w-0 flex-1 items-center gap-1.5 pl-1.5">
-                            <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${config.dot}`} />
-                            <span className={`truncate text-[11px] font-semibold ${config.text}`}>
-                              {item.flightNumber}
-                            </span>
-                            {shiftMinutes > 0 && (
-                              <span className="shrink-0 rounded border border-orange-200 bg-white px-1 py-0.5 text-[9px] font-bold text-orange-700">
-                                +{shiftMinutes}m
+                          <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5 pl-1.5">
+                            <div className="flex min-w-0 items-center gap-1.5">
+                              <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${config.dot}`} />
+                              <span className={`truncate text-[11px] font-semibold ${config.text}`}>
+                                {item.flightNumber}
                               </span>
-                            )}
+                              {shiftMinutes > 0 && (
+                                <span className="shrink-0 rounded border border-orange-200 bg-white px-1 py-0.5 text-[9px] font-bold text-orange-700">
+                                  +{shiftMinutes}m
+                                </span>
+                              )}
+                              {stopoverCount > 0 && (
+                                <span className="shrink-0 rounded border border-sky-200 bg-white px-1 py-0.5 text-[9px] font-semibold text-sky-700">
+                                  {stopoverCount} escale{stopoverCount > 1 ? 's' : ''}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex min-w-0 items-center justify-between gap-1 font-mono text-[9px] text-slate-600">
+                              <span className="truncate">{route}</span>
+                              <span className="shrink-0">
+                                {formatDuration(item.durationMinutes).replace(' min', '')}
+                              </span>
+                            </div>
                           </div>
-                          <span className="ml-1.5 hidden shrink-0 truncate rounded border border-white/60 bg-white/70 px-1.5 py-0.5 font-mono text-[10px] font-medium text-slate-600 sm:inline-block">
-                            {item.origin} → {item.destination}
-                          </span>
                         </div>
                       );
                     })}

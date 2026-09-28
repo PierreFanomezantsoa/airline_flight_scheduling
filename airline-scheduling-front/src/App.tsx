@@ -178,8 +178,8 @@ const SCREEN_META: Record<
     subtitle: 'Comptes, rôles et permissions',
   },
   scheduling: {
-    title: 'Planification et programmation des vols',
-    subtitle: 'Génération automatique et validation des scénarios',
+    title: 'Ordonnancement des vols',
+    subtitle: 'Génération automatique et validation des rotations',
   },
   fleet: { title: '', subtitle: '' },
   aircraft: {
@@ -187,8 +187,8 @@ const SCREEN_META: Record<
     subtitle: 'Aéronefs physiques et immatriculations',
   },
   flights: {
-    title: 'Planification des vols',
-    subtitle: 'Création, affectation et suivi',
+    title: 'Gestion des vols',
+    subtitle: 'Création, affectation et suivi des rotations',
   },
   'flight-history': {
     title: 'Historique des vols',

@@ -29,6 +29,21 @@ export class SchedulingService {
       criticalConflicts: conflicts.filter((c) => c.severity === ConflictSeverity.CRITICAL).length,
       highConflicts: conflicts.filter((c) => c.severity === ConflictSeverity.HIGH).length,
       mediumConflicts: conflicts.filter((c) => c.severity === ConflictSeverity.MEDIUM).length,
+      summary: {
+        blocking: conflicts.filter((c) => c.blocking).length,
+        affectedFlights: new Set(
+          conflicts.flatMap((conflict) =>
+            [conflict.flightId, conflict.relatedFlightId].filter(
+              (id): id is string => Boolean(id),
+            ),
+          ),
+        ).size,
+        affectedAircraft: new Set(
+          conflicts
+            .map((conflict) => conflict.aircraftId)
+            .filter((id): id is string => Boolean(id)),
+        ).size,
+      },
       conflicts,
     };
   }

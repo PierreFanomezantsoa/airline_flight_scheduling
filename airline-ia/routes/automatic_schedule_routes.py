@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone, timedelta
+import hashlib
+import json
 from typing import Any, Optional
 
 from flask import Blueprint, jsonify, request
@@ -32,6 +34,7 @@ DEFAULT_SHIFT_STEP_MINUTES = 15
 DEFAULT_MAX_SHIFT_MINUTES = 6 * 60
 DEFAULT_HORIZON_DAYS = 7
 MAX_HORIZON_DAYS = 30
+DEFAULT_MAINTENANCE_WARNING_HOURS = 10.0
 
 # Limite de sécurité pour éviter une explosion mémoire sur gros volumes.
 MAX_FLIGHTS_PER_REQUEST = 2000
@@ -159,6 +162,37 @@ def flight_duration_minutes(flight: Flight) -> Optional[int]:
     return int(round((arr - dep).total_seconds() / 60))
 
 
+def flight_hours_for_maintenance(flight: Flight) -> Optional[float]:
+    """Calcule les heures de vol à créditer, hors durée d'escale."""
+    duration_minutes = flight_duration_minutes(flight)
+    if duration_minutes is None:
+        return None
+    stopover_minutes = safe_int(
+        getattr(flight, "dureeEscale", 0),
+        default=0,
+        minimum=0,
+    )
+    return max(0.0, (duration_minutes - stopover_minutes) / 60.0)
+
+
+def aircraft_maintenance_limit(aircraft: Aircraft) -> Optional[float]:
+    value = getattr(aircraft, "limiteHeuresMaintenance", None)
+    try:
+        return float(value) if value is not None and float(value) > 0 else None
+    except (TypeError, ValueError):
+        return None
+
+
+def aircraft_maintenance_hours(aircraft: Aircraft) -> float:
+    try:
+        return max(
+            0.0,
+            float(getattr(aircraft, "heuresDepuisDerniereMaintenance", 0) or 0),
+        )
+    except (TypeError, ValueError):
+        return 0.0
+
+
 def _normalized_flight_status(flight: Flight) -> str:
     """Retourne le statut normalisé en MAJUSCULES.
 
@@ -249,6 +283,10 @@ def maintenance_slots_for_aircrafts_bulk(
         }
 
         for slot in slots:
+            if str(getattr(slot, "status", "") or "").upper() in {
+                "CANCELLED", "CANCELED", "CANCELLE", "COMPLETED", "TERMINE",
+            }:
+                continue
             aid = str(getattr(slot, aircraft_field_name, "") or "")
             start = ensure_utc(getattr(slot, "startTime", None))
             end = ensure_utc(getattr(slot, "endTime", None))
@@ -293,6 +331,7 @@ def _candidate_is_feasible(
     turnaround_minutes: int,
     allocations: dict[str, list[PlannedLeg]],
     maintenance_map: dict[str, list[tuple[datetime, datetime]]],
+    projected_hours: float,
 ) -> tuple[bool, str]:
     """
     Vérifie qu'un avion peut opérer ce vol.
@@ -309,6 +348,10 @@ def _candidate_is_feasible(
     for maint_start, maint_end in maintenance_map.get(aircraft_id, []):
         if _overlaps(dep, arr, maint_start, maint_end):
             return False, "AIRCRAFT_MAINTENANCE"
+
+    limit_hours = aircraft_maintenance_limit(aircraft)
+    if limit_hours is not None and projected_hours > limit_hours:
+        return False, "MAINTENANCE_DUE"
 
     # 2) Autres legs déjà alloués à cet avion
     previous_legs = allocations.get(aircraft_id, [])
@@ -412,6 +455,11 @@ def generate_schedule_scenario(
     )
 
     allocations: dict[str, list[PlannedLeg]] = {}
+    aircraft_by_id = {str(aircraft.id): aircraft for aircraft in usable_aircrafts}
+    planned_hours = {
+        aircraft_id: aircraft_maintenance_hours(aircraft)
+        for aircraft_id, aircraft in aircraft_by_id.items()
+    }
     assignments: list[dict] = []
     unassigned: list[dict] = []
 
@@ -430,6 +478,9 @@ def generate_schedule_scenario(
 
             candidates = []
             for aircraft in usable_aircrafts:
+                flight_hours = flight_hours_for_maintenance(flight)
+                if flight_hours is None:
+                    continue
                 feasible, reason = _candidate_is_feasible(
                     aircraft=aircraft,
                     dep=dep,
@@ -438,6 +489,9 @@ def generate_schedule_scenario(
                     turnaround_minutes=turnaround_minutes,
                     allocations=allocations,
                     maintenance_map=maintenance_map,
+                    projected_hours=(
+                        planned_hours[str(aircraft.id)] + flight_hours
+                    ),
                 )
 
                 if not feasible:
@@ -478,6 +532,7 @@ def generate_schedule_scenario(
                     ),
                 )
                 allocations.setdefault(str(aircraft.id), []).append(chosen)
+                planned_hours[str(aircraft.id)] += flight_hours
                 break
 
         if chosen is None:
@@ -500,6 +555,12 @@ def generate_schedule_scenario(
             )
             continue
 
+        aircraft = aircraft_by_id[chosen.aircraft_id]
+        flight_hours = flight_hours_for_maintenance(flight) or 0.0
+        hours_after = planned_hours[chosen.aircraft_id]
+        hours_before = hours_after - flight_hours
+        maintenance_limit = aircraft_maintenance_limit(aircraft)
+
         assignments.append(
             {
                 "flightId": str(flight.id),
@@ -521,6 +582,19 @@ def generate_schedule_scenario(
                     getattr(flight, "aeroportArrivee", None),
                 ),
                 "durationMinutes": int(round(duration.total_seconds() / 60)),
+                "flightHours": round(flight_hours, 2),
+                "aircraftHoursBeforeFlight": round(hours_before, 2),
+                "aircraftHoursAfterFlight": round(hours_after, 2),
+                "maintenanceLimitHours": maintenance_limit,
+                "maintenanceRequired": (
+                    maintenance_limit is not None
+                    and hours_after >= maintenance_limit
+                ),
+                "maintenanceWarning": (
+                    maintenance_limit is not None
+                    and maintenance_limit - hours_after
+                    <= DEFAULT_MAINTENANCE_WARNING_HOURS
+                ),
                 "shiftMinutes": chosen.shift_minutes,
                 "reason": chosen.reason,
             }
@@ -562,6 +636,11 @@ def generate_schedule_scenario(
             "localStart": item["localDeparture"],
             "localEnd": item["localArrival"],
             "durationMinutes": item["durationMinutes"],
+            "flightHours": item["flightHours"],
+            "aircraftHoursAfterFlight": item["aircraftHoursAfterFlight"],
+            "maintenanceLimitHours": item["maintenanceLimitHours"],
+            "maintenanceRequired": item["maintenanceRequired"],
+            "maintenanceWarning": item["maintenanceWarning"],
             "label": (
                 f'{item["flightNumber"] or "VOL"} · '
                 f'{item["origin"]} → {item["destination"]}'
@@ -598,6 +677,59 @@ def generate_schedule_scenario(
             "items": items,
         },
     }
+
+
+def _scenario_signature(scenario: dict, options: dict) -> str:
+    """Empreinte stable du scénario affiché, utilisée lors de sa validation."""
+    payload = {
+        "options": options,
+        "assignments": scenario.get("assignments", []),
+        "unassigned": scenario.get("unassigned", []),
+    }
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _eligible_flights_for_horizon(horizon_days: int) -> list[Flight]:
+    now_utc = datetime.now(timezone.utc)
+    horizon_end = now_utc + timedelta(days=horizon_days)
+    flights = (
+        Flight.query
+        .filter(Flight.heureDepart >= now_utc)
+        .filter(Flight.heureDepart <= horizon_end)
+        .order_by(Flight.heureDepart.asc())
+        .limit(MAX_FLIGHTS_PER_REQUEST)
+        .all()
+    )
+    return [flight for flight in flights if _is_planifiable_flight(flight)]
+
+
+@auto_schedule_bp.route("/flights/auto-schedule/eligible", methods=["GET"])
+def get_eligible_schedule_flights():
+    """Liste les vols futurs valides pouvant entrer dans un scénario."""
+    horizon_days = safe_int(
+        request.args.get("horizonDays"),
+        DEFAULT_HORIZON_DAYS,
+        minimum=1,
+        maximum=MAX_HORIZON_DAYS,
+    )
+    flights = _eligible_flights_for_horizon(horizon_days)
+    return jsonify({
+        "horizonDays": horizon_days,
+        "total": len(flights),
+        "flights": [
+            {
+                "id": str(flight.id),
+                "flightNumber": flight.numeroVol,
+                "origin": flight.aeroportDepart,
+                "destination": flight.aeroportArrivee,
+                "departure": ensure_utc(flight.heureDepart).isoformat(),
+                "arrival": ensure_utc(flight.heureArrivee).isoformat(),
+                "aircraftId": flight.avionId,
+            }
+            for flight in flights
+        ],
+    }), 200
 
 
 # =============================================================================
@@ -648,18 +780,28 @@ def generate_automatic_schedule():
             maximum=24 * 60,
         )
         apply_changes = bool(data.get("apply", False))
+        selected_ids = data.get("selectedFlightIds")
+        if selected_ids is not None and (
+            not isinstance(selected_ids, list)
+            or any(not isinstance(item, str) or not item.strip() for item in selected_ids)
+        ):
+            return jsonify({"status": "error", "message": "selectedFlightIds doit être une liste d'identifiants."}), 400
 
-        now_utc = datetime.now(timezone.utc)
-        horizon_end = now_utc + timedelta(days=horizon_days)
+        eligible_flights = _eligible_flights_for_horizon(horizon_days)
+        eligible_by_id = {str(flight.id): flight for flight in eligible_flights}
+        if selected_ids is None:
+            flights = eligible_flights
+        else:
+            normalized_ids = list(dict.fromkeys(item.strip() for item in selected_ids))
+            missing_ids = [item for item in normalized_ids if item not in eligible_by_id]
+            if missing_ids:
+                return jsonify({
+                    "status": "error",
+                    "message": "Certains vols sélectionnés ne sont plus éligibles.",
+                    "flightIds": missing_ids,
+                }), 409
+            flights = [eligible_by_id[item] for item in normalized_ids]
 
-        flights = (
-            Flight.query
-            .filter(Flight.heureDepart >= now_utc)
-            .filter(Flight.heureDepart <= horizon_end)
-            .order_by(Flight.heureDepart.asc())
-            .limit(MAX_FLIGHTS_PER_REQUEST)
-            .all()
-        )
         aircrafts = Aircraft.query.all()
 
         scenario = generate_schedule_scenario(
@@ -670,7 +812,35 @@ def generate_automatic_schedule():
             max_shift_minutes=max_shift_minutes,
         )
 
-        if apply_changes and scenario["assignments"]:
+        scenario_options = {
+            "horizonDays": horizon_days,
+            "turnaroundMinutes": turnaround_minutes,
+            "shiftStepMinutes": shift_step_minutes,
+            "maxShiftMinutes": max_shift_minutes,
+            "selectedFlightIds": sorted(str(flight.id) for flight in flights),
+        }
+        signature = _scenario_signature(scenario, scenario_options)
+        scenario["scenarioSignature"] = signature
+
+        if apply_changes:
+            expected_signature = data.get("scenarioSignature")
+            if not isinstance(expected_signature, str) or not expected_signature:
+                return jsonify({
+                    "status": "error",
+                    "message": "Une prévisualisation valide est requise avant la validation.",
+                }), 400
+            if expected_signature != signature:
+                return jsonify({
+                    "status": "error",
+                    "message": "Le planning a changé depuis la prévisualisation. Générez un nouveau scénario.",
+                    "scenarioSignature": signature,
+                }), 409
+            if not scenario["assignments"]:
+                return jsonify({
+                    "status": "error",
+                    "message": "Le scénario ne contient aucune affectation à valider.",
+                }), 409
+
             assignments_by_id = {
                 item["flightId"]: item
                 for item in scenario["assignments"]
@@ -772,6 +942,45 @@ def get_current_schedule_gantt():
         aircrafts = Aircraft.query.all()
         aircraft_by_id = {str(a.id): a for a in aircrafts}
 
+        # Position utile pour la lecture du planning : dernière destination
+        # connue, ou origine de la prochaine rotation si l'appareil est libre.
+        current_position_by_aircraft = {}
+        now_position = datetime.now(timezone.utc)
+        for aircraft in aircrafts:
+            aircraft_flights = [
+                flight for flight in flights
+                if flight.avionId and str(flight.avionId) == str(aircraft.id)
+            ]
+            completed = [
+                flight for flight in aircraft_flights
+                if ensure_utc(getattr(flight, "heureArrivee", None))
+                and ensure_utc(getattr(flight, "heureArrivee", None)) <= now_position
+            ]
+            completed.sort(
+                key=lambda flight: ensure_utc(getattr(flight, "heureArrivee", None))
+                or datetime.min.replace(tzinfo=timezone.utc),
+                reverse=True,
+            )
+            if completed:
+                current_position_by_aircraft[str(aircraft.id)] = getattr(
+                    completed[0], "aeroportArrivee", None
+                )
+                continue
+
+            upcoming = [
+                flight for flight in aircraft_flights
+                if ensure_utc(getattr(flight, "heureDepart", None))
+                and ensure_utc(getattr(flight, "heureDepart", None)) > now_position
+            ]
+            upcoming.sort(
+                key=lambda flight: ensure_utc(getattr(flight, "heureDepart", None))
+                or datetime.max.replace(tzinfo=timezone.utc)
+            )
+            if upcoming:
+                current_position_by_aircraft[str(aircraft.id)] = getattr(
+                    upcoming[0], "aeroportDepart", None
+                )
+
         rows = []
         items = []
 
@@ -784,6 +993,7 @@ def get_current_schedule_gantt():
                     "aircraftRegistration": aircraft_registration(aircraft),
                     "capacity": aircraft_capacity(aircraft),
                     "base": aircraft_base(aircraft),
+                    "currentPosition": current_position_by_aircraft.get(aid),
                     "status": getattr(aircraft, "statut", None),
                 }
             )

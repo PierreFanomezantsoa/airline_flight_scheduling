@@ -220,4 +220,84 @@ describe('Flights + Scheduling (integration)', () => {
       expect(repository.findOne).not.toHaveBeenCalled();
     },
   );
+
+  it(
+    'crédite les compteurs avion pour un vol effectué, en retirant le temps d’escale',
+    async () => {
+      const repository = makeRepository();
+      const arrival = new Date('2026-08-20T12:00:00.000Z');
+      const flight = {
+        id: 'flight-completed',
+        statut: FlightStatus.EFFECTUE,
+        avionId: aircraftId,
+        heureDepart: new Date('2026-08-20T10:00:00.000Z'),
+        heureArrivee: arrival,
+        dureeEscale: 30,
+        heuresComptabilisees: false,
+        heuresCreditees: null,
+        heuresComptabiliseesAt: null,
+      };
+
+      const queryBuilder = {
+        select: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([flight]),
+      };
+      repository.createQueryBuilder.mockReturnValue(queryBuilder as any);
+      repository.findOne.mockResolvedValue(flight as any);
+
+      const manager = {
+        findOne: jest.fn().mockResolvedValue(flight),
+        save: jest.fn().mockImplementation(async (_entity, value) => value),
+      };
+      const dataSource = {
+        transaction: jest.fn(async (callback) => callback(manager)),
+      };
+      const aircraft = {
+        heuresDeVolTotales: 10,
+        heuresDepuisDerniereMaintenance: 20,
+      };
+      const fleetService = {
+        addFlightHours: jest.fn().mockImplementation(
+          async (_aircraftId, flightHours) => {
+            aircraft.heuresDeVolTotales += flightHours;
+            aircraft.heuresDepuisDerniereMaintenance += flightHours;
+            return aircraft;
+          },
+        ),
+      };
+
+      const service = new FlightsService(
+        repository as any,
+        { assertExists: jest.fn() } as any,
+        fleetService as any,
+        {} as any,
+        dataSource as any,
+      );
+
+      const result = await service.syncCompletedFlights(
+        new Date('2026-08-20T13:00:00.000Z'),
+      );
+
+      expect(result).toMatchObject({
+        scanned: 1,
+        completed: 1,
+        credited: 1,
+        skipped: 0,
+        errors: [],
+      });
+      expect(fleetService.addFlightHours).toHaveBeenCalledWith(
+        aircraftId,
+        1.5,
+        manager,
+      );
+      expect(flight.heuresComptabilisees).toBe(true);
+      expect(flight.heuresCreditees).toBe(1.5);
+      expect(aircraft.heuresDeVolTotales).toBe(11.5);
+      expect(aircraft.heuresDepuisDerniereMaintenance).toBe(21.5);
+      expect(manager.save).toHaveBeenCalledWith(expect.anything(), flight);
+    },
+  );
 });

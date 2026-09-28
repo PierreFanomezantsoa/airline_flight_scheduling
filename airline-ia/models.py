@@ -8,6 +8,19 @@ class Aircraft(db.Model):
     id = db.Column(db.String(50), primary_key=True)
     model = db.Column('modele', db.String(50), nullable=False)
     immatriculation = db.Column(db.String(50), nullable=True)
+    heuresDeVolTotales = db.Column(db.Float, default=0)
+    limiteHeuresMaintenance = db.Column(db.Float, nullable=True)
+    heuresDepuisDerniereMaintenance = db.Column(db.Float, default=0)
+    dateDerniereMaintenance = db.Column(db.DateTime(timezone=True), nullable=True)
+
+
+class MaintenanceSlot(db.Model):
+    __tablename__ = 'maintenance_slots'
+    id = db.Column(db.String(36), primary_key=True)
+    aircraftId = db.Column(db.String(50), db.ForeignKey('aircrafts.id'), nullable=False)
+    startTime = db.Column(db.DateTime(timezone=True), nullable=False)
+    endTime = db.Column(db.DateTime(timezone=True), nullable=False)
+    status = db.Column(db.String(50), nullable=True)
 
 class Flight(db.Model):
     __tablename__ = 'flights'

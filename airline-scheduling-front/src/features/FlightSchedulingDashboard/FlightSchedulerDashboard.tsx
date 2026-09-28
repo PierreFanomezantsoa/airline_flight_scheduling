@@ -70,6 +70,16 @@ interface AutoScheduleOptions {
   maxShiftMinutes: number;
 }
 
+interface EligibleFlight {
+  id: string;
+  flightNumber: string;
+  origin: string;
+  destination: string;
+  departure: string;
+  arrival: string;
+  aircraftId?: string | null;
+}
+
 interface MessageState {
   text: string;
   type: 'success' | 'error' | 'info';
@@ -212,10 +222,32 @@ const normalizeGanttPayload = (payload: unknown, flights: Flight[]): GanttPayloa
   };
   const gantt = raw.gantt ?? raw;
   const rows: RawGanttRow[] = Array.isArray(gantt.rows) ? gantt.rows : [];
+  const flightById = new Map(flights.map((flight) => [flight.id, flight]));
+  const items = Array.isArray(gantt.items) ? (gantt.items as GanttPayload['items']) : [];
 
   return {
     timezone: gantt.timezone ?? 'UTC',
-    items: Array.isArray(gantt.items) ? (gantt.items as GanttPayload['items']) : [],
+    items: items.map((item) => {
+      const flight = flightById.get(item.flightId ?? item.id);
+      const rawStops = item.stopovers ?? flight?.stops ?? flight?.stopover;
+      const stopovers = (Array.isArray(rawStops) ? rawStops : [rawStops])
+        .map((stop) => String(stop ?? '').trim().toUpperCase())
+        .filter(Boolean);
+      const start = safeDate(item.start);
+      const end = safeDate(item.end);
+      const durationMinutes =
+        item.durationMinutes ??
+        flight?.durationMinutes ??
+        (start && end ? Math.round((end.getTime() - start.getTime()) / 60000) : null);
+
+      return {
+        ...item,
+        stopovers,
+        stopoverDurationMinutes:
+          item.stopoverDurationMinutes ?? flight?.stopoverDurationMinutes ?? null,
+        durationMinutes,
+      };
+    }),
     rows: rows.map((row) => {
       const base = row.base || row.baseAttache || row.homeBase || row.baseAirport || null;
       const currentPosition =
@@ -280,6 +312,8 @@ const getErrorMessage = async (
 
 export const FlightSchedulerDashboard: FC = () => {
   const [flights, setFlights] = useState<Flight[]>([]);
+  const [eligibleFlights, setEligibleFlights] = useState<EligibleFlight[]>([]);
+  const [selectedFlightIds, setSelectedFlightIds] = useState<string[]>([]);
   const [analytics, setAnalytics] = useState<AnalyticsMetrics | null>(null);
   const [currentGantt, setCurrentGantt] = useState<GanttPayload>({
     rows: [],
@@ -318,10 +352,25 @@ export const FlightSchedulerDashboard: FC = () => {
       setFlights(flightList);
 
       const ganttUrl = `${AUTO_SCHEDULE_GANTT_ENDPOINT}?horizonDays=${OPTIONS.horizonDays}&includeTerminal=1`;
-      const [analyticsResponse, ganttResponse] = await Promise.all([
+      const [analyticsResponse, ganttResponse, eligibleResponse] = await Promise.all([
         fetchPython('/flights/analytics', { method: 'GET' }),
         fetchPython(ganttUrl, { method: 'GET' }),
+        fetchPython(
+          `/flights/auto-schedule/eligible?horizonDays=${OPTIONS.horizonDays}`,
+          { method: 'GET' },
+        ),
       ]);
+
+      if (!eligibleResponse.ok) {
+        throw new Error('Impossible de charger les vols éligibles.');
+      }
+      const eligiblePayload = await eligibleResponse.json();
+      const eligibleList: EligibleFlight[] = Array.isArray(eligiblePayload?.flights)
+        ? eligiblePayload.flights
+        : [];
+      setEligibleFlights(eligibleList);
+      setSelectedFlightIds(eligibleList.map((flight) => flight.id));
+      setPreviewScenario(null);
 
       if (analyticsResponse.ok) {
         const payload = await analyticsResponse.json();
@@ -372,6 +421,10 @@ export const FlightSchedulerDashboard: FC = () => {
 
   const runAutomaticGeneration = async (apply: boolean) => {
     if (generating || applying) return;
+    if (!apply && selectedFlightIds.length === 0) {
+      setMessage({ type: 'info', text: 'Sélectionnez au moins un vol éligible.' });
+      return;
+    }
 
     if (apply) setApplying(true);
     else setGenerating(true);
@@ -381,7 +434,14 @@ export const FlightSchedulerDashboard: FC = () => {
       const response = await fetchPython(AUTO_SCHEDULE_GENERATE_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...OPTIONS, apply }),
+        body: JSON.stringify({
+          ...OPTIONS,
+          apply,
+          selectedFlightIds,
+          ...(apply
+            ? { scenarioSignature: previewScenario?.scenarioSignature }
+            : {}),
+        }),
       });
 
       if (!response.ok) {
@@ -462,6 +522,24 @@ export const FlightSchedulerDashboard: FC = () => {
     return result;
   }, [normalizedFlights, searchTerm, selectedStatus]);
 
+  const visibleEligibleFlights = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    return eligibleFlights.filter((flight) =>
+      !term ||
+      [flight.flightNumber, flight.origin, flight.destination]
+        .some((value) => value.toLowerCase().includes(term)),
+    );
+  }, [eligibleFlights, searchTerm]);
+
+  const toggleEligibleFlight = (flightId: string) => {
+    setSelectedFlightIds((current) =>
+      current.includes(flightId)
+        ? current.filter((id) => id !== flightId)
+        : [...current, flightId],
+    );
+    setPreviewScenario(null);
+  };
+
   const effectiveAnalytics = analytics ?? buildFallbackAnalytics(flights);
 
   const activeSchedule = useMemo<GanttPayload>(() => {
@@ -514,7 +592,7 @@ export const FlightSchedulerDashboard: FC = () => {
             <button
               type="button"
               onClick={() => void runAutomaticGeneration(true)}
-              disabled={applying}
+              disabled={applying || !previewScenario.scenarioSignature || (previewScenario.metrics.assignedFlights ?? 0) === 0}
               className={`inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-medium text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-50 ${FOCUS_RING}`}
             >
               <Play className={`h-4 w-4 ${applying ? 'animate-pulse' : ''}`} />
@@ -583,6 +661,70 @@ export const FlightSchedulerDashboard: FC = () => {
             hint="Ponctualité"
             icon={<ShieldCheck className="h-4 w-4" />}
           />
+        </section>
+
+        <section className="rounded-xl border border-slate-200 bg-white">
+          <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
+            <div>
+              <h2 className="text-sm font-semibold text-slate-900">Vols éligibles</h2>
+              <p className="mt-0.5 text-xs text-slate-500">
+                {selectedFlightIds.length} sélectionné{selectedFlightIds.length > 1 ? 's' : ''} sur {eligibleFlights.length} dans les {OPTIONS.horizonDays} prochains jours
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedFlightIds(eligibleFlights.map((flight) => flight.id));
+                  setPreviewScenario(null);
+                }}
+                className="h-8 rounded-md border border-slate-200 px-3 text-xs font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Tout sélectionner
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedFlightIds([]);
+                  setPreviewScenario(null);
+                }}
+                className="h-8 rounded-md border border-slate-200 px-3 text-xs font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Tout désélectionner
+              </button>
+            </div>
+          </header>
+          {eligibleFlights.length === 0 ? (
+            <p className="px-4 py-6 text-center text-sm text-slate-500">
+              Aucun vol futur valide à planifier dans cet horizon.
+            </p>
+          ) : (
+            <div className="max-h-64 divide-y divide-slate-100 overflow-y-auto">
+              {visibleEligibleFlights.map((flight) => (
+                <label
+                  key={flight.id}
+                  className="grid cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-4 py-2.5 hover:bg-slate-50"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedFlightIds.includes(flight.id)}
+                    onChange={() => toggleEligibleFlight(flight.id)}
+                    className="h-4 w-4 accent-emerald-600"
+                    aria-label={`Inclure le vol ${flight.flightNumber}`}
+                  />
+                  <span className="min-w-0 truncate text-sm font-medium text-slate-800">
+                    {flight.flightNumber} <span className="font-normal text-slate-500">· {flight.origin} → {flight.destination}</span>
+                  </span>
+                  <time className="text-xs tabular-nums text-slate-500" dateTime={flight.departure}>
+                    {new Intl.DateTimeFormat('fr-FR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(flight.departure))}
+                  </time>
+                </label>
+              ))}
+              {visibleEligibleFlights.length === 0 && (
+                <p className="px-4 py-5 text-center text-sm text-slate-500">Aucun vol ne correspond à la recherche.</p>
+              )}
+            </div>
+          )}
         </section>
 
         {!loading && filteredFlights.length === 0 && flights.length > 0 && (

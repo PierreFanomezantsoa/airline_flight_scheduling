@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  CalendarClock,
   CalendarDays,
   ChevronDown,
   ChevronLeft,
@@ -82,10 +83,10 @@ type UserRoleLabel =
 const mobileMenuItems: MenuItem[] = [
   { id: 'dashboard', label: 'Tableau de bord', shortLabel: 'Suivi', icon: LayoutDashboard },
   { id: 'users', label: 'Gestion des utilisateurs', shortLabel: 'Utilisateurs', icon: UserCog },
-  { id: 'scheduling', label: 'Programmation des vols', shortLabel: 'Planning', icon: CalendarDays },
+  { id: 'scheduling', label: 'Ordonnancement des vols', shortLabel: 'Ordonnancement', icon: CalendarClock },
   { id: 'optimization', label: 'Optimisation automatique', shortLabel: 'Optim.', icon: Sparkles },
   { id: 'aircraft', label: 'Gestion des avions', shortLabel: 'Avions', icon: Plane },
-  { id: 'flights', label: 'Planification des vols', shortLabel: 'Vols', icon: CalendarDays },
+  { id: 'flights', label: 'Gestion des vols', shortLabel: 'Vols', icon: CalendarDays },
   { id: 'flight-history', label: 'Historique des vols', shortLabel: 'Historique', icon: History },
   { id: 'crew', label: 'Affectation des équipages', shortLabel: 'Équipages', icon: Users },
   { id: 'maintenance', label: 'Planification maintenance', shortLabel: 'Maint.', icon: Wrench },
@@ -100,9 +101,9 @@ const MENU_SECTIONS: MenuSection[] = [
     items: [
       { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
       { id: 'users', label: 'Gestion des utilisateurs', icon: UserCog },
-      { id: 'scheduling', label: 'Programmation des vols', icon: CalendarDays },
+      { id: 'scheduling', label: 'Ordonnancement des vols', icon: CalendarClock },
       { id: 'aircraft', label: 'Gestion des avions', icon: Plane },
-      { id: 'flights', label: 'Planification des vols', icon: CalendarDays },
+      { id: 'flights', label: 'Gestion des vols', icon: CalendarDays },
       { id: 'flight-history', label: 'Historique des vols', icon: History },
     ],
   },
