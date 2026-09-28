@@ -2,6 +2,7 @@ from datetime import datetime
 import requests
 from flask import Blueprint, jsonify, request
 
+from common.authorization import require_roles
 from models import db, Flight
 from services.weather.resilient_service import resilient_weather_service
 
@@ -11,6 +12,7 @@ FASTAPI_URL = "http://localhost:8000/api/ia/optimize"
 
 
 @optimization_bp.route('/optimize', methods=['POST'])
+@require_roles("Planificateur", "Regulator")
 def optimize_assignments():
     try:
         data = request.get_json() or {}
@@ -47,6 +49,7 @@ def optimize_assignments():
 
 
 @optimization_bp.route('/flights/optimize', methods=['POST'])
+@require_roles("Planificateur", "Regulator")
 def optimize_schedule_with_fastapi():
     try:
         db_flights = Flight.query.all()

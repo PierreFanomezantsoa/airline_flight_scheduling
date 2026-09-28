@@ -10,6 +10,7 @@ import {
   Patch,
   Post,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 import type { Aircraft } from '../fleet/entities/aircraft.entity';
 import { AircraftAvailabilityQueryDto } from '../scheduling/dto/aircraft-availability-query.dto';
@@ -19,8 +20,12 @@ import { UpdateFlightDto } from './dto/update-flight.dto';
 import type { Flight } from './entities/flight.entity';
 import type { CompletedFlightsSyncResult } from './interfaces/completed-flights-sync-result.interface';
 import { FlightsService } from './flights.service';
+import { AuthenticatedRoles } from '../auth/decorators/authenticated-roles.decorator';
+import { UserRole } from '../users/enums/user-role.enum';
+import { SessionAuthGuard } from '../auth/guards/session-auth.guard';
 
 @Controller('flights')
+@UseGuards(SessionAuthGuard)
 export class FlightsController {
   constructor(private readonly flightsService: FlightsService) {}
 
@@ -40,6 +45,7 @@ export class FlightsController {
   }
 
   @Post('optimize')
+  @AuthenticatedRoles(UserRole.PLANIFICATEUR, UserRole.REGULATOR)
   @HttpCode(HttpStatus.OK)
   optimize() {
     return this.flightsService.optimize();
@@ -66,6 +72,7 @@ export class FlightsController {
    * correcte des déclarations TypeScript (.d.ts).
    */
   @Patch('sync/completed')
+  @AuthenticatedRoles(UserRole.PLANIFICATEUR, UserRole.REGULATOR)
   @HttpCode(HttpStatus.OK)
   syncCompletedFlights(): Promise<CompletedFlightsSyncResult> {
     return this.flightsService.syncCompletedFlights();
@@ -80,6 +87,7 @@ export class FlightsController {
    * L'opération est idempotente : les heures ne sont créditées qu'une fois.
    */
   @Patch(':id/complete')
+  @AuthenticatedRoles(UserRole.PLANIFICATEUR, UserRole.REGULATOR)
   @HttpCode(HttpStatus.OK)
   complete(
     @Param('id', ParseUUIDPipe) id: string,
@@ -95,6 +103,7 @@ export class FlightsController {
   }
 
   @Post()
+  @AuthenticatedRoles(UserRole.PLANIFICATEUR, UserRole.REGULATOR)
   @HttpCode(HttpStatus.CREATED)
   create(
     @Body() dto: CreateFlightDto,
@@ -103,6 +112,7 @@ export class FlightsController {
   }
 
   @Patch(':id')
+  @AuthenticatedRoles(UserRole.PLANIFICATEUR, UserRole.REGULATOR)
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateFlightDto,
@@ -111,6 +121,7 @@ export class FlightsController {
   }
 
   @Delete(':id')
+  @AuthenticatedRoles(UserRole.PLANIFICATEUR, UserRole.REGULATOR)
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(
     @Param('id', ParseUUIDPipe) id: string,

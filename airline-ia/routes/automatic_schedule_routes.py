@@ -10,6 +10,7 @@ from flask import Blueprint, jsonify, request
 
 import models as models_module
 from models import db, Flight, Aircraft
+from common.authorization import require_roles
 from common.datetime_utils import ensure_utc
 from common.status_utils import normalize_status
 
@@ -737,6 +738,7 @@ def get_eligible_schedule_flights():
 # =============================================================================
 
 @auto_schedule_bp.route("/flights/auto-schedule/generate", methods=["POST"])
+@require_roles("Planificateur", "Regulator")
 def generate_automatic_schedule():
     """
     Génère automatiquement un scénario de programmation de vols.

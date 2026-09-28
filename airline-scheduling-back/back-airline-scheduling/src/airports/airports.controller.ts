@@ -1,8 +1,12 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { SessionAuthGuard } from '../auth/guards/session-auth.guard';
 import { AirportsService } from './airports.service';
 import { CreateAirportDto } from './dto/create-airport.dto';
+import { AuthenticatedRoles } from '../auth/decorators/authenticated-roles.decorator';
+import { UserRole } from '../users/enums/user-role.enum';
 
 @Controller('airports')
+@UseGuards(SessionAuthGuard)
 export class AirportsController {
   constructor(private readonly airportsService: AirportsService) {}
 
@@ -17,6 +21,7 @@ export class AirportsController {
   }
 
   @Post()
+  @AuthenticatedRoles(UserRole.PLANIFICATEUR, UserRole.REGULATOR)
   create(@Body() dto: CreateAirportDto) {
     return this.airportsService.create(dto);
   }

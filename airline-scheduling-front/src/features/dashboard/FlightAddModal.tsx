@@ -26,6 +26,7 @@ import {
   ShieldAlert,
   Activity,
 } from 'lucide-react';
+import { pythonFetch } from '../Api/apiService';
 
 /* ============================================================================
  * CONFIGURATION API — Python (port 5000 en dev, /python en prod via Nginx)
@@ -39,24 +40,6 @@ import {
  *
  * Nginx en production redirige /python/... vers 127.0.0.1:5000/...
  * ========================================================================== */
-
-const FALLBACK_PYTHON_URL: string = import.meta.env.PROD
-  ? '/python'
-  : 'http://localhost:5000';
-
-const RAW_PYTHON_BASE_URL: string =
-  import.meta.env.VITE_PYTHON_BASE_URL || FALLBACK_PYTHON_URL;
-
-const API_BASE_URL: string = RAW_PYTHON_BASE_URL.replace(/\/+$/, '');
-
-if (import.meta.env.DEV) {
-  // eslint-disable-next-line no-console
-  console.info('[FlightAddModal] Configuration Python API :', {
-    mode: 'development',
-    apiBaseUrl: API_BASE_URL,
-    fallbackUsed: !import.meta.env.VITE_PYTHON_BASE_URL,
-  });
-}
 
 /* ============================================================================
  * TYPES
@@ -581,7 +564,7 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
 
   /* =========================================================================
    * LOAD EXISTING FLIGHTS
-   * ✅ Utilise API_BASE_URL (Python)
+  * ✅ Utilise le client Python authentifié
    * ======================================================================= */
 
   useEffect(() => {
@@ -594,14 +577,14 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
       setFlightAvailabilityError(null);
 
       try {
-        let response = await fetch(`${API_BASE_URL}/flights/fast`, {
+        let response = await pythonFetch('/flights/fast', {
           method: 'GET',
           headers: { Accept: 'application/json' },
           signal: controller.signal,
         });
 
         if (response.status === 404) {
-          response = await fetch(`${API_BASE_URL}/flights?weather=0`, {
+          response = await pythonFetch('/flights?weather=0', {
             method: 'GET',
             headers: { Accept: 'application/json' },
             signal: controller.signal,
@@ -783,7 +766,7 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
 
   /* =========================================================================
    * WEATHER
-   * ✅ Utilise API_BASE_URL (Python)
+  * ✅ Utilise le client Python authentifié
    * ======================================================================= */
 
   useEffect(() => {
@@ -814,7 +797,7 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
         const departure = new Date(newFlight.heureDepart);
         const arrival = new Date(newFlight.heureArrivee);
 
-        const response = await fetch(`${API_BASE_URL}/flights/weather/assess`, {
+        const response = await pythonFetch('/flights/weather/assess', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

@@ -333,6 +333,21 @@ export async function authFetch(
     );
   }
 
+  const method = (options.method ?? 'GET').toUpperCase();
+  if (session.user.role === 'Admin' && !['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+    const normalizedPath = path.split('?')[0];
+    const isAllowedUserAdministration =
+      /^\/users\/[0-9a-f-]+\/(approve|reject|pending)$/i.test(normalizedPath) ||
+      (method === 'DELETE' && /^\/users\/[0-9a-f-]+$/i.test(normalizedPath));
+
+    if (!isAllowedUserAdministration) {
+      throw new ApiError(
+        'Rôle non autorisé pour cette opération.',
+        403,
+      );
+    }
+  }
+
   const headers = buildBaseHeaders(options);
   headers.set('Authorization', `Bearer ${session.token}`);
 
@@ -407,6 +422,21 @@ export async function pythonFetch(
   options: RequestInit = {},
 ): Promise<Response> {
   const session = getAuthSession();
+  const method = (options.method ?? 'GET').toUpperCase();
+  const normalizedPath = path.split('?')[0];
+  const isReadOnlyWeatherAssessment =
+    method === 'POST' && normalizedPath === '/flights/weather/assess';
+  if (
+    session?.user.role === 'Admin' &&
+    !['GET', 'HEAD', 'OPTIONS'].includes(method) &&
+    !isReadOnlyWeatherAssessment
+  ) {
+    throw new ApiError(
+      'Rôle non autorisé pour cette opération.',
+      403,
+    );
+  }
+
   const headers = buildBaseHeaders(options);
 
   // Le token est ajouté si une session est active (endpoints publics acceptés)
@@ -724,7 +754,7 @@ export async function rejectUserAccount(
 }
 
 // =============================================================================
-// ADMIN - REMETTRE COMPTE EN ATTENTE
+// ADMIN - REMETTRE UN COMPTE EN ATTENTE
 // =============================================================================
 
 export async function setUserAccountPending(
@@ -733,6 +763,19 @@ export async function setUserAccountPending(
   return authRequestJson<UserActionResponse>(
     `/users/${encodeURIComponent(userId)}/pending`,
     { method: 'PATCH' },
+  );
+}
+
+// =============================================================================
+// ADMIN - SUPPRIMER UN COMPTE
+// =============================================================================
+
+export async function deleteUserAccount(
+  userId: string,
+): Promise<void> {
+  return authRequestJson<void>(
+    `/users/${encodeURIComponent(userId)}`,
+    { method: 'DELETE' },
   );
 }
 

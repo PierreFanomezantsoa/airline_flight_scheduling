@@ -11,6 +11,7 @@ import {
   LogOut,
   Menu,
   Plane,
+  Settings2,
   SlidersHorizontal,
   Sparkles,
   User,
@@ -25,7 +26,6 @@ export type ActiveScreen =
   | 'dashboard'
   | 'users'
   | 'scheduling'
-  | 'fleet'
   | 'aircraft'
   | 'flights'
   | 'flight-history'
@@ -90,6 +90,7 @@ const mobileMenuItems: MenuItem[] = [
   { id: 'flight-history', label: 'Historique des vols', shortLabel: 'Historique', icon: History },
   { id: 'crew', label: 'Affectation des équipages', shortLabel: 'Équipages', icon: Users },
   { id: 'maintenance', label: 'Planification maintenance', shortLabel: 'Maint.', icon: Wrench },
+  { id: 'settings', label: 'Configuration réseau', shortLabel: 'Réseau', icon: Settings2 },
   { id: 'help', label: 'Aide et support', shortLabel: 'Aide', icon: HelpCircle },
 ];
 
@@ -105,6 +106,7 @@ const MENU_SECTIONS: MenuSection[] = [
       { id: 'aircraft', label: 'Gestion des avions', icon: Plane },
       { id: 'flights', label: 'Gestion des vols', icon: CalendarDays },
       { id: 'flight-history', label: 'Historique des vols', icon: History },
+      { id: 'settings', label: 'Configuration réseau', icon: Settings2 },
     ],
   },
   {
@@ -115,6 +117,7 @@ const MENU_SECTIONS: MenuSection[] = [
       { id: 'optimization', label: 'Optimisation automatique', icon: Sparkles },
       { id: 'crew', label: 'Affectation des équipages', icon: Users },
       { id: 'maintenance', label: 'Planification maintenance', icon: Wrench },
+      { id: 'help', label: 'Aide et support', icon: HelpCircle },
     ],
   },
 ];
@@ -122,7 +125,7 @@ const MENU_SECTIONS: MenuSection[] = [
 const allowedScreens: Record<AvailableRoles, ActiveScreen[]> = {
   Admin: [
     'dashboard', 'users', 'scheduling', 'aircraft', 'flights',
-    'flight-history', 'crew', 'maintenance', 'optimization', 'help',
+    'flight-history', 'crew', 'maintenance', 'optimization', 'settings', 'help',
   ],
   Planificateur: [
     'dashboard', 'scheduling', 'aircraft', 'flights',
@@ -130,7 +133,7 @@ const allowedScreens: Record<AvailableRoles, ActiveScreen[]> = {
   ],
   Regulator: [
     'dashboard', 'scheduling', 'flights', 'flight-history',
-    'crew', 'optimization', 'help',
+    'crew', 'optimization', 'settings', 'help',
   ],
   Crew_Member: ['dashboard', 'flights', 'flight-history', 'crew', 'help'],
   Maintenance_Engineer: [
@@ -139,7 +142,7 @@ const allowedScreens: Record<AvailableRoles, ActiveScreen[]> = {
   ],
   Product_Owner: [
     'dashboard', 'scheduling', 'aircraft', 'flight-history',
-    'maintenance', 'optimization', 'help',
+    'maintenance', 'optimization', 'settings', 'help',
   ],
 };
 

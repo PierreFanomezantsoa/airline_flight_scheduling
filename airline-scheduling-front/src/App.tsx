@@ -37,10 +37,6 @@ import FlightHistory from './features/flights/FlightHistory';
 
 import CrewAssignmentsPage from './features/crew/CrewAssignmentsPage';
 
-// =============================================================================
-// FLEET
-// =============================================================================
-
 import { AircraftManagement } from './features/Aircraft/AircraftManagement';
 
 // =============================================================================
@@ -124,26 +120,26 @@ const STORAGE_KEYS = {
 
 const ROLE_SCREEN_PERMISSIONS: Record<UserRole, ActiveScreen[]> = {
   Admin: [
-    'dashboard', 'users', 'scheduling', 'fleet', 'aircraft', 'flights',
+    'dashboard', 'users', 'scheduling', 'aircraft', 'flights',
     'flight-history', 'crew', 'maintenance', 'optimization',
     'settings', 'help',
   ],
   Planificateur: [
-    'dashboard', 'scheduling', 'fleet', 'aircraft', 'flights',
+    'dashboard', 'scheduling', 'aircraft', 'flights',
     'flight-history', 'crew', 'optimization', 'help',
   ],
   Regulator: [
     'dashboard', 'scheduling', 'flights', 'flight-history', 'crew', 'optimization', 'settings', 'help',
   ],
   Maintenance_Engineer: [
-    'dashboard', 'scheduling', 'fleet', 'aircraft', 'maintenance',
+    'dashboard', 'scheduling', 'aircraft', 'maintenance',
     'optimization', 'help',
   ],
   Crew_Member: [
     'dashboard', 'flights', 'flight-history', 'crew', 'help',
   ],
   Product_Owner: [
-    'dashboard', 'scheduling', 'fleet', 'aircraft', 'flight-history',
+    'dashboard', 'scheduling', 'aircraft', 'flight-history',
     'maintenance', 'optimization', 'settings', 'help',
   ],
 };
@@ -181,7 +177,6 @@ const SCREEN_META: Record<
     title: 'Ordonnancement des vols',
     subtitle: 'Génération automatique et validation des rotations',
   },
-  fleet: { title: '', subtitle: '' },
   aircraft: {
     title: 'Gestion des avions',
     subtitle: 'Aéronefs physiques et immatriculations',
@@ -268,18 +263,6 @@ function normalizeAuthenticatedUser(user: PublicUser): AppUser | null {
     email: user.email,
     role: user.role,
   };
-}
-
-// =============================================================================
-// WORKSPACE FLOTTE (SANS ONGLETS)
-// =============================================================================
-
-function FleetWorkspace() {
-  return (
-    <section className="space-y-5">
-      <AircraftManagement />
-    </section>
-  );
 }
 
 // =============================================================================
@@ -504,7 +487,6 @@ function App() {
       dashboard: <DashboardGantt />,
       users: <UsersManagementPage />,
       scheduling: <FlightSchedulerDashboard />,
-      fleet: <FleetWorkspace />,
       aircraft: <AircraftManagement />,
       flights: <FlightsPlanning />,
       'flight-history': <FlightHistory />,

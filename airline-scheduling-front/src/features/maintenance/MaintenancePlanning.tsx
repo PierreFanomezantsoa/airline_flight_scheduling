@@ -35,6 +35,7 @@ import type { Aircraft } from '../fleet/fleetService';
 
 import { maintenanceService } from './maintenanceService';
 import type { MaintenanceSlot } from './maintenanceService';
+import { getCurrentUser } from '../Api/apiService';
 
 /* ============================================================================
  * TYPES
@@ -398,7 +399,9 @@ export const MaintenancePlanning: React.FC = () => {
     const timer = window.setInterval(() => {
       void (async () => {
         try {
-          await syncExpiredMaintenances();
+          if (getCurrentUser()?.role === 'Maintenance_Engineer') {
+            await syncExpiredMaintenances();
+          }
           const [refreshedSlots, refreshedAircrafts] = await Promise.all([
             maintenanceService.findAll(),
             fleetService.getAircrafts(),

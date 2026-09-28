@@ -30,6 +30,7 @@ from flask import Blueprint, jsonify
 
 import models as models_module
 from models import db, Flight
+from common.authorization import require_roles
 from common.datetime_utils import ensure_utc
 from common.status_utils import normalize_status
 
@@ -1366,6 +1367,7 @@ def ml_info():
     "/flights/optimize",
     methods=["POST"],
 )
+@require_roles("Planificateur", "Regulator")
 def optimize_flights():
     try:
         all_flights = (

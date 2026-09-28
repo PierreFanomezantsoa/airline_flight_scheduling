@@ -8,14 +8,19 @@ import {
   Patch,
   Post,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 
 import { CreateMaintenanceSlotDto } from './dto/create-maintenance-slot.dto';
 import { UpdateMaintenanceSlotDto } from './dto/update-maintenance-slot.dto';
 import { ExtendMaintenanceSlotDto } from './dto/extend-maintenance-slot.dto';
 import { MaintenanceService } from './maintenance.service';
+import { AuthenticatedRoles } from '../auth/decorators/authenticated-roles.decorator';
+import { UserRole } from '../users/enums/user-role.enum';
+import { SessionAuthGuard } from '../auth/guards/session-auth.guard';
 
 @Controller('maintenance')
+@UseGuards(SessionAuthGuard)
 export class MaintenanceController {
   constructor(
     private readonly maintenanceService: MaintenanceService,
@@ -38,6 +43,7 @@ export class MaintenanceController {
    *   2. PENDING_REVIEW → COMPLETED (autoCloseAt dépassé)
    */
   @Patch('sync-expired')
+  @AuthenticatedRoles(UserRole.MAINTENANCE_ENGINEER)
   syncExpiredMaintenances() {
     return this.maintenanceService.syncExpiredMaintenances();
   }
@@ -69,6 +75,7 @@ export class MaintenanceController {
   }
 
   @Post()
+  @AuthenticatedRoles(UserRole.MAINTENANCE_ENGINEER)
   create(@Body() dto: CreateMaintenanceSlotDto) {
     return this.maintenanceService.create(dto);
   }
@@ -82,6 +89,7 @@ export class MaintenanceController {
    * Utilisable quand le créneau est IN_PROGRESS ou PENDING_REVIEW.
    */
   @Patch(':id/extend')
+  @AuthenticatedRoles(UserRole.MAINTENANCE_ENGINEER)
   extend(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: ExtendMaintenanceSlotDto,
@@ -98,11 +106,13 @@ export class MaintenanceController {
    * Idempotent si déjà COMPLETED.
    */
   @Patch(':id/close')
+  @AuthenticatedRoles(UserRole.MAINTENANCE_ENGINEER)
   close(@Param('id', ParseUUIDPipe) id: string) {
     return this.maintenanceService.closeSlot(id);
   }
 
   @Patch(':id')
+  @AuthenticatedRoles(UserRole.MAINTENANCE_ENGINEER)
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateMaintenanceSlotDto,
@@ -111,6 +121,7 @@ export class MaintenanceController {
   }
 
   @Delete(':id')
+  @AuthenticatedRoles(UserRole.MAINTENANCE_ENGINEER)
   remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.maintenanceService.remove(id);
   }

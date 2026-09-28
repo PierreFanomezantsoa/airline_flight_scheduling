@@ -18,7 +18,6 @@ import { SessionUser } from '../auth/interfaces/session-user.interface';
 
 import { CreateUserDto } from './dto/create-user.dto';
 import { RejectUserDto } from './dto/reject-user.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
 
 import { UserRole } from './enums/user-role.enum';
 import { UsersService } from './users.service';
@@ -188,7 +187,7 @@ export class UsersController {
   }
 
   /**
-   * Remettre un utilisateur en attente.
+   * Remettre un compte validé ou refusé en attente de décision.
    */
   @Patch(':id/pending')
   @UseGuards(
@@ -205,9 +204,7 @@ export class UsersController {
     )
     id: string,
   ) {
-    return this.usersService.setPending(
-      id,
-    );
+    return this.usersService.setPending(id);
   }
 
   /**
@@ -234,33 +231,6 @@ export class UsersController {
   ) {
     return this.usersService.findPublicOne(
       id,
-    );
-  }
-
-  /**
-   * Modifier un utilisateur.
-   */
-  @Patch(':id')
-  @UseGuards(
-    SessionAuthGuard,
-    RolesGuard,
-  )
-  @Roles(
-    UserRole.ADMIN,
-  )
-  update(
-    @Param(
-      'id',
-      ParseUUIDPipe,
-    )
-    id: string,
-
-    @Body()
-    dto: UpdateUserDto,
-  ) {
-    return this.usersService.update(
-      id,
-      dto,
     );
   }
 

@@ -17,6 +17,7 @@ import {
   Zap,
 } from 'lucide-react';
 import ConflictCard from './ConflictCard';
+import { pythonRequestJson } from '../Api/apiService';
 
 /* ============================================================
  * CONFIGURATION API — Python (port 5000 en dev, /python en prod)
@@ -28,23 +29,6 @@ import ConflictCard from './ConflictCard';
  *   DEV  → VITE_PYTHON_BASE_URL = http://localhost:5000
  *   PROD → VITE_PYTHON_BASE_URL = /python
  * ========================================================== */
-
-const FALLBACK_PYTHON_URL: string = import.meta.env.PROD
-  ? '/python'
-  : 'http://localhost:5000';
-
-const RAW_PYTHON_BASE_URL: string =
-  import.meta.env.VITE_PYTHON_BASE_URL || FALLBACK_PYTHON_URL;
-
-const PYTHON_API_URL: string = RAW_PYTHON_BASE_URL.replace(/\/+$/, '');
-
-if (import.meta.env.DEV) {
-  // eslint-disable-next-line no-console
-  console.info('[DisruptionCenter] Python API :', {
-    baseUrl: PYTHON_API_URL,
-    fallbackUsed: !import.meta.env.VITE_PYTHON_BASE_URL,
-  });
-}
 
 const CONFLICTS_ENDPOINT = '/flights/conflicts';
 const OPTIMIZE_ENDPOINT = '/flights/optimize';
@@ -172,27 +156,6 @@ function clampProbability(value?: number | null): number {
 
 function formatProbability(value?: number | null): string {
   return `${Math.round(clampProbability(value) * 100)}%`;
-}
-
-/**
- * Extrait le message d'erreur renvoyé par le backend Python.
- * Gère les formats : { message: string }, { error: string }, etc.
- */
-function extractBackendMessage(payload: unknown): string | null {
-  if (!payload || typeof payload !== 'object') return null;
-
-  const data = payload as { message?: unknown; error?: unknown };
-
-  if (typeof data.message === 'string' && data.message.trim()) {
-    return data.message;
-  }
-  if (Array.isArray(data.message)) {
-    return (data.message as string[]).join(' | ');
-  }
-  if (typeof data.error === 'string' && data.error.trim()) {
-    return data.error;
-  }
-  return null;
 }
 
 /**
@@ -388,19 +351,9 @@ export const DisruptionCenter: React.FC = () => {
   const loadConflicts = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const response = await fetch(
-        `${PYTHON_API_URL}${CONFLICTS_ENDPOINT}`,
-        { method: 'GET', headers: { Accept: 'application/json' } },
+      const payload = await pythonRequestJson<ConflictsResponse>(
+        CONFLICTS_ENDPOINT,
       );
-      if (!response.ok) {
-        const payload = await response.json().catch(() => null);
-        const backendMessage = extractBackendMessage(payload);
-        throw new Error(
-          backendMessage ||
-            `Détection Python indisponible (HTTP ${response.status}).`,
-        );
-      }
-      const payload = (await response.json()) as ConflictsResponse;
       const nextConflicts = Array.isArray(payload.conflicts) ? payload.conflicts : [];
       nextConflicts.sort((first, second) => {
         const severityDifference =
@@ -430,12 +383,7 @@ export const DisruptionCenter: React.FC = () => {
 
   const loadMLInfo = useCallback(async () => {
     try {
-      const response = await fetch(
-        `${PYTHON_API_URL}${ML_INFO_ENDPOINT}`,
-        { method: 'GET', headers: { Accept: 'application/json' } },
-      );
-      if (!response.ok) return;
-      const payload = (await response.json()) as MLInfoResponse;
+      const payload = await pythonRequestJson<MLInfoResponse>(ML_INFO_ENDPOINT);
       setModelInfo(payload.model ?? null);
     } catch {
       setModelInfo(null);
@@ -462,25 +410,10 @@ export const DisruptionCenter: React.FC = () => {
     setMessage(null);
     setOptimizationResult(null);
     try {
-      const response = await fetch(
-        `${PYTHON_API_URL}${OPTIMIZE_ENDPOINT}`,
-        {
-          method: 'POST',
-          headers: {
-            Accept: 'application/json',
-            'Content-Type': 'application/json',
-          },
-        },
+      const payload = await pythonRequestJson<OptimizationResponse>(
+        OPTIMIZE_ENDPOINT,
+        { method: 'POST' },
       );
-      if (!response.ok) {
-        const payload = await response.json().catch(() => null);
-        const backendMessage = extractBackendMessage(payload);
-        throw new Error(
-          backendMessage ||
-            `Optimisation impossible (HTTP ${response.status}).`,
-        );
-      }
-      const payload = (await response.json()) as OptimizationResponse;
       setOptimizationResult(payload);
       setConflicts(
         Array.isArray(payload.remainingConflicts)

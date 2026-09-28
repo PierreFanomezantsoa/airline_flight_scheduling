@@ -17,6 +17,7 @@ import {
   X,
   XCircle,
 } from 'lucide-react';
+import { pythonRequestJson } from '../Api/apiService';
 
 /* ============================================================================
  * CONFIGURATION API — Python (port 5000 en dev, /python en prod via Nginx)
@@ -28,23 +29,6 @@ import {
  *   DEV  → VITE_PYTHON_BASE_URL = http://localhost:5000
  *   PROD → VITE_PYTHON_BASE_URL = /python
  * ========================================================================== */
-
-const FALLBACK_PYTHON_URL: string = import.meta.env.PROD
-  ? '/python'
-  : 'http://localhost:5000';
-
-const RAW_PYTHON_BASE_URL: string =
-  import.meta.env.VITE_PYTHON_BASE_URL || FALLBACK_PYTHON_URL;
-
-const ML_API_BASE_URL: string = RAW_PYTHON_BASE_URL.replace(/\/+$/, '');
-
-if (import.meta.env.DEV) {
-  // eslint-disable-next-line no-console
-  console.info('[FlightOptimizationDashboard] Python API :', {
-    baseUrl: ML_API_BASE_URL,
-    fallbackUsed: !import.meta.env.VITE_PYTHON_BASE_URL,
-  });
-}
 
 /* ============================================================================
  * TYPES
@@ -235,20 +219,9 @@ export const FlightOptimizationDashboard: React.FC = () => {
       setLoadingConflicts(true);
       if (!silent) setConflictError(null);
 
-      const response = await fetch(`${ML_API_BASE_URL}/flights/conflicts`, {
-        headers: { Accept: 'application/json' },
-      });
-
-      const data = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        const backendMessage =
-          (data && typeof data.message === 'string' && data.message) ||
-          `Erreur détection conflits HTTP ${response.status}`;
-        throw new Error(backendMessage);
-      }
-
-      const result = data as ConflictDetectionResult;
+      const result = await pythonRequestJson<ConflictDetectionResult>(
+        '/flights/conflicts',
+      );
       setConflictResult(result);
 
       setOccDecisions(current => {
@@ -309,28 +282,16 @@ export const FlightOptimizationDashboard: React.FC = () => {
       setProcessingConflictId(conflict.id);
       setConflictError(null);
 
-      const response = await fetch(
-        `${ML_API_BASE_URL}/flights/conflicts/${encodeURIComponent(
+      await pythonRequestJson<unknown>(
+        `/flights/conflicts/${encodeURIComponent(
           conflict.id,
         )}/decision`,
         {
           method: 'POST',
-          headers: {
-            Accept: 'application/json',
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ decision, source: 'OCC_UI' }),
         },
       );
-
-      const data = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        const backendMessage =
-          (data && typeof data.message === 'string' && data.message) ||
-          `Erreur validation OCC HTTP ${response.status}`;
-        throw new Error(backendMessage);
-      }
 
       setOccDecisions(current => ({
         ...current,

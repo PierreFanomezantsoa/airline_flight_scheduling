@@ -918,7 +918,7 @@ export const SchedulingDashboard: React.FC = () => {
             </span>
           </div>
 
-          <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+          <div className="space-y-3 max-h-105 overflow-y-auto pr-1">
             {tachesEnAttente.length === 0 ? (
               <div className="py-12 text-center text-slate-400 space-y-2">
                 <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto opacity-80" />

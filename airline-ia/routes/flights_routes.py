@@ -16,6 +16,7 @@ from werkzeug.exceptions import BadRequest
 
 from models import db, Flight
 
+from common.authorization import require_roles
 from common.datetime_utils import ensure_utc, format_to_local_time
 from services.flights.helpers import (
     normalize_stopover_storage,
@@ -902,6 +903,7 @@ def get_weather_system_status():
 
 
 @flights_bp.route("/flights/weather/refresh", methods=["POST"])
+@require_roles("Planificateur", "Regulator")
 def force_weather_refresh():
     """
     Invalide le cache météo.
@@ -936,6 +938,7 @@ def force_weather_refresh():
 # =============================================================================
 
 @flights_bp.route("/flights", methods=["POST"])
+@require_roles("Planificateur", "Regulator")
 def create_flight():
     try:
         data = request.get_json(silent=True) or {}
@@ -1085,6 +1088,7 @@ def create_flight():
 # =============================================================================
 
 @flights_bp.route("/flights/<id>", methods=["PUT"])
+@require_roles("Planificateur", "Regulator")
 def update_flight(id):
     try:
         data = request.get_json(silent=True) or {}
@@ -1231,6 +1235,7 @@ def update_flight(id):
 # =============================================================================
 
 @flights_bp.route("/flights/<id>", methods=["DELETE"])
+@require_roles("Planificateur", "Regulator")
 def delete_flight(id):
     try:
         flight = db.session.get(Flight, id)

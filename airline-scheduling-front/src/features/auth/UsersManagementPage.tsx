@@ -14,6 +14,7 @@ import {
   UserRound,
   UserX,
   Users,
+  Trash2,
   X,
 } from 'lucide-react';
 
@@ -28,6 +29,7 @@ import type { ReactNode } from 'react';
 
 import {
   approveUserAccount,
+  deleteUserAccount,
   getUsers,
   rejectUserAccount,
   setUserAccountPending,
@@ -320,8 +322,30 @@ export function UsersManagementPage() {
   };
 
   // ===========================================================================
-  // REMETTRE EN ATTENTE
+  // SUPPRIMER
   // ===========================================================================
+
+  const handleDelete = async (user: PublicUser) => {
+    if (!window.confirm(`Supprimer définitivement le compte de ${user.nom} ?`)) {
+      return;
+    }
+    setActionLoadingId(user.id);
+    setError('');
+    setSuccess('');
+    try {
+      await deleteUserAccount(user.id);
+      setSuccess(`Le compte de ${user.nom} a été supprimé.`);
+      await loadUsers();
+    } catch (apiError: unknown) {
+      setError(
+        apiError instanceof Error
+          ? apiError.message
+          : 'Impossible de supprimer le compte.',
+      );
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
 
   const handleSetPending = async (user: PublicUser) => {
     setActionLoadingId(user.id);
@@ -549,6 +573,7 @@ export function UsersManagementPage() {
                     onApprove={() => void handleApprove(user)}
                     onReject={() => openRejectModal(user)}
                     onSetPending={() => void handleSetPending(user)}
+                    onDelete={() => void handleDelete(user)}
                   />
                 ))}
               </div>
@@ -654,6 +679,7 @@ export function UsersManagementPage() {
                                 onApprove={() => void handleApprove(user)}
                                 onReject={() => openRejectModal(user)}
                                 onSetPending={() => void handleSetPending(user)}
+                                onDelete={() => void handleDelete(user)}
                               />
                             </div>
                           </td>
@@ -866,6 +892,7 @@ interface UserActionsProps {
   onApprove: () => void;
   onReject: () => void;
   onSetPending: () => void;
+  onDelete: () => void;
   fullWidth?: boolean;
 }
 
@@ -875,6 +902,7 @@ function UserActions({
   onApprove,
   onReject,
   onSetPending,
+  onDelete,
   fullWidth = false,
 }: UserActionsProps) {
   const baseButton =
@@ -902,20 +930,40 @@ function UserActions({
           <UserX className="h-3.5 w-3.5" />
           Refuser
         </button>
+        <button
+          type="button"
+          disabled={isCurrentAction}
+          onClick={onDelete}
+          aria-label={`Supprimer le compte de ${user.nom}`}
+          title="Supprimer le compte"
+          className={`${baseButton} ${widthClass} border border-rose-200 bg-white px-2 text-rose-700 hover:bg-rose-50`}
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
       </>
     );
   }
 
   return (
-    <button
-      type="button"
-      disabled={isCurrentAction}
-      onClick={onSetPending}
-      className={`${baseButton} ${widthClass} border border-slate-200 bg-white text-slate-600 hover:bg-slate-50`}
-    >
-      {isCurrentAction ? <Spinner /> : <Clock3 className="h-3.5 w-3.5" />}
-      En attente
-    </button>
+    <>
+      <button
+        type="button"
+        disabled={isCurrentAction}
+        onClick={onSetPending}
+        className={`${baseButton} ${widthClass} border border-amber-200 bg-white text-amber-700 hover:bg-amber-50`}
+      >
+        <Clock3 className="h-3.5 w-3.5" />
+        Mettre en attente
+      </button>
+      <button
+        type="button"
+        disabled={isCurrentAction}
+        onClick={onDelete}
+        className={`${baseButton} ${widthClass} border border-rose-200 bg-white text-rose-700 hover:bg-rose-50`}
+      >
+        {isCurrentAction ? <Spinner /> : <Trash2 className="h-3.5 w-3.5" />}
+      </button>
+    </>
   );
 }
 
@@ -929,6 +977,7 @@ interface UserMobileCardProps {
   onApprove: () => void;
   onReject: () => void;
   onSetPending: () => void;
+  onDelete: () => void;
 }
 
 function UserMobileCard({
@@ -937,6 +986,7 @@ function UserMobileCard({
   onApprove,
   onReject,
   onSetPending,
+  onDelete,
 }: UserMobileCardProps) {
   return (
     <article className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -994,6 +1044,7 @@ function UserMobileCard({
           onApprove={onApprove}
           onReject={onReject}
           onSetPending={onSetPending}
+          onDelete={onDelete}
           fullWidth
         />
       </div>
