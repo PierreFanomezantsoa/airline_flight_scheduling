@@ -441,6 +441,14 @@ const getWeatherPreviewStyle = (preview?: WeatherAIPreview | null) => {
 const getWeatherSourceBadge = (preview?: WeatherAIPreview | null) => {
   if (!preview) return null;
 
+  if (preview.dataAvailable === false || preview.riskLevel === 'UNKNOWN') {
+    return {
+      label: 'Indisponible',
+      className: 'border-slate-300 bg-slate-100 text-slate-700',
+      title: 'Aucune donnée météo disponible — vérifiez le fournisseur météo en production',
+    };
+  }
+
   if (preview.degraded || preview.stale) {
     return {
       label: 'Dégradé',
@@ -1700,6 +1708,13 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
                           <p className="mt-1 text-[9px] font-semibold leading-4 opacity-80">
                             {weatherPreview.explanation || 'Évaluation météo disponible.'}
                           </p>
+                          {weatherPreview.dataAvailable === false &&
+                            (weatherPreview.departure?.error || weatherPreview.arrival?.error) && (
+                              <p className="mt-1 text-[9px] font-medium leading-4 text-slate-600">
+                                Détail :{' '}
+                                {weatherPreview.departure?.error || weatherPreview.arrival?.error}
+                              </p>
+                            )}
                         </div>
 
                         <div className="mt-2 grid grid-cols-2 gap-2">
