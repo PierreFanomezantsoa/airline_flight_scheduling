@@ -1650,8 +1650,8 @@ export const FlightsPlanning: FC = () => {
                 aeroportArrivee: editingFlight.destination,
                 aeroportEscale: normalizeStops(editingFlight)[0] || undefined,
                 dureeEscale: editingFlight.stopoverDurationMinutes ?? undefined,
-                heureDepart: editingFlight.departure?.slice(0, 16) || '',
-                heureArrivee: editingFlight.arrival?.slice(0, 16) || '',
+                heureDepart: editingFlight.departure || '',
+                heureArrivee: editingFlight.arrival || '',
                 avionId:
                   editingFlight.aircraft !== 'NON ASSIGNÉ'
                     ? editingFlight.aircraft

@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { normalizeIata } from '../common/utils/normalizers';
 import { CreateAirportDto } from './dto/create-airport.dto';
+import { UpdateAirportDto } from './dto/update-airport.dto';
 import { Airport } from './entities/airport.entity';
 
 @Injectable()
@@ -24,7 +25,10 @@ export class AirportsService {
   }
 
   async assertExists(iata: string): Promise<void> {
-    await this.findOne(iata);
+    const airport = await this.findOne(iata);
+    if (!airport.active) {
+      throw new NotFoundException(`L'aéroport ${airport.iata} est inactif.`);
+    }
   }
 
   async create(dto: CreateAirportDto): Promise<Airport> {
@@ -42,5 +46,23 @@ export class AirportsService {
         country: dto.country?.trim() ?? null,
       }),
     );
+  }
+
+  async update(iata: string, dto: UpdateAirportDto): Promise<Airport> {
+    const airport = await this.findOne(iata);
+
+    if (dto.name !== undefined) airport.name = dto.name.trim();
+    if (dto.timezone !== undefined) airport.timezone = dto.timezone.trim();
+    if (dto.city !== undefined) airport.city = dto.city?.trim() || null;
+    if (dto.country !== undefined) airport.country = dto.country?.trim() || null;
+    if (dto.active !== undefined) airport.active = dto.active;
+
+    return this.airportRepository.save(airport);
+  }
+
+  async remove(iata: string): Promise<Airport> {
+    const airport = await this.findOne(iata);
+    airport.active = false;
+    return this.airportRepository.save(airport);
   }
 }

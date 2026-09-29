@@ -10,6 +10,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  MapPin,
   Plane,
   Settings2,
   SlidersHorizontal,
@@ -27,6 +28,7 @@ export type ActiveScreen =
   | 'users'
   | 'scheduling'
   | 'aircraft'
+  | 'airports'
   | 'flights'
   | 'flight-history'
   | 'crew'
@@ -86,6 +88,7 @@ const mobileMenuItems: MenuItem[] = [
   { id: 'scheduling', label: 'Ordonnancement des vols', shortLabel: 'Ordonnancement', icon: CalendarClock },
   { id: 'optimization', label: 'Optimisation automatique', shortLabel: 'Optim.', icon: Sparkles },
   { id: 'aircraft', label: 'Gestion des avions', shortLabel: 'Avions', icon: Plane },
+  { id: 'airports', label: 'Gestion des aéroports', shortLabel: 'Aéroports', icon: MapPin },
   { id: 'flights', label: 'Gestion des vols', shortLabel: 'Vols', icon: CalendarDays },
   { id: 'flight-history', label: 'Historique des vols', shortLabel: 'Historique', icon: History },
   { id: 'crew', label: 'Affectation des équipages', shortLabel: 'Équipages', icon: Users },
@@ -104,6 +107,7 @@ const MENU_SECTIONS: MenuSection[] = [
       { id: 'users', label: 'Gestion des utilisateurs', icon: UserCog },
       { id: 'scheduling', label: 'Ordonnancement des vols', icon: CalendarClock },
       { id: 'aircraft', label: 'Gestion des avions', icon: Plane },
+      { id: 'airports', label: 'Aéroports', icon: MapPin },
       { id: 'flights', label: 'Gestion des vols', icon: CalendarDays },
       { id: 'flight-history', label: 'Historique des vols', icon: History },
       { id: 'settings', label: 'Configuration réseau', icon: Settings2 },
@@ -128,11 +132,11 @@ const allowedScreens: Record<AvailableRoles, ActiveScreen[]> = {
     'flight-history', 'crew', 'maintenance', 'optimization', 'settings', 'help',
   ],
   Planificateur: [
-    'dashboard', 'scheduling', 'aircraft', 'flights',
+    'dashboard', 'scheduling', 'aircraft', 'airports', 'flights',
     'flight-history', 'crew', 'optimization', 'help',
   ],
   Regulator: [
-    'dashboard', 'scheduling', 'flights', 'flight-history',
+    'dashboard', 'scheduling', 'airports', 'flights', 'flight-history',
     'crew', 'optimization', 'settings', 'help',
   ],
   Crew_Member: ['dashboard', 'flights', 'flight-history', 'crew', 'help'],

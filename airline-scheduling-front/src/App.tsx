@@ -38,6 +38,7 @@ import FlightHistory from './features/flights/FlightHistory';
 import CrewAssignmentsPage from './features/crew/CrewAssignmentsPage';
 
 import { AircraftManagement } from './features/Aircraft/AircraftManagement';
+import { AirportManagement } from './features/airports/AirportManagement';
 
 // =============================================================================
 // MAINTENANCE
@@ -125,11 +126,11 @@ const ROLE_SCREEN_PERMISSIONS: Record<UserRole, ActiveScreen[]> = {
     'settings', 'help',
   ],
   Planificateur: [
-    'dashboard', 'scheduling', 'aircraft', 'flights',
+    'dashboard', 'scheduling', 'aircraft', 'airports', 'flights',
     'flight-history', 'crew', 'optimization', 'help',
   ],
   Regulator: [
-    'dashboard', 'scheduling', 'flights', 'flight-history', 'crew', 'optimization', 'settings', 'help',
+    'dashboard', 'scheduling', 'airports', 'flights', 'flight-history', 'crew', 'optimization', 'settings', 'help',
   ],
   Maintenance_Engineer: [
     'dashboard', 'scheduling', 'aircraft', 'maintenance',
@@ -180,6 +181,10 @@ const SCREEN_META: Record<
   aircraft: {
     title: 'Gestion des avions',
     subtitle: 'Aéronefs physiques et immatriculations',
+  },
+  airports: {
+    title: 'Gestion des aéroports',
+    subtitle: 'Référentiel des aéroports et fuseaux horaires',
   },
   flights: {
     title: 'Gestion des vols',
@@ -488,6 +493,7 @@ function App() {
       users: <UsersManagementPage />,
       scheduling: <FlightSchedulerDashboard />,
       aircraft: <AircraftManagement />,
+      airports: <AirportManagement />,
       flights: <FlightsPlanning />,
       'flight-history': <FlightHistory />,
       crew: <CrewAssignmentsPage />,

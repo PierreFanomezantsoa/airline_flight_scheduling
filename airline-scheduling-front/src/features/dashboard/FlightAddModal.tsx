@@ -26,7 +26,7 @@ import {
   ShieldAlert,
   Activity,
 } from 'lucide-react';
-import { pythonFetch } from '../Api/apiService';
+import { authFetch, pythonFetch } from '../Api/apiService';
 
 /* ============================================================================
  * CONFIGURATION API — Python (port 5000 en dev, /python en prod via Nginx)
@@ -132,7 +132,8 @@ export interface ExistingFlightData {
 export interface AirportOption {
   iata: string;
   name: string;
-  gmtOffset: number;
+  timezone: string;
+  active: boolean;
 }
 
 export type WeatherRiskLevel =
@@ -223,19 +224,11 @@ interface FlightAddModalProps {
  * CONSTANTES
  * ========================================================================== */
 
-const AIRPORTS_LIST: readonly AirportOption[] = [
-  { iata: 'TNR', name: 'Antananarivo (Ivato)', gmtOffset: 3 },
-  { iata: 'CDG', name: 'Paris (Charles de Gaulle)', gmtOffset: 2 },
-  { iata: 'JFK', name: 'New York (JFK)', gmtOffset: -4 },
-  { iata: 'DXB', name: 'Dubai International', gmtOffset: 4 },
-  { iata: 'RUN', name: 'La Réunion (Roland Garros)', gmtOffset: 4 },
-  { iata: 'MRU', name: 'Maurice (Sir Seewoosagur)', gmtOffset: 4 },
-];
-
 const DIRECT_ROUTES_AND_STOPS: Record<string, Record<string, number>> = {
   TNR: { CDG: 11, DXB: 6.5, RUN: 1.5, MRU: 1.75 },
-  CDG: { TNR: 11, JFK: 8, DXB: 7, RUN: 11, MRU: 11.5 },
+  CDG: { TNR: 11, JFK: 8, DXB: 7, RUN: 11, MRU: 11.5, LHR: 1.25 },
   JFK: { CDG: 7.5, DXB: 12.5 },
+  LHR: { CDG: 1.25 },
   DXB: { TNR: 6.5, CDG: 7, JFK: 14, RUN: 6, MRU: 6.5 },
   RUN: { TNR: 1.5, CDG: 11, DXB: 6, MRU: 0.75 },
   MRU: { TNR: 1.75, CDG: 11.5, DXB: 6.5, RUN: 0.75 },
@@ -376,13 +369,91 @@ const isCancelledFlight = (flight: ExistingFlightData): boolean => {
   return ['ANNULÉ', 'ANNULE', 'CANCELLED', 'CANCELED'].includes(status);
 };
 
-const formatDateToIsoInput = (date: Date): string => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-  return `${year}-${month}-${day}T${hours}:${minutes}`;
+interface ZonedDateTimeParts {
+  year: number;
+  month: number;
+  day: number;
+  hour: number;
+  minute: number;
+  second: number;
+}
+
+const getZonedDateTimeParts = (date: Date, timezone: string): ZonedDateTimeParts => {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+
+  return {
+    year: Number(values.year),
+    month: Number(values.month),
+    day: Number(values.day),
+    hour: Number(values.hour),
+    minute: Number(values.minute),
+    second: Number(values.second),
+  };
+};
+
+const formatDateTimeInTimezone = (value: string, timezone?: string): string => {
+  if (!value || !timezone) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+
+  try {
+    const parts = getZonedDateTimeParts(date, timezone);
+    return `${parts.year}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}T${String(parts.hour).padStart(2, '0')}:${String(parts.minute).padStart(2, '0')}`;
+  } catch {
+    return '';
+  }
+};
+
+const localDateTimeToIso = (value: string, timezone?: string): string => {
+  if (!value || !timezone) return '';
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/);
+  if (!match) return '';
+
+  const [, year, month, day, hour, minute] = match.map(Number);
+  const targetLocalAsUtc = Date.UTC(year, month - 1, day, hour, minute);
+  let timestamp = targetLocalAsUtc;
+
+  try {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const parts = getZonedDateTimeParts(new Date(timestamp), timezone);
+      const displayedAsUtc = Date.UTC(
+        parts.year,
+        parts.month - 1,
+        parts.day,
+        parts.hour,
+        parts.minute,
+        parts.second,
+      );
+      const difference = targetLocalAsUtc - displayedAsUtc;
+      if (difference === 0) break;
+      timestamp += difference;
+    }
+
+    const result = new Date(timestamp);
+    const verified = getZonedDateTimeParts(result, timezone);
+    if (
+      verified.year !== year ||
+      verified.month !== month ||
+      verified.day !== day ||
+      verified.hour !== hour ||
+      verified.minute !== minute
+    ) {
+      return '';
+    }
+    return result.toISOString();
+  } catch {
+    return '';
+  }
 };
 
 const clamp01 = (value?: number | null) => {
@@ -482,15 +553,16 @@ const getWeatherSourceBadge = (preview?: WeatherAIPreview | null) => {
   };
 };
 
-const calculateArrivalGMT = (
+const calculateArrival = (
   originIata: string,
   destinationIata: string,
   departureIsoString: string,
+  airports: AirportOption[],
 ): string => {
   if (!originIata || !destinationIata || !departureIsoString) return '';
 
-  const originAirport = AIRPORTS_LIST.find((a) => a.iata === originIata);
-  const destinationAirport = AIRPORTS_LIST.find((a) => a.iata === destinationIata);
+  const originAirport = airports.find((airport) => airport.iata === originIata);
+  const destinationAirport = airports.find((airport) => airport.iata === destinationIata);
 
   if (!originAirport || !destinationAirport || originIata === destinationIata) {
     return '';
@@ -502,11 +574,7 @@ const calculateArrivalGMT = (
   const departureDate = new Date(departureIsoString);
   if (Number.isNaN(departureDate.getTime())) return '';
 
-  const gmtDifference = destinationAirport.gmtOffset - originAirport.gmtOffset;
-  const totalMinutes = (durationHours + gmtDifference) * 60;
-
-  const arrivalDate = new Date(departureDate.getTime() + totalMinutes * 60 * 1000);
-  return formatDateToIsoInput(arrivalDate);
+  return new Date(departureDate.getTime() + durationHours * 60 * 60 * 1000).toISOString();
 };
 
 /* ============================================================================
@@ -527,6 +595,10 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
   const [selectedStop, setSelectedStop] = useState('');
   const [layoverHours, setLayoverHours] = useState(2);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [airports, setAirports] = useState<AirportOption[]>([]);
+  const [isLoadingAirports, setIsLoadingAirports] = useState(false);
+  const [airportLoadError, setAirportLoadError] = useState<string | null>(null);
+  const [timeZoneError, setTimeZoneError] = useState<string | null>(null);
 
   /* EXISTING FLIGHTS */
   const [existingFlights, setExistingFlights] = useState<ExistingFlightData[]>([]);
@@ -540,6 +612,49 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
 
   const isEdition = Boolean(initialData);
 
+  const originAirport = useMemo(
+    () => airports.find((airport) => airport.iata === newFlight.aeroportDepart),
+    [airports, newFlight.aeroportDepart],
+  );
+  const destinationAirport = useMemo(
+    () => airports.find((airport) => airport.iata === newFlight.aeroportArrivee),
+    [airports, newFlight.aeroportArrivee],
+  );
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const controller = new AbortController();
+    setIsLoadingAirports(true);
+    setAirportLoadError(null);
+
+    const loadAirports = async () => {
+      try {
+        const response = await authFetch('/airports', { signal: controller.signal });
+        const payload: unknown = await response.json().catch(() => null);
+        if (!response.ok || !Array.isArray(payload)) {
+          throw new Error('Impossible de charger les aéroports actifs.');
+        }
+        setAirports(
+          (payload as AirportOption[])
+            .filter((airport) => airport.active !== false)
+            .sort((left, right) => left.iata.localeCompare(right.iata)),
+        );
+      } catch (error: unknown) {
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+        setAirports([]);
+        setAirportLoadError(
+          error instanceof Error ? error.message : 'Impossible de charger les aéroports.',
+        );
+      } finally {
+        if (!controller.signal.aborted) setIsLoadingAirports(false);
+      }
+    };
+
+    void loadAirports();
+    return () => controller.abort();
+  }, [isOpen]);
+
   /* =========================================================================
    * RESET FORM
    * ======================================================================= */
@@ -551,6 +666,7 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
     setWeatherPreviewError(null);
     setIsWeatherChecking(false);
     setFlightAvailabilityError(null);
+    setTimeZoneError(null);
 
     if (initialData) {
       setNewFlight({ ...initialData });
@@ -667,14 +783,19 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
     const origin = newFlight.aeroportDepart;
     const destination = newFlight.aeroportArrivee;
 
-    return AIRPORTS_LIST.map((a) => a.iata)
+    return airports
+      .map((airport) => airport.iata)
       .filter((hub) => hub !== origin && hub !== destination)
-      .filter(
-        (hub) =>
-          DIRECT_ROUTES_AND_STOPS[origin]?.[hub] !== undefined &&
-          DIRECT_ROUTES_AND_STOPS[hub]?.[destination] !== undefined,
-      );
-  }, [newFlight.aeroportDepart, newFlight.aeroportArrivee]);
+      .map((hub) => ({
+        hub,
+        totalDuration:
+          (DIRECT_ROUTES_AND_STOPS[origin]?.[hub] ?? Number.POSITIVE_INFINITY) +
+          (DIRECT_ROUTES_AND_STOPS[hub]?.[destination] ?? Number.POSITIVE_INFINITY),
+      }))
+      .filter((candidate) => Number.isFinite(candidate.totalDuration))
+      .sort((left, right) => left.totalDuration - right.totalDuration)
+      .map((candidate) => candidate.hub);
+  }, [airports, newFlight.aeroportDepart, newFlight.aeroportArrivee]);
 
   /* =========================================================================
    * ROUTE CALCULATION
@@ -690,10 +811,11 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
     if (!selectedStop) {
       if (isDirectRoute) {
         return {
-          calculatedArrival: calculateArrivalGMT(
+          calculatedArrival: calculateArrival(
             aeroportDepart,
             aeroportArrivee,
             heureDepart,
+            airports,
           ),
           generatedLegs: [] as FlightLegData[],
         };
@@ -701,7 +823,7 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
       return { calculatedArrival: '', generatedLegs: [] as FlightLegData[] };
     }
 
-    const leg1Arrival = calculateArrivalGMT(aeroportDepart, selectedStop, heureDepart);
+    const leg1Arrival = calculateArrival(aeroportDepart, selectedStop, heureDepart, airports);
     if (!leg1Arrival) {
       return { calculatedArrival: '', generatedLegs: [] as FlightLegData[] };
     }
@@ -710,8 +832,8 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
     const leg2DepartureDate = new Date(
       leg1ArrivalDate.getTime() + layoverHours * 3600 * 1000,
     );
-    const leg2Departure = formatDateToIsoInput(leg2DepartureDate);
-    const leg2Arrival = calculateArrivalGMT(selectedStop, aeroportArrivee, leg2Departure);
+    const leg2Departure = leg2DepartureDate.toISOString();
+    const leg2Arrival = calculateArrival(selectedStop, aeroportArrivee, leg2Departure, airports);
 
     const baseFlightNumber = numeroVol || 'FL';
 
@@ -733,7 +855,7 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
     ];
 
     return { calculatedArrival: leg2Arrival, generatedLegs };
-  }, [newFlight, selectedStop, layoverHours, isDirectRoute]);
+  }, [newFlight, selectedStop, layoverHours, isDirectRoute, airports]);
 
   /* SYNC ROUTE */
   useEffect(() => {
@@ -1053,6 +1175,8 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
    * ======================================================================= */
 
   const validationError = useMemo(() => {
+    if (timeZoneError) return timeZoneError;
+
     if (
       !isDirectRoute &&
       !selectedStop &&
@@ -1124,6 +1248,7 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
   }, [
     newFlight.aeroportDepart,
     newFlight.aeroportArrivee,
+    timeZoneError,
     newFlight.heureDepart,
     newFlight.heureArrivee,
     isDirectRoute,
@@ -1258,6 +1383,7 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
                 <MapPin className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
                 <select
                   required
+                  disabled={isLoadingAirports || Boolean(airportLoadError)}
                   value={newFlight.aeroportDepart}
                   onChange={(event) => {
                     setNewFlight((previous) => ({
@@ -1269,10 +1395,9 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
                   className="h-10 w-full appearance-none rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 text-xs font-bold text-slate-800 outline-none transition focus:border-emerald-500 focus:bg-white"
                 >
                   <option value="">Départ</option>
-                  {AIRPORTS_LIST.map((airport) => (
+                  {airports.map((airport) => (
                     <option key={airport.iata} value={airport.iata}>
-                      {airport.iata} - {airport.name} (GMT
-                      {airport.gmtOffset >= 0 ? `+${airport.gmtOffset}` : airport.gmtOffset})
+                      {airport.iata} - {airport.name} ({airport.timezone})
                     </option>
                   ))}
                 </select>
@@ -1282,6 +1407,7 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
                 <MapPin className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
                 <select
                   required
+                  disabled={isLoadingAirports || Boolean(airportLoadError)}
                   value={newFlight.aeroportArrivee}
                   onChange={(event) => {
                     setNewFlight((previous) => ({
@@ -1293,21 +1419,22 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
                   className="h-10 w-full appearance-none rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 text-xs font-bold text-slate-800 outline-none transition focus:border-emerald-500 focus:bg-white"
                 >
                   <option value="">Arrivée</option>
-                  {AIRPORTS_LIST.map(
+                  {airports.map(
                     (airport) =>
                       airport.iata !== newFlight.aeroportDepart && (
                         <option key={airport.iata} value={airport.iata}>
-                          {airport.iata} - {airport.name} (GMT
-                          {airport.gmtOffset >= 0
-                            ? `+${airport.gmtOffset}`
-                            : airport.gmtOffset}
-                          )
+                          {airport.iata} - {airport.name} ({airport.timezone})
                         </option>
                       ),
                   )}
                 </select>
               </div>
             </div>
+            {(isLoadingAirports || airportLoadError) && (
+              <p className={`text-[10px] font-semibold ${airportLoadError ? 'text-rose-600' : 'text-slate-500'}`}>
+                {airportLoadError || 'Chargement des aéroports actifs…'}
+              </p>
+            )}
           </div>
 
           {/* DIRECT ROUTE */}
@@ -1322,7 +1449,7 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
                   {formatFlightDuration(directDurationHours)}
                 </span>
               </div>
-              {!selectedStop ? (
+              {!selectedStop && suggestedStops.length > 0 ? (
                 <button
                   type="button"
                   onClick={() => setSelectedStop(suggestedStops[0] || '')}
@@ -1331,7 +1458,7 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
                   <Plus className="h-3 w-3" />
                   Ajouter une escale facultative
                 </button>
-              ) : (
+              ) : selectedStop ? (
                 <button
                   type="button"
                   onClick={() => setSelectedStop('')}
@@ -1340,7 +1467,7 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
                   <Trash2 className="h-3 w-3" />
                   Supprimer l’escale
                 </button>
-              )}
+              ) : null}
             </div>
           )}
 
@@ -1377,7 +1504,7 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
                 {suggestedStops.length > 0 ? (
                   <div className="grid grid-cols-2 gap-2">
                     {suggestedStops.map((stopIata) => {
-                      const stopAirport = AIRPORTS_LIST.find(
+                      const stopAirport = airports.find(
                         (airport) => airport.iata === stopIata,
                       );
                       const active = selectedStop === stopIata;
@@ -1411,8 +1538,8 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
                     })}
                   </div>
                 ) : (
-                  <p className="text-[10px] font-semibold text-rose-600">
-                    Aucun hub compatible trouvé.
+                  <p className="text-[10px] font-semibold leading-4 text-rose-700">
+                    Aucune escale configurée avec des durées connues pour les deux tronçons. Ajoutez les liaisons correspondantes au réseau avant de planifier ce trajet.
                   </p>
                 )}
               </div>
@@ -1461,8 +1588,18 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
                     </span>
                   </div>
                   <div className="text-right font-mono text-[8px] text-slate-300">
-                    <p>{leg.heureDepart.split('T')[1]}</p>
-                    <p>{leg.heureArrivee.split('T')[1]}</p>
+                    <p>
+                      {formatDateTimeInTimezone(
+                        leg.heureDepart,
+                        airports.find((airport) => airport.iata === leg.aeroportDepart)?.timezone,
+                      ).split('T')[1]}
+                    </p>
+                    <p>
+                      {formatDateTimeInTimezone(
+                        leg.heureArrivee,
+                        airports.find((airport) => airport.iata === leg.aeroportArrivee)?.timezone,
+                      ).split('T')[1]}
+                    </p>
                   </div>
                 </div>
               ))}
@@ -1474,19 +1611,25 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
             <div>
               <label className="mb-1.5 block text-[9px] font-black uppercase tracking-wide text-slate-500">
                 Départ
+                {originAirport?.timezone ? ` (${originAirport.timezone})` : ''}
               </label>
               <div className="relative">
                 <Calendar className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
                 <input
                   type="datetime-local"
                   required
-                  value={newFlight.heureDepart}
-                  onChange={(event) =>
-                    setNewFlight((previous) => ({
-                      ...previous,
-                      heureDepart: event.target.value,
-                    }))
-                  }
+                  disabled={!originAirport}
+                  value={formatDateTimeInTimezone(newFlight.heureDepart, originAirport?.timezone)}
+                  onChange={(event) => {
+                    const localValue = event.target.value;
+                    const departureIso = localDateTimeToIso(localValue, originAirport?.timezone);
+                    setTimeZoneError(
+                      localValue && !departureIso
+                        ? `Heure locale invalide pour ${originAirport?.timezone || 'ce fuseau horaire'}.`
+                        : null,
+                    );
+                    setNewFlight((previous) => ({ ...previous, heureDepart: departureIso }));
+                  }}
                   className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-2 text-[10px] font-semibold text-slate-800 outline-none transition focus:border-emerald-500 focus:bg-white"
                 />
               </div>
@@ -1494,6 +1637,7 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
             <div>
               <label className="mb-1.5 block text-[9px] font-black uppercase tracking-wide text-slate-500">
                 Arrivée calculée
+                {destinationAirport?.timezone ? ` (${destinationAirport.timezone})` : ''}
               </label>
               <div className="relative">
                 <Calendar className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
@@ -1501,8 +1645,8 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
                   type="datetime-local"
                   required
                   readOnly
-                  disabled={!isDirectRoute && !selectedStop}
-                  value={newFlight.heureArrivee}
+                  disabled={!destinationAirport || (!isDirectRoute && !selectedStop)}
+                  value={formatDateTimeInTimezone(newFlight.heureArrivee, destinationAirport?.timezone)}
                   className="h-10 w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-100 pl-9 pr-2 text-[10px] font-semibold text-slate-700 outline-none disabled:opacity-50"
                 />
               </div>

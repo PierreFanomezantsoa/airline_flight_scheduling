@@ -222,6 +222,14 @@ function getErrorMessage(
       return 'Votre session est invalide ou a expiré. Veuillez vous reconnecter.';
     }
     if (error.status === 403) {
+      const backendMessage = error.message.trim();
+      if (
+        backendMessage &&
+        backendMessage !== 'Le serveur a refusé la requête.' &&
+        backendMessage !== "Vous n'êtes pas autorisé à accéder à cette ressource."
+      ) {
+        return backendMessage;
+      }
       return "Vous n'avez pas les autorisations nécessaires pour accéder à cette fonctionnalité.";
     }
     return error.message || fallback;
@@ -278,11 +286,14 @@ async function syncExpiredMaintenances(signal?: AbortSignal): Promise<void> {
       console.warn('[AircraftManagement] Maintenance sync :', message);
     }
   } catch (error: unknown) {
-    if (
-      error instanceof ApiError &&
-      (error.status === 401 || error.status === 403)
-    ) {
+    if (error instanceof ApiError && error.status === 401) {
       throw error;
+    }
+    if (error instanceof ApiError && error.status === 403) {
+      console.warn(
+        '[AircraftManagement] Synchronisation ignorée : rôle maintenance requis.',
+      );
+      return;
     }
     if (error instanceof DOMException && error.name === 'AbortError') {
       throw error;
