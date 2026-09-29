@@ -260,7 +260,6 @@ export function AirportManagement() {
     }
   };
 
-  /* ─── Ouvre le modal de suppression ─── */
   const askDeleteAirport = (airport: Airport) => {
     setConfirmDialog({
       isOpen: true,
@@ -309,7 +308,7 @@ export function AirportManagement() {
             className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 disabled:opacity-50"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            Actualiser
+            <span className="hidden sm:inline">Actualiser</span>
           </button>
 
           <button
@@ -318,97 +317,107 @@ export function AirportManagement() {
             className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-linear-to-br from-emerald-500 to-emerald-700 px-4 text-sm font-bold text-white shadow-md shadow-emerald-600/25 transition hover:from-emerald-600 hover:to-emerald-800 hover:shadow-lg"
           >
             <Plus className="h-4 w-4" />
-            Ajouter un aéroport
+            <span className="hidden sm:inline">Ajouter un aéroport</span>
+            <span className="sm:hidden">Ajouter</span>
           </button>
         </div>
 
         {/* ═══════════════ CARTES MÉTRIQUES ═══════════════ */}
-        <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <article className="rounded-2xl border border-slate-200/80 bg-white px-5 py-5 shadow-[0_1px_3px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)]">
+        <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <article className="rounded-2xl border border-slate-200/80 bg-white px-4 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)] sm:px-5 sm:py-5">
             <div className="flex items-start justify-between">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                Total référencé
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 sm:text-[11px]">
+                Total
               </p>
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
-                <Plane className="h-4 w-4 rotate-45" />
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 sm:h-9 sm:w-9">
+                <Plane className="h-3.5 w-3.5 rotate-45 sm:h-4 sm:w-4" />
               </div>
             </div>
-            <div className="mt-3 flex items-baseline gap-2">
-              <span className="text-3xl font-bold leading-none tabular-nums text-slate-900">
+            <div className="mt-2 flex items-baseline gap-1.5 sm:mt-3 sm:gap-2">
+              <span className="text-2xl font-bold leading-none tabular-nums text-slate-900 sm:text-3xl">
                 {airports.length}
               </span>
-              <span className="text-xs font-medium text-slate-500">Aéroports</span>
+              <span className="text-[10px] font-medium text-slate-500 sm:text-xs">
+                Aéroports
+              </span>
             </div>
           </article>
 
-          <article className="rounded-2xl border border-slate-200/80 bg-white px-5 py-5 shadow-[0_1px_3px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)]">
+          <article className="rounded-2xl border border-slate-200/80 bg-white px-4 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)] sm:px-5 sm:py-5">
             <div className="flex items-start justify-between">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 sm:text-[11px]">
                 Actifs
               </p>
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
-                <CheckCircle2 className="h-4 w-4" />
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 sm:h-9 sm:w-9">
+                <CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </div>
             </div>
-            <div className="mt-3 flex items-baseline gap-2">
-              <span className="text-3xl font-bold leading-none tabular-nums text-emerald-700">
+            <div className="mt-2 flex items-baseline gap-1.5 sm:mt-3 sm:gap-2">
+              <span className="text-2xl font-bold leading-none tabular-nums text-emerald-700 sm:text-3xl">
                 {activeCount}
               </span>
-              <span className="text-xs font-medium text-slate-500">Opérationnels</span>
+              <span className="text-[10px] font-medium text-slate-500 sm:text-xs">
+                Actifs
+              </span>
             </div>
           </article>
 
-          <article className="rounded-2xl border border-slate-200/80 bg-white px-5 py-5 shadow-[0_1px_3px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)]">
+          <article className="rounded-2xl border border-slate-200/80 bg-white px-4 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)] sm:px-5 sm:py-5">
             <div className="flex items-start justify-between">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 sm:text-[11px]">
                 Inactifs
               </p>
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-rose-50 text-rose-500">
-                <XCircle className="h-4 w-4" />
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-rose-50 text-rose-500 sm:h-9 sm:w-9">
+                <XCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </div>
             </div>
-            <div className="mt-3 flex items-baseline gap-2">
-              <span className="text-3xl font-bold leading-none tabular-nums text-slate-900">
+            <div className="mt-2 flex items-baseline gap-1.5 sm:mt-3 sm:gap-2">
+              <span className="text-2xl font-bold leading-none tabular-nums text-slate-900 sm:text-3xl">
                 {inactiveCount}
               </span>
-              <span className="text-xs font-medium text-slate-500">Désactivés</span>
+              <span className="text-[10px] font-medium text-slate-500 sm:text-xs">
+                Inactifs
+              </span>
             </div>
           </article>
 
-          <article className="rounded-2xl border border-slate-200/80 bg-white px-5 py-5 shadow-[0_1px_3px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)]">
+          <article className="rounded-2xl border border-slate-200/80 bg-white px-4 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)] sm:px-5 sm:py-5">
             <div className="flex items-start justify-between">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                Pays couverts
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 sm:text-[11px]">
+                Pays
               </p>
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sky-50 text-sky-600">
-                <Globe2 className="h-4 w-4" />
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sky-50 text-sky-600 sm:h-9 sm:w-9">
+                <Globe2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </div>
             </div>
-            <div className="mt-3 flex items-baseline gap-2">
-              <span className="text-3xl font-bold leading-none tabular-nums text-sky-700">
+            <div className="mt-2 flex items-baseline gap-1.5 sm:mt-3 sm:gap-2">
+              <span className="text-2xl font-bold leading-none tabular-nums text-sky-700 sm:text-3xl">
                 {countryCount}
               </span>
-              <span className="text-xs font-medium text-slate-500">Destinations</span>
+              <span className="text-[10px] font-medium text-slate-500 sm:text-xs">
+                Pays
+              </span>
             </div>
           </article>
         </section>
 
         {/* ═══════════════ CONTENEUR PRINCIPAL ═══════════════ */}
-        <section className="mt-6 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_1px_3px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)]">
-          <div className="flex flex-col gap-3 border-b border-slate-100 p-4 lg:flex-row lg:items-center lg:justify-between">
+        <section className="mt-5 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_1px_3px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)] sm:mt-6">
+          {/* Barre de recherche + filtres */}
+          <div className="flex flex-col gap-3 border-b border-slate-100 p-3 sm:p-4 lg:flex-row lg:items-center lg:justify-between">
             <label className="relative block w-full lg:max-w-md">
               <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Code IATA, ville, pays, fuseau…"
+                placeholder="Rechercher un aéroport…"
                 aria-label="Rechercher un aéroport"
                 className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-emerald-600 focus:ring-4 focus:ring-emerald-600/10"
               />
             </label>
 
             <div className="flex flex-wrap items-center gap-2">
-              <div className="relative">
+              <div className="relative flex-1 sm:flex-initial">
                 <select
                   value={statusFilter}
                   onChange={(event) =>
@@ -417,7 +426,7 @@ export function AirportManagement() {
                     )
                   }
                   aria-label="Filtrer par statut"
-                  className="h-11 appearance-none rounded-xl border border-slate-200 bg-white pl-4 pr-10 text-sm font-semibold text-slate-700 outline-none transition hover:border-slate-300 focus:border-emerald-600 focus:ring-4 focus:ring-emerald-600/10"
+                  className="h-11 w-full appearance-none rounded-xl border border-slate-200 bg-white pl-4 pr-10 text-sm font-semibold text-slate-700 outline-none transition hover:border-slate-300 focus:border-emerald-600 focus:ring-4 focus:ring-emerald-600/10 sm:w-auto"
                 >
                   <option value="all">Tous les statuts</option>
                   <option value="active">Actifs</option>
@@ -426,9 +435,9 @@ export function AirportManagement() {
                 <ArrowUpDown className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
               </div>
 
-              <span className="inline-flex h-11 items-center gap-1.5 rounded-xl bg-slate-100 px-3.5 text-sm font-bold text-slate-700">
+              <span className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-xl bg-slate-100 px-3.5 text-sm font-bold text-slate-700">
                 {visibleAirports.length}
-                <span className="font-medium text-slate-500">
+                <span className="hidden font-medium text-slate-500 sm:inline">
                   {visibleAirports.length > 1 ? 'aéroports' : 'aéroport'}
                 </span>
               </span>
@@ -453,7 +462,145 @@ export function AirportManagement() {
             </div>
           )}
 
-          <div className="overflow-x-auto">
+          {/* ═══════════════ MOBILE : CARDS ═══════════════ */}
+          <div className="space-y-2 bg-slate-50/40 p-3 md:hidden">
+            {loading ? (
+              <div className="rounded-xl border border-slate-200 bg-white p-10 text-center">
+                <LoaderCircle className="mx-auto h-6 w-6 animate-spin text-emerald-600" />
+                <span className="mt-3 block text-sm font-medium text-slate-500">
+                  Chargement des aéroports…
+                </span>
+              </div>
+            ) : paginatedAirports.length === 0 ? (
+              <div className="rounded-xl border border-slate-200 bg-white p-8 text-center">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
+                  <MapPin className="h-5 w-5" />
+                </div>
+                <p className="mt-3 text-sm font-semibold text-slate-700">
+                  {search || statusFilter !== 'all'
+                    ? 'Aucun résultat pour ces filtres.'
+                    : 'Aucun aéroport référencé.'}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  {search || statusFilter !== 'all'
+                    ? 'Modifiez la recherche ou le filtre.'
+                    : 'Ajoutez votre premier aéroport.'}
+                </p>
+              </div>
+            ) : (
+              paginatedAirports.map((airport) => (
+                <article
+                  key={airport.iata}
+                  className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md"
+                >
+                  {/* Bande de couleur statut */}
+                  <span
+                    className={`block h-1 ${
+                      airport.active
+                        ? 'bg-linear-to-r from-emerald-500 to-emerald-600'
+                        : 'bg-linear-to-r from-slate-300 to-slate-400'
+                    }`}
+                  />
+
+                  <div className="p-3">
+                    {/* En-tête : code + statut */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+                          <Plane className="h-3.5 w-3.5 rotate-45" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-mono text-base font-bold leading-none text-slate-900">
+                            {airport.iata}
+                          </p>
+                          <p className="mt-1 truncate text-xs font-medium text-slate-500">
+                            {airport.city && airport.country
+                              ? `${airport.city}, ${airport.country}`
+                              : airport.city ||
+                                airport.country ||
+                                '—'}
+                          </p>
+                        </div>
+                      </div>
+
+                      {airport.active ? (
+                        <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                          Actif
+                        </span>
+                      ) : (
+                        <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-bold text-slate-500">
+                          <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+                          Inactif
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Nom de l'aéroport */}
+                    <p className="mt-2.5 text-sm font-semibold leading-5 text-slate-800">
+                      {airport.name}
+                    </p>
+
+                    {/* Fuseau horaire */}
+                    <div className="mt-2 flex items-center gap-1.5">
+                      <Clock className="h-3 w-3 shrink-0 text-slate-400" />
+                      <span className="font-mono text-[11px] font-semibold text-slate-600">
+                        {airport.timezone}
+                      </span>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="mt-3 flex items-center gap-2 border-t border-slate-100 pt-3">
+                      <button
+                        type="button"
+                        onClick={() => void reactivateAirport(airport)}
+                        disabled={actionIata === airport.iata || airport.active}
+                        title={`Réactiver ${airport.iata}`}
+                        aria-label={`Réactiver ${airport.iata}`}
+                        className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-600 transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        {actionIata === airport.iata && !airport.active ? (
+                          <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <RotateCcw className="h-3.5 w-3.5" />
+                        )}
+                        <span>Réactiver</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => askDeleteAirport(airport)}
+                        disabled={actionIata === airport.iata || !airport.active}
+                        title={`Désactiver ${airport.iata}`}
+                        aria-label={`Désactiver ${airport.iata}`}
+                        className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-600 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        {actionIata === airport.iata && airport.active ? (
+                          <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-3.5 w-3.5" />
+                        )}
+                        <span>Désactiver</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => openEditForm(airport)}
+                        title={`Modifier ${airport.iata}`}
+                        aria-label={`Modifier ${airport.iata}`}
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </article>
+              ))
+            )}
+          </div>
+
+          {/* ═══════════════ DESKTOP : TABLEAU ═══════════════ */}
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-225 border-collapse text-left text-sm">
               <thead className="border-b border-slate-200 bg-slate-50/60">
                 <tr className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
@@ -599,18 +746,28 @@ export function AirportManagement() {
             </table>
           </div>
 
+          {/* ═══════════════ PAGINATION ═══════════════ */}
           {!loading && visibleAirports.length > 0 && (
-            <div className="flex flex-col items-center justify-between gap-3 border-t border-slate-100 px-5 py-3 sm:flex-row">
-              <p className="text-xs font-medium text-slate-500">
-                Affichage de{' '}
-                <strong className="font-bold text-slate-700">{firstIndex}</strong>{' '}
-                à{' '}
-                <strong className="font-bold text-slate-700">{lastIndex}</strong>{' '}
-                sur{' '}
-                <strong className="font-bold text-slate-700">
-                  {visibleAirports.length}
-                </strong>{' '}
-                {visibleAirports.length > 1 ? 'aéroports' : 'aéroport'}
+            <div className="flex flex-col items-center gap-3 border-t border-slate-100 px-4 py-3 sm:flex-row sm:justify-between sm:px-5">
+              <p className="text-center text-xs font-medium text-slate-500 sm:text-left">
+                <span className="sm:hidden">
+                  Page{' '}
+                  <strong className="font-bold text-slate-700">{currentPage}</strong>{' '}
+                  sur{' '}
+                  <strong className="font-bold text-slate-700">{totalPages}</strong>{' '}
+                  · {visibleAirports.length} aéroports
+                </span>
+                <span className="hidden sm:inline">
+                  Affichage de{' '}
+                  <strong className="font-bold text-slate-700">{firstIndex}</strong>{' '}
+                  à{' '}
+                  <strong className="font-bold text-slate-700">{lastIndex}</strong>{' '}
+                  sur{' '}
+                  <strong className="font-bold text-slate-700">
+                    {visibleAirports.length}
+                  </strong>{' '}
+                  {visibleAirports.length > 1 ? 'aéroports' : 'aéroport'}
+                </span>
               </p>
 
               <div className="flex items-center gap-1.5">
@@ -623,7 +780,7 @@ export function AirportManagement() {
                   className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <ChevronLeft className="h-3.5 w-3.5" />
-                  Précédent
+                  <span className="hidden sm:inline">Précédent</span>
                 </button>
 
                 {totalPages > 1 && (
@@ -693,7 +850,7 @@ export function AirportManagement() {
                   aria-label="Page suivante"
                   className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  Suivant
+                  <span className="hidden sm:inline">Suivant</span>
                   <ChevronRight className="h-3.5 w-3.5" />
                 </button>
               </div>
@@ -856,7 +1013,7 @@ export function AirportManagement() {
           </div>
         )}
 
-        {/* ═══════════════ MODAL CONFIRMATION SIMPLE ═══════════════ */}
+        {/* ═══════════════ MODAL CONFIRMATION ═══════════════ */}
         {confirmDialog.isOpen && confirmDialog.airport && (
           <div
             className="fixed inset-0 z-60 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm"
@@ -869,7 +1026,6 @@ export function AirportManagement() {
               className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl"
               onClick={(event) => event.stopPropagation()}
             >
-              {/* Corps */}
               <div className="px-6 pb-5 pt-6">
                 <h2
                   id="confirm-dialog-title"
@@ -882,7 +1038,6 @@ export function AirportManagement() {
                   Cette action est définitive et retirera l'aéroport du référentiel.
                 </p>
 
-                {/* Carte aéroport */}
                 <div className="mt-4 flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rose-50 text-rose-600">
                     <Plane className="h-4 w-4 rotate-45" />
@@ -900,7 +1055,6 @@ export function AirportManagement() {
                   </div>
                 </div>
 
-                {/* Case à cocher */}
                 <label className="mt-4 flex cursor-pointer items-start gap-2.5">
                   <input
                     type="checkbox"
@@ -920,7 +1074,6 @@ export function AirportManagement() {
                 </label>
               </div>
 
-              {/* Pied */}
               <div className="flex items-center justify-end gap-2 border-t border-slate-100 bg-slate-50/50 px-6 py-4">
                 <button
                   type="button"
