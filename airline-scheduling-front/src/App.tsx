@@ -271,7 +271,7 @@ function normalizeAuthenticatedUser(user: PublicUser): AppUser | null {
 }
 
 // =============================================================================
-// AVATAR UTILISATEUR (émeraude)
+// AVATAR UTILISATEUR
 // =============================================================================
 
 interface UserAvatarProps {
@@ -314,10 +314,6 @@ const UserAvatar: React.FC<UserAvatarProps> = ({ user, size }) => {
 function App() {
   const profileMenuRef = useRef<HTMLDivElement>(null);
 
-  // ===========================================================================
-  // SESSION INITIALE
-  // ===========================================================================
-
   const initialSession = useMemo(() => getAuthSession(), []);
 
   const initialUser = useMemo(() => {
@@ -341,8 +337,10 @@ function App() {
 
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
 
-  /** ✅ État de collapse de la sidebar (contrôlé ici, partagé avec Sidebar) */
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
+  /** Modal de confirmation de déconnexion */
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
 
   const isAuthenticated = user !== null;
 
@@ -474,14 +472,41 @@ function App() {
   // LOGOUT
   // ===========================================================================
 
-  const handleLogout = useCallback(() => {
+  const askLogout = useCallback(() => {
+    setIsProfileMenuOpen(false);
+    setIsLogoutModalOpen(true);
+  }, []);
+
+  const closeLogoutModal = useCallback(() => {
+    setIsLogoutModalOpen(false);
+  }, []);
+
+  const confirmLogout = useCallback(() => {
     clearAuthSession();
     localStorage.removeItem(STORAGE_KEYS.ACTIVE_SCREEN);
     setIsProfileMenuOpen(false);
+    setIsLogoutModalOpen(false);
     setUser(null);
     setActiveScreenState('dashboard');
     setAuthenticationPage('user');
   }, []);
+
+  // ===========================================================================
+  // FERMETURE DU MODAL VIA ÉCHAP
+  // ===========================================================================
+
+  useEffect(() => {
+    if (!isLogoutModalOpen) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsLogoutModalOpen(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isLogoutModalOpen]);
 
   // ===========================================================================
   // ROUTAGE DES ÉCRANS
@@ -541,21 +566,17 @@ function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans antialiased selection:bg-emerald-500/20 selection:text-emerald-900">
-      {/* =====================================================================
-          SIDEBAR (position fixed, largeur dynamique)
-      ===================================================================== */}
+      {/* SIDEBAR */}
       <Sidebar
         activeScreen={activeScreen}
         setActiveScreen={setActiveScreen}
         user={user}
-        onLogout={handleLogout}
+        onLogout={askLogout}
         isCollapsed={isSidebarCollapsed}
         onCollapsedChange={setIsSidebarCollapsed}
       />
 
-      {/* =====================================================================
-          CONTENU PRINCIPAL — padding-left dynamique selon l'état de la sidebar
-      ===================================================================== */}
+      {/* CONTENU PRINCIPAL */}
       <div
         className={`flex min-h-screen w-full min-w-0 flex-col transition-[padding] duration-300 ${
           isSidebarCollapsed ? 'md:pl-19' : 'md:pl-60'
@@ -564,7 +585,6 @@ function App() {
         {/* HEADER */}
         <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 px-4 py-3.5 backdrop-blur-md sm:px-6 lg:px-8">
           <div className="mx-auto flex w-full max-w-[1600px] items-center justify-between gap-4">
-            {/* TITRE + SOUS-TITRE */}
             <div className="min-w-0">
               {screenMeta.title && (
                 <h2 className="truncate text-lg font-bold tracking-tight text-slate-900 sm:text-xl">
@@ -640,7 +660,7 @@ function App() {
                       <button
                         type="button"
                         role="menuitem"
-                        onClick={handleLogout}
+                        onClick={askLogout}
                         className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-transparent px-4 py-2 text-[13px] font-medium text-red-500 transition-colors hover:bg-red-50 hover:text-red-600"
                       >
                         <LogOut className="h-4 w-4" />
@@ -664,6 +684,95 @@ function App() {
           </div>
         </main>
       </div>
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          MODAL DE DÉCONNEXION
+      ═════════════════════════════════════════════════════════════════════ */}
+      {isLogoutModalOpen && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="logout-dialog-title"
+          onClick={closeLogoutModal}
+        >
+          <section
+            className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            {/* Corps */}
+            <div className="px-6 pb-5 pt-6">
+              {/* Titre */}
+              <h2
+                id="logout-dialog-title"
+                className="text-lg font-bold text-slate-900"
+              >
+                Se déconnecter
+              </h2>
+
+              {/* Texte */}
+              <p className="mt-1.5 text-sm leading-6 text-slate-500">
+                Vous êtes sur le point de mettre fin à votre session. Vous
+                devrez vous reconnecter pour accéder de nouveau à la
+                plateforme.
+              </p>
+
+              {/* Carte utilisateur */}
+              <div className="mt-4 flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border border-emerald-200 bg-emerald-100">
+                  {user.avatarUrl ? (
+                    <img
+                      src={user.avatarUrl}
+                      alt={user.nom}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-base font-bold text-emerald-700">
+                      {user.nom?.charAt(0)?.toUpperCase() || (
+                        <User className="h-5 w-5" />
+                      )}
+                    </span>
+                  )}
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-slate-900">
+                    {user.nom}
+                  </p>
+                  <p className="mt-0.5 truncate text-xs text-slate-500">
+                    {user.email}
+                  </p>
+                  <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-emerald-700">
+                    <ShieldCheck className="h-3 w-3" />
+                    {userRoleLabel}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Pied */}
+            <div className="flex items-center justify-end gap-2 border-t border-slate-100 bg-slate-50/50 px-6 py-3.5">
+              <button
+                type="button"
+                onClick={closeLogoutModal}
+                className="inline-flex h-10 items-center justify-center rounded-lg px-4 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-800"
+              >
+                Annuler
+              </button>
+
+              <button
+                type="button"
+                onClick={confirmLogout}
+                autoFocus
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-gradient-to-br from-rose-500 to-rose-700 px-4 text-sm font-bold text-white shadow-md shadow-rose-600/25 transition hover:from-rose-600 hover:to-rose-800 hover:shadow-lg"
+              >
+                <LogOut className="h-4 w-4" />
+                Se déconnecter
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 }

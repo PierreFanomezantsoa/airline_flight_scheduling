@@ -40,12 +40,26 @@ interface AirportForm {
 
 type Notice = { kind: 'success' | 'error'; message: string } | null;
 
+interface ConfirmDialogState {
+  isOpen: boolean;
+  airport: Airport | null;
+  isLoading: boolean;
+  acknowledged: boolean;
+}
+
 const EMPTY_FORM: AirportForm = {
   iata: '',
   name: '',
   timezone: '',
   city: '',
   country: '',
+};
+
+const EMPTY_CONFIRM: ConfirmDialogState = {
+  isOpen: false,
+  airport: null,
+  isLoading: false,
+  acknowledged: false,
 };
 
 const PAGE_SIZE = 10;
@@ -91,6 +105,7 @@ export function AirportManagement() {
   const [editingAirport, setEditingAirport] = useState<Airport | null>(null);
   const [form, setForm] = useState<AirportForm>(EMPTY_FORM);
   const [currentPage, setCurrentPage] = useState(1);
+  const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogState>(EMPTY_CONFIRM);
 
   const loadAirports = useCallback(async () => {
     setLoading(true);
@@ -134,12 +149,10 @@ export function AirportManagement() {
     return visibleAirports.slice(start, start + PAGE_SIZE);
   }, [visibleAirports, currentPage]);
 
-  // Remet la page à 1 quand les filtres changent
   useEffect(() => {
     setCurrentPage(1);
   }, [search, statusFilter]);
 
-  // Corrige la page si elle dépasse après suppression / filtre
   useEffect(() => {
     if (currentPage > totalPages) {
       setCurrentPage(totalPages);
@@ -230,25 +243,15 @@ export function AirportManagement() {
     }
   };
 
-  const setAirportActive = async (airport: Airport, active: boolean) => {
-    if (!active && !window.confirm(`Désactiver l'aéroport ${airport.iata} ?`)) return;
+  const reactivateAirport = async (airport: Airport) => {
     setActionIata(airport.iata);
     setNotice(null);
     try {
-      if (active) {
-        await requestAirport<Airport>(`/airports/${airport.iata}`, {
-          method: 'PATCH',
-          body: JSON.stringify({ active: true }),
-        });
-      } else {
-        await requestAirport<Airport>(`/airports/${airport.iata}`, {
-          method: 'DELETE',
-        });
-      }
-      setNotice({
-        kind: 'success',
-        message: active ? 'Aéroport réactivé.' : 'Aéroport désactivé.',
+      await requestAirport<Airport>(`/airports/${airport.iata}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ active: true }),
       });
+      setNotice({ kind: 'success', message: 'Aéroport réactivé.' });
       await loadAirports();
     } catch (error: unknown) {
       setNotice({ kind: 'error', message: errorMessage(error) });
@@ -257,9 +260,46 @@ export function AirportManagement() {
     }
   };
 
+  /* ─── Ouvre le modal de suppression ─── */
+  const askDeleteAirport = (airport: Airport) => {
+    setConfirmDialog({
+      isOpen: true,
+      airport,
+      isLoading: false,
+      acknowledged: false,
+    });
+  };
+
+  const closeConfirmDialog = () => {
+    if (confirmDialog.isLoading) return;
+    setConfirmDialog(EMPTY_CONFIRM);
+  };
+
+  const confirmDelete = async () => {
+    if (!confirmDialog.airport || !confirmDialog.acknowledged) return;
+
+    setConfirmDialog((prev) => ({ ...prev, isLoading: true }));
+    setActionIata(confirmDialog.airport.iata);
+    setNotice(null);
+
+    try {
+      await requestAirport<Airport>(`/airports/${confirmDialog.airport.iata}`, {
+        method: 'DELETE',
+      });
+      setNotice({ kind: 'success', message: 'Aéroport désactivé.' });
+      setConfirmDialog(EMPTY_CONFIRM);
+      await loadAirports();
+    } catch (error: unknown) {
+      setNotice({ kind: 'error', message: errorMessage(error) });
+      setConfirmDialog((prev) => ({ ...prev, isLoading: false }));
+    } finally {
+      setActionIata(null);
+    }
+  };
+
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-6 sm:px-6 lg:px-8">
-      <div className="mx-auto w-full max-w-[1400px]">
+      <div className="mx-auto w-full max-w-350">
         {/* ═══════════════ ACTIONS EN HAUT ═══════════════ */}
         <div className="mb-5 flex items-center justify-end gap-2">
           <button
@@ -275,7 +315,7 @@ export function AirportManagement() {
           <button
             type="button"
             onClick={openCreateForm}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-700 px-4 text-sm font-bold text-white shadow-md shadow-emerald-600/25 transition hover:from-emerald-600 hover:to-emerald-800 hover:shadow-lg"
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-linear-to-br from-emerald-500 to-emerald-700 px-4 text-sm font-bold text-white shadow-md shadow-emerald-600/25 transition hover:from-emerald-600 hover:to-emerald-800 hover:shadow-lg"
           >
             <Plus className="h-4 w-4" />
             Ajouter un aéroport
@@ -284,7 +324,6 @@ export function AirportManagement() {
 
         {/* ═══════════════ CARTES MÉTRIQUES ═══════════════ */}
         <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          {/* Total */}
           <article className="rounded-2xl border border-slate-200/80 bg-white px-5 py-5 shadow-[0_1px_3px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)]">
             <div className="flex items-start justify-between">
               <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
@@ -302,7 +341,6 @@ export function AirportManagement() {
             </div>
           </article>
 
-          {/* Actifs */}
           <article className="rounded-2xl border border-slate-200/80 bg-white px-5 py-5 shadow-[0_1px_3px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)]">
             <div className="flex items-start justify-between">
               <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
@@ -320,7 +358,6 @@ export function AirportManagement() {
             </div>
           </article>
 
-          {/* Inactifs */}
           <article className="rounded-2xl border border-slate-200/80 bg-white px-5 py-5 shadow-[0_1px_3px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)]">
             <div className="flex items-start justify-between">
               <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
@@ -338,7 +375,6 @@ export function AirportManagement() {
             </div>
           </article>
 
-          {/* Pays couverts */}
           <article className="rounded-2xl border border-slate-200/80 bg-white px-5 py-5 shadow-[0_1px_3px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)]">
             <div className="flex items-start justify-between">
               <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
@@ -359,7 +395,6 @@ export function AirportManagement() {
 
         {/* ═══════════════ CONTENEUR PRINCIPAL ═══════════════ */}
         <section className="mt-6 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_1px_3px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)]">
-          {/* Barre de recherche + filtres */}
           <div className="flex flex-col gap-3 border-b border-slate-100 p-4 lg:flex-row lg:items-center lg:justify-between">
             <label className="relative block w-full lg:max-w-md">
               <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -400,7 +435,6 @@ export function AirportManagement() {
             </div>
           </div>
 
-          {/* Message */}
           {notice && (
             <div
               role="status"
@@ -419,9 +453,8 @@ export function AirportManagement() {
             </div>
           )}
 
-          {/* Tableau */}
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px] border-collapse text-left text-sm">
+            <table className="w-full min-w-225 border-collapse text-left text-sm">
               <thead className="border-b border-slate-200 bg-slate-50/60">
                 <tr className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
                   <th className="px-5 py-3.5">Code IATA</th>
@@ -466,7 +499,6 @@ export function AirportManagement() {
                       key={airport.iata}
                       className="group transition hover:bg-slate-50/70"
                     >
-                      {/* Code IATA + icône */}
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3">
                           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
@@ -478,7 +510,6 @@ export function AirportManagement() {
                         </div>
                       </td>
 
-                      {/* Nom */}
                       <td className="px-4 py-4">
                         <span className="block text-sm font-semibold text-slate-800">
                           {airport.name}
@@ -488,7 +519,6 @@ export function AirportManagement() {
                         </span>
                       </td>
 
-                      {/* Ville / pays */}
                       <td className="px-4 py-4">
                         <span className="block text-sm text-slate-700">
                           {airport.city || '—'}
@@ -498,7 +528,6 @@ export function AirportManagement() {
                         </span>
                       </td>
 
-                      {/* Fuseau horaire */}
                       <td className="px-4 py-4">
                         <span className="inline-flex items-center gap-1.5 rounded-md bg-slate-100 px-2 py-1 font-mono text-[11px] font-bold text-slate-700">
                           <Clock className="h-3 w-3" />
@@ -506,7 +535,6 @@ export function AirportManagement() {
                         </span>
                       </td>
 
-                      {/* Statut */}
                       <td className="px-4 py-4">
                         {airport.active ? (
                           <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-bold text-emerald-700">
@@ -521,12 +549,11 @@ export function AirportManagement() {
                         )}
                       </td>
 
-                      {/* Actions */}
                       <td className="px-5 py-4">
                         <div className="flex justify-end gap-1.5">
                           <button
                             type="button"
-                            onClick={() => void setAirportActive(airport, true)}
+                            onClick={() => void reactivateAirport(airport)}
                             disabled={actionIata === airport.iata || airport.active}
                             title={`Réactiver ${airport.iata}`}
                             aria-label={`Réactiver ${airport.iata}`}
@@ -541,7 +568,7 @@ export function AirportManagement() {
 
                           <button
                             type="button"
-                            onClick={() => void setAirportActive(airport, false)}
+                            onClick={() => askDeleteAirport(airport)}
                             disabled={actionIata === airport.iata || !airport.active}
                             title={`Désactiver ${airport.iata}`}
                             aria-label={`Désactiver ${airport.iata}`}
@@ -572,15 +599,11 @@ export function AirportManagement() {
             </table>
           </div>
 
-          {/* ═══════════════ PAGINATION ═══════════════ */}
           {!loading && visibleAirports.length > 0 && (
             <div className="flex flex-col items-center justify-between gap-3 border-t border-slate-100 px-5 py-3 sm:flex-row">
-              {/* Indicateur gauche */}
               <p className="text-xs font-medium text-slate-500">
                 Affichage de{' '}
-                <strong className="font-bold text-slate-700">
-                  {firstIndex}
-                </strong>{' '}
+                <strong className="font-bold text-slate-700">{firstIndex}</strong>{' '}
                 à{' '}
                 <strong className="font-bold text-slate-700">{lastIndex}</strong>{' '}
                 sur{' '}
@@ -590,9 +613,7 @@ export function AirportManagement() {
                 {visibleAirports.length > 1 ? 'aéroports' : 'aéroport'}
               </p>
 
-              {/* Contrôles droite */}
               <div className="flex items-center gap-1.5">
-                {/* Précédent */}
                 <button
                   type="button"
                   onClick={goToPreviousPage}
@@ -605,7 +626,6 @@ export function AirportManagement() {
                   Précédent
                 </button>
 
-                {/* Numéros de page (max 5 visibles) */}
                 {totalPages > 1 && (
                   <div className="hidden items-center gap-1 sm:flex">
                     {(() => {
@@ -645,9 +665,9 @@ export function AirportManagement() {
                             type="button"
                             onClick={() => goToPage(page)}
                             aria-current={currentPage === page ? 'page' : undefined}
-                            className={`inline-flex h-9 min-w-[2.25rem] items-center justify-center rounded-lg border text-xs font-bold transition ${
+                            className={`inline-flex h-9 min-w-9 items-center justify-center rounded-lg border text-xs font-bold transition ${
                               currentPage === page
-                                ? 'border-emerald-700 bg-gradient-to-br from-emerald-500 to-emerald-700 text-white shadow-sm shadow-emerald-600/25'
+                                ? 'border-emerald-700 bg-linear-to-br from-emerald-500 to-emerald-700 text-white shadow-sm shadow-emerald-600/25'
                                 : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
                             }`}
                           >
@@ -659,14 +679,12 @@ export function AirportManagement() {
                   </div>
                 )}
 
-                {/* Indicateur mobile */}
                 {totalPages > 1 && (
                   <span className="inline-flex h-9 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 sm:hidden">
                     {currentPage} / {totalPages}
                   </span>
                 )}
 
-                {/* Suivant */}
                 <button
                   type="button"
                   onClick={goToNextPage}
@@ -683,7 +701,7 @@ export function AirportManagement() {
           )}
         </section>
 
-        {/* ═══════════════ MODAL ═══════════════ */}
+        {/* ═══════════════ MODAL FORMULAIRE ═══════════════ */}
         {isFormOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/50 p-4 backdrop-blur-sm">
             <section
@@ -692,10 +710,9 @@ export function AirportManagement() {
               aria-labelledby="airport-form-title"
               className="my-auto w-full max-w-xl overflow-hidden rounded-2xl bg-white shadow-2xl"
             >
-              {/* En-tête */}
               <div className="flex items-start justify-between border-b border-slate-100 px-6 py-4">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-700 text-white shadow-sm shadow-emerald-600/25">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-linear-to-br from-emerald-500 to-emerald-700 text-white shadow-sm shadow-emerald-600/25">
                     <Plane className="h-4 w-4 rotate-45" />
                   </div>
                   <div>
@@ -722,7 +739,6 @@ export function AirportManagement() {
                 </button>
               </div>
 
-              {/* Formulaire */}
               <form onSubmit={handleSubmit} className="space-y-4 px-6 py-5">
                 {!editingAirport && (
                   <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">
@@ -829,13 +845,111 @@ export function AirportManagement() {
                   <button
                     type="submit"
                     disabled={saving}
-                    className="inline-flex h-11 items-center gap-2 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-700 px-4 text-sm font-bold text-white shadow-md shadow-emerald-600/25 transition hover:from-emerald-600 hover:to-emerald-800 hover:shadow-lg disabled:opacity-50"
+                    className="inline-flex h-11 items-center gap-2 rounded-xl bg-linear-to-br from-emerald-500 to-emerald-700 px-4 text-sm font-bold text-white shadow-md shadow-emerald-600/25 transition hover:from-emerald-600 hover:to-emerald-800 hover:shadow-lg disabled:opacity-50"
                   >
                     {saving && <LoaderCircle className="h-4 w-4 animate-spin" />}
                     {editingAirport ? 'Enregistrer' : "Créer l'aéroport"}
                   </button>
                 </div>
               </form>
+            </section>
+          </div>
+        )}
+
+        {/* ═══════════════ MODAL CONFIRMATION SIMPLE ═══════════════ */}
+        {confirmDialog.isOpen && confirmDialog.airport && (
+          <div
+            className="fixed inset-0 z-60 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="confirm-dialog-title"
+            onClick={closeConfirmDialog}
+          >
+            <section
+              className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl"
+              onClick={(event) => event.stopPropagation()}
+            >
+              {/* Corps */}
+              <div className="px-6 pb-5 pt-6">
+                <h2
+                  id="confirm-dialog-title"
+                  className="text-lg font-bold text-slate-900"
+                >
+                  Supprimer l'aéroport {confirmDialog.airport.iata}
+                </h2>
+
+                <p className="mt-1.5 text-sm leading-6 text-slate-500">
+                  Cette action est définitive et retirera l'aéroport du référentiel.
+                </p>
+
+                {/* Carte aéroport */}
+                <div className="mt-4 flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rose-50 text-rose-600">
+                    <Plane className="h-4 w-4 rotate-45" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-mono text-sm font-bold text-slate-900">
+                      {confirmDialog.airport.iata}
+                    </div>
+                    <p className="mt-0.5 truncate text-xs font-medium text-slate-600">
+                      {confirmDialog.airport.name}
+                    </p>
+                  </div>
+                  <div className="text-right text-[11px] font-medium text-slate-400">
+                    {confirmDialog.airport.timezone}
+                  </div>
+                </div>
+
+                {/* Case à cocher */}
+                <label className="mt-4 flex cursor-pointer items-start gap-2.5">
+                  <input
+                    type="checkbox"
+                    checked={confirmDialog.acknowledged}
+                    onChange={(event) =>
+                      setConfirmDialog((prev) => ({
+                        ...prev,
+                        acknowledged: event.target.checked,
+                      }))
+                    }
+                    disabled={confirmDialog.isLoading}
+                    className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded border-slate-300 text-rose-600 focus:ring-2 focus:ring-rose-500/20 disabled:cursor-not-allowed"
+                  />
+                  <span className="text-xs font-medium leading-5 text-slate-700">
+                    Je confirme la suppression définitive de cet aéroport.
+                  </span>
+                </label>
+              </div>
+
+              {/* Pied */}
+              <div className="flex items-center justify-end gap-2 border-t border-slate-100 bg-slate-50/50 px-6 py-4">
+                <button
+                  type="button"
+                  onClick={closeConfirmDialog}
+                  disabled={confirmDialog.isLoading}
+                  className="inline-flex h-10 items-center justify-center rounded-xl px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:opacity-50"
+                >
+                  Annuler
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => void confirmDelete()}
+                  disabled={!confirmDialog.acknowledged || confirmDialog.isLoading}
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-linear-to-br from-rose-500 to-rose-700 px-4 text-sm font-bold text-white shadow-md shadow-rose-600/25 transition hover:from-rose-600 hover:to-rose-800 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {confirmDialog.isLoading ? (
+                    <>
+                      <LoaderCircle className="h-4 w-4 animate-spin" />
+                      Suppression…
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="h-4 w-4" />
+                      Supprimer
+                    </>
+                  )}
+                </button>
+              </div>
             </section>
           </div>
         )}
