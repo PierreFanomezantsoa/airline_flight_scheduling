@@ -1,0 +1,114 @@
+name: Pipeline CD - Déploiement EC2
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+concurrency:
+  group: production-deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+
+  # ─────────────────────────────────────────────────────────────
+  # 1. Vérifications (CI)
+  # ─────────────────────────────────────────────────────────────
+  verify-frontend:
+    name: Vérification Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: airline-scheduling-front
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: airline-scheduling-front/package-lock.json
+      - run: npm ci
+      - run: npm run build
+
+  verify-backend:
+    name: Vérification Backend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: airline-scheduling-back/back-airline-scheduling
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: airline-scheduling-back/back-airline-scheduling/package-lock.json
+      - run: npm ci
+      - run: npm run build
+
+  verify-ai:
+    name: Vérification Module IA
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: airline-ia
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m compileall .
+
+  # ─────────────────────────────────────────────────────────────
+  # 2. Déploiement sur EC2
+  # ─────────────────────────────────────────────────────────────
+  deploy:
+    name: Déploiement sur EC2
+    needs: [verify-frontend, verify-backend, verify-ai]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configuration SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
+
+      - name: Ajouter l'EC2 aux known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Tester SSH
+        run: |
+          ssh -o StrictHostKeyChecking=no \
+              ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} \
+              "echo '✅ SSH OK' && hostname && whoami"
+
+      - name: Déployer
+        run: |
+          ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} \
+              "cd /home/ubuntu/airline_flight_scheduling && bash deploy.sh"
+
+      - name: Health check Frontend (HTTPS)
+        run: |
+          sleep 3
+          curl -skf -o /dev/null -w "Frontend HTTP %{http_code}\n" \
+            https://airline-flight.54.156.21.207.nip.io/
+
+      - name: Health check API NestJS
+        run: |
+          curl -skf -o /dev/null -w "API NestJS HTTP %{http_code}\n" \
+            https://airline-flight.54.156.21.207.nip.io/api/
+
+      - name: Health check IA Flask
+        run: |
+          curl -skf -o /dev/null -w "IA Flask HTTP %{http_code}\n" \
+            https://airline-flight.54.156.21.207.nip.io/python/
+
+      - name: Rollback si échec
+        if: failure()
+        run: |
+          ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} \
+              "cd /home/ubuntu/airline_flight_scheduling && bash rollback.sh"
