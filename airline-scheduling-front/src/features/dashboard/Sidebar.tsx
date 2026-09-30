@@ -3,7 +3,7 @@ import {
   CalendarClock,
   CalendarDays,
   ChevronDown,
-  ChevronLeft,
+  ChevronsLeft,
   FolderOpen,
   HelpCircle,
   History,
@@ -44,7 +44,6 @@ type LucideComponent = React.ForwardRefExoticComponent<
 interface MenuItem {
   id: ActiveScreen;
   label: string;
-  shortLabel?: string;
   icon: LucideComponent;
   badge?: string;
 }
@@ -82,20 +81,9 @@ type UserRoleLabel =
   | 'Ingénieur maintenance'
   | 'Product Owner';
 
-const mobileMenuItems: MenuItem[] = [
-  { id: 'dashboard', label: 'Tableau de bord', shortLabel: 'Suivi', icon: LayoutDashboard },
-  { id: 'users', label: 'Gestion des utilisateurs', shortLabel: 'Utilisateurs', icon: UserCog },
-  { id: 'scheduling', label: 'Ordonnancement des vols', shortLabel: 'Ordonnancement', icon: CalendarClock },
-  { id: 'optimization', label: 'Optimisation automatique', shortLabel: 'Optim.', icon: Sparkles },
-  { id: 'aircraft', label: 'Gestion des avions', shortLabel: 'Avions', icon: Plane },
-  { id: 'airports', label: 'Gestion des aéroports', shortLabel: 'Aéroports', icon: MapPin },
-  { id: 'flights', label: 'Gestion des vols', shortLabel: 'Vols', icon: CalendarDays },
-  { id: 'flight-history', label: 'Historique des vols', shortLabel: 'Historique', icon: History },
-  { id: 'crew', label: 'Affectation des équipages', shortLabel: 'Équipages', icon: Users },
-  { id: 'maintenance', label: 'Planification maintenance', shortLabel: 'Maint.', icon: Wrench },
-  { id: 'settings', label: 'Configuration réseau', shortLabel: 'Réseau', icon: Settings2 },
-  { id: 'help', label: 'Aide et support', shortLabel: 'Aide', icon: HelpCircle },
-];
+// =============================================================================
+// MENU
+// =============================================================================
 
 const MENU_SECTIONS: MenuSection[] = [
   {
@@ -167,6 +155,44 @@ const normalizeRole = (role?: string): AvailableRoles | undefined => {
   );
 };
 
+// =============================================================================
+// PETITS COMPOSANTS
+// =============================================================================
+
+const BrandMark = ({ size = 'md' }: { size?: 'sm' | 'md' }) => (
+  <div
+    className={`flex shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-emerald-600 to-emerald-800 shadow-md shadow-emerald-700/25 ring-1 ring-emerald-500/30 ${
+      size === 'sm' ? 'h-8 w-8' : 'h-9 w-9'
+    }`}
+  >
+    <Plane className={`-rotate-45 text-white ${size === 'sm' ? 'h-3.5 w-3.5' : 'h-4 w-4'}`} />
+  </div>
+);
+
+const Avatar = ({
+  initial,
+  hasUser,
+  size = 'md',
+}: {
+  initial: string;
+  hasUser: boolean;
+  size?: 'sm' | 'md';
+}) => (
+  <div className="relative shrink-0">
+    <div
+      className={`flex items-center justify-center overflow-hidden rounded-full bg-linear-to-br from-emerald-100 to-emerald-200 font-bold text-emerald-800 ring-2 ring-white ${
+        size === 'sm' ? 'h-8 w-8 text-xs' : 'h-9 w-9 text-sm'
+      }`}
+    >
+      {hasUser ? initial : <User className="h-4 w-4" />}
+    </div>
+    <span
+      className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white"
+      aria-hidden="true"
+    />
+  </div>
+);
+
 /* ============================================================================
  * SIDEBAR
  * ========================================================================== */
@@ -197,23 +223,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const visibleSections = useMemo(() => {
     if (!currentRole) return [];
-    return MENU_SECTIONS.map(section => ({
+    return MENU_SECTIONS.map((section) => ({
       ...section,
-      items: section.items.filter(item =>
+      items: section.items.filter((item) =>
         allowedScreens[currentRole].includes(item.id)
       ),
-    })).filter(section => section.items.length > 0);
+    })).filter((section) => section.items.length > 0);
   }, [currentRole]);
-
-  const visibleMobileMenuItems = useMemo(
-    () =>
-      currentRole
-        ? mobileMenuItems.filter((item) =>
-            allowedScreens[currentRole].includes(item.id)
-          )
-        : [],
-    [currentRole]
-  );
 
   const handleNavigate = (screen: ActiveScreen) => {
     if (!currentRole) return;
@@ -223,7 +239,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const toggleSection = (sectionId: string) => {
-    setOpenSections(prev => ({ ...prev, [sectionId]: !prev[sectionId] }));
+    setOpenSections((prev) => ({ ...prev, [sectionId]: !prev[sectionId] }));
   };
 
   useEffect(() => {
@@ -244,10 +260,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
   }, [isMobileOpen]);
 
-  const renderSubItem = (
-    item: MenuItem,
-    opts?: { onClickOverride?: () => void }
-  ) => {
+  // ===========================================================================
+  // ÉLÉMENT DE MENU
+  // ===========================================================================
+
+  const renderItem = (item: MenuItem, collapsed: boolean) => {
     const Icon = item.icon;
     const isActive = activeScreen === item.id;
 
@@ -255,44 +272,39 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <button
         key={item.id}
         type="button"
-        onClick={opts?.onClickOverride ?? (() => handleNavigate(item.id))}
+        onClick={() => handleNavigate(item.id)}
         aria-current={isActive ? 'page' : undefined}
-        title={isCollapsed ? item.label : undefined}
-        className={`group relative flex w-full cursor-pointer select-none items-center rounded-lg text-left text-[13px] font-medium outline-none transition-all duration-150 focus-visible:ring-2 focus-visible:ring-emerald-500/40 ${
-          isCollapsed
-            ? 'justify-center px-0 py-2.5'
-            : 'gap-2.5 py-2 pl-3 pr-3'
+        title={collapsed ? item.label : undefined}
+        className={`group relative flex w-full cursor-pointer select-none items-center rounded-xl text-left text-[13px] outline-none transition-all duration-150 focus-visible:ring-2 focus-visible:ring-emerald-500/40 ${
+          collapsed ? 'h-10 justify-center' : 'h-9 gap-3 px-3'
         } ${
           isActive
-            ? 'bg-emerald-50 text-emerald-700'
-            : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+            ? 'bg-emerald-50 font-semibold text-emerald-800'
+            : 'font-medium text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
         }`}
       >
-        {isActive && !isCollapsed && (
+        {isActive && (
           <span
             aria-hidden
-            className="absolute right-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-l-full bg-emerald-600"
+            className={`absolute top-1/2 w-1 -translate-y-1/2 rounded-r-full bg-emerald-600 ${
+              collapsed ? '-left-3 h-6' : '-left-3 h-5'
+            }`}
           />
         )}
 
         <Icon
-          className={`h-4.5 w-4.5 shrink-0 transition ${
-            isActive
-              ? 'text-emerald-600'
-              : 'text-slate-400 group-hover:text-slate-600'
+          className={`h-[18px] w-[18px] shrink-0 transition-colors ${
+            isActive ? 'text-emerald-600' : 'text-slate-400 group-hover:text-slate-600'
           }`}
         />
 
-        {!isCollapsed && (
+        {!collapsed && (
           <>
             <span className="min-w-0 flex-1 truncate">{item.label}</span>
-
             {item.badge && (
               <span
                 className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                  isActive
-                    ? 'bg-emerald-100 text-emerald-700'
-                    : 'bg-slate-100 text-slate-600'
+                  isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'
                 }`}
               >
                 {item.badge}
@@ -304,47 +316,101 @@ export const Sidebar: React.FC<SidebarProps> = ({
     );
   };
 
-  const renderSectionHeader = (
-    section: MenuSection,
-    isOpen: boolean,
-    onToggle: () => void
-  ) => {
-    const Icon = section.icon;
+  // ===========================================================================
+  // SECTIONS
+  // ===========================================================================
 
-    return (
-      <button
-        type="button"
-        onClick={onToggle}
-        className={`flex w-full cursor-pointer items-center gap-2.5 rounded-md py-2 text-left text-[13px] font-semibold text-slate-700 transition hover:bg-slate-50 ${
-          isCollapsed ? 'justify-center px-0' : 'pl-3 pr-2'
-        }`}
-        title={isCollapsed ? section.label : undefined}
-      >
-        <Icon className="h-4.5 w-4.5 shrink-0 text-slate-500" />
+  const renderSections = (collapsed: boolean) => (
+    <div className="space-y-5">
+      {visibleSections.map((section, index) => {
+        const isOpen = collapsed || (openSections[section.id] ?? true);
+        const sectionId = `sidebar-section-${section.id}${collapsed ? '-c' : ''}`;
 
-        {!isCollapsed && (
-          <>
-            <span className="min-w-0 flex-1 truncate">{section.label}</span>
-            <ChevronDown
-              className={`h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200 ${
-                isOpen ? '' : '-rotate-90'
+        return (
+          <div key={section.id}>
+            {collapsed ? (
+              index > 0 && <div className="mx-auto mb-3 h-px w-8 bg-slate-200" aria-hidden />
+            ) : (
+              <button
+                type="button"
+                onClick={() => toggleSection(section.id)}
+                aria-expanded={isOpen}
+                aria-controls={sectionId}
+                className="mb-1 flex w-full cursor-pointer items-center justify-between rounded-lg px-3 py-1 text-[10.5px] font-bold uppercase tracking-[0.1em] text-slate-400 transition hover:text-slate-600"
+              >
+                <span className="truncate">{section.label}</span>
+                <ChevronDown
+                  className={`h-3.5 w-3.5 shrink-0 transition-transform duration-200 ${
+                    isOpen ? '' : '-rotate-90'
+                  }`}
+                />
+              </button>
+            )}
+
+            <div
+              id={sectionId}
+              className={`grid transition-[grid-template-rows] duration-200 ${
+                isOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
               }`}
-            />
-          </>
-        )}
-      </button>
-    );
-  };
+            >
+              <div className="space-y-0.5 overflow-hidden">
+                {section.items.map((item) => renderItem(item, collapsed))}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  // ===========================================================================
+  // CARTE UTILISATEUR
+  // ===========================================================================
+
+  const renderUserCard = () => (
+    <div className="flex items-center gap-3 rounded-xl border border-slate-200/70 bg-linear-to-br from-slate-50 to-white px-3 py-2.5">
+      <Avatar initial={userInitial} hasUser={Boolean(user)} />
+      <div className="min-w-0">
+        <p className="m-0 truncate text-[13px] font-semibold leading-tight text-slate-900">
+          {userDisplayName}
+        </p>
+        <p className="m-0 mt-0.5 truncate text-[11px] font-medium text-emerald-700">
+          {userRoleLabel}
+        </p>
+      </div>
+    </div>
+  );
+
+  // ===========================================================================
+  // DÉCONNEXION
+  // ===========================================================================
+
+  const renderLogout = (collapsed: boolean) => (
+    <button
+      type="button"
+      onClick={onLogout}
+      title={collapsed ? 'Déconnexion' : undefined}
+      aria-label="Déconnexion"
+      className={`group flex w-full cursor-pointer items-center rounded-xl text-[13px] font-medium text-slate-500 transition hover:bg-rose-50 hover:text-rose-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/30 ${
+        collapsed ? 'h-10 justify-center' : 'h-9 gap-3 px-3'
+      }`}
+    >
+      <LogOut className="h-[18px] w-[18px] shrink-0 text-slate-400 transition group-hover:text-rose-500" />
+      {!collapsed && <span>Déconnexion</span>}
+    </button>
+  );
+
+  // ===========================================================================
+  // MOBILE : TIROIR
+  // ===========================================================================
 
   const renderMobileDrawer = () => (
     <>
       <div
         onClick={() => setIsMobileOpen(false)}
         aria-hidden="true"
-        className={`fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm transition-opacity duration-300 md:hidden ${
-          isMobileOpen
-            ? 'pointer-events-auto opacity-100'
-            : 'pointer-events-none opacity-0'
+        className={`fixed inset-0 z-40 bg-slate-950/40 backdrop-blur-sm transition-opacity duration-300 md:hidden ${
+          isMobileOpen ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
         }`}
       />
 
@@ -356,14 +422,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           isMobileOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="flex items-center justify-between border-b border-slate-100 px-4 py-4">
+        <div className="flex items-center justify-between px-4 pb-3 pt-4">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-600 shadow-sm shadow-emerald-600/20">
-              <Plane className="h-4 w-4 text-white" />
+            <BrandMark />
+            <div className="leading-tight">
+              <p className="text-[15px] font-bold tracking-tight text-slate-900">Opérations aériennes</p>
+              <p className="text-[11px] font-medium text-slate-400">Centre de contrôle</p>
             </div>
-            <span className="text-base font-bold tracking-tight text-slate-900">
-              Opérations aériennes
-            </span>
           </div>
           <button
             type="button"
@@ -375,85 +440,47 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         </div>
 
-        <div className="border-b border-slate-100 px-3 py-3">
-          <div className="flex items-center gap-3 rounded-lg bg-slate-50 px-3 py-2.5">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-emerald-200 bg-emerald-100 text-xs font-bold text-emerald-700">
-              {user ? userInitial : <User className="h-4 w-4" />}
-            </div>
-            <div className="min-w-0">
-              <p className="m-0 truncate text-[13px] font-semibold leading-tight text-slate-900">
-                {userDisplayName}
-              </p>
-              <p className="m-0 mt-0.5 truncate text-[11px] text-slate-500">
-                {userRoleLabel}
-              </p>
-            </div>
-          </div>
-        </div>
+        <div className="px-3 pb-3">{renderUserCard()}</div>
 
-        <nav className="flex-1 overflow-y-auto p-3">
-          <div className="space-y-1">
-            {visibleMobileMenuItems.map(item => (
-              <div key={item.id}>
-                <button
-                  type="button"
-                  onClick={() => handleNavigate(item.id)}
-                  className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-[13px] font-medium transition ${
-                    activeScreen === item.id
-                      ? 'bg-emerald-50 text-emerald-700'
-                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                  }`}
-                >
-                  <item.icon className="h-4.5 w-4.5 shrink-0" />
-                  <span className="truncate">{item.label}</span>
-                </button>
-              </div>
-            ))}
-          </div>
-        </nav>
+        <nav className="flex-1 overflow-y-auto px-3 py-2">{renderSections(false)}</nav>
 
-        <div className="border-t border-slate-100 p-3">
-          <button
-            type="button"
-            onClick={onLogout}
-            className="flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium text-red-500 transition hover:bg-red-50 hover:text-red-600"
-          >
-            <LogOut className="h-4.5 w-4.5" />
-            <span>Déconnexion</span>
-          </button>
-        </div>
+        <div className="border-t border-slate-100 p-3">{renderLogout(false)}</div>
       </aside>
     </>
   );
 
+  // ===========================================================================
+  // MOBILE : BARRE DU HAUT
+  // ===========================================================================
+
   const renderMobileTopbar = () => (
-    <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-3 py-2.5 md:hidden">
+    <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-slate-200/80 bg-white/90 px-3 py-2 backdrop-blur-md md:hidden">
       <button
         type="button"
         onClick={() => setIsMobileOpen(true)}
         aria-label="Ouvrir le menu"
-        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
+        aria-expanded={isMobileOpen}
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
       >
         <Menu className="h-5 w-5" />
       </button>
 
       <div className="flex min-w-0 flex-1 items-center justify-center gap-2">
-        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-600">
-          <Plane className="h-3.5 w-3.5 text-white" />
-        </div>
+        <BrandMark size="sm" />
         <span className="truncate text-sm font-bold tracking-tight text-slate-900">
           Opérations aériennes
         </span>
       </div>
 
-      <div
-        className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-emerald-200 bg-emerald-100 text-xs font-bold text-emerald-700"
-        title={userDisplayName}
-      >
-        {user ? userInitial : <User className="h-4 w-4" />}
+      <div title={userDisplayName}>
+        <Avatar initial={userInitial} hasUser={Boolean(user)} size="sm" />
       </div>
     </header>
   );
+
+  // ===========================================================================
+  // RENDER
+  // ===========================================================================
 
   return (
     <>
@@ -461,103 +488,76 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {renderMobileDrawer()}
 
       <aside
-        className={`fixed left-0 top-0 z-30 hidden h-screen flex-col border-r border-slate-200 bg-white transition-all duration-300 md:flex ${
-          isCollapsed ? 'w-19' : 'w-60'
+        className={`fixed left-0 top-0 z-30 hidden h-screen flex-col border-r border-slate-200/80 bg-white transition-[width] duration-300 md:flex ${
+          isCollapsed ? 'w-19' : 'w-64'
         }`}
       >
+        {/* En-tête */}
         <div
-          className={`flex items-center border-b border-slate-100 py-4 ${
-            isCollapsed ? 'justify-center px-2' : 'justify-between px-4'
+          className={`flex h-16 shrink-0 items-center ${
+            isCollapsed ? 'justify-center px-2' : 'justify-between pl-4 pr-3'
           }`}
         >
-          <div className={`flex items-center ${isCollapsed ? '' : 'gap-2.5'}`}>
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-600 shadow-sm shadow-emerald-600/20">
-              <Plane className="h-4 w-4 text-white" />
-            </div>
-            {!isCollapsed && (
-              <span className="text-[15px] font-bold tracking-tight text-slate-900">
-                Opérations aériennes
-              </span>
-            )}
-          </div>
+          {isCollapsed ? (
+            <button
+              type="button"
+              onClick={() => onCollapsedChange(false)}
+              title="Agrandir le menu"
+              aria-label="Agrandir le menu"
+              className="cursor-pointer rounded-xl transition hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40"
+            >
+              <BrandMark />
+            </button>
+          ) : (
+            <>
+              <div className="flex min-w-0 items-center gap-2.5">
+                <BrandMark />
+                <div className="min-w-0 leading-tight">
+                  <p className="truncate text-[14px] font-bold tracking-tight text-slate-900">
+                    Opérations aériennes
+                  </p>
+                  <p className="truncate text-[11px] font-medium text-slate-400">Centre de contrôle</p>
+                </div>
+              </div>
 
-          <button
-            type="button"
-            onClick={() => onCollapsedChange(!isCollapsed)}
-            title={isCollapsed ? 'Agrandir' : 'Réduire'}
-            aria-label={isCollapsed ? 'Agrandir' : 'Réduire'}
-            className={`flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 ${
-              isCollapsed ? 'mt-2' : ''
-            }`}
-          >
-            <ChevronLeft
-              className={`h-4 w-4 transition-transform duration-300 ${
-                isCollapsed ? 'rotate-180' : ''
-              }`}
-            />
-          </button>
+              <button
+                type="button"
+                onClick={() => onCollapsedChange(true)}
+                title="Réduire le menu"
+                aria-label="Réduire le menu"
+                className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+              >
+                <ChevronsLeft className="h-4 w-4" />
+              </button>
+            </>
+          )}
         </div>
 
-        {!isCollapsed && (
-          <div className="border-b border-slate-100 px-3 py-3">
-            <div className="flex items-center gap-3 rounded-lg bg-slate-50 px-3 py-2.5">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-emerald-200 bg-emerald-100 text-xs font-bold text-emerald-700">
-                {user ? userInitial : <User className="h-4 w-4" />}
-              </div>
-              <div className="min-w-0">
-                <p className="m-0 truncate text-[13px] font-semibold leading-tight text-slate-900">
-                  {userDisplayName}
-                </p>
-                <p className="m-0 mt-0.5 truncate text-[11px] text-slate-500">
-                  {userRoleLabel}
-                </p>
-              </div>
+        {/* Utilisateur */}
+        <div className={`shrink-0 pb-3 ${isCollapsed ? 'flex justify-center px-2' : 'px-3'}`}>
+          {isCollapsed ? (
+            <div title={`${userDisplayName} · ${userRoleLabel}`}>
+              <Avatar initial={userInitial} hasUser={Boolean(user)} />
             </div>
-          </div>
-        )}
+          ) : (
+            renderUserCard()
+          )}
+        </div>
 
-        <nav className="flex-1 px-3 py-3">
-          <div className="space-y-3">
-            {visibleSections.map(section => {
-              const isOpen = openSections[section.id] ?? true;
+        <div className="mx-3 h-px shrink-0 bg-slate-100" aria-hidden />
 
-              return (
-                <div key={section.id} className="space-y-0.5">
-                  {renderSectionHeader(section, isOpen, () =>
-                    toggleSection(section.id)
-                  )}
-
-                  {(isOpen || isCollapsed) && (
-                    <div className="space-y-0.5">
-                      {section.items.map(item => (
-                        <div key={item.id}>
-                          {renderSubItem(item, {
-                            onClickOverride: () => handleNavigate(item.id),
-                          })}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+        {/* Navigation */}
+        <nav
+          className={`flex-1 overflow-y-auto overflow-x-hidden py-4 [scrollbar-width:thin] ${
+            isCollapsed ? 'px-3' : 'px-3'
+          }`}
+          aria-label="Navigation principale"
+        >
+          {renderSections(isCollapsed)}
         </nav>
 
-        <div className="border-t border-slate-100 p-3">
-          <button
-            type="button"
-            onClick={onLogout}
-            title={isCollapsed ? 'Déconnexion' : undefined}
-            aria-label="Déconnexion"
-            className={`flex w-full cursor-pointer items-center rounded-lg text-[13px] font-medium text-red-500 transition hover:bg-red-50 hover:text-red-600 ${
-              isCollapsed ? 'justify-center px-0 py-2.5' : 'gap-3 px-3 py-2'
-            }`}
-          >
-            <LogOut className="h-4.5 w-4.5" />
-            {!isCollapsed && <span>Déconnexion</span>}
-          </button>
-        </div>
+        {/* Pied */}
+        <div className="shrink-0 border-t border-slate-100 p-3">{renderLogout(isCollapsed)}</div>
       </aside>
     </>
   );

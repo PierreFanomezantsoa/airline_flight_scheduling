@@ -284,7 +284,7 @@ const UserAvatar: React.FC<UserAvatarProps> = ({ user, size }) => {
 
   return (
     <div
-      className={`flex shrink-0 items-center justify-center overflow-hidden rounded-full border border-emerald-200 bg-emerald-100 shadow-sm ${dimension}`}
+      className={`flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-linear-to-br from-emerald-100 to-emerald-200 ring-2 ring-white shadow-sm ${dimension}`}
     >
       {user.avatarUrl ? (
         <img
@@ -579,107 +579,111 @@ function App() {
       {/* CONTENU PRINCIPAL */}
       <div
         className={`flex min-h-screen w-full min-w-0 flex-col transition-[padding] duration-300 ${
-          isSidebarCollapsed ? 'md:pl-19' : 'md:pl-60'
+          isSidebarCollapsed ? 'md:pl-19' : 'md:pl-64'
         }`}
       >
         {/* HEADER */}
-        <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 px-4 py-3.5 backdrop-blur-md sm:px-6 lg:px-8">
-          <div className="mx-auto flex w-full max-w-[1600px] items-center justify-between gap-4">
-            <div className="min-w-0">
-              {screenMeta.title && (
-                <h2 className="truncate text-lg font-bold tracking-tight text-slate-900 sm:text-xl">
-                  {screenMeta.title}
-                </h2>
-              )}
-              {screenMeta.subtitle && (
-                <p className="mt-0.5 truncate text-xs text-slate-500 sm:text-[13px]">
-                  {screenMeta.subtitle}
-                </p>
-              )}
+        <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/85 px-4 backdrop-blur-xl sm:px-6 lg:px-8">
+          <div className="mx-auto flex h-16 w-full max-w-[1600px] items-center justify-between gap-4">
+            <div className="flex min-w-0 items-center gap-3">
+              <span
+                className="hidden h-8 w-1 shrink-0 rounded-full bg-linear-to-b from-emerald-500 to-emerald-700 sm:block"
+                aria-hidden="true"
+              />
+              <div className="min-w-0">
+                {screenMeta.title && (
+                  <h1 className="truncate text-base font-bold tracking-tight text-slate-900 sm:text-lg">
+                    {screenMeta.title}
+                  </h1>
+                )}
+                {screenMeta.subtitle && (
+                  <p className="truncate text-xs text-slate-500">{screenMeta.subtitle}</p>
+                )}
+              </div>
             </div>
 
             {/* PROFIL */}
-            <div className="flex shrink-0 items-center gap-3">
-              <div className="relative shrink-0" ref={profileMenuRef}>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setIsProfileMenuOpen((previous) => !previous)
-                  }
-                  aria-expanded={isProfileMenuOpen}
-                  aria-haspopup="menu"
-                  aria-label="Voir les détails du compte"
-                  className="group flex cursor-pointer items-center gap-3 rounded-xl bg-transparent p-1.5 outline-none transition hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-emerald-500/40"
+            <div className="relative shrink-0" ref={profileMenuRef}>
+              <button
+                type="button"
+                onClick={() => setIsProfileMenuOpen((previous) => !previous)}
+                aria-expanded={isProfileMenuOpen}
+                aria-haspopup="menu"
+                aria-label="Voir les détails du compte"
+                className={`group flex cursor-pointer items-center gap-2.5 rounded-full border py-1 pl-1 pr-2.5 outline-none transition focus-visible:ring-2 focus-visible:ring-emerald-500/40 ${
+                  isProfileMenuOpen
+                    ? 'border-emerald-200 bg-emerald-50/60'
+                    : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
+                }`}
+              >
+                <UserAvatar user={user} size="sm" />
+
+                <div className="hidden flex-col text-left sm:flex">
+                  <span className="max-w-36 truncate text-[13px] font-semibold leading-tight text-slate-900">
+                    {user.nom}
+                  </span>
+                  <span className="max-w-36 truncate text-[11px] font-medium text-emerald-700">
+                    {userRoleLabel}
+                  </span>
+                </div>
+
+                <ChevronDown
+                  className={`h-4 w-4 text-slate-400 transition-transform duration-200 group-hover:text-slate-600 ${
+                    isProfileMenuOpen ? 'rotate-180' : ''
+                  }`}
+                />
+              </button>
+
+              {/* MENU PROFIL */}
+              {isProfileMenuOpen && (
+                <div
+                  role="menu"
+                  className="absolute right-0 z-50 mt-2 w-72 origin-top-right overflow-hidden rounded-2xl border border-slate-200/80 bg-white text-slate-900 shadow-xl shadow-slate-900/10 animate-in fade-in zoom-in-95 duration-150"
                 >
-                  <div className="transition-transform group-hover:scale-105">
-                    <UserAvatar user={user} size="sm" />
-                  </div>
-
-                  <div className="hidden flex-col text-left sm:flex">
-                    <span className="max-w-36 truncate text-[13px] font-semibold leading-tight text-slate-900">
-                      {user.nom}
-                    </span>
-                    <span className="mt-0.5 max-w-36 truncate text-[11px] text-slate-500">
-                      {userRoleLabel}
-                    </span>
-                  </div>
-
-                  <ChevronDown
-                    className={`h-4 w-4 text-slate-400 transition-transform duration-200 group-hover:text-slate-600 ${
-                      isProfileMenuOpen ? 'rotate-180' : ''
-                    }`}
-                  />
-                </button>
-
-                {/* MENU PROFIL */}
-                {isProfileMenuOpen && (
-                  <div
-                    role="menu"
-                    className="absolute right-0 z-50 mt-2 w-64 rounded-xl border border-slate-200 bg-white py-3 text-slate-900 shadow-xl"
-                  >
-                    <div className="flex flex-col items-center border-b border-slate-100 px-4 pb-3 pt-1 text-center">
-                      <div className="mb-2.5">
+                  <div className="relative px-4 pb-4 pt-5">
+                    <div
+                      className="absolute inset-x-0 top-0 h-14 bg-linear-to-br from-emerald-600 to-emerald-800"
+                      aria-hidden="true"
+                    />
+                    <div className="relative flex flex-col items-center text-center">
+                      <div className="rounded-full ring-4 ring-white">
                         <UserAvatar user={user} size="lg" />
                       </div>
-
-                      <p className="max-w-full truncate text-sm font-semibold text-slate-900">
+                      <p className="mt-2.5 max-w-full truncate text-sm font-bold text-slate-900">
                         {user.nom}
                       </p>
-
                       <p className="mt-0.5 max-w-full truncate text-xs text-slate-500">
                         {user.email}
                       </p>
-
-                      <span className="mt-2 inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-emerald-700">
+                      <span className="mt-2.5 inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-200/70">
                         <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
                         {userRoleLabel}
                       </span>
                     </div>
-
-                    <div className="px-2 pt-2">
-                      <button
-                        type="button"
-                        role="menuitem"
-                        onClick={askLogout}
-                        className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-transparent px-4 py-2 text-[13px] font-medium text-red-500 transition-colors hover:bg-red-50 hover:text-red-600"
-                      >
-                        <LogOut className="h-4 w-4" />
-                        Déconnexion
-                      </button>
-                    </div>
                   </div>
-                )}
-              </div>
+
+                  <div className="border-t border-slate-100 p-2">
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={askLogout}
+                      className="group flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium text-slate-600 transition-colors hover:bg-rose-50 hover:text-rose-600"
+                    >
+                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500 transition group-hover:bg-rose-100 group-hover:text-rose-600">
+                        <LogOut className="h-4 w-4" />
+                      </span>
+                      Déconnexion
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </header>
 
         {/* MAIN */}
         <main className="mx-auto w-full max-w-[1600px] flex-1 p-3 sm:p-5 lg:p-6">
-          <div
-            key={activeScreen}
-            className="animate-in fade-in slide-in-from-bottom-2 duration-300"
-          >
+          <div key={activeScreen} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
             {renderScreen[activeScreen] ?? <DashboardGantt />}
           </div>
         </main>
@@ -690,72 +694,50 @@ function App() {
       ═════════════════════════════════════════════════════════════════════ */}
       {isLogoutModalOpen && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm animate-in fade-in duration-150"
           role="dialog"
           aria-modal="true"
           aria-labelledby="logout-dialog-title"
+          aria-describedby="logout-dialog-desc"
           onClick={closeLogoutModal}
         >
           <section
-            className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-2xl"
+            className="w-full max-w-sm overflow-hidden rounded-3xl bg-white shadow-2xl animate-in zoom-in-95 duration-200"
             onClick={(event) => event.stopPropagation()}
           >
-            {/* Corps */}
-            <div className="px-6 pb-5 pt-6">
-              {/* Titre */}
-              <h2
-                id="logout-dialog-title"
-                className="text-lg font-bold text-slate-900"
-              >
-                Se déconnecter
+            <div className="px-6 pb-5 pt-6 text-center">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-50 text-rose-600 ring-8 ring-rose-50/50">
+                <LogOut className="h-5 w-5" />
+              </div>
+
+              <h2 id="logout-dialog-title" className="mt-4 text-lg font-bold text-slate-900">
+                Se déconnecter ?
               </h2>
 
-              {/* Texte */}
-              <p className="mt-1.5 text-sm leading-6 text-slate-500">
-                Vous êtes sur le point de mettre fin à votre session. Vous
-                devrez vous reconnecter pour accéder de nouveau à la
+              <p id="logout-dialog-desc" className="mt-1.5 text-sm leading-6 text-slate-500">
+                Votre session sera fermée. Vous devrez vous reconnecter pour accéder de nouveau à la
                 plateforme.
               </p>
 
               {/* Carte utilisateur */}
-              <div className="mt-4 flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border border-emerald-200 bg-emerald-100">
-                  {user.avatarUrl ? (
-                    <img
-                      src={user.avatarUrl}
-                      alt={user.nom}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <span className="text-base font-bold text-emerald-700">
-                      {user.nom?.charAt(0)?.toUpperCase() || (
-                        <User className="h-5 w-5" />
-                      )}
-                    </span>
-                  )}
-                </div>
-
+              <div className="mt-5 flex items-center gap-3 rounded-2xl border border-slate-200/80 bg-slate-50/70 p-3 text-left">
+                <UserAvatar user={user} size="sm" />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-slate-900">
-                    {user.nom}
-                  </p>
-                  <p className="mt-0.5 truncate text-xs text-slate-500">
-                    {user.email}
-                  </p>
-                  <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-emerald-700">
-                    <ShieldCheck className="h-3 w-3" />
-                    {userRoleLabel}
-                  </span>
+                  <p className="truncate text-sm font-semibold text-slate-900">{user.nom}</p>
+                  <p className="truncate text-xs text-slate-500">{user.email}</p>
                 </div>
+                <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 ring-1 ring-emerald-200/70">
+                  <ShieldCheck className="h-3 w-3" />
+                  {userRoleLabel}
+                </span>
               </div>
             </div>
 
-            {/* Pied */}
-            <div className="flex items-center justify-end gap-2 border-t border-slate-100 bg-slate-50/50 px-6 py-3.5">
+            <div className="grid grid-cols-2 gap-2 border-t border-slate-100 bg-slate-50/60 px-6 py-4">
               <button
                 type="button"
                 onClick={closeLogoutModal}
-                className="inline-flex h-10 items-center justify-center rounded-lg px-4 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-800"
+                className="inline-flex h-10 cursor-pointer items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/40"
               >
                 Annuler
               </button>
@@ -764,7 +746,7 @@ function App() {
                 type="button"
                 onClick={confirmLogout}
                 autoFocus
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-gradient-to-br from-rose-500 to-rose-700 px-4 text-sm font-bold text-white shadow-md shadow-rose-600/25 transition hover:from-rose-600 hover:to-rose-800 hover:shadow-lg"
+                className="inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-xl bg-linear-to-br from-rose-500 to-rose-600 px-4 text-sm font-semibold text-white shadow-md shadow-rose-600/25 transition hover:from-rose-600 hover:to-rose-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/40 focus-visible:ring-offset-2"
               >
                 <LogOut className="h-4 w-4" />
                 Se déconnecter

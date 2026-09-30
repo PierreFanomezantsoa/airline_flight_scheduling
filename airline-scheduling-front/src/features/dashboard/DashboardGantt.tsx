@@ -5,17 +5,14 @@ import {
   Activity,
   AlertCircle,
   AlertTriangle,
-  BarChart3,
   CheckCircle2,
   Clock,
   CloudLightning,
   CloudRain,
   Cpu,
-  Gauge,
   Plane,
   RefreshCw,
   Sun,
-  TrendingUp,
   X,
   XCircle,
 } from 'lucide-react';
@@ -59,15 +56,10 @@ interface Analytics {
  * DESIGN TOKENS
  * ========================================================================== */
 
-const FOCUS_RING =
-  'outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10';
 
 /* ============================================================================
  * HELPERS
  * ========================================================================== */
-
-const clampPercentage = (value: number) =>
-  Math.min(100, Math.max(0, Number.isFinite(value) ? value : 0));
 
 const normalizeSeverity = (value?: number | null) =>
   Math.min(1, Math.max(0, Number(value ?? 0)));
@@ -225,10 +217,10 @@ const STATUS_STYLES: Record<FlightStatus, StatusStyle> = {
   },
   'In-Flight': {
     label: 'En vol',
-    dot: 'bg-sky-500',
-    badge: 'border-sky-200 bg-sky-50 text-sky-700',
-    border: 'border-l-sky-500',
-    card: 'hover:border-sky-200',
+    dot: 'bg-emerald-600',
+    badge: 'border-emerald-600 bg-emerald-600 text-white',
+    border: 'border-l-emerald-600',
+    card: 'hover:border-emerald-300',
   },
   Effectué: {
     label: 'Effectué',
@@ -493,203 +485,109 @@ export const DashboardGantt: React.FC = () => {
     [analytics, flights],
   );
 
-  const otpRate = clampPercentage(effectiveAnalytics.metrics.otpRate);
-
-  const otpTier =
-    otpRate >= 85
-      ? { label: 'Excellent', tone: 'text-emerald-700', bg: 'bg-emerald-500' }
-      : otpRate >= 70
-        ? { label: 'Correct', tone: 'text-sky-700', bg: 'bg-sky-500' }
-        : otpRate >= 50
-          ? { label: 'À surveiller', tone: 'text-amber-700', bg: 'bg-amber-500' }
-          : { label: 'Critique', tone: 'text-rose-700', bg: 'bg-rose-500' };
+  const { metrics } = effectiveAnalytics;
 
   /* ===========================================================================
    * RENDER
    * =========================================================================== */
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 sm:p-5 lg:p-6">
-      <div className="mx-auto max-w-[1480px] space-y-5">
-        {/* ═══════════════ HEADER ═══════════════ */}
-        <header className="flex flex-wrap items-center justify-end gap-2.5">
-          <button
-            type="button"
-            onClick={() => void loadData()}
-            disabled={isFetching}
-            className={`inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 ${FOCUS_RING}`}
-          >
-            <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
-            Actualiser
-          </button>
+    <div className="mx-auto max-w-[1480px] space-y-5">
+      {/* ═══════════════ ACTIONS ═══════════════ */}
+      <header className="flex flex-wrap items-center justify-end gap-2.5">
+        <button
+          type="button"
+          onClick={() => void loadData()}
+          disabled={isFetching}
+          className="inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-emerald-300 hover:text-emerald-700 focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-500/15 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+          Actualiser
+        </button>
 
-          <button
-            type="button"
-            onClick={triggerOptimization}
-            disabled={isOptimizing || isFetching}
-            className={`inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 text-sm font-medium text-emerald-700 transition hover:bg-emerald-100 disabled:opacity-50 ${FOCUS_RING}`}
-          >
-            <Cpu className={`h-4 w-4 ${isOptimizing ? 'animate-spin' : ''}`} />
-            {isOptimizing ? 'Analyse...' : 'Optimiser'}
-          </button>
-        </header>
+        <button
+          type="button"
+          onClick={triggerOptimization}
+          disabled={isOptimizing || isFetching}
+          className="inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white shadow-md shadow-emerald-600/25 transition hover:bg-emerald-700 focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <Cpu className={`h-4 w-4 ${isOptimizing ? 'animate-spin' : ''}`} />
+          {isOptimizing ? 'Analyse en cours…' : 'Optimiser le planning'}
+        </button>
+      </header>
 
-        {/* ═══════════════ ALERTES ═══════════════ */}
-        {globalError && (
-          <AlertMessage
-            type="error"
-            title="Erreur système"
-            message={globalError}
-            onClose={() => setGlobalError(null)}
-          />
-        )}
-        {globalSuccess && (
-          <AlertMessage
-            type="success"
-            title="Opération réussie"
-            message={globalSuccess}
-            onClose={() => setGlobalSuccess(null)}
-          />
-        )}
-
-        {/* ═══════════════ KPI ═══════════════ */}
-        <section className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
-          <KpiCard
-            label="Total vols"
-            value={effectiveAnalytics.metrics.totalFlights}
-            sub="Planning actuel"
-            icon={<Plane className="h-4 w-4" />}
-            tone="bg-emerald-50 text-emerald-600"
-          />
-          <KpiCard
-            label="Ponctualité"
-            value={`${otpRate}%`}
-            sub={otpTier.label}
-            icon={<Gauge className="h-4 w-4" />}
-            tone={
-              otpRate >= 85
-                ? 'bg-emerald-50 text-emerald-600'
-                : otpRate >= 60
-                  ? 'bg-sky-50 text-sky-600'
-                  : 'bg-amber-50 text-amber-600'
-            }
-            isWarning={otpRate < 60}
-          />
-          <KpiCard
-            label="Retardés"
-            value={effectiveAnalytics.metrics.delayedCount}
-            sub="À surveiller"
-            icon={<Clock className="h-4 w-4" />}
-            tone={
-              effectiveAnalytics.metrics.delayedCount > 0
-                ? 'bg-amber-50 text-amber-600'
-                : 'bg-slate-50 text-slate-500'
-            }
-            isWarning={effectiveAnalytics.metrics.delayedCount > 0}
-          />
-          <KpiCard
-            label="En vol"
-            value={effectiveAnalytics.metrics.inFlightCount}
-            sub="Opérations actives"
-            icon={<Activity className="h-4 w-4" />}
-            tone="bg-sky-50 text-sky-600"
-          />
-          <KpiCard
-            label="Annulés"
-            value={effectiveAnalytics.metrics.cancelledCount}
-            sub="Action requise"
-            icon={<AlertCircle className="h-4 w-4" />}
-            tone={
-              effectiveAnalytics.metrics.cancelledCount > 0
-                ? 'bg-rose-50 text-rose-600'
-                : 'bg-slate-50 text-slate-500'
-            }
-            isWarning={effectiveAnalytics.metrics.cancelledCount > 0}
-          />
-        </section>
-
-        {/* ═══════════════ FLIGHT PLANNING ═══════════════ */}
-        <FlightPlanning
-          flights={flights}
-          fleetAircrafts={fleetAircrafts}
-          isFetching={isFetching}
-          statusStyles={STATUS_STYLES}
-          formatLocalIso={formatLocalIso}
-          formatDuration={formatDuration}
-          displayRoute={displayRoute}
-          getWeatherIndicator={getWeatherIndicator}
-          onSelectFlight={setSelectedFlight}
-          topHeader={
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              {/* Identité OTP */}
-              <div className="flex items-center gap-3.5">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
-                  <BarChart3 className="h-4 w-4" />
-                </div>
-                <div>
-                  <h2 className="text-sm font-semibold text-slate-900">
-                    Ponctualité opérationnelle
-                  </h2>
-                  <p className="mt-0.5 text-xs text-slate-500">
-                    On-Time Performance du planning en cours
-                  </p>
-                </div>
-              </div>
-
-              {/* Métriques + jauge */}
-              <div className="flex flex-wrap items-center gap-4 sm:gap-6">
-                <div className="flex items-center gap-4">
-                  <div className="text-right">
-                    <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
-                      À l'heure
-                    </p>
-                    <p className="mt-0.5 font-mono text-sm font-bold text-emerald-700">
-                      {effectiveAnalytics.metrics.onTimeCount}
-                    </p>
-                  </div>
-                  <div className="h-8 w-px bg-slate-200" />
-                  <div className="text-right">
-                    <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
-                      Effectués
-                    </p>
-                    <p className="mt-0.5 font-mono text-sm font-bold text-slate-700">
-                      {effectiveAnalytics.metrics.effectueCount}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex min-w-[220px] flex-1 items-center gap-3 lg:flex-initial lg:min-w-[280px]">
-                  <div className="relative flex-1">
-                    <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-                      <div
-                        className={`h-full rounded-full transition-all duration-700 ${otpTier.bg}`}
-                        style={{ width: `${otpRate}%` }}
-                      />
-                    </div>
-                    <div className="mt-1.5 flex items-center justify-between text-[10px] text-slate-400">
-                      <span>0%</span>
-                      <span>50%</span>
-                      <span>100%</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-1.5">
-                    <TrendingUp
-                      className={`h-4 w-4 ${otpTier.tone}`}
-                      strokeWidth={2.5}
-                    />
-                    <span
-                      className={`font-mono text-lg font-bold ${otpTier.tone}`}
-                    >
-                      {otpRate}%
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          }
+      {/* ═══════════════ ALERTES ═══════════════ */}
+      {globalError && (
+        <AlertMessage
+          type="error"
+          title="Erreur système"
+          message={globalError}
+          onClose={() => setGlobalError(null)}
         />
-      </div>
+      )}
+      {globalSuccess && (
+        <AlertMessage
+          type="success"
+          title="Opération réussie"
+          message={globalSuccess}
+          onClose={() => setGlobalSuccess(null)}
+        />
+      )}
+
+      {/* ═══════════════ KPI ═══════════════ */}
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:gap-4 xl:grid-cols-5">
+        <KpiCard
+          label="Total vols"
+          value={metrics.totalFlights}
+          sub="Planning actuel"
+          icon={<Plane className="h-[18px] w-[18px]" />}
+          loading={isFetching && flights.length === 0}
+        />
+        <KpiCard
+          label="En vol"
+          value={metrics.inFlightCount}
+          sub="Opérations actives"
+          icon={<Activity className="h-[18px] w-[18px]" />}
+          live={metrics.inFlightCount > 0}
+          loading={isFetching && flights.length === 0}
+        />
+        <KpiCard
+          label="Effectués"
+          value={metrics.effectueCount}
+          sub="Vols terminés"
+          icon={<CheckCircle2 className="h-[18px] w-[18px]" />}
+          loading={isFetching && flights.length === 0}
+        />
+        <KpiCard
+          label="Retardés"
+          value={metrics.delayedCount}
+          sub="À surveiller"
+          icon={<Clock className="h-[18px] w-[18px]" />}
+          alert={metrics.delayedCount > 0 ? 'warning' : undefined}
+          loading={isFetching && flights.length === 0}
+        />
+        <KpiCard
+          label="Annulés"
+          value={metrics.cancelledCount}
+          sub="Action requise"
+          icon={<AlertCircle className="h-[18px] w-[18px]" />}
+          alert={metrics.cancelledCount > 0 ? 'danger' : undefined}
+          loading={isFetching && flights.length === 0}
+        />
+      </section>
+
+      {/* ═══════════════ FLIGHT PLANNING ═══════════════ */}
+      <FlightPlanning
+        flights={flights}
+        fleetAircrafts={fleetAircrafts}
+        isFetching={isFetching}
+        statusStyles={STATUS_STYLES}
+        formatLocalIso={formatLocalIso}
+        formatDuration={formatDuration}
+        displayRoute={displayRoute}
+        getWeatherIndicator={getWeatherIndicator}
+        onSelectFlight={setSelectedFlight}
+      />
 
       {/* ═══════════════ MODALE DÉTAILS ═══════════════ */}
       <FlightDetailsModal
@@ -715,35 +613,48 @@ const KpiCard: React.FC<{
   value: number | string;
   sub: string;
   icon: React.ReactNode;
-  tone?: string;
-  isWarning?: boolean;
-}> = ({
-  label,
-  value,
-  sub,
-  icon,
-  tone = 'bg-slate-50 text-slate-500',
-  isWarning = false,
-}) => {
+  /** Couleur d'alerte uniquement quand il y a un problème */
+  alert?: 'warning' | 'danger';
+  live?: boolean;
+  loading?: boolean;
+}> = ({ label, value, sub, icon, alert, live = false, loading = false }) => {
+  const iconTone =
+    alert === 'danger'
+      ? 'bg-rose-50 text-rose-600 ring-rose-100'
+      : alert === 'warning'
+        ? 'bg-amber-50 text-amber-600 ring-amber-100'
+        : 'bg-emerald-50 text-emerald-600 ring-emerald-100';
+
+  const valueTone =
+    alert === 'danger' ? 'text-rose-600' : alert === 'warning' ? 'text-amber-600' : 'text-slate-900';
+
   return (
-    <article className="rounded-xl border border-slate-200 bg-white p-5 transition hover:border-slate-300">
-      <div className="flex items-start justify-between gap-3">
-        <span className="text-[13px] font-medium text-slate-600">{label}</span>
-        <div
-          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md ${tone}`}
-        >
+    <article className="group relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm shadow-slate-900/[0.03] transition hover:border-emerald-200 hover:shadow-md sm:p-5">
+      <span
+        className="absolute inset-x-0 top-0 h-0.5 bg-linear-to-r from-emerald-400 to-emerald-600 opacity-0 transition group-hover:opacity-100"
+        aria-hidden="true"
+      />
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-[13px] font-semibold text-slate-600">{label}</span>
+        <div className={`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ring-1 ${iconTone}`}>
           {icon}
+          {live && (
+            <span className="absolute -right-0.5 -top-0.5 flex h-2.5 w-2.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />
+            </span>
+          )}
         </div>
       </div>
-      <div className="mt-4 flex items-baseline gap-2">
-        <span
-          className={`text-3xl font-bold tabular-nums tracking-tight ${
-            isWarning ? 'text-amber-600' : 'text-slate-900'
-          }`}
-        >
-          {value}
-        </span>
-        <span className="text-xs font-medium text-slate-400">{sub}</span>
+      <div className="mt-3">
+        {loading ? (
+          <div className="h-8 w-14 animate-pulse rounded-lg bg-slate-100" />
+        ) : (
+          <span className={`text-[28px] font-bold leading-none tabular-nums tracking-tight ${valueTone}`}>
+            {value}
+          </span>
+        )}
+        <p className="mt-1.5 text-xs text-slate-500">{sub}</p>
       </div>
     </article>
   );
@@ -759,55 +670,31 @@ const AlertMessage: React.FC<{
 
   return (
     <div
-      className={`flex items-start gap-3 rounded-xl border px-4 py-3.5 ${
-        success
-          ? 'border-emerald-200 bg-emerald-50/60'
-          : 'border-rose-200 bg-rose-50/60'
+      className={`flex items-start gap-3 rounded-2xl border bg-white px-4 py-3.5 shadow-sm ${
+        success ? 'border-emerald-200' : 'border-rose-200'
       }`}
-      role="alert"
+      role={success ? 'status' : 'alert'}
     >
       <div
-        className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
-          success
-            ? 'bg-emerald-100 text-emerald-700'
-            : 'bg-rose-100 text-rose-600'
+        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
+          success ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
         }`}
       >
-        {success ? (
-          <CheckCircle2 className="h-4 w-4" />
-        ) : (
-          <XCircle className="h-4 w-4" />
-        )}
+        {success ? <CheckCircle2 className="h-[18px] w-[18px]" /> : <XCircle className="h-[18px] w-[18px]" />}
       </div>
 
       <div className="min-w-0 flex-1">
-        <p
-          className={`text-sm font-medium ${
-            success ? 'text-emerald-800' : 'text-rose-800'
-          }`}
-        >
-          {title}
-        </p>
-        <p
-          className={`mt-0.5 text-xs leading-5 ${
-            success ? 'text-emerald-700' : 'text-rose-700'
-          }`}
-        >
-          {message}
-        </p>
+        <p className={`text-sm font-bold ${success ? 'text-emerald-800' : 'text-rose-800'}`}>{title}</p>
+        <p className="mt-0.5 text-[13px] leading-5 text-slate-600">{message}</p>
       </div>
 
       <button
         type="button"
         onClick={onClose}
-        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition ${
-          success
-            ? 'text-emerald-600 hover:bg-emerald-100'
-            : 'text-rose-500 hover:bg-rose-100'
-        }`}
-        aria-label="Fermer"
+        className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+        aria-label="Fermer le message"
       >
-        <X className="h-3.5 w-3.5" />
+        <X className="h-4 w-4" />
       </button>
     </div>
   );
