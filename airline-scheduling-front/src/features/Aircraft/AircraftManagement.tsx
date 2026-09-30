@@ -1400,9 +1400,6 @@ export function AircraftManagement() {
                                 <p className="truncate font-mono text-sm font-bold text-slate-900">
                                   {aircraft.immatriculation}
                                 </p>
-                                <p className="truncate text-[10px] text-slate-400">
-                                  Dernière maint. : {formatDate(aircraft.dateDerniereMaintenance)}
-                                </p>
                               </div>
                             </div>
                           </td>

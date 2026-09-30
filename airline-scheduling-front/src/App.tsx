@@ -586,10 +586,6 @@ function App() {
         <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/85 px-4 backdrop-blur-xl sm:px-6 lg:px-8">
           <div className="mx-auto flex h-16 w-full max-w-[1600px] items-center justify-between gap-4">
             <div className="flex min-w-0 items-center gap-3">
-              <span
-                className="hidden h-8 w-1 shrink-0 rounded-full bg-linear-to-b from-emerald-500 to-emerald-700 sm:block"
-                aria-hidden="true"
-              />
               <div className="min-w-0">
                 {screenMeta.title && (
                   <h1 className="truncate text-base font-bold tracking-tight text-slate-900 sm:text-lg">
