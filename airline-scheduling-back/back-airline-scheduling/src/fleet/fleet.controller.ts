@@ -65,13 +65,13 @@ export class FleetController {
   retire(@Param('id', ParseUUIDPipe) id: string) { return this.fleetService.retire(id); }
 
   @Patch('aircrafts/:id/maintenance/reset')
-  @AuthenticatedRoles(UserRole.MAINTENANCE_ENGINEER)
+  @AuthenticatedRoles(UserRole.PLANIFICATEUR, UserRole.MAINTENANCE_ENGINEER)
   resetMaintenance(@Param('id', ParseUUIDPipe) id: string) {
     return this.fleetService.resetMaintenanceCounter(id);
   }
 
   @Patch('aircrafts/:id/flight-hours')
-  @AuthenticatedRoles(UserRole.MAINTENANCE_ENGINEER)
+  @AuthenticatedRoles(UserRole.PLANIFICATEUR, UserRole.MAINTENANCE_ENGINEER)
   addFlightHours(
     @Param('id', ParseUUIDPipe) id: string,
     @Body('heuresVolees') heuresVolees: number,
