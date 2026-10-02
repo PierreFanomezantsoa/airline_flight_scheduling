@@ -12,7 +12,6 @@ import {
   Menu,
   MapPin,
   Plane,
-  Settings2,
   SlidersHorizontal,
   Sparkles,
   User,
@@ -34,7 +33,6 @@ export type ActiveScreen =
   | 'crew'
   | 'maintenance'
   | 'optimization'
-  | 'settings'
   | 'help';
 
 type LucideComponent = React.ForwardRefExoticComponent<
@@ -98,7 +96,6 @@ const MENU_SECTIONS: MenuSection[] = [
       { id: 'airports', label: 'Aéroports', icon: MapPin },
       { id: 'flights', label: 'Gestion des vols', icon: CalendarDays },
       { id: 'flight-history', label: 'Historique des vols', icon: History },
-      { id: 'settings', label: 'Configuration réseau', icon: Settings2 },
     ],
   },
   {
@@ -117,7 +114,7 @@ const MENU_SECTIONS: MenuSection[] = [
 const allowedScreens: Record<AvailableRoles, ActiveScreen[]> = {
   Admin: [
     'dashboard', 'users', 'scheduling', 'aircraft', 'flights',
-    'flight-history', 'crew', 'maintenance', 'optimization', 'settings', 'help',
+    'flight-history', 'crew', 'maintenance', 'optimization', 'help',
   ],
   Planificateur: [
     'dashboard', 'scheduling', 'aircraft', 'airports', 'flights',
@@ -125,7 +122,7 @@ const allowedScreens: Record<AvailableRoles, ActiveScreen[]> = {
   ],
   Regulator: [
     'dashboard', 'scheduling', 'airports', 'flights', 'flight-history',
-    'crew', 'optimization', 'settings', 'help',
+    'crew', 'optimization', 'help',
   ],
   Crew_Member: ['dashboard', 'flights', 'flight-history', 'crew', 'help'],
   Maintenance_Engineer: [
@@ -134,7 +131,7 @@ const allowedScreens: Record<AvailableRoles, ActiveScreen[]> = {
   ],
   Product_Owner: [
     'dashboard', 'scheduling', 'aircraft', 'flight-history',
-    'maintenance', 'optimization', 'settings', 'help',
+    'maintenance', 'optimization', 'help',
   ],
 };
 

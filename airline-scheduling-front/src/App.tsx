@@ -53,12 +53,6 @@ import { MaintenancePlanning } from './features/maintenance/MaintenancePlanning'
 import { DisruptionCenter } from './features/disruptions/DisruptionCenter';
 
 // =============================================================================
-// SETTINGS
-// =============================================================================
-
-import { NetworkSettings } from './features/settings/NetworkSettings';
-
-// =============================================================================
 // OPTIMIZATION
 // =============================================================================
 
@@ -122,15 +116,14 @@ const STORAGE_KEYS = {
 const ROLE_SCREEN_PERMISSIONS: Record<UserRole, ActiveScreen[]> = {
   Admin: [
     'dashboard', 'users', 'scheduling', 'aircraft', 'flights',
-    'flight-history', 'crew', 'maintenance', 'optimization',
-    'settings', 'help',
+    'flight-history', 'crew', 'maintenance', 'optimization', 'help',
   ],
   Planificateur: [
     'dashboard', 'scheduling', 'aircraft', 'airports', 'flights',
     'flight-history', 'crew', 'optimization', 'help',
   ],
   Regulator: [
-    'dashboard', 'scheduling', 'airports', 'flights', 'flight-history', 'crew', 'optimization', 'settings', 'help',
+    'dashboard', 'scheduling', 'airports', 'flights', 'flight-history', 'crew', 'optimization', 'help',
   ],
   Maintenance_Engineer: [
     'dashboard', 'scheduling', 'aircraft', 'maintenance',
@@ -141,7 +134,7 @@ const ROLE_SCREEN_PERMISSIONS: Record<UserRole, ActiveScreen[]> = {
   ],
   Product_Owner: [
     'dashboard', 'scheduling', 'aircraft', 'flight-history',
-    'maintenance', 'optimization', 'settings', 'help',
+    'maintenance', 'optimization', 'help',
   ],
 };
 
@@ -205,10 +198,6 @@ const SCREEN_META: Record<
   optimization: {
     title: 'Optimisation automatique',
     subtitle: 'Algorithmes de génération et d’ajustement',
-  },
-  settings: {
-    title: 'Configuration réseau',
-    subtitle: 'Liaisons, fournisseurs et paramètres',
   },
   help: {
     title: 'Aide et support',
@@ -525,7 +514,6 @@ function App() {
       maintenance: <MaintenancePlanning />,
       disruptions: <DisruptionCenter />,
       optimization: <FlightOptimizationDashboard />,
-      settings: <NetworkSettings />,
       help: <HelpSupportPage />,
     }),
     []
