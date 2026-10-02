@@ -1185,9 +1185,9 @@ export const FlightsPlanning: FC = () => {
       </div>
 
       {/* HEADER */}
-      <header className="flex flex-wrap items-center justify-end gap-3">
+      <header className="flex items-center justify-end gap-2 sm:gap-3">
         <div
-          className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium ${
+          className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs font-medium sm:px-3 ${
             isWeatherRefreshing
               ? 'border-sky-200 bg-sky-50 text-sky-700'
               : weatherSyncError
@@ -1202,22 +1202,26 @@ export const FlightsPlanning: FC = () => {
           ) : (
             <CloudRain className="h-3.5 w-3.5" />
           )}
-          Météo{' '}
-          {weatherLastUpdatedAt
-            ? `· ${weatherLastUpdatedAt.toLocaleTimeString('fr-FR', {
-                hour: '2-digit',
-                minute: '2-digit',
-              })}`
-            : '· en attente'}
+          <span>Météo</span>
+          <span className="hidden sm:inline">
+            {weatherLastUpdatedAt
+              ? `· ${weatherLastUpdatedAt.toLocaleTimeString('fr-FR', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}`
+              : '· en attente'}
+          </span>
         </div>
         <button
           type="button"
           onClick={() => void refreshWeatherSnapshot(undefined, false)}
           disabled={isWeatherRefreshing}
-          className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+          aria-label="Actualiser la météo"
+          title="Actualiser la météo"
+          className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 sm:h-9 sm:w-auto sm:gap-2 sm:px-3"
         >
           <RefreshCw className={`h-4 w-4 ${isWeatherRefreshing ? 'animate-spin' : ''}`} />
-          Actualiser
+          <span className="hidden sm:inline">Actualiser</span>
         </button>
         <button
           type="button"
@@ -1225,9 +1229,11 @@ export const FlightsPlanning: FC = () => {
             setEditingFlight(null);
             setIsModalOpen(true);
           }}
-          className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-medium text-white shadow-sm transition hover:bg-emerald-700"
+          className="inline-flex h-10 min-w-0 flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-2.5 text-xs font-medium text-white shadow-sm transition hover:bg-emerald-700 sm:h-9 sm:flex-none sm:px-4 sm:text-sm"
         >
-          <Plus className="h-4 w-4" /> Planifier un vol
+          <Plus className="h-4 w-4 shrink-0" />
+          <span className="truncate sm:hidden">Nouveau vol</span>
+          <span className="hidden sm:inline">Planifier un vol</span>
         </button>
       </header>
 

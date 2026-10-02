@@ -577,15 +577,17 @@ export const FlightSchedulerDashboard: FC = () => {
     <div className="min-h-screen bg-slate-50 p-4 sm:p-6">
       <div className="mx-auto max-w-375 space-y-5">
         {/* ═══════════════ HEADER ═══════════════ */}
-        <header className="flex flex-wrap items-center justify-end gap-2.5">
+        <header className="flex items-center justify-end gap-2">
           <button
             type="button"
             onClick={() => void fetchData()}
             disabled={loading || generating || applying}
-            className={`inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 ${FOCUS_RING}`}
+            aria-label="Actualiser la programmation des vols"
+            title="Actualiser"
+            className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 sm:w-auto sm:gap-2 sm:px-4 ${FOCUS_RING}`}
           >
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            Actualiser
+            <span className="hidden sm:inline">Actualiser</span>
           </button>
 
           {previewScenario ? (
@@ -593,20 +595,26 @@ export const FlightSchedulerDashboard: FC = () => {
               type="button"
               onClick={() => void runAutomaticGeneration(true)}
               disabled={applying || !previewScenario.scenarioSignature || (previewScenario.metrics.assignedFlights ?? 0) === 0}
-              className={`inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-medium text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-50 ${FOCUS_RING}`}
+              className={`inline-flex h-10 min-w-0 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 text-xs font-medium text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-50 sm:px-4 sm:text-sm ${FOCUS_RING}`}
             >
               <Play className={`h-4 w-4 ${applying ? 'animate-pulse' : ''}`} />
-              {applying ? 'Application...' : 'Appliquer le scénario'}
+              <span className="sm:hidden">{applying ? 'Application…' : 'Appliquer'}</span>
+              <span className="hidden sm:inline">
+                {applying ? 'Application...' : 'Appliquer le scénario'}
+              </span>
             </button>
           ) : (
             <button
               type="button"
               onClick={() => void runAutomaticGeneration(false)}
               disabled={generating || applying}
-              className={`inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-medium text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-50 ${FOCUS_RING}`}
+              className={`inline-flex h-10 min-w-0 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 text-xs font-medium text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-50 sm:px-4 sm:text-sm ${FOCUS_RING}`}
             >
               <WandSparkles className={`h-4 w-4 ${generating ? 'animate-pulse' : ''}`} />
-              {generating ? 'Génération...' : 'Générer le scénario'}
+              <span className="sm:hidden">{generating ? 'En cours…' : 'Générer'}</span>
+              <span className="hidden sm:inline">
+                {generating ? 'Génération...' : 'Générer le scénario'}
+              </span>
             </button>
           )}
         </header>
