@@ -736,7 +736,7 @@ export const CrewAssignmentsPage: React.FC = () => {
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100/50 p-4 sm:p-6">
       <div className="mx-auto max-w-7xl space-y-6">
         {/* ═══════════════ HEADER ═══════════════ */}
-        <header className="flex flex-wrap items-center justify-end gap-2.5">
+        <header className="flex items-center justify-end gap-2">
           <button
             type="button"
             onClick={() => {
@@ -744,16 +744,18 @@ export const CrewAssignmentsPage: React.FC = () => {
               void loadCrewMembers();
             }}
             disabled={loading || loadingUsers}
-            className={`inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 disabled:opacity-50 ${FOCUS_RING}`}
+            aria-label="Actualiser les affectations"
+            title="Actualiser"
+            className={`inline-flex h-10 w-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 disabled:opacity-50 sm:w-auto sm:px-4 ${FOCUS_RING}`}
           >
             <RefreshCw className={`h-4 w-4 ${loading || loadingUsers ? 'animate-spin' : ''}`} />
-            Actualiser
+            <span className="hidden sm:inline">Actualiser</span>
           </button>
 
           <button
             type="button"
             onClick={openCreateModal}
-            className={`inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 px-4 text-sm font-semibold text-white shadow-lg shadow-emerald-500/25 transition hover:from-emerald-600 hover:to-emerald-700 hover:shadow-emerald-500/40 ${FOCUS_RING}`}
+            className={`inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 px-3 text-xs font-semibold text-white shadow-lg shadow-emerald-500/25 transition hover:from-emerald-600 hover:to-emerald-700 hover:shadow-emerald-500/40 sm:px-4 sm:text-sm ${FOCUS_RING}`}
           >
             <UserPlus className="h-4 w-4" />
             Nouvelle affectation
