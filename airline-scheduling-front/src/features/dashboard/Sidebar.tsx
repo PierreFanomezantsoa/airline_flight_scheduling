@@ -550,7 +550,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           isCollapsed ? 'w-19' : 'w-64'
         }`}
       >
-        {/* En-tête */}
+        {/* En-tête  pour menu*/}
         <div
           className={`flex h-16 shrink-0 items-center ${
             isCollapsed ? 'justify-center px-2' : 'justify-between pl-4 pr-3'
