@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   CalendarClock,
   CalendarDays,
@@ -206,6 +206,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onCollapsedChange,
 }) => {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [isMobileProfileOpen, setIsMobileProfileOpen] = useState(false);
+  const mobileProfileRef = useRef<HTMLDivElement>(null);
 
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     general: true,
@@ -250,6 +252,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [isMobileOpen]);
+
+  useEffect(() => {
+    if (!isMobileProfileOpen) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!mobileProfileRef.current?.contains(event.target as Node)) {
+        setIsMobileProfileOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsMobileProfileOpen(false);
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isMobileProfileOpen]);
 
   useEffect(() => {
     if (isMobileOpen) {
@@ -467,13 +489,52 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       <div className="flex min-w-0 flex-1 items-center justify-center gap-2">
         <BrandMark size="sm" />
-        <span className="truncate text-sm font-bold tracking-tight text-slate-900">
+        <span className="min-w-0 truncate text-sm font-bold tracking-tight text-slate-900">
           Opérations aériennes
         </span>
       </div>
 
-      <div title={userDisplayName}>
-        <Avatar initial={userInitial} hasUser={Boolean(user)} size="sm" />
+      <div className="relative shrink-0" ref={mobileProfileRef}>
+        <button
+          type="button"
+          onClick={() => setIsMobileProfileOpen((open) => !open)}
+          aria-label={`Compte de ${userDisplayName}`}
+          aria-haspopup="menu"
+          aria-expanded={isMobileProfileOpen}
+          title="Compte et déconnexion"
+          className="flex h-10 w-10 items-center justify-center rounded-full outline-none transition hover:bg-emerald-50 focus-visible:ring-2 focus-visible:ring-emerald-500/50"
+        >
+          <Avatar initial={userInitial} hasUser={Boolean(user)} size="sm" />
+        </button>
+        {isMobileProfileOpen && (
+          <div
+            role="menu"
+            aria-label="Compte utilisateur"
+            className="absolute right-0 top-[calc(100%+0.75rem)] z-50 w-64 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-xl border border-slate-200 bg-white p-3 text-slate-900 shadow-xl shadow-slate-900/10"
+          >
+            <div className="min-w-0 border-b border-slate-100 px-1 pb-3">
+              <p className="truncate text-sm font-semibold">{userDisplayName}</p>
+              {user?.email && (
+                <p className="truncate text-xs text-slate-500">{user.email}</p>
+              )}
+              <p className="mt-1 text-[11px] font-medium text-emerald-700">
+                {userRoleLabel}
+              </p>
+            </div>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setIsMobileProfileOpen(false);
+                onLogout();
+              }}
+              className="mt-2 flex h-10 w-full items-center gap-2 rounded-lg px-2 text-sm font-medium text-rose-600 transition hover:bg-rose-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/30"
+            >
+              <LogOut className="h-4 w-4" />
+              Déconnexion
+            </button>
+          </div>
+        )}
       </div>
     </header>
   );

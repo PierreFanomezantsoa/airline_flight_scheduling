@@ -583,7 +583,7 @@ function App() {
         }`}
       >
         {/* HEADER */}
-        <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/85 px-4 backdrop-blur-xl sm:px-6 lg:px-8">
+        <header className="relative z-20 border-b border-slate-200/80 bg-white/85 px-4 backdrop-blur-xl sm:px-6 md:sticky md:top-0 lg:px-8">
           <div className="mx-auto flex h-16 w-full max-w-[1600px] items-center justify-between gap-4">
             <div className="flex min-w-0 items-center gap-3">
               <div className="min-w-0">
@@ -599,7 +599,7 @@ function App() {
             </div>
 
             {/* PROFIL */}
-            <div className="relative shrink-0" ref={profileMenuRef}>
+            <div className="relative hidden shrink-0 md:block" ref={profileMenuRef}>
               <button
                 type="button"
                 onClick={() => setIsProfileMenuOpen((previous) => !previous)}

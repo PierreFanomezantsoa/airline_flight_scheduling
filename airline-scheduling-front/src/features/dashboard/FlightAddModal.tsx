@@ -2,6 +2,7 @@ import React, {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
@@ -19,7 +20,9 @@ import {
   Wrench,
   ArrowRightLeft,
   CheckCircle2,
+  ChevronDown,
   Plus,
+  Search,
   Trash2,
   Cpu,
   RefreshCw,
@@ -577,6 +580,178 @@ const calculateArrival = (
   return new Date(departureDate.getTime() + durationHours * 60 * 60 * 1000).toISOString();
 };
 
+interface SearchableSelectOption {
+  value: string;
+  label: string;
+  description: string;
+  displayLabel: string;
+  searchText?: string;
+  disabled?: boolean;
+}
+
+interface SearchableSelectProps {
+  id: string;
+  label: string;
+  value: string;
+  options: SearchableSelectOption[];
+  placeholder: string;
+  searchPlaceholder: string;
+    required?: boolean;
+    hasError?: boolean;
+  disabled?: boolean;
+  icon: React.ReactNode;
+  onChange: (value: string) => void;
+}
+
+const SearchableSelect: React.FC<SearchableSelectProps> = ({
+  id,
+  label,
+  value,
+  options,
+    required = false,
+    hasError = false,
+  placeholder,
+  searchPlaceholder,
+  disabled = false,
+  icon,
+  onChange,
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const listboxId = `${id}-options`;
+  const selectedOption = options.find((option) => option.value === value);
+  const normalizedQuery = query
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('fr');
+  const filteredOptions = options.filter((option) =>
+    [option.label, option.description, option.searchText]
+      .filter(Boolean)
+      .join(' ')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLocaleLowerCase('fr')
+      .includes(normalizedQuery),
+  );
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!dropdownRef.current?.contains(event.target as Node)) {
+        setIsOpen(false);
+        setQuery('');
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.stopPropagation();
+        setIsOpen(false);
+        setQuery('');
+      }
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen]);
+
+  return (
+    <div className="min-w-0">
+      <label
+        htmlFor={id}
+        className="mb-1.5 block text-[10px] font-semibold text-slate-700"
+      >
+        {label}
+        {required && <span className="ml-1 text-rose-600">*</span>}
+      </label>
+      <div className="relative" ref={dropdownRef}>
+        <button
+          id={id}
+          type="button"
+          role="combobox"
+          aria-haspopup="listbox"
+          aria-expanded={isOpen}
+          aria-controls={listboxId}
+          aria-required={required}
+          disabled={disabled}
+          onClick={() => {
+            setIsOpen((open) => !open);
+            setQuery('');
+          }}
+          className={`flex h-11 w-full min-w-0 items-center gap-2 rounded-xl border px-3 text-left text-xs outline-none transition focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60 ${
+            hasError
+              ? 'border-rose-300 bg-rose-50 text-rose-900 focus:border-rose-500 focus:ring-rose-100'
+              : 'border-slate-200 bg-white text-slate-800 hover:border-slate-300 focus:border-emerald-500 focus:ring-emerald-100 disabled:bg-slate-50'
+          }`}
+        >
+          <span className="shrink-0 text-slate-400">{icon}</span>
+          <span className={`min-w-0 flex-1 truncate ${selectedOption ? 'font-semibold' : 'text-slate-400'}`}>
+            {selectedOption?.displayLabel || placeholder}
+          </span>
+          <ChevronDown
+            className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+          />
+        </button>
+
+        {isOpen && (
+          <div className="absolute left-0 top-[calc(100%+6px)] z-30 w-full min-w-[min(22rem,calc(100vw-3rem))] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl shadow-slate-900/10">
+            <div className="border-b border-slate-100 p-2">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  autoFocus
+                  type="search"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder={searchPlaceholder}
+                  aria-label={searchPlaceholder}
+                  className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-xs text-slate-800 outline-none placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                />
+              </div>
+            </div>
+            <div id={listboxId} role="listbox" aria-label={label} className="max-h-56 overflow-y-auto">
+              {filteredOptions.length ? (
+                filteredOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    role="option"
+                    aria-selected={option.value === value}
+                    disabled={option.disabled}
+                    onClick={() => {
+                      onChange(option.value);
+                      setIsOpen(false);
+                      setQuery('');
+                    }}
+                    className="block w-full border-b border-slate-100 px-3.5 py-2.5 text-left last:border-0 hover:bg-emerald-50 focus:bg-emerald-50 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <span className="block truncate text-sm font-semibold text-slate-800">
+                      {option.label}
+                    </span>
+                    <span className="mt-0.5 block truncate text-[11px] text-slate-500">
+                      {option.description}
+                    </span>
+                  </button>
+                ))
+              ) : (
+                <p className="px-3.5 py-4 text-center text-xs text-slate-500">
+                  Aucun résultat trouvé.
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 /* ============================================================================
  * COMPOSANT
  * ========================================================================== */
@@ -1131,22 +1306,12 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
       const hasFlightConflict = Boolean(flightConflict);
       const isDisabled = isGlobalMaint || isSlotMaint || hasFlightConflict;
 
-      let labelSuffix = '';
-      if (isGlobalMaint) {
-        labelSuffix = ` 🛠️ (EN MAINTENANCE - ${aircraft.status || 'Immobilisé'})`;
-      } else if (isSlotMaint) {
-        labelSuffix = ' ⚠️ (Créneau réservé pour maintenance)';
-      } else if (flightConflict) {
-        labelSuffix = ` ⛔ (Occupé par ${getExistingFlightNumber(flightConflict)})`;
-      }
-
       return {
         ...aircraft,
         isGlobalMaint,
         isSlotMaint,
         hasFlightConflict,
         isDisabled,
-        labelSuffix,
         slotConflict,
         flightConflict,
       };
@@ -1297,6 +1462,36 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
   if (!isOpen) return null;
 
   const weatherSourceBadge = getWeatherSourceBadge(weatherPreview);
+  const airportOptions: SearchableSelectOption[] = airports.map((airport) => ({
+    value: airport.iata,
+    label: airport.name,
+    description: `${airport.iata} · ${airport.timezone}`,
+    displayLabel: `${airport.iata} · ${airport.name}`,
+    searchText: `${airport.iata} ${airport.name} ${airport.timezone}`,
+  }));
+  const aircraftOptions: SearchableSelectOption[] = fleetWithStatus.map((aircraft) => {
+    const availability = aircraft.isGlobalMaint
+      ? `En maintenance${aircraft.status ? ` · ${aircraft.status}` : ''}`
+      : aircraft.isSlotMaint
+        ? 'Maintenance prévue sur ce créneau'
+        : aircraft.flightConflict
+          ? `Déjà affecté au vol ${getExistingFlightNumber(aircraft.flightConflict)}`
+          : 'Disponible';
+    const label = aircraft.registration || aircraft.model || 'Appareil sans immatriculation';
+
+    return {
+      value: aircraft.id,
+      label,
+      description: aircraft.registration && aircraft.model
+        ? `${aircraft.model} · ${availability}`
+        : availability,
+      displayLabel: aircraft.registration && aircraft.model
+        ? `${aircraft.registration} · ${aircraft.model}`
+        : label,
+      searchText: `${aircraft.id} ${aircraft.registration} ${aircraft.model} ${aircraft.status} ${availability}`,
+      disabled: aircraft.isDisabled,
+    };
+  });
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
@@ -1363,9 +1558,6 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
           {/* ROUTE */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <label className="text-[9px] font-black uppercase tracking-[0.12em] text-slate-500">
-                Itinéraire
-              </label>
               {newFlight.aeroportDepart && newFlight.aeroportArrivee && (
                 <button
                   type="button"
@@ -1379,56 +1571,36 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <div className="relative">
-                <MapPin className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-                <select
-                  required
-                  disabled={isLoadingAirports || Boolean(airportLoadError)}
-                  value={newFlight.aeroportDepart}
-                  onChange={(event) => {
-                    setNewFlight((previous) => ({
-                      ...previous,
-                      aeroportDepart: event.target.value,
-                    }));
-                    setSelectedStop('');
-                  }}
-                  className="h-10 w-full appearance-none rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 text-xs font-bold text-slate-800 outline-none transition focus:border-emerald-500 focus:bg-white"
-                >
-                  <option value="">Départ</option>
-                  {airports.map((airport) => (
-                    <option key={airport.iata} value={airport.iata}>
-                      {airport.iata} - {airport.name} ({airport.timezone})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="relative">
-                <MapPin className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-                <select
-                  required
-                  disabled={isLoadingAirports || Boolean(airportLoadError)}
-                  value={newFlight.aeroportArrivee}
-                  onChange={(event) => {
-                    setNewFlight((previous) => ({
-                      ...previous,
-                      aeroportArrivee: event.target.value,
-                    }));
-                    setSelectedStop('');
-                  }}
-                  className="h-10 w-full appearance-none rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 text-xs font-bold text-slate-800 outline-none transition focus:border-emerald-500 focus:bg-white"
-                >
-                  <option value="">Arrivée</option>
-                  {airports.map(
-                    (airport) =>
-                      airport.iata !== newFlight.aeroportDepart && (
-                        <option key={airport.iata} value={airport.iata}>
-                          {airport.iata} - {airport.name} ({airport.timezone})
-                        </option>
-                      ),
-                  )}
-                </select>
-              </div>
+              <SearchableSelect
+                id="flight-origin-airport"
+                label="Aéroport de départ"
+                                required
+                value={newFlight.aeroportDepart}
+                options={airportOptions}
+                placeholder="Choisir un aéroport…"
+                searchPlaceholder="Rechercher un aéroport…"
+                disabled={isLoadingAirports || Boolean(airportLoadError)}
+                icon={<MapPin className="h-4 w-4" />}
+                onChange={(value) => {
+                  setNewFlight((previous) => ({ ...previous, aeroportDepart: value }));
+                  setSelectedStop('');
+                }}
+              />
+              <SearchableSelect
+                id="flight-destination-airport"
+                label="Aéroport d’arrivée"
+                                required
+                value={newFlight.aeroportArrivee}
+                options={airportOptions.filter((airport) => airport.value !== newFlight.aeroportDepart)}
+                placeholder="Choisir un aéroport…"
+                searchPlaceholder="Rechercher un aéroport…"
+                disabled={isLoadingAirports || Boolean(airportLoadError)}
+                icon={<MapPin className="h-4 w-4" />}
+                onChange={(value) => {
+                  setNewFlight((previous) => ({ ...previous, aeroportArrivee: value }));
+                  setSelectedStop('');
+                }}
+              />
             </div>
             {(isLoadingAirports || airportLoadError) && (
               <p className={`text-[10px] font-semibold ${airportLoadError ? 'text-rose-600' : 'text-slate-500'}`}>
@@ -1656,9 +1828,6 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
           {/* AIRCRAFT */}
           <div>
             <div className="mb-1.5 flex items-center justify-between gap-2">
-              <label className="text-[9px] font-black uppercase tracking-wide text-slate-500">
-                Appareil assigné
-              </label>
               {isLoadingExistingFlights && (
                 <span className="inline-flex items-center gap-1 text-[8px] font-bold text-slate-400">
                   <RefreshCw className="h-3 w-3 animate-spin" />
@@ -1666,45 +1835,27 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
                 </span>
               )}
             </div>
-            <select
+            <SearchableSelect
+              id="flight-aircraft"
+              label="Appareil assigné"
+                            hasError={Boolean(selectedAircraft?.flightConflict)}
               value={newFlight.avionId}
-              onChange={(event) =>
-                setNewFlight((previous) => ({
-                  ...previous,
-                  avionId: event.target.value,
-                }))
-              }
+              options={aircraftOptions}
+              placeholder="Sélectionner un appareil…"
+              searchPlaceholder="Rechercher une immatriculation ou un modèle…"
               disabled={
                 isLoadingFleet ||
                 isLoadingExistingFlights ||
                 (!isDirectRoute && !selectedStop)
               }
-              className={`h-10 w-full rounded-xl border px-3 text-xs font-bold outline-none transition disabled:cursor-not-allowed disabled:opacity-60 ${
-                selectedAircraft?.flightConflict
-                  ? 'border-rose-300 bg-rose-50 text-rose-900'
-                  : 'border-slate-200 bg-slate-50 text-slate-800 focus:border-emerald-500 focus:bg-white'
-              }`}
-            >
-              <option value="">
-                {isLoadingFleet
-                  ? 'Chargement de la flotte...'
-                  : isLoadingExistingFlights
-                    ? 'Vérification des disponibilités...'
-                    : '-- Sélectionner un avion --'}
-              </option>
-              {fleetWithStatus.map((aircraft) => (
-                <option
-                  key={aircraft.id}
-                  value={aircraft.id}
-                  disabled={aircraft.isDisabled}
-                >
-                  {aircraft.registration
-                    ? `${aircraft.registration} (${aircraft.model})`
-                    : aircraft.model}
-                  {aircraft.labelSuffix}
-                </option>
-              ))}
-            </select>
+              icon={<Plane className="h-4 w-4" />}
+              onChange={(value) =>
+                setNewFlight((previous) => ({
+                  ...previous,
+                  avionId: value,
+                }))
+              }
+            />
             {flightAvailabilityError && (
               <div className="mt-2 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-2">
                 <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
