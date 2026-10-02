@@ -446,7 +446,7 @@ export const FlightSchedulerDashboard: FC = () => {
 
       if (!response.ok) {
         throw new Error(
-          await getErrorMessage(response, 'Impossible de générer le planning.'),
+          await getErrorMessage(response, 'Impossible de générer le programme de vols.'),
         );
       }
 

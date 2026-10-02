@@ -382,7 +382,7 @@ const FlightSchedulerGantt: FC<FlightSchedulerGanttProps> = ({
       <div className="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2.5">
           <h2 className="text-sm font-semibold text-slate-900">
-            Programmation graphique
+            Programme de vols
           </h2>
           <span className="inline-flex h-5 items-center rounded-md bg-slate-100 px-2 text-[11px] font-medium text-slate-600">
             {stats.total}
@@ -416,7 +416,7 @@ const FlightSchedulerGantt: FC<FlightSchedulerGanttProps> = ({
             <Plane className="h-5 w-5" />
           </div>
           <p className="mt-3 text-sm font-medium text-slate-700">
-            Aucun élément Gantt
+            Aucun vol programmé sur la période
           </p>
           <p className="mt-1 text-xs text-slate-500">
             Ajustez la recherche ou les filtres de statut.

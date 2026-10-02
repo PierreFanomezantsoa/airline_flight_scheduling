@@ -93,7 +93,7 @@ const MENU_SECTIONS: MenuSection[] = [
     items: [
       { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
       { id: 'users', label: 'Gestion des utilisateurs', icon: UserCog },
-      { id: 'scheduling', label: 'Ordonnancement des vols', icon: CalendarClock },
+      { id: 'scheduling', label: 'Programmation des vols', icon: CalendarClock },
       { id: 'aircraft', label: 'Gestion des avions', icon: Plane },
       { id: 'airports', label: 'Aéroports', icon: MapPin },
       { id: 'flights', label: 'Gestion des vols', icon: CalendarDays },

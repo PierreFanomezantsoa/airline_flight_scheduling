@@ -175,8 +175,8 @@ const SCREEN_META: Record<
     subtitle: 'Comptes, rôles et permissions',
   },
   scheduling: {
-    title: 'Ordonnancement des vols',
-    subtitle: 'Génération automatique et validation des rotations',
+    title: 'Programmation des vols',
+    subtitle: 'Génération, affectation et validation du programme de vols',
   },
   aircraft: {
     title: 'Gestion des avions',
