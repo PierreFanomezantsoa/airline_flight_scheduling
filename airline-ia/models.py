@@ -12,6 +12,7 @@ class Aircraft(db.Model):
     limiteHeuresMaintenance = db.Column(db.Float, nullable=True)
     heuresDepuisDerniereMaintenance = db.Column(db.Float, default=0)
     dateDerniereMaintenance = db.Column(db.DateTime(timezone=True), nullable=True)
+    statut = db.Column(db.String(50), default='Active')
 
 
 class MaintenanceSlot(db.Model):
@@ -39,3 +40,6 @@ class Flight(db.Model):
     
     avionId = db.Column(db.String(50), db.ForeignKey('aircrafts.id'), name='avionId', nullable=True)
     avion = db.relationship('Aircraft', foreign_keys=[avionId])
+    heuresComptabilisees = db.Column(db.Boolean, nullable=False, default=False)
+    heuresCreditees = db.Column(db.Float, nullable=True)
+    heuresComptabiliseesAt = db.Column(db.DateTime(timezone=True), nullable=True)

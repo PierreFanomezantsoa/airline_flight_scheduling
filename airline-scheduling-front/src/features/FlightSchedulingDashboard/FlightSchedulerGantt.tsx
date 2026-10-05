@@ -401,7 +401,7 @@ const FlightSchedulerGantt: FC<FlightSchedulerGanttProps> = ({
           </span>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="hidden flex-wrap items-center gap-3 sm:flex">
           <LegendDot className="bg-blue-500" label="Planifié" />
           <LegendDot className="bg-amber-500" label="En vol" />
           <LegendDot className="bg-orange-500" label="Retardé" />
@@ -423,13 +423,114 @@ const FlightSchedulerGantt: FC<FlightSchedulerGanttProps> = ({
           </p>
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <div className="min-w-362.5">
+        <div className="flex flex-col">
+          <div className="order-2 divide-y divide-slate-100 sm:hidden">
+            {ganttData.rows.map((row) => (
+              <div key={row.aircraftId} className="p-3">
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border ${
+                      row.aircraftId === 'UNASSIGNED'
+                        ? 'border-rose-200 bg-rose-50 text-rose-600'
+                        : 'border-emerald-200 bg-emerald-50 text-emerald-600'
+                    }`}
+                  >
+                    <Plane className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-slate-800">
+                      {row.aircraftRegistration}
+                    </p>
+                    <p className="mt-0.5 flex items-center gap-1 text-xs text-slate-500">
+                      <MapPin className="h-3 w-3 shrink-0" />
+                      <span className="truncate">
+                        {row.aircraftId === 'UNASSIGNED'
+                          ? 'Affectation requise'
+                          : row.currentPosition || row.base || 'Position à déterminer'}
+                      </span>
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-3 space-y-2">
+                  {row.items.map((item) => {
+                    const status = normalizeFlightStatus(item.status);
+                    const config = STATUS_CONFIG[status];
+                    const route =
+                      getRoute(item) ||
+                      `${item.origin ?? '?'} → ${item.destination ?? '?'}`;
+                    const assignment = assignmentLookup.get(item.flightId);
+                    const shiftMinutes =
+                      item.shiftMinutes ?? assignment?.shiftMinutes ?? 0;
+
+                    return (
+                      <article
+                        key={item.id}
+                        className={`rounded-lg border p-3 ${config.bg} ${config.border}`}
+                        title={buildItemTooltip(
+                          item,
+                          item.localStart ?? assignment?.localDeparture,
+                          item.localEnd ?? assignment?.localArrival,
+                          shiftMinutes,
+                        )}
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <h3 className={`min-w-0 truncate text-sm font-semibold ${config.text}`}>
+                            {item.flightNumber || item.label || 'Vol sans numéro'}
+                          </h3>
+                          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white/80 px-2 py-1 text-[11px] font-medium text-slate-700">
+                            <span className={`h-2 w-2 rounded-full ${config.dot}`} />
+                            {status}
+                          </span>
+                        </div>
+                        <p className="mt-2 break-words text-sm font-medium text-slate-700">
+                          {route}
+                        </p>
+                        <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-slate-600">
+                          <p>
+                            <span className="block text-[10px] font-medium uppercase tracking-wide text-slate-400">
+                              Départ
+                            </span>
+                            {formatDateTime(item.localStart ?? item.start)}
+                          </p>
+                          <p>
+                            <span className="block text-[10px] font-medium uppercase tracking-wide text-slate-400">
+                              Arrivée
+                            </span>
+                            {formatDateTime(item.localEnd ?? item.end)}
+                          </p>
+                        </div>
+                        {(item.durationMinutes != null || shiftMinutes > 0) && (
+                          <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
+                            {item.durationMinutes != null && (
+                              <span>Durée : {formatDuration(item.durationMinutes)}</span>
+                            )}
+                            {shiftMinutes > 0 && (
+                              <span className="font-semibold text-orange-700">
+                                Décalage : +{shiftMinutes} min
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </article>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="order-1 overflow-x-auto">
+          <p className="px-3 py-2 text-xs text-slate-500 sm:hidden">
+            Faites glisser le planning horizontalement pour consulter les horaires.
+          </p>
+          <div className="min-w-[34rem] sm:min-w-362.5">
             {/* EN-TÊTE TIMELINE */}
             <div className="sticky top-0 z-30 flex border-b border-slate-200 bg-slate-50">
-              <div className="sticky left-0 z-40 flex w-64 shrink-0 items-center border-r border-slate-200 bg-slate-50 px-4 py-3">
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                  APPAREIL / POSITION
+              <div className="sticky left-0 z-40 flex w-32 shrink-0 items-center border-r border-slate-200 bg-slate-50 px-2 py-3 sm:w-64 sm:px-4">
+                <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-400 sm:text-[11px] sm:tracking-wider">
+                  <span className="sm:hidden">Appareil</span>
+                  <span className="hidden sm:inline">APPAREIL / POSITION</span>
                 </span>
               </div>
               <div className="relative h-12 flex-1">
@@ -473,9 +574,9 @@ const FlightSchedulerGantt: FC<FlightSchedulerGanttProps> = ({
                   className="group flex items-center transition hover:bg-slate-50/60"
                 >
                   {/* CARTE APPAREIL */}
-                  <div className="sticky left-0 z-20 flex w-64 shrink-0 items-center gap-3 border-r border-slate-200 bg-white px-4 py-3 group-hover:bg-slate-50">
+                  <div className="sticky left-0 z-20 flex w-32 shrink-0 items-center gap-2 border-r border-slate-200 bg-white px-2 py-3 group-hover:bg-slate-50 sm:w-64 sm:gap-3 sm:px-4">
                     <div
-                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border ${
+                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border sm:h-9 sm:w-9 ${
                         row.aircraftId === 'UNASSIGNED'
                           ? 'border-rose-200 bg-rose-50 text-rose-600'
                           : 'border-emerald-200 bg-emerald-50 text-emerald-600'
@@ -484,7 +585,7 @@ const FlightSchedulerGantt: FC<FlightSchedulerGanttProps> = ({
                       <Plane className="h-4 w-4" />
                     </div>
                     <div className="min-w-0">
-                      <span className="block truncate text-xs font-semibold text-slate-800">
+                      <span className="block truncate text-[11px] font-semibold text-slate-800 sm:text-xs">
                         {row.aircraftRegistration}
                       </span>
                       {row.aircraftId === 'UNASSIGNED' ? (
@@ -495,13 +596,13 @@ const FlightSchedulerGantt: FC<FlightSchedulerGanttProps> = ({
                       ) : (
                         <>
                           {row.base && (
-                            <span className="mt-0.5 block truncate text-[10px] font-medium text-slate-500">
+                            <span className="mt-0.5 hidden truncate text-[10px] font-medium text-slate-500 sm:block">
                               Base <strong className="text-slate-600">{row.base}</strong>
                               {row.capacity ? ` · ${row.capacity} sièges` : ''}
                             </span>
                           )}
                           <span
-                            className={`mt-0.5 flex items-center gap-1 truncate text-[10px] font-medium ${
+                            className={`mt-0.5 flex items-center gap-1 truncate text-[9px] font-medium sm:text-[10px] ${
                               row.currentPosition ? 'text-emerald-700' : 'text-slate-400'
                             }`}
                           >
@@ -569,7 +670,7 @@ const FlightSchedulerGantt: FC<FlightSchedulerGanttProps> = ({
                       return (
                         <div
                           key={item.id}
-                          className={`group/item absolute bottom-2 top-2 flex min-w-31.25 cursor-pointer items-center justify-between overflow-hidden rounded-lg border px-2.5 shadow-sm transition-all duration-150 hover:z-30 hover:-translate-y-0.5 hover:shadow-md ${config.bg} ${config.border}`}
+                          className={`group/item absolute bottom-2 top-2 flex min-w-24 cursor-pointer items-center justify-between overflow-hidden rounded-lg border px-1.5 shadow-sm transition-all duration-150 hover:z-30 hover:-translate-y-0.5 hover:shadow-md sm:min-w-31.25 sm:px-2.5 ${config.bg} ${config.border}`}
                           style={{ left: `${left}%`, width: `${width}%` }}
                           title={buildItemTooltip(item, localStart, localEnd, shiftMinutes)}
                         >
@@ -580,7 +681,7 @@ const FlightSchedulerGantt: FC<FlightSchedulerGanttProps> = ({
                           <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5 pl-1.5">
                             <div className="flex min-w-0 items-center gap-1.5">
                               <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${config.dot}`} />
-                              <span className={`truncate text-[11px] font-semibold ${config.text}`}>
+                              <span className={`truncate text-[10px] font-semibold sm:text-[11px] ${config.text}`}>
                                 {item.flightNumber}
                               </span>
                               {shiftMinutes > 0 && (
@@ -594,7 +695,7 @@ const FlightSchedulerGantt: FC<FlightSchedulerGanttProps> = ({
                                 </span>
                               )}
                             </div>
-                            <div className="flex min-w-0 items-center justify-between gap-1 font-mono text-[9px] text-slate-600">
+                            <div className="hidden min-w-0 items-center justify-between gap-1 font-mono text-[9px] text-slate-600 sm:flex">
                               <span className="truncate">{route}</span>
                               <span className="shrink-0">
                                 {formatDuration(item.durationMinutes).replace(' min', '')}
@@ -608,6 +709,7 @@ const FlightSchedulerGantt: FC<FlightSchedulerGanttProps> = ({
                 </div>
               ))}
             </div>
+          </div>
           </div>
         </div>
       )}

@@ -131,7 +131,7 @@ const HELP_NAV_ITEMS: HelpNavItem[] = [
   { id: 'START', label: 'Bien démarrer', description: 'Connexion, navigation et rôles', icon: <BookOpen className="h-4 w-4" /> },
   { id: 'DASHBOARD', label: 'Tableau de bord', description: 'Indicateurs et suivi opérationnel', icon: <Gauge className="h-4 w-4" /> },
   { id: 'FLIGHTS', label: 'Vols', description: 'Création, modification et statuts', icon: <Plane className="h-4 w-4" /> },
-  { id: 'SCHEDULING', label: 'Planning', description: 'Rotations et scénarios', icon: <Layers className="h-4 w-4" /> },
+  { id: 'SCHEDULING', label: 'Programmation', description: 'Programme de vols et scénarios', icon: <Layers className="h-4 w-4" /> },
   { id: 'FLEET', label: 'Flotte', description: 'Appareils et disponibilité', icon: <PlaneTakeoff className="h-4 w-4" /> },
   { id: 'CREW', label: 'Équipages', description: 'Affectation et contrôle du repos', icon: <Users className="h-4 w-4" /> },
   { id: 'MAINTENANCE', label: 'Maintenance', description: 'Indisponibilités techniques', icon: <Wrench className="h-4 w-4" /> },
@@ -150,7 +150,7 @@ const START_GUIDES: GuideCardData[] = [
   {
     id: 'login',
     title: 'Se connecter à l’application',
-    description: 'Accéder à Airline Flight Scheduling avec votre compte.',
+    description: 'Accéder à l’application de programmation des vols de la compagnie.',
     icon: <Lock className="h-5 w-5" />,
     tone: 'bg-emerald-50 text-emerald-700',
     steps: [
@@ -170,7 +170,7 @@ const START_GUIDES: GuideCardData[] = [
     tone: 'bg-sky-50 text-sky-700',
     steps: [
       'Utilisez la barre latérale gauche pour changer de module sur ordinateur.',
-      'Sur mobile, utilisez la navigation située en bas de l’écran.',
+      'Sur mobile, ouvrez le menu avec le bouton situé en haut à gauche.',
       'Cliquez sur Tableau de bord pour retrouver la vue opérationnelle générale.',
       'Utilisez Aide et support lorsque vous avez besoin d’une procédure.',
       'Votre dernier écran peut être restauré lors de votre prochaine utilisation.',
@@ -183,8 +183,8 @@ const START_GUIDES: GuideCardData[] = [
     icon: <UserCog className="h-5 w-5" />,
     tone: 'bg-violet-50 text-violet-700',
     steps: [
-      'Administrateur : gestion générale, utilisateurs et configuration.',
-      'Planificateur : gestion des vols, flotte et construction du planning.',
+      'Administrateur : gestion des utilisateurs et supervision des opérations.',
+      'Planificateur : gestion des vols, de la flotte et du programme de vols.',
       'Régulateur / OCC : surveillance des opérations, conflits et perturbations.',
       'Ingénieur maintenance : disponibilité technique et interventions.',
       'Membre d’équipage : consultation et gestion des affectations autorisées.',
@@ -206,13 +206,13 @@ const DASHBOARD_GUIDES: GuideCardData[] = [
       'Retardés indique les vols actuellement en retard.',
       'En vol indique les opérations en cours.',
       'Annulés indique les vols annulés.',
-      'Le planning des rotations regroupe les vols selon les appareils affectés.',
+      'Le programme de vols regroupe les rotations selon les appareils affectés.',
     ],
   },
   {
     id: 'dashboard-filter',
     title: 'Rechercher et filtrer',
-    description: 'Retrouver rapidement un vol dans le planning.',
+    description: 'Retrouver rapidement un vol dans le programme de vols.',
     icon: <Search className="h-5 w-5" />,
     tone: 'bg-sky-50 text-sky-700',
     steps: [
@@ -245,11 +245,11 @@ const FLIGHT_GUIDES: GuideCardData[] = [
   {
     id: 'create-flight',
     title: 'Créer un nouveau vol',
-    description: 'Ajouter une nouvelle opération au planning.',
+    description: 'Ajouter un vol au programme de vols de la compagnie.',
     icon: <Plane className="h-5 w-5" />,
     tone: 'bg-emerald-50 text-emerald-700',
     steps: [
-      'Ouvrez Planification des Vols ou cliquez sur Nouveau vol.',
+      'Ouvrez Gestion des vols ou cliquez sur Planifier un vol.',
       'Saisissez le numéro du vol.',
       'Sélectionnez l’aéroport de départ.',
       'Sélectionnez l’aéroport d’arrivée.',
@@ -268,7 +268,7 @@ const FLIGHT_GUIDES: GuideCardData[] = [
     icon: <Settings className="h-5 w-5" />,
     tone: 'bg-sky-50 text-sky-700',
     steps: [
-      'Ouvrez le module Planification des Vols.',
+      'Ouvrez le module Gestion des vols.',
       'Recherchez le vol concerné.',
       'Cliquez sur Modifier.',
       'Changez les informations nécessaires.',
@@ -311,11 +311,11 @@ const SCHEDULING_GUIDES: GuideCardData[] = [
   {
     id: 'planning-read',
     title: 'Consulter les rotations',
-    description: 'Lire le planning organisé par appareil.',
+    description: 'Lire le programme de vols et les rotations par appareil.',
     icon: <Layers className="h-5 w-5" />,
     tone: 'bg-sky-50 text-sky-700',
     steps: [
-      'Ouvrez Ordonnancement ou consultez le planning depuis le tableau de bord.',
+      'Ouvrez Programmation des vols ou consultez les rotations depuis le tableau de bord.',
       'Chaque bloc appareil regroupe ses rotations.',
       'Les vols non affectés sont regroupés dans Non assigné.',
       'Consultez les heures de départ et d’arrivée.',
@@ -325,13 +325,13 @@ const SCHEDULING_GUIDES: GuideCardData[] = [
   {
     id: 'generate-planning',
     title: 'Générer un scénario',
-    description: 'Créer une proposition automatique de planning.',
+    description: 'Créer un scénario de programmation à partir des vols sélectionnés.',
     icon: <Sparkles className="h-5 w-5" />,
     tone: 'bg-violet-50 text-violet-700',
     steps: [
-      'Définissez la période concernée.',
-      'Lancez la génération du scénario.',
-      'Les vols planifiables sont analysés.',
+      'Sélectionnez les vols futurs à inclure dans le scénario.',
+      'Cliquez sur Générer le scénario.',
+      'Le système analyse les vols sélectionnés.',
       'Les appareils disponibles sont recherchés.',
       'Les contraintes de maintenance, disponibilité et positionnement sont contrôlées.',
       'Le système construit une proposition.',
@@ -343,7 +343,7 @@ const SCHEDULING_GUIDES: GuideCardData[] = [
   {
     id: 'validate-planning',
     title: 'Valider un scénario',
-    description: 'Vérifier un planning avant son application.',
+    description: 'Vérifier le programme proposé avant son application.',
     icon: <ShieldCheck className="h-5 w-5" />,
     tone: 'bg-emerald-50 text-emerald-700',
     steps: [
@@ -381,7 +381,7 @@ const FLEET_GUIDES: GuideCardData[] = [
     icon: <PlaneTakeoff className="h-5 w-5" />,
     tone: 'bg-emerald-50 text-emerald-700',
     steps: [
-      'Ouvrez Gestion de la Flotte.',
+      'Ouvrez Gestion des avions.',
       'Consultez la liste des appareils.',
       'Vérifiez l’immatriculation.',
       'Consultez le modèle.',
@@ -428,7 +428,7 @@ const CREW_GUIDES: GuideCardData[] = [
     icon: <Users className="h-5 w-5" />,
     tone: 'bg-sky-50 text-sky-700',
     steps: [
-      'Ouvrez Affectation des Équipages.',
+      'Ouvrez Affectation des équipages.',
       'Cliquez sur Nouvelle affectation.',
       'Sélectionnez le vol.',
       'Sélectionnez le membre.',
@@ -475,7 +475,7 @@ const MAINTENANCE_GUIDES: GuideCardData[] = [
     icon: <Wrench className="h-5 w-5" />,
     tone: 'bg-orange-50 text-orange-700',
     steps: [
-      'Ouvrez Planification Maintenance.',
+      'Ouvrez Planification maintenance.',
       'Sélectionnez l’appareil.',
       'Choisissez le type de maintenance.',
       'Renseignez le début de l’intervention.',
@@ -588,7 +588,7 @@ const HISTORY_GUIDES: GuideCardData[] = [
     icon: <History className="h-5 w-5" />,
     tone: 'bg-slate-100 text-slate-700',
     steps: [
-      'Ouvrez Historique des Vols.',
+      'Ouvrez Historique des vols.',
       'Utilisez la recherche pour retrouver un vol.',
       'Filtrez par statut.',
       'Choisissez une période si nécessaire.',
@@ -618,10 +618,10 @@ const HISTORY_GUIDES: GuideCardData[] = [
  * ========================================================================== */
 
 const FAQ_ITEMS: FAQItem[] = [
-  { id: 'faq1', category: 'Vols', question: 'Pourquoi mon vol apparaît-il comme Non assigné ?', answer: 'Cela signifie qu’aucun appareil n’est actuellement affecté au vol. Vous pouvez sélectionner un appareil disponible ou utiliser une proposition de planning.', keywords: ['non assigné', 'avion', 'affectation'] },
+  { id: 'faq1', category: 'Vols', question: 'Pourquoi mon vol apparaît-il comme Non assigné ?', answer: 'Cela signifie qu’aucun appareil n’est actuellement affecté au vol. Vous pouvez sélectionner un appareil disponible ou générer un scénario de programmation.', keywords: ['non assigné', 'avion', 'affectation'] },
   { id: 'faq2', category: 'Vols', question: 'Pourquoi l’heure d’arrivée est-elle refusée ?', answer: 'L’heure d’arrivée doit être postérieure à l’heure de départ. Vérifiez également les dates lorsque le vol traverse minuit.', keywords: ['heure', 'arrivée', 'départ'] },
-  { id: 'faq3', category: 'Planning', question: 'Quels vols sont utilisés lors d’une génération ?', answer: 'Les vols Planifiés et Retardés peuvent être utilisés. Les vols En vol, Effectués et Annulés sont exclus.', keywords: ['génération', 'planning', 'statut'] },
-  { id: 'faq4', category: 'Planning', question: 'L’optimisation modifie-t-elle automatiquement le planning ?', answer: 'Non. Elle propose des alternatives que l’utilisateur autorisé doit examiner et valider.', keywords: ['optimisation', 'automatique', 'validation'] },
+  { id: 'faq3', category: 'Programmation', question: 'Quels vols sont utilisés lors d’une génération ?', answer: 'Les vols Planifiés et Retardés peuvent être utilisés. Les vols En vol, Effectués et Annulés sont exclus.', keywords: ['génération', 'programme de vols', 'statut'] },
+  { id: 'faq4', category: 'Programmation', question: 'L’optimisation modifie-t-elle automatiquement le programme de vols ?', answer: 'Non. Elle propose des alternatives que l’utilisateur autorisé doit examiner et valider.', keywords: ['optimisation', 'automatique', 'validation'] },
   { id: 'faq5', category: 'Flotte', question: 'Pourquoi un avion ne peut-il pas être affecté ?', answer: 'Il peut être déjà utilisé, indisponible, en maintenance, hors service ou mal positionné.', keywords: ['avion', 'indisponible', 'maintenance'] },
   { id: 'faq6', category: 'Équipage', question: 'Pourquoi mon affectation équipage est-elle refusée ?', answer: 'Le membre peut déjà être affecté sur un autre vol ou ne pas respecter le temps de repos nécessaire.', keywords: ['équipage', 'repos', 'chevauchement'] },
   { id: 'faq7', category: 'Météo', question: 'La météo peut-elle annuler automatiquement un vol ?', answer: 'Non. Le système peut recommander une révision ou un retard, mais la décision finale reste manuelle.', keywords: ['météo', 'annulation', 'occ'] },
@@ -639,7 +639,7 @@ const SUPPORT_CATEGORY_LABELS: Record<SupportCategory, string> = {
   AUTH: 'Connexion',
   DASHBOARD: 'Tableau de bord',
   FLIGHTS: 'Vols',
-  SCHEDULING: 'Planning',
+  SCHEDULING: 'Programmation des vols',
   FLEET: 'Flotte',
   CREW: 'Équipages',
   MAINTENANCE: 'Maintenance',
@@ -848,9 +848,7 @@ const HelpSupportPage: React.FC = () => {
                   </span>
                 </div>
                 <p className="mt-1.5 max-w-2xl text-[13px] leading-6 text-slate-500">
-                  Toutes les procédures essentielles pour utiliser les vols, le
-                  planning, la flotte, les équipages, la maintenance, la météo
-                  et l’historique.
+                  Les repères essentiels pour programmer les vols, affecter les appareils et les équipages, anticiper les contraintes et suivre les opérations.
                 </p>
               </div>
             </div>
@@ -858,8 +856,8 @@ const HelpSupportPage: React.FC = () => {
             <div className="flex flex-wrap items-center gap-3">
               <HeroPill
                 icon={<BookOpen className="h-3.5 w-3.5" />}
-                value="10"
-                label="modules"
+                value={String(HELP_NAV_ITEMS.length)}
+                label="rubriques"
               />
               <HeroPill
                 icon={<HelpCircle className="h-3.5 w-3.5" />}
@@ -1195,7 +1193,7 @@ const HelpSupportPage: React.FC = () => {
             <SectionHeader
               icon={<Headphones className="h-4 w-4" />}
               title="Contacter le support"
-              subtitle="Décrivez le problème rencontré dans l’application"
+              subtitle="Décrivez le problème lié à un vol, une affectation ou une ressource opérationnelle"
             />
 
             <div className="grid lg:grid-cols-[minmax(0,1fr)_320px]">

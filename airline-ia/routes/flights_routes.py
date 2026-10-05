@@ -14,7 +14,7 @@ from flask import Blueprint, jsonify, request
 from sqlalchemy.orm import joinedload
 from werkzeug.exceptions import BadRequest
 
-from models import db, Flight
+from models import db, Aircraft, Flight
 
 from common.authorization import require_roles
 from common.datetime_utils import ensure_utc, format_to_local_time
@@ -106,6 +106,63 @@ def _safe_float(value, default: float = 0.0) -> float:
         return float(value)
     except (TypeError, ValueError):
         return default
+
+
+def _credit_completed_flight_hours(flight, reference_time: datetime) -> bool:
+    """Crédite les compteurs avion une seule fois après l'arrivée réelle."""
+    completed_statuses = {"effectué", "effectue", "completed", "done", "landed"}
+    if str(flight.statut or "").strip().casefold() not in completed_statuses:
+        return False
+
+    locked_flight = (
+        db.session.query(Flight)
+        .filter_by(id=flight.id)
+        .with_for_update()
+        .populate_existing()
+        .one_or_none()
+    )
+    if (
+        locked_flight is None
+        or locked_flight.heuresComptabilisees
+        or not locked_flight.avionId
+    ):
+        return False
+
+    departure = ensure_utc(locked_flight.heureDepart)
+    arrival = ensure_utc(locked_flight.heureArrivee)
+    if arrival > reference_time:
+        return False
+
+    flight_hours = (
+        (arrival - departure).total_seconds() / 3600
+        - max(0, _safe_float(locked_flight.dureeEscale)) / 60
+    )
+    if not flight_hours > 0:
+        return False
+    flight_hours = round(flight_hours, 3)
+
+    aircraft = (
+        db.session.query(Aircraft)
+        .filter_by(id=locked_flight.avionId)
+        .with_for_update()
+        .one_or_none()
+    )
+    if aircraft is None:
+        return False
+
+    aircraft.heuresDeVolTotales = (
+        _safe_float(aircraft.heuresDeVolTotales) + flight_hours
+    )
+    aircraft.heuresDepuisDerniereMaintenance = (
+        _safe_float(aircraft.heuresDepuisDerniereMaintenance) + flight_hours
+    )
+    maintenance_limit = _safe_float(aircraft.limiteHeuresMaintenance)
+    if maintenance_limit > 0 and aircraft.heuresDepuisDerniereMaintenance >= maintenance_limit:
+        aircraft.statut = "Maintenance"
+    locked_flight.heuresComptabilisees = True
+    locked_flight.heuresCreditees = flight_hours
+    locked_flight.heuresComptabiliseesAt = reference_time
+    return True
 
 
 # =============================================================================
@@ -286,6 +343,7 @@ def get_flights():
                 for flight in flights
             }
 
+        reference_time = datetime.now(timezone.utc)
         for flight in flights:
             dep_utc = ensure_utc(flight.heureDepart)
             arr_utc = ensure_utc(flight.heureArrivee)
@@ -320,6 +378,9 @@ def get_flights():
             if derived_status != current_status:
                 flight.statut = derived_status
                 current_status = derived_status
+                has_changes = True
+
+            if _credit_completed_flight_hours(flight, reference_time):
                 has_changes = True
 
             duration_minutes = None
@@ -1060,6 +1121,7 @@ def create_flight():
         )
 
         db.session.add(new_flight)
+        _credit_completed_flight_hours(new_flight, now_utc)
         db.session.commit()
 
         return jsonify({
@@ -1207,6 +1269,7 @@ def update_flight(id):
         flight.avionId = avion_id
         flight.statut = new_status
 
+        _credit_completed_flight_hours(flight, now_utc)
         db.session.commit()
 
         return jsonify({
