@@ -139,6 +139,9 @@ export interface AirportOption {
   active: boolean;
 }
 
+export const MIN_STOPOVER_DURATION_MINUTES = 45;
+const DEFAULT_STOPOVER_DURATION_MINUTES = 120;
+
 export type WeatherRiskLevel =
   | 'LOW'
   | 'MODERATE'
@@ -218,6 +221,8 @@ interface FlightAddModalProps {
   onSubmit: (formData: FlightFormData) => Promise<void>;
   fleetAircrafts: AircraftData[];
   isLoadingFleet: boolean;
+  fleetLoadError?: string | null;
+  onRetryFleet?: () => void;
   maintenanceSlots?: MaintenanceSlot[];
   initialData?: FlightFormData;
   editingFlightId?: string;
@@ -241,7 +246,7 @@ const INITIAL_FORM_STATE: FlightFormData = {
   numeroVol: '',
   aeroportDepart: '',
   aeroportEscale: '',
-  dureeEscale: 120,
+  dureeEscale: DEFAULT_STOPOVER_DURATION_MINUTES,
   aeroportArrivee: '',
   heureDepart: '',
   heureArrivee: '',
@@ -556,6 +561,17 @@ const getWeatherSourceBadge = (preview?: WeatherAIPreview | null) => {
   };
 };
 
+const getRouteDurationMinutes = (
+  originIata: string,
+  destinationIata: string,
+): number | null => {
+  const durationHours = DIRECT_ROUTES_AND_STOPS[originIata]?.[destinationIata];
+  if (durationHours === undefined || !Number.isFinite(durationHours) || durationHours <= 0) {
+    return null;
+  }
+  return Math.round(durationHours * 60);
+};
+
 const calculateArrival = (
   originIata: string,
   destinationIata: string,
@@ -571,13 +587,24 @@ const calculateArrival = (
     return '';
   }
 
-  const durationHours = DIRECT_ROUTES_AND_STOPS[originIata]?.[destinationIata];
-  if (durationHours === undefined) return '';
+  const durationMinutes = getRouteDurationMinutes(originIata, destinationIata);
+  if (durationMinutes === null) return '';
 
   const departureDate = new Date(departureIsoString);
   if (Number.isNaN(departureDate.getTime())) return '';
 
-  return new Date(departureDate.getTime() + durationHours * 60 * 60 * 1000).toISOString();
+  return new Date(departureDate.getTime() + durationMinutes * 60_000).toISOString();
+};
+
+const formatDurationMinutes = (durationMinutes: number): string => {
+  const hours = Math.floor(durationMinutes / 60);
+  const minutes = durationMinutes % 60;
+  return [
+    hours > 0 ? `${hours} h` : '',
+    minutes > 0 ? `${minutes} min` : '',
+  ]
+    .filter(Boolean)
+    .join(' ') || '0 min';
 };
 
 interface SearchableSelectOption {
@@ -762,13 +789,17 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
   onSubmit,
   fleetAircrafts,
   isLoadingFleet,
+  fleetLoadError,
+  onRetryFleet,
   maintenanceSlots = [],
   initialData,
   editingFlightId,
 }) => {
   const [newFlight, setNewFlight] = useState<FlightFormData>(INITIAL_FORM_STATE);
   const [selectedStop, setSelectedStop] = useState('');
-  const [layoverHours, setLayoverHours] = useState(2);
+  const [layoverMinutes, setLayoverMinutes] = useState(
+    DEFAULT_STOPOVER_DURATION_MINUTES,
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [airports, setAirports] = useState<AirportOption[]>([]);
   const [isLoadingAirports, setIsLoadingAirports] = useState(false);
@@ -852,12 +883,16 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
       setSelectedStop(stop);
 
       if (initialData.dureeEscale) {
-        setLayoverHours(Math.max(1, Math.round(initialData.dureeEscale / 60)));
+        setLayoverMinutes(
+          Math.max(MIN_STOPOVER_DURATION_MINUTES, initialData.dureeEscale),
+        );
+      } else {
+        setLayoverMinutes(DEFAULT_STOPOVER_DURATION_MINUTES);
       }
     } else {
       setNewFlight({ ...INITIAL_FORM_STATE });
       setSelectedStop('');
-      setLayoverHours(2);
+      setLayoverMinutes(DEFAULT_STOPOVER_DURATION_MINUTES);
     }
   }, [isOpen, initialData]);
 
@@ -961,14 +996,20 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
     return airports
       .map((airport) => airport.iata)
       .filter((hub) => hub !== origin && hub !== destination)
-      .map((hub) => ({
-        hub,
-        totalDuration:
-          (DIRECT_ROUTES_AND_STOPS[origin]?.[hub] ?? Number.POSITIVE_INFINITY) +
-          (DIRECT_ROUTES_AND_STOPS[hub]?.[destination] ?? Number.POSITIVE_INFINITY),
-      }))
-      .filter((candidate) => Number.isFinite(candidate.totalDuration))
-      .sort((left, right) => left.totalDuration - right.totalDuration)
+      .flatMap((hub) => {
+        const firstLegDuration = getRouteDurationMinutes(origin, hub);
+        const secondLegDuration = getRouteDurationMinutes(hub, destination);
+        return firstLegDuration !== null && secondLegDuration !== null
+          ? [{ hub, firstLegDuration, secondLegDuration }]
+          : [];
+      })
+      .sort(
+        (left, right) =>
+          left.firstLegDuration +
+          left.secondLegDuration -
+          right.firstLegDuration -
+          right.secondLegDuration,
+      )
       .map((candidate) => candidate.hub);
   }, [airports, newFlight.aeroportDepart, newFlight.aeroportArrivee]);
 
@@ -978,37 +1019,118 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
 
   const routeCalculation = useMemo(() => {
     const { aeroportDepart, aeroportArrivee, heureDepart, numeroVol } = newFlight;
+    const emptyRoute = {
+      calculatedArrival: '',
+      generatedLegs: [] as FlightLegData[],
+      firstLegArrival: '',
+      secondLegDeparture: '',
+      firstLegDurationMinutes: null as number | null,
+      secondLegDurationMinutes: null as number | null,
+      totalDurationMinutes: null as number | null,
+      error: '',
+    };
 
     if (!aeroportDepart || !aeroportArrivee || !heureDepart) {
-      return { calculatedArrival: '', generatedLegs: [] as FlightLegData[] };
+      return emptyRoute;
     }
 
     if (!selectedStop) {
       if (isDirectRoute) {
+        const directDurationMinutes = getRouteDurationMinutes(
+          aeroportDepart,
+          aeroportArrivee,
+        );
+        const calculatedArrival = calculateArrival(
+          aeroportDepart,
+          aeroportArrivee,
+          heureDepart,
+          airports,
+        );
         return {
-          calculatedArrival: calculateArrival(
-            aeroportDepart,
-            aeroportArrivee,
-            heureDepart,
-            airports,
-          ),
-          generatedLegs: [] as FlightLegData[],
+          ...emptyRoute,
+          calculatedArrival,
+          firstLegDurationMinutes: directDurationMinutes,
+          totalDurationMinutes: directDurationMinutes,
+          error: calculatedArrival ? '' : 'La durée du trajet direct est indisponible.',
         };
       }
-      return { calculatedArrival: '', generatedLegs: [] as FlightLegData[] };
+      return {
+        ...emptyRoute,
+        error:
+          suggestedStops.length === 0
+            ? 'Aucun itinéraire avec escale disponible pour ce trajet.'
+            : 'Sélectionnez une escale pour calculer cet itinéraire.',
+      };
     }
 
-    const leg1Arrival = calculateArrival(aeroportDepart, selectedStop, heureDepart, airports);
-    if (!leg1Arrival) {
-      return { calculatedArrival: '', generatedLegs: [] as FlightLegData[] };
+    if (!suggestedStops.includes(selectedStop)) {
+      return {
+        ...emptyRoute,
+        error: 'Cette escale ne relie pas les deux tronçons configurés du trajet.',
+      };
     }
 
-    const leg1ArrivalDate = new Date(leg1Arrival);
-    const leg2DepartureDate = new Date(
-      leg1ArrivalDate.getTime() + layoverHours * 3600 * 1000,
+    if (
+      !Number.isFinite(layoverMinutes) ||
+      !Number.isInteger(layoverMinutes) ||
+      layoverMinutes < MIN_STOPOVER_DURATION_MINUTES ||
+      layoverMinutes > 24 * 60
+    ) {
+      return {
+        ...emptyRoute,
+        error:
+          `La durée d’escale doit être comprise entre ` +
+          `${MIN_STOPOVER_DURATION_MINUTES} minutes et 24 heures.`,
+      };
+    }
+
+    const firstLegDurationMinutes = getRouteDurationMinutes(
+      aeroportDepart,
+      selectedStop,
     );
-    const leg2Departure = leg2DepartureDate.toISOString();
-    const leg2Arrival = calculateArrival(selectedStop, aeroportArrivee, leg2Departure, airports);
+    const secondLegDurationMinutes = getRouteDurationMinutes(
+      selectedStop,
+      aeroportArrivee,
+    );
+    const firstLegArrival = calculateArrival(
+      aeroportDepart,
+      selectedStop,
+      heureDepart,
+      airports,
+    );
+    if (
+      firstLegDurationMinutes === null ||
+      secondLegDurationMinutes === null ||
+      !firstLegArrival
+    ) {
+      return {
+        ...emptyRoute,
+        error: 'Impossible de calculer les durées des deux tronçons.',
+      };
+    }
+
+    const firstLegArrivalDate = new Date(firstLegArrival);
+    const secondLegDeparture = new Date(
+      firstLegArrivalDate.getTime() + layoverMinutes * 60_000,
+    ).toISOString();
+    const secondLegArrival = calculateArrival(
+      selectedStop,
+      aeroportArrivee,
+      secondLegDeparture,
+      airports,
+    );
+    const totalDurationMinutes =
+      firstLegDurationMinutes + layoverMinutes + secondLegDurationMinutes;
+    if (
+      !secondLegArrival ||
+      new Date(secondLegDeparture).getTime() <= firstLegArrivalDate.getTime() ||
+      new Date(secondLegArrival).getTime() <= new Date(secondLegDeparture).getTime()
+    ) {
+      return {
+        ...emptyRoute,
+        error: 'Les horaires calculés pour les tronçons ne sont pas cohérents.',
+      };
+    }
 
     const baseFlightNumber = numeroVol || 'FL';
 
@@ -1018,19 +1140,29 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
         aeroportDepart,
         aeroportArrivee: selectedStop,
         heureDepart,
-        heureArrivee: leg1Arrival,
+        heureArrivee: firstLegArrival,
       },
       {
         numeroVol: `${baseFlightNumber}-B`,
         aeroportDepart: selectedStop,
         aeroportArrivee,
-        heureDepart: leg2Departure,
-        heureArrivee: leg2Arrival,
+        heureDepart: secondLegDeparture,
+        heureArrivee: secondLegArrival,
       },
     ];
 
-    return { calculatedArrival: leg2Arrival, generatedLegs };
-  }, [newFlight, selectedStop, layoverHours, isDirectRoute, airports]);
+    return {
+      ...emptyRoute,
+      calculatedArrival: secondLegArrival,
+      generatedLegs,
+      firstLegArrival,
+      secondLegDeparture,
+      firstLegDurationMinutes,
+      secondLegDurationMinutes,
+      totalDurationMinutes,
+      error: '',
+    };
+  }, [newFlight, selectedStop, layoverMinutes, isDirectRoute, airports, suggestedStops]);
 
   /* SYNC ROUTE */
   useEffect(() => {
@@ -1044,7 +1176,7 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
         : previous.aeroportEscale || '';
       const isStopSame = previousStop === selectedStop;
 
-      const expectedDuration = selectedStop ? layoverHours * 60 : undefined;
+      const expectedDuration = selectedStop ? layoverMinutes : undefined;
       const isDurationSame = previous.dureeEscale === expectedDuration;
 
       if (isArrivalSame && areLegsSame && isStopSame && isDurationSame) {
@@ -1059,7 +1191,7 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
         legs: routeCalculation.generatedLegs,
       };
     });
-  }, [routeCalculation, selectedStop, layoverHours]);
+  }, [routeCalculation, selectedStop, layoverMinutes]);
 
   /* PAST DATE */
   const isPastDate = useMemo(() => {
@@ -1248,7 +1380,9 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
    * ======================================================================= */
 
   const fleetWithStatus = useMemo(() => {
-    const { heureDepart, heureArrivee } = newFlight;
+    const heureDepart = newFlight.heureDepart;
+    const heureArrivee =
+      routeCalculation.calculatedArrival || newFlight.heureArrivee;
     const hasDates = Boolean(heureDepart && heureArrivee);
 
     return fleetAircrafts.map((rawAircraft) => {
@@ -1325,6 +1459,7 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
     isEdition,
     newFlight.heureDepart,
     newFlight.heureArrivee,
+    routeCalculation,
   ]);
 
   const selectedAircraft = useMemo(() => {
@@ -1342,22 +1477,30 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
   const validationError = useMemo(() => {
     if (timeZoneError) return timeZoneError;
 
-    if (
-      !isDirectRoute &&
-      !selectedStop &&
-      newFlight.aeroportDepart &&
-      newFlight.aeroportArrivee
-    ) {
-      return (
-        `Absence de liaison directe entre ` +
-        `${newFlight.aeroportDepart} et ${newFlight.aeroportArrivee}. ` +
-        `Veuillez sélectionner une escale.`
-      );
+    if (newFlight.aeroportDepart && newFlight.aeroportArrivee) {
+      if (!isDirectRoute && suggestedStops.length === 0) {
+        return 'Aucun itinéraire avec escale disponible pour ce trajet.';
+      }
+      if (routeCalculation.error) return routeCalculation.error;
+      if (
+        selectedStop &&
+        (selectedStop === newFlight.aeroportDepart ||
+          selectedStop === newFlight.aeroportArrivee ||
+          !suggestedStops.includes(selectedStop))
+      ) {
+        return 'Sélectionnez une escale valide entre le départ et la destination.';
+      }
     }
 
-    if (newFlight.heureDepart && newFlight.heureArrivee) {
+    if (flightAvailabilityError) {
+      return `Disponibilité des vols inconnue : ${flightAvailabilityError}`;
+    }
+
+    const calculatedArrival =
+      routeCalculation.calculatedArrival || newFlight.heureArrivee;
+    if (newFlight.heureDepart && calculatedArrival) {
       const departure = new Date(newFlight.heureDepart);
-      const arrival = new Date(newFlight.heureArrivee);
+      const arrival = new Date(calculatedArrival);
 
       if (Number.isNaN(departure.getTime()) || Number.isNaN(arrival.getTime())) {
         return 'Les dates de départ ou d’arrivée sont invalides.';
@@ -1414,6 +1557,9 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
     newFlight.aeroportDepart,
     newFlight.aeroportArrivee,
     timeZoneError,
+    routeCalculation,
+    suggestedStops,
+    flightAvailabilityError,
     newFlight.heureDepart,
     newFlight.heureArrivee,
     isDirectRoute,
@@ -1437,6 +1583,10 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
     try {
       const finalFlightData: FlightFormData = {
         ...newFlight,
+        aeroportEscale: selectedStop || undefined,
+        dureeEscale: selectedStop ? layoverMinutes : undefined,
+        heureArrivee: routeCalculation.calculatedArrival,
+        legs: routeCalculation.generatedLegs,
         status: isPastDate ? 'Annulé' : newFlight.status || 'Planifié',
         motifAnnulation: isPastDate
           ? 'Date de départ dépassée à la création'
@@ -1711,29 +1861,92 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
                   </div>
                 ) : (
                   <p className="text-[10px] font-semibold leading-4 text-rose-700">
-                    Aucune escale configurée avec des durées connues pour les deux tronçons. Ajoutez les liaisons correspondantes au réseau avant de planifier ce trajet.
+                        Aucun itinéraire avec escale disponible pour ce trajet.
                   </p>
                 )}
               </div>
 
               {selectedStop && (
                 <div className="flex items-center justify-between gap-3 border-t border-slate-200 pt-2">
-                  <label className="text-[9px] font-bold text-slate-600">
-                    Durée de l’escale
-                  </label>
-                  <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2">
-                    <input
-                      type="number"
-                      min={1}
-                      max={24}
-                      value={layoverHours}
-                      onChange={(event) =>
-                        setLayoverHours(Math.max(1, Number(event.target.value)))
-                      }
-                      className="h-8 w-10 text-center text-xs font-black text-slate-900 outline-none"
-                    />
-                    <span className="text-[9px] font-bold text-slate-400">h</span>
-                  </div>
+                <label
+                  htmlFor="flight-stopover-duration"
+                  className="text-[9px] font-bold text-slate-600"
+                >
+                  Durée de l’escale (minimum {MIN_STOPOVER_DURATION_MINUTES} min)
+                </label>
+                <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2">
+                  <input
+                    id="flight-stopover-duration"
+                    type="number"
+                    min={MIN_STOPOVER_DURATION_MINUTES}
+                    max={24 * 60}
+                    step={15}
+                    value={layoverMinutes}
+                    onChange={(event) =>
+                      setLayoverMinutes(Number(event.target.value))
+                    }
+                    className="h-8 w-14 text-center text-xs font-black text-slate-900 outline-none"
+                  />
+                  <span className="text-[9px] font-bold text-slate-400">min</span>
+                </div>
+                </div>
+              )}
+
+              {selectedStop && routeCalculation.generatedLegs.length === 2 && (
+                <div className="space-y-2 border-t border-slate-200 pt-2 text-[9px]">
+                <div className="rounded-lg bg-white/80 p-2">
+                  <p className="font-black text-slate-800">
+                    {newFlight.aeroportDepart} → {selectedStop}
+                  </p>
+                  <p className="mt-1 text-slate-600">
+                    Départ{' '}
+                    {formatDateTimeInTimezone(
+                      newFlight.heureDepart,
+                      originAirport?.timezone,
+                    ).replace('T', ' ')}
+                    {' · '}durée{' '}
+                    {formatDurationMinutes(
+                      routeCalculation.firstLegDurationMinutes ?? 0,
+                    )}
+                  </p>
+                  <p className="text-slate-600">
+                    Arrivée à l’escale{' '}
+                    {formatDateTimeInTimezone(
+                      routeCalculation.firstLegArrival,
+                      airports.find((airport) => airport.iata === selectedStop)
+                        ?.timezone,
+                    ).replace('T', ' ')}
+                  </p>
+                </div>
+                <div className="rounded-lg bg-white/80 p-2">
+                  <p className="font-black text-slate-800">
+                    Escale {selectedStop} → {newFlight.aeroportArrivee}
+                  </p>
+                  <p className="mt-1 text-slate-600">
+                    Durée au sol {formatDurationMinutes(layoverMinutes)}
+                    {' · '}reprise{' '}
+                    {formatDateTimeInTimezone(
+                      routeCalculation.secondLegDeparture,
+                      airports.find((airport) => airport.iata === selectedStop)
+                        ?.timezone,
+                    ).replace('T', ' ')}
+                  </p>
+                  <p className="text-slate-600">
+                    Durée du tronçon{' '}
+                    {formatDurationMinutes(
+                      routeCalculation.secondLegDurationMinutes ?? 0,
+                    )}
+                    {' · '}arrivée finale{' '}
+                    {formatDateTimeInTimezone(
+                      routeCalculation.calculatedArrival,
+                      destinationAirport?.timezone,
+                    ).replace('T', ' ')}
+                  </p>
+                </div>
+                <p className="text-right font-bold text-slate-700">
+                  Durée totale du voyage :{' '}
+                  {formatDurationMinutes(routeCalculation.totalDurationMinutes ?? 0)}
+                </p>
                 </div>
               )}
             </div>
@@ -1838,15 +2051,25 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
             <SearchableSelect
               id="flight-aircraft"
               label="Appareil assigné"
-                            hasError={Boolean(selectedAircraft?.flightConflict)}
+              hasError={Boolean(selectedAircraft?.flightConflict || fleetLoadError)}
               value={newFlight.avionId}
               options={aircraftOptions}
-              placeholder="Sélectionner un appareil…"
+              placeholder={
+                isLoadingFleet
+                  ? 'Chargement de la flotte…'
+                  : fleetAircrafts.length === 0
+                    ? 'Aucun appareil disponible'
+                    : 'Sélectionner un appareil…'
+              }
               searchPlaceholder="Rechercher une immatriculation ou un modèle…"
               disabled={
                 isLoadingFleet ||
                 isLoadingExistingFlights ||
-                (!isDirectRoute && !selectedStop)
+                Boolean(fleetLoadError) ||
+                Boolean(flightAvailabilityError) ||
+                fleetAircrafts.length === 0 ||
+                (!isDirectRoute && !selectedStop) ||
+                Boolean(selectedStop && !suggestedStops.includes(selectedStop))
               }
               icon={<Plane className="h-4 w-4" />}
               onChange={(value) =>
@@ -1856,6 +2079,30 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
                 }))
               }
             />
+            {fleetLoadError ? (
+              <div className="mt-2 flex items-center justify-between gap-2 rounded-lg border border-rose-200 bg-rose-50 p-2">
+                <p className="text-[9px] leading-4 text-rose-800">{fleetLoadError}</p>
+                {onRetryFleet && (
+                  <button
+                    type="button"
+                    onClick={onRetryFleet}
+                    disabled={isLoadingFleet}
+                    className="inline-flex shrink-0 items-center gap-1 rounded-md bg-white px-2 py-1 text-[10px] font-semibold text-rose-700 ring-1 ring-rose-200 hover:bg-rose-100 disabled:opacity-50"
+                  >
+                    <RefreshCw className={`h-3 w-3 ${isLoadingFleet ? 'animate-spin' : ''}`} />
+                    Réessayer
+                  </button>
+                )}
+              </div>
+            ) : !isLoadingFleet && fleetAircrafts.length === 0 ? (
+              <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-2 text-[9px] leading-4 text-amber-800">
+                Aucun appareil n’est enregistré dans la flotte.
+              </p>
+            ) : !isDirectRoute && !selectedStop ? (
+              <p className="mt-2 text-[9px] leading-4 text-slate-500">
+                Sélectionnez d’abord une escale pour activer l’affectation.
+              </p>
+            ) : null}
             {flightAvailabilityError && (
               <div className="mt-2 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-2">
                 <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />

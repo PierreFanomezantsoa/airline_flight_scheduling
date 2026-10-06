@@ -13,6 +13,10 @@ from models import db, Flight, Aircraft
 from common.authorization import require_roles
 from common.datetime_utils import ensure_utc
 from common.status_utils import normalize_status
+from services.flights.helpers import (
+    flight_hours_for_maintenance,
+    is_aircraft_operational,
+)
 
 try:
     from data.airports import get_airport_timezone
@@ -39,13 +43,6 @@ DEFAULT_MAINTENANCE_WARNING_HOURS = 10.0
 
 # Limite de sécurité pour éviter une explosion mémoire sur gros volumes.
 MAX_FLIGHTS_PER_REQUEST = 2000
-
-ACTIVE_AIRCRAFT_STATUSES = {
-    "ACTIVE",
-    "ACTIF",
-    "AVAILABLE",
-    "DISPONIBLE",
-}
 
 # Statuts qui n'ont plus besoin d'être planifiés.
 # IMPORTANT : on garde "EN VOL" / "IN-FLIGHT" pour qu'ils apparaissent
@@ -123,13 +120,6 @@ def aircraft_base(aircraft: Aircraft) -> Optional[str]:
     return str(value).strip().upper()
 
 
-def is_aircraft_operational(aircraft: Aircraft) -> bool:
-    status = normalize_status(getattr(aircraft, "statut", "Active"))
-    if not status:
-        return True
-    return status in ACTIVE_AIRCRAFT_STATUSES
-
-
 def get_local_iso(
     dt: Optional[datetime],
     airport_code: Optional[str],
@@ -153,27 +143,6 @@ def get_local_iso(
         # On garde le fallback UTC mais on n'avale pas silencieusement
         # les erreurs inattendues : elles sont converties en ISO UTC.
         return dt_utc.isoformat()
-
-
-def flight_duration_minutes(flight: Flight) -> Optional[int]:
-    dep = ensure_utc(getattr(flight, "heureDepart", None))
-    arr = ensure_utc(getattr(flight, "heureArrivee", None))
-    if not dep or not arr or arr <= dep:
-        return None
-    return int(round((arr - dep).total_seconds() / 60))
-
-
-def flight_hours_for_maintenance(flight: Flight) -> Optional[float]:
-    """Calcule les heures de vol à créditer, hors durée d'escale."""
-    duration_minutes = flight_duration_minutes(flight)
-    if duration_minutes is None:
-        return None
-    stopover_minutes = safe_int(
-        getattr(flight, "dureeEscale", 0),
-        default=0,
-        minimum=0,
-    )
-    return max(0.0, (duration_minutes - stopover_minutes) / 60.0)
 
 
 def aircraft_maintenance_limit(aircraft: Aircraft) -> Optional[float]:
@@ -250,8 +219,10 @@ def maintenance_slots_for_aircrafts_bulk(
     pour l'ensemble des avions donnés.
     """
     MaintenanceSlot = _get_maintenance_model()
-    if MaintenanceSlot is None or not aircraft_ids:
+    if not aircraft_ids:
         return {aid: [] for aid in aircraft_ids}
+    if MaintenanceSlot is None:
+        raise RuntimeError("Le modèle des créneaux de maintenance est indisponible.")
 
     try:
         # Détecter le nom du champ côté modèle
@@ -262,12 +233,16 @@ def maintenance_slots_for_aircrafts_bulk(
             aircraft_field_name = "avionId"
 
         if aircraft_field_name is None:
-            return {aid: [] for aid in aircraft_ids}
+            raise RuntimeError(
+                "Le modèle de maintenance ne référence aucun identifiant d'appareil."
+            )
 
         if not hasattr(MaintenanceSlot, "startTime") or not hasattr(
             MaintenanceSlot, "endTime"
         ):
-            return {aid: [] for aid in aircraft_ids}
+            raise RuntimeError(
+                "Le modèle de maintenance ne définit pas ses bornes horaires."
+            )
 
         aircraft_col = getattr(MaintenanceSlot, aircraft_field_name)
 
@@ -284,8 +259,15 @@ def maintenance_slots_for_aircrafts_bulk(
         }
 
         for slot in slots:
-            if str(getattr(slot, "status", "") or "").upper() in {
-                "CANCELLED", "CANCELED", "CANCELLE", "COMPLETED", "TERMINE",
+            if normalize_status(getattr(slot, "status", None)) in {
+                "CANCELLED",
+                "CANCELED",
+                "CANCELLE",
+                "ANNULE",
+                "ANNULÉ",
+                "COMPLETED",
+                "TERMINE",
+                "TERMINÉ",
             }:
                 continue
             aid = str(getattr(slot, aircraft_field_name, "") or "")
@@ -296,8 +278,10 @@ def maintenance_slots_for_aircrafts_bulk(
             result.setdefault(aid, []).append((start, end))
 
         return result
-    except Exception:
-        return {aid: [] for aid in aircraft_ids}
+    except Exception as exc:
+        raise RuntimeError(
+            "Impossible de charger les créneaux de maintenance des appareils."
+        ) from exc
 
 
 # =============================================================================
@@ -351,7 +335,7 @@ def _candidate_is_feasible(
             return False, "AIRCRAFT_MAINTENANCE"
 
     limit_hours = aircraft_maintenance_limit(aircraft)
-    if limit_hours is not None and projected_hours > limit_hours:
+    if limit_hours is not None and projected_hours >= limit_hours:
         return False, "MAINTENANCE_DUE"
 
     # 2) Autres legs déjà alloués à cet avion

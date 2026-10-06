@@ -22,6 +22,8 @@ from services.flights.helpers import (
     normalize_stopover_storage,
     parse_stopover_duration,
     check_aircraft_conflict,
+    flight_hours_for_maintenance,
+    validate_aircraft_maintenance,
     build_route_string,
     build_legs_payload,
 )
@@ -133,11 +135,8 @@ def _credit_completed_flight_hours(flight, reference_time: datetime) -> bool:
     if arrival > reference_time:
         return False
 
-    flight_hours = (
-        (arrival - departure).total_seconds() / 3600
-        - max(0, _safe_float(locked_flight.dureeEscale)) / 60
-    )
-    if not flight_hours > 0:
+    flight_hours = flight_hours_for_maintenance(locked_flight)
+    if flight_hours is None or not flight_hours > 0:
         return False
     flight_hours = round(flight_hours, 3)
 
@@ -1042,6 +1041,17 @@ def create_flight():
 
         avion_id = data.get("avionId") or None
 
+        maintenance_issue = validate_aircraft_maintenance(
+            avion_id,
+            dep_time,
+            arr_time,
+            stopover_airports=stopover_airport,
+            stopover_minutes=stopover_duration,
+        )
+        if maintenance_issue:
+            issue, status_code = maintenance_issue
+            return jsonify({"status": "error", **issue}), status_code
+
         # ---------------------------------------------------------------
         # Conflit avion
         # ---------------------------------------------------------------
@@ -1196,6 +1206,18 @@ def update_flight(id):
         stopover_duration = parse_stopover_duration(data)
 
         avion_id = data.get("avionId") or None
+
+        maintenance_issue = validate_aircraft_maintenance(
+            avion_id,
+            dep_time,
+            arr_time,
+            stopover_airports=stopover_airport,
+            stopover_minutes=stopover_duration,
+            current_flight_id=id,
+        )
+        if maintenance_issue:
+            issue, status_code = maintenance_issue
+            return jsonify({"status": "error", **issue}), status_code
 
         conflicting_flight = check_aircraft_conflict(
             avion_id,

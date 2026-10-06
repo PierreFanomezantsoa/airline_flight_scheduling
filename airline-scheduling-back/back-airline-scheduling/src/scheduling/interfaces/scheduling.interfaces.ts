@@ -6,6 +6,7 @@ import {
 export interface FlightCandidate {
   numeroVol: string;
   aeroportDepart: string;
+  aeroportEscale?: string | null;
   aeroportArrivee: string;
   heureDepart: Date;
   heureArrivee: Date;

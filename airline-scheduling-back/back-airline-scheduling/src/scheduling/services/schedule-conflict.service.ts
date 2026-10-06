@@ -462,27 +462,45 @@ export class ScheduleConflictService {
   }
 
   private calculateCandidateFlightHours(candidate: FlightCandidate): number {
-    const elapsedHours = Math.max(
-      0,
-      (candidate.heureArrivee.getTime() - candidate.heureDepart.getTime()) /
-        3_600_000,
+    return this.calculateFlightHours(
+      candidate.heureDepart,
+      candidate.heureArrivee,
+      candidate.aeroportEscale,
+      candidate.dureeEscaleMinutes,
     );
-
-    const layoverHours =
-      Math.max(0, Number(candidate.dureeEscaleMinutes || 0)) / 60;
-
-    return Math.max(0, elapsedHours - layoverHours);
   }
 
   private calculateStoredFlightHours(flight: Flight): number {
+    return this.calculateFlightHours(
+      flight.heureDepart,
+      flight.heureArrivee,
+      flight.aeroportEscale,
+      flight.dureeEscale,
+    );
+  }
+
+  private calculateFlightHours(
+    departure: Date,
+    arrival: Date,
+    stopoverAirports?: string | null,
+    stopoverDurationMinutes?: number | null,
+  ): number {
     const elapsedHours = Math.max(
       0,
-      (flight.heureArrivee.getTime() - flight.heureDepart.getTime()) /
-        3_600_000,
+      (arrival.getTime() - departure.getTime()) / 3_600_000,
     );
+    const hasStopover = (stopoverAirports ?? '')
+      .split(',')
+      .some((airport) => airport.trim().length > 0);
 
-    const layoverHours = Math.max(0, Number(flight.dureeEscale || 0)) / 60;
-    return Math.max(0, elapsedHours - layoverHours);
+    if (!hasStopover) return elapsedHours;
+
+    const rawStopoverMinutes = Number(stopoverDurationMinutes ?? 0);
+    const stopoverHours = Number.isFinite(rawStopoverMinutes)
+      ? Math.min(elapsedHours, Math.max(0, rawStopoverMinutes) / 60)
+      : 0;
+
+    return Math.max(0, elapsedHours - stopoverHours);
   }
 
   private async detectCrewConflicts(): Promise<ScheduleConflict[]> {
@@ -553,6 +571,7 @@ export class ScheduleConflictService {
     return {
       numeroVol: flight.numeroVol,
       aeroportDepart: flight.aeroportDepart,
+      aeroportEscale: flight.aeroportEscale,
       aeroportArrivee: flight.aeroportArrivee,
       heureDepart: flight.heureDepart,
       heureArrivee: flight.heureArrivee,
@@ -566,7 +585,7 @@ export class ScheduleConflictService {
       id: `candidate:${candidate.numeroVol}`,
       numeroVol: candidate.numeroVol,
       aeroportDepart: candidate.aeroportDepart,
-      aeroportEscale: null,
+      aeroportEscale: candidate.aeroportEscale ?? null,
       dureeEscale: candidate.dureeEscaleMinutes ?? null,
       aeroportArrivee: candidate.aeroportArrivee,
       heureDepart: candidate.heureDepart,

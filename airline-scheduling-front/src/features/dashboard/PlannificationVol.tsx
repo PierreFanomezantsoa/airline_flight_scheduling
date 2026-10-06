@@ -1,6 +1,6 @@
 // src/features/dashboard/PlannificationVol.tsx
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { FC, ReactNode } from 'react';
 import {
   CalendarClock,
@@ -168,18 +168,38 @@ const getStatusTone = (status: FlightStatus): StatusTone =>
 /** Filtres statiques */
 const FILTERS: ReadonlyArray<readonly [StatusFilter, string]> = [
   ['ALL', 'Tous'],
-  ['Scheduled', 'Planifiés'],
-  ['Delayed', 'Retardés'],
-  ['In-Flight', 'En vol'],
+  ['Planifié', 'Planifiés'],
+  ['Retardé', 'Retardés'],
+  ['En Vol', 'En vol'],
   ['Effectué', 'Effectués'],
-  ['Cancelled', 'Annulés'],
+  ['Annulé', 'Annulés'],
   ['UNASSIGNED', 'Non assignés'],
 ];
+
+const normalizeStatus = (status: FlightStatus): string => {
+  const normalized = String(status)
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/[_-]/g, ' ');
+
+  if (['SCHEDULED', 'PLANIFIE', 'ON TIME', 'PONCTUEL'].includes(normalized)) {
+    return 'PLANIFIE';
+  }
+  if (['DELAYED', 'RETARDE', 'SHIFTED'].includes(normalized)) return 'RETARDE';
+  if (['IN FLIGHT', 'EN VOL'].includes(normalized)) return 'EN VOL';
+  if (['COMPLETED', 'DONE', 'LANDED', 'EFFECTUE'].includes(normalized)) {
+    return 'EFFECTUE';
+  }
+  if (['CANCELLED', 'CANCELED', 'ANNULE'].includes(normalized)) return 'ANNULE';
+  return normalized;
+};
 
 const matchesFilter = (flight: Flight, filter: StatusFilter) => {
   if (filter === 'ALL') return true;
   if (filter === 'UNASSIGNED') return flight.aircraft === UNASSIGNED_AIRCRAFT;
-  return flight.status === filter;
+  return normalizeStatus(flight.status) === normalizeStatus(filter);
 };
 
 /** Extrait l'heure « HH:MM » et le jour « JJ/MM » d'une date déjà formatée « JJ/MM HH:MM ». */
@@ -473,6 +493,29 @@ export const FlightPlanning: FC<FlightPlanningProps> = ({
 }) => {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [referenceDate, setReferenceDate] = useState(() => new Date());
+  const startOfPreviousMonth = new Date(
+    referenceDate.getFullYear(),
+    referenceDate.getMonth() - 1,
+    1,
+  ).getTime();
+
+  useEffect(() => {
+    const now = new Date();
+    const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const timeout = window.setTimeout(
+      () => setReferenceDate(new Date()),
+      Math.max(0, nextMonth.getTime() - now.getTime()),
+    );
+    return () => window.clearTimeout(timeout);
+  }, [referenceDate]);
+
+  const flightsInDateRange = useMemo(() => {
+    return flights.filter((flight) => {
+      const departure = new Date(flight.departure).getTime();
+      return Number.isFinite(departure) && departure >= startOfPreviousMonth;
+    });
+  }, [flights, startOfPreviousMonth]);
 
   /* ---------------------------------------------------------------------- */
   /* COMPTEURS PAR FILTRE                                                   */
@@ -481,10 +524,13 @@ export const FlightPlanning: FC<FlightPlanningProps> = ({
   const filterCounts = useMemo(() => {
     const counts = new Map<StatusFilter, number>();
     FILTERS.forEach(([value]) => {
-      counts.set(value, flights.filter((flight) => matchesFilter(flight, value)).length);
+      counts.set(
+        value,
+        flightsInDateRange.filter((flight) => matchesFilter(flight, value)).length,
+      );
     });
     return counts;
-  }, [flights]);
+  }, [flightsInDateRange]);
 
   /* ---------------------------------------------------------------------- */
   /* FLIGHTS FILTRÉS                                                        */
@@ -493,7 +539,7 @@ export const FlightPlanning: FC<FlightPlanningProps> = ({
   const filteredFlights = useMemo(() => {
     const needle = searchQuery.trim().toLowerCase();
 
-    return flights
+    return flightsInDateRange
       .filter((flight) => matchesFilter(flight, statusFilter))
       .filter((flight) => {
         if (!needle) return true;
@@ -509,7 +555,7 @@ export const FlightPlanning: FC<FlightPlanningProps> = ({
           .some((value) => String(value).toLowerCase().includes(needle));
       })
       .sort((a, b) => new Date(a.departure).getTime() - new Date(b.departure).getTime());
-  }, [flights, searchQuery, statusFilter]);
+  }, [flightsInDateRange, searchQuery, statusFilter]);
 
   /* ---------------------------------------------------------------------- */
   /* GROUPES PAR AÉRONEF                                                    */
@@ -536,7 +582,9 @@ export const FlightPlanning: FC<FlightPlanningProps> = ({
     [fleetAircrafts],
   );
 
-  const activeFilterCount = (statusFilter !== 'ALL' ? 1 : 0) + (searchQuery.trim() ? 1 : 0);
+  const activeFilterCount =
+    (statusFilter !== 'ALL' ? 1 : 0) +
+    (searchQuery.trim() ? 1 : 0);
 
   const aircraftWithFlightsCount = flightsByAircraft.filter(
     ([key]) => key !== UNASSIGNED_AIRCRAFT,
@@ -615,47 +663,47 @@ export const FlightPlanning: FC<FlightPlanningProps> = ({
           )}
         </div>
 
-        <div className="flex items-center gap-2 overflow-x-auto [scrollbar-width:none]">
-          <span className="hidden shrink-0 items-center gap-1.5 text-sm font-medium text-slate-500 sm:inline-flex">
-            <Filter className="h-4 w-4 text-slate-400" />
-            Filtrer :
-          </span>
+        <div className="flex min-w-0 items-center gap-2 overflow-x-auto [scrollbar-width:none]">
+            <span className="hidden shrink-0 items-center gap-1.5 text-sm font-medium text-slate-500 sm:inline-flex">
+              <Filter className="h-4 w-4 text-slate-400" />
+              Filtrer :
+            </span>
 
-          {FILTERS.map(([value, label]) => {
-            const active = statusFilter === value;
-            const isUnassignedFilter = value === 'UNASSIGNED';
+            {FILTERS.map(([value, label]) => {
+              const active = statusFilter === value;
+              const isUnassignedFilter = value === 'UNASSIGNED';
 
-            return (
+              return (
+                <button
+                  type="button"
+                  key={value}
+                  onClick={() => setStatusFilter(value)}
+                  aria-pressed={active}
+                  title={`${filterCounts.get(value) ?? 0} vol(s)`}
+                  className={`h-9 shrink-0 cursor-pointer rounded-full px-4 text-sm font-medium transition ${FOCUS_RING} ${
+                    active
+                      ? isUnassignedFilter
+                        ? 'bg-rose-600 font-semibold text-white shadow-sm shadow-rose-600/25'
+                        : 'bg-emerald-600 font-semibold text-white shadow-sm shadow-emerald-600/25'
+                      : 'bg-slate-100 text-slate-600 hover:bg-emerald-50 hover:text-emerald-700'
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+
+            {activeFilterCount > 0 && (
               <button
                 type="button"
-                key={value}
-                onClick={() => setStatusFilter(value)}
-                aria-pressed={active}
-                title={`${filterCounts.get(value) ?? 0} vol(s)`}
-                className={`h-9 shrink-0 cursor-pointer rounded-full px-4 text-sm font-medium transition ${FOCUS_RING} ${
-                  active
-                    ? isUnassignedFilter
-                      ? 'bg-rose-600 font-semibold text-white shadow-sm shadow-rose-600/25'
-                      : 'bg-emerald-600 font-semibold text-white shadow-sm shadow-emerald-600/25'
-                    : 'bg-slate-100 text-slate-600 hover:bg-emerald-50 hover:text-emerald-700'
-                }`}
+                onClick={resetFilters}
+                aria-label="Réinitialiser les filtres"
+                title="Réinitialiser les filtres"
+                className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
               >
-                {label}
+                <X className="h-4 w-4" />
               </button>
-            );
-          })}
-
-          {activeFilterCount > 0 && (
-            <button
-              type="button"
-              onClick={resetFilters}
-              aria-label="Réinitialiser les filtres"
-              title="Réinitialiser les filtres"
-              className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
+            )}
         </div>
       </div>
 

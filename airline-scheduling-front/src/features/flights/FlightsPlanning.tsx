@@ -31,7 +31,7 @@ import {
 } from 'lucide-react';
 
 import { FlightAddModal, type FlightFormData } from '../dashboard/FlightAddModal';
-import { getAuthSession } from '../Api/apiService';
+import { authFetch, getAuthSession } from '../Api/apiService';
 
 /* ============================================================================
  * CONFIGURATION API — Deux backends distincts
@@ -251,19 +251,6 @@ async function fetchPython(
   options: RequestInit = {},
 ): Promise<Response> {
   return fetch(`${PYTHON_BASE_URL}${path}`, {
-    ...options,
-    headers: buildHeaders(options.headers),
-  });
-}
-
-/**
- * Fetch vers l'API NestJS (/fleet/*) avec gestion d'erreur.
- */
-async function fetchNestjs(
-  path: string,
-  options: RequestInit = {},
-): Promise<Response> {
-  return fetch(`${API_BASE_URL}${path}`, {
     ...options,
     headers: buildHeaders(options.headers),
   });
@@ -673,6 +660,7 @@ const MobileFlightCard: FC<MobileFlightCardProps> = ({
 export const FlightsPlanning: FC = () => {
   const [flights, setFlights] = useState<Flight[]>([]);
   const [fleet, setFleet] = useState<AircraftData[]>([]);
+  const [fleetLoadError, setFleetLoadError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingFlight, setEditingFlight] = useState<Flight | null>(null);
   const [loadingFlights, setLoadingFlights] = useState(true);
@@ -773,13 +761,33 @@ export const FlightsPlanning: FC = () => {
   const fetchFleet = useCallback(async (signal?: AbortSignal) => {
     try {
       setLoadingFleet(true);
-      const response = await fetchNestjs('/fleet/aircrafts', { signal });
-      if (!response.ok) throw new Error('Impossible de récupérer la flotte.');
-      const data = await response.json();
-      setFleet(Array.isArray(data) ? data : []);
+      setFleetLoadError(null);
+      const response = await authFetch('/fleet/aircrafts', { signal });
+      if (!response.ok) {
+        throw new Error(`Impossible de récupérer la flotte (HTTP ${response.status}).`);
+      }
+      const data: unknown = await response.json();
+      if (
+        !Array.isArray(data) ||
+        !data.every(
+          (aircraft): aircraft is AircraftData =>
+            typeof aircraft === 'object' &&
+            aircraft !== null &&
+            'id' in aircraft &&
+            typeof aircraft.id === 'string',
+        )
+      ) {
+        throw new Error('La réponse du serveur ne contient pas une liste d’appareils.');
+      }
+      setFleet(data);
     } catch (error: unknown) {
       if (error instanceof DOMException && error.name === 'AbortError') return;
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Erreur inconnue lors du chargement de la flotte.';
       console.error('Erreur flotte :', error);
+      setFleetLoadError(message);
     } finally {
       setLoadingFleet(false);
     }
@@ -1648,6 +1656,8 @@ export const FlightsPlanning: FC = () => {
         onSubmit={handleFormSubmit}
         fleetAircrafts={fleet}
         isLoadingFleet={loadingFleet}
+        fleetLoadError={fleetLoadError}
+        onRetryFleet={() => void fetchFleet()}
         initialData={
           editingFlight
             ? {

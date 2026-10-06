@@ -422,6 +422,119 @@ describe('Règles métier OCC - planification des vols', () => {
   );
 
   it(
+    'RG05a - compte toute la durée d’un vol sans escale même si une durée d’escale est renseignée',
+    async () => {
+      const aircraft = makeAircraft({
+        heuresDepuisDerniereMaintenance: 97,
+        limiteHeuresMaintenance: 100,
+      });
+      const flight = makeFlight(
+        'f-direct',
+        'AFK502',
+        '2026-08-20T08:00:00+03:00',
+        '2026-08-20T12:00:00+03:00',
+        'TNR',
+        'CDG',
+        aircraft,
+      );
+      flight.dureeEscale = 120;
+
+      (flightRepository.find as jest.Mock).mockResolvedValue([flight]);
+
+      const conflicts = await service.detectAll();
+      const maintenanceConflict = conflicts.find(
+        (conflict) => conflict.type === ScheduleConflictType.MAINTENANCE_DUE,
+      );
+
+      expect(maintenanceConflict).toEqual(
+        expect.objectContaining({
+          blocking: true,
+          metadata: expect.objectContaining({ candidateHours: 4 }),
+        }),
+      );
+    },
+  );
+
+  it(
+    'RG05c - bloque un vol qui atteint exactement la limite de maintenance',
+    async () => {
+      const aircraft = makeAircraft({
+        heuresDepuisDerniereMaintenance: 99,
+        limiteHeuresMaintenance: 100,
+      });
+      const flight = makeFlight(
+        'f-exact-limit',
+        'AFK504',
+        '2026-08-20T08:00:00+03:00',
+        '2026-08-20T09:00:00+03:00',
+        'TNR',
+        'CDG',
+        aircraft,
+      );
+
+      (flightRepository.find as jest.Mock).mockResolvedValue([flight]);
+
+      const conflicts = await service.detectAll();
+
+      expect(conflicts).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            type: ScheduleConflictType.MAINTENANCE_DUE,
+            blocking: true,
+            metadata: expect.objectContaining({
+              projectedHours: 100,
+              limitHours: 100,
+            }),
+          }),
+        ]),
+      );
+    },
+  );
+
+  it(
+    'RG05b - retire le temps au sol uniquement pour un vol avec escale',
+    async () => {
+      const aircraft = makeAircraft({
+        heuresDepuisDerniereMaintenance: 97,
+        limiteHeuresMaintenance: 100,
+      });
+      const flight = makeFlight(
+        'f-stopover',
+        'AFK503',
+        '2026-08-20T08:00:00+03:00',
+        '2026-08-20T12:00:00+03:00',
+        'TNR',
+        'CDG',
+        aircraft,
+      );
+      flight.aeroportEscale = 'RUN';
+      flight.dureeEscale = 120;
+
+      (flightRepository.find as jest.Mock).mockResolvedValue([flight]);
+
+      const conflicts = await service.detectAll();
+      const maintenanceWarning = conflicts.find(
+        (conflict) =>
+          conflict.type === ScheduleConflictType.MAINTENANCE_DUE &&
+          !conflict.blocking,
+      );
+
+      expect(maintenanceWarning).toEqual(
+        expect.objectContaining({
+          metadata: expect.objectContaining({ candidateHours: 2 }),
+        }),
+      );
+      expect(
+        conflicts.some(
+          (conflict) =>
+            conflict.type === ScheduleConflictType.MAINTENANCE_DUE &&
+            conflict.blocking,
+        ),
+      ).toBe(false);
+    },
+  );
+
+  it(
     'RG06 - interdit un vol pendant un créneau de maintenance planifié',
     async () => {
       const aircraft = makeAircraft();
