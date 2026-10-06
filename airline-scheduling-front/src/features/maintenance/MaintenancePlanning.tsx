@@ -1051,7 +1051,19 @@ export const MaintenancePlanning: React.FC = () => {
           />
         ) : (
           <>
-            <div className="overflow-x-auto">
+            <div className="space-y-3 p-3 md:hidden">
+              {paginatedSlots.map((slot) => (
+                <SlotMobileCard
+                  key={slot.id}
+                  slot={slot}
+                  onDelete={openDeleteModal}
+                  onExtend={handleExtend}
+                  onClose={handleCloseSlot}
+                />
+              ))}
+            </div>
+
+            <div className="hidden overflow-x-auto md:block">
               <table className="w-full border-collapse text-left">
                 <thead>
                   <tr className="border-b border-slate-100">
@@ -1088,7 +1100,7 @@ export const MaintenancePlanning: React.FC = () => {
             </div>
 
             {/* PAGINATION */}
-            <div className="flex flex-col gap-3 border-t border-slate-100 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-3 border-t border-slate-100 px-4 py-4 sm:px-6 md:flex-row md:items-center md:justify-between">
               <div className="flex items-center gap-2 text-xs text-slate-500">
                 <span>Affichage</span>
                 <span className="inline-flex h-7 items-center rounded-md border border-slate-200 bg-white px-2 font-medium text-slate-700">
@@ -1540,28 +1552,6 @@ function SlotTableRow({ slot, onDelete, onExtend, onClose }: SlotTableRowProps) 
   const registration = getAircraftRegistration(targetAircraft);
   const model = getAircraftModel(targetAircraft);
   const isOrphan = !slot.aircraft;
-  const isPending = isPendingReview(slot);
-
-  const [extending, setExtending] = useState(false);
-  const [closing, setClosing] = useState(false);
-
-  const handleExtend = async () => {
-    setExtending(true);
-    try {
-      await onExtend(slot.id, 1);
-    } finally {
-      setExtending(false);
-    }
-  };
-
-  const handleClose = async () => {
-    setClosing(true);
-    try {
-      await onClose(slot.id);
-    } finally {
-      setClosing(false);
-    }
-  };
 
   return (
     <tr className="group border-b border-slate-100 transition-colors hover:bg-slate-50/60">
@@ -1625,49 +1615,201 @@ function SlotTableRow({ slot, onDelete, onExtend, onClose }: SlotTableRowProps) 
       </td>
 
       <td className="px-4 py-3.5">
-        <div className="flex items-center justify-end gap-1">
-          {isPending && (
-            <>
-              <button
-                type="button"
-                onClick={() => void handleExtend()}
-                disabled={extending}
-                className="inline-flex h-8 items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
-                title="Prolonger de 1 jour"
-              >
-                {extending ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                ) : (
-                  <CalendarPlus className="h-3 w-3" />
-                )}
-                +1j
-              </button>
-              <button
-                type="button"
-                onClick={() => void handleClose()}
-                disabled={closing}
-                className="inline-flex h-8 items-center gap-1 rounded-md bg-emerald-600 px-2.5 text-[11px] font-medium text-white transition hover:bg-emerald-700 disabled:opacity-50"
-              >
-                {closing ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                ) : (
-                  <Flag className="h-3 w-3" />
-                )}
-                Clôturer
-              </button>
-            </>
-          )}
-          <button
-            type="button"
-            onClick={() => onDelete(slot)}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
-            title="Annuler ce créneau"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </button>
-        </div>
+        <SlotActions
+          slot={slot}
+          onDelete={onDelete}
+          onExtend={onExtend}
+          onClose={onClose}
+        />
       </td>
     </tr>
+  );
+}
+
+function SlotMobileCard({ slot, onDelete, onExtend, onClose }: SlotTableRowProps) {
+  const statusInfo = getStatusVisual(slot);
+  const targetAircraft = slot.aircraft as AircraftLike | undefined;
+  const registration = getAircraftRegistration(targetAircraft);
+  const model = getAircraftModel(targetAircraft);
+  const isOrphan = !slot.aircraft;
+  const dateFormat: Intl.DateTimeFormatOptions = {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  };
+  const timeFormat: Intl.DateTimeFormatOptions = {
+    hour: '2-digit',
+    minute: '2-digit',
+  };
+
+  return (
+    <article className="min-w-0 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+      <div className="flex min-w-0 items-start justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
+            <Plane className="h-4 w-4" />
+          </div>
+          <div className="min-w-0">
+            <p
+              className={`truncate font-mono text-sm font-semibold ${
+                isOrphan ? 'text-slate-400 line-through' : 'text-slate-900'
+              }`}
+            >
+              {registration}
+            </p>
+            <p className="truncate text-xs text-slate-500">{model}</p>
+          </div>
+        </div>
+        <span
+          className={`${BADGE} shrink-0 ${statusInfo.className}`}
+          aria-label={`Statut : ${statusInfo.label}`}
+        >
+          <span className={`h-1.5 w-1.5 rounded-full ${statusInfo.dot}`} />
+          {statusInfo.label}
+        </span>
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <div className="min-w-0 rounded-lg bg-slate-50 p-2">
+          <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
+            Type
+          </p>
+          <span className={`mt-1 ${BADGE} ${getTypeVisual(slot.maintenanceType)}`}>
+            {slot.maintenanceType === 'Aircraft On Ground'
+              ? 'AOG'
+              : slot.maintenanceType}
+          </span>
+        </div>
+        <div className="min-w-0 rounded-lg bg-slate-50 p-2">
+          <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
+            Durée
+          </p>
+          <p className="mt-1 text-xs font-semibold text-slate-700">
+            {calculateDurationInDays(slot.startTime, slot.endTime)}{' '}
+            {calculateDurationInDays(slot.startTime, slot.endTime) > 1 ? 'jours' : 'jour'}
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-2 rounded-lg border border-slate-100 p-2">
+        <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
+          Période d’immobilisation
+        </p>
+        <div className="mt-1 flex min-w-0 flex-col gap-1 text-xs sm:flex-row sm:items-center sm:justify-between">
+          <p className="min-w-0 text-slate-700">
+            <span className="font-medium">Du </span>
+            {new Date(slot.startTime).toLocaleDateString('fr-FR', dateFormat)}
+            {' · '}
+            {new Date(slot.startTime).toLocaleTimeString('fr-FR', timeFormat)}
+          </p>
+          <p className="min-w-0 text-slate-700">
+            <span className="font-medium">Au </span>
+            {new Date(slot.endTime).toLocaleDateString('fr-FR', dateFormat)}
+            {' · '}
+            {new Date(slot.endTime).toLocaleTimeString('fr-FR', timeFormat)}
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-3 border-t border-slate-100 pt-2">
+        <SlotActions
+          slot={slot}
+          onDelete={onDelete}
+          onExtend={onExtend}
+          onClose={onClose}
+          mobile
+        />
+      </div>
+    </article>
+  );
+}
+
+interface SlotActionsProps {
+  slot: MaintenanceSlot;
+  onDelete: (slot: MaintenanceSlot) => void;
+  onExtend: (slotId: string, days: number) => Promise<void> | void;
+  onClose: (slotId: string) => Promise<void> | void;
+  mobile?: boolean;
+}
+
+function SlotActions({
+  slot,
+  onDelete,
+  onExtend,
+  onClose,
+  mobile = false,
+}: SlotActionsProps) {
+  const [extending, setExtending] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const isPending = isPendingReview(slot);
+
+  const handleExtend = async () => {
+    setExtending(true);
+    try {
+      await onExtend(slot.id, 1);
+    } finally {
+      setExtending(false);
+    }
+  };
+
+  const handleClose = async () => {
+    setClosing(true);
+    try {
+      await onClose(slot.id);
+    } finally {
+      setClosing(false);
+    }
+  };
+
+  return (
+    <div className={`flex items-center ${mobile ? 'w-full gap-2' : 'justify-end gap-1'}`}>
+      {isPending && (
+        <>
+          <button
+            type="button"
+            onClick={() => void handleExtend()}
+            disabled={extending || closing}
+            className={`inline-flex h-8 items-center justify-center gap-1 rounded-md border border-slate-200 bg-white text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-50 ${
+              mobile ? 'flex-1 px-2' : 'px-2.5'
+            }`}
+            title="Prolonger de 1 jour"
+          >
+            {extending ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <CalendarPlus className="h-3 w-3" />
+            )}
+            +1 jour
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleClose()}
+            disabled={closing || extending}
+            className={`inline-flex h-8 items-center justify-center gap-1 rounded-md bg-emerald-600 text-[11px] font-medium text-white transition hover:bg-emerald-700 disabled:opacity-50 ${
+              mobile ? 'flex-1 px-2' : 'px-2.5'
+            }`}
+          >
+            {closing ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <Flag className="h-3 w-3" />
+            )}
+            Clôturer
+          </button>
+        </>
+      )}
+      <button
+        type="button"
+        onClick={() => onDelete(slot)}
+        aria-label="Annuler ce créneau"
+        className={`inline-flex h-8 items-center justify-center rounded-md text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 ${
+          mobile ? 'w-9 shrink-0 border border-slate-200' : 'w-8'
+        }`}
+        title="Annuler ce créneau"
+      >
+        <Trash2 className="h-3.5 w-3.5" />
+      </button>
+    </div>
   );
 }
 
