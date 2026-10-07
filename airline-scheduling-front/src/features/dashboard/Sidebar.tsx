@@ -312,7 +312,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         )}
 
         <Icon
-          className={`h-[18px] w-[18px] shrink-0 transition-colors ${
+          className={`h-4.5 w-4.5 shrink-0 transition-colors ${
             isActive ? 'text-emerald-600' : 'text-slate-400 group-hover:text-slate-600'
           }`}
         />
@@ -355,7 +355,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onClick={() => toggleSection(section.id)}
                 aria-expanded={isOpen}
                 aria-controls={sectionId}
-                className="mb-1 flex w-full cursor-pointer items-center justify-between rounded-lg px-3 py-1 text-[10.5px] font-bold uppercase tracking-[0.1em] text-slate-400 transition hover:text-slate-600"
+                className="mb-1 flex w-full cursor-pointer items-center justify-between rounded-lg px-3 py-1 text-[10.5px] font-bold uppercase tracking-widest text-slate-400 transition hover:text-slate-600"
               >
                 <span className="truncate">{section.label}</span>
                 <ChevronDown
@@ -414,7 +414,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         collapsed ? 'h-10 justify-center' : 'h-9 gap-3 px-3'
       }`}
     >
-      <LogOut className="h-[18px] w-[18px] shrink-0 text-slate-400 transition group-hover:text-rose-500" />
+      <LogOut className="h-4.5 w-4.5 shrink-0 text-slate-400 transition group-hover:text-rose-500" />
       {!collapsed && <span>Déconnexion</span>}
     </button>
   );
@@ -606,7 +606,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Navigation */}
         <nav
-          className={`flex-1 overflow-y-auto overflow-x-hidden py-4 [scrollbar-width:thin] ${
+          className={`flex-1 overflow-y-auto overflow-x-hidden py-4 scrollbar-thin ${
             isCollapsed ? 'px-3' : 'px-3'
           }`}
           aria-label="Navigation principale"
