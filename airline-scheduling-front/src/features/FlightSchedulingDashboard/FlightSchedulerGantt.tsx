@@ -483,7 +483,7 @@ const FlightSchedulerGantt: FC<FlightSchedulerGanttProps> = ({
                             {status}
                           </span>
                         </div>
-                        <p className="mt-2 break-words text-sm font-medium text-slate-700">
+                        <p className="mt-2 wrap-break-word text-sm font-medium text-slate-700">
                           {route}
                         </p>
                         <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-slate-600">
@@ -524,7 +524,7 @@ const FlightSchedulerGantt: FC<FlightSchedulerGanttProps> = ({
           <p className="px-3 py-2 text-xs text-slate-500 sm:hidden">
             Faites glisser le planning horizontalement pour consulter les horaires.
           </p>
-          <div className="min-w-[34rem] sm:min-w-362.5">
+          <div className="min-w-136 sm:min-w-362.5">
             {/* EN-TÊTE TIMELINE */}
             <div className="sticky top-0 z-30 flex border-b border-slate-200 bg-slate-50">
               <div className="sticky left-0 z-40 flex w-32 shrink-0 items-center border-r border-slate-200 bg-slate-50 px-2 py-3 sm:w-64 sm:px-4">
