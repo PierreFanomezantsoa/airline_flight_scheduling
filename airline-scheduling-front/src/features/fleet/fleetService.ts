@@ -13,7 +13,7 @@ export interface Aircraft {
   capacity: number;
   maintenanceHoursLimit: number;
   totalFlightHours: number;
-  status: 'Active' | 'Maintenance' | 'Out of Service' | 'Retired';
+  aircraftStatus: 'Active' | 'Maintenance' | 'Out of Service' | 'Retired';
   homeBase?: string;
   aircraftType?: {
     modelName?: string;
@@ -27,7 +27,7 @@ export interface CreateAircraftDto {
   capacity: number;
   maintenanceHoursLimit: number;
   totalFlightHours: number;
-  status: 'Active' | 'Maintenance' | 'Out of Service' | 'Retired';
+  aircraftStatus: 'Active' | 'Maintenance' | 'Out of Service' | 'Retired';
   homeBase?: string;
 }
 
@@ -49,7 +49,7 @@ interface BackendAircraft {
   capacity: number;
   maintenanceHoursLimit: number;
   totalFlightHours: number;
-  status: 'Active' | 'Maintenance' | 'Out of Service' | 'Retired';
+  aircraftStatus: 'Active' | 'Maintenance' | 'Out of Service' | 'Retired';
   homeBase?: string | null;
 }
 
@@ -115,7 +115,7 @@ class FleetService {
       capacity: data.capacity,
       maintenanceHoursLimit: data.maintenanceHoursLimit,
       totalFlightHours: data.totalFlightHours,
-      status: data.status,
+      aircraftStatus: data.aircraftStatus,
       homeBase: data.homeBase || undefined,
     };
   }
@@ -169,7 +169,7 @@ class FleetService {
         capacity: dto.capacity,
         maintenanceHoursLimit: dto.maintenanceHoursLimit,
         totalFlightHours: dto.totalFlightHours,
-        status: dto.status,
+        aircraftStatus: dto.aircraftStatus,
         homeBase: dto.homeBase,
       }),
     });

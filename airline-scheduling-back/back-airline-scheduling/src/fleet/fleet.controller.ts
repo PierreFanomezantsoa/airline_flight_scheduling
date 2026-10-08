@@ -31,12 +31,22 @@ export class FleetController {
   @Get('aircrafts/statistics')
   statistics() { return this.fleetService.statistics(); }
 
-  @Get('aircrafts/status/:status')
-  findByStatus(@Param('status') status: string) {
-    if (!Object.values(AircraftStatus).includes(status as AircraftStatus)) {
-      throw new BadRequestException(`Statut d'aircraft invalide: ${status}`);
+  @Get('aircrafts/aircraft-status/:aircraftStatus')
+  findByAircraftStatus(
+    @Param('aircraftStatus') aircraftStatus: string,
+  ) {
+    if (
+      !Object.values(AircraftStatus).includes(
+        aircraftStatus as AircraftStatus,
+      )
+    ) {
+      throw new BadRequestException(
+        `Statut d'aircraft invalide: ${aircraftStatus}`,
+      );
     }
-    return this.fleetService.findByStatus(status as AircraftStatus);
+    return this.fleetService.findByAircraftStatus(
+      aircraftStatus as AircraftStatus,
+    );
   }
 
   @Get('aircrafts/home-base/:base')

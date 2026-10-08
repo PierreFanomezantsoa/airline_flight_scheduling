@@ -91,7 +91,7 @@ class FlightMaintenanceRulesTest(unittest.TestCase):
         aircraft = SimpleNamespace(
             refAircraft="aircraft-1",
             registration="5R-ABC",
-            status="Active",
+            aircraftStatus="Active",
             maintenanceHoursLimit=100,
             hoursSinceMaintenance=99,
         )
@@ -104,7 +104,7 @@ class FlightMaintenanceRulesTest(unittest.TestCase):
             arrivalAirportCode="RUN",
             departureTime=departure,
             arrivalTime=departure + timedelta(hours=1),
-            status="Scheduled",
+            flightStatus="Scheduled",
         )
 
         with patch(
@@ -135,7 +135,7 @@ class FlightMaintenanceRulesTest(unittest.TestCase):
                     refAircraft="aircraft-1",
                     model="A320",
                     registration="5R-ABC",
-                    status="Active",
+                    aircraftStatus="Active",
                 )
                 db.session.add(aircraft)
                 db.session.add(
@@ -144,7 +144,7 @@ class FlightMaintenanceRulesTest(unittest.TestCase):
                         refAircraft=aircraft.refAircraft,
                         startTime=datetime(2026, 1, 1, 9, tzinfo=timezone.utc),
                         endTime=datetime(2026, 1, 1, 10, tzinfo=timezone.utc),
-                        status="Planned",
+                        maintenanceStatus="Planned",
                     )
                 )
                 db.session.commit()
@@ -178,7 +178,7 @@ class FlightMaintenanceRulesTest(unittest.TestCase):
                     refAircraft="aircraft-1",
                     model="A320",
                     registration="5R-ABC",
-                    status="Active",
+                    aircraftStatus="Active",
                     hoursSinceMaintenance=99,
                     maintenanceHoursLimit=100,
                 )

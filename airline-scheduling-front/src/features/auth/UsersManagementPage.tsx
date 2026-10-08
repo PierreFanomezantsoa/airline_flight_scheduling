@@ -134,7 +134,7 @@ function UserAvatar({ user, size = 'md' }: { user: PublicUser; size?: 'md' | 'lg
         size === 'lg' ? 'h-11 w-11 text-sm' : 'h-9 w-9 text-xs'
       }`}
     >
-      {getInitials(user.name)}
+      {getInitials(user.userName)}
     </div>
   );
 }
@@ -273,7 +273,7 @@ export function UsersManagementPage() {
       if (activeTab === 'requests' && user.accountStatus !== 'PENDING') return false;
       if (statusFilter !== 'ALL' && user.accountStatus !== statusFilter) return false;
       if (!query) return true;
-      return `${user.name} ${user.email} ${user.role} ${ROLE_LABELS[user.role] ?? ''}`
+      return `${user.userName} ${user.email} ${user.role} ${ROLE_LABELS[user.role] ?? ''}`
         .toLowerCase()
         .includes(query);
     });
@@ -345,7 +345,7 @@ export function UsersManagementPage() {
     runAction(
       user,
       () => approveUserAccount(user.refUser),
-      `Le compte de ${user.name} a été validé.`,
+      `Le compte de ${user.userName} a été validé.`,
       'Impossible de valider le compte.',
     );
 
@@ -353,7 +353,7 @@ export function UsersManagementPage() {
     runAction(
       user,
       () => setUserAccountPending(user.refUser),
-      `Le compte de ${user.name} a été remis en attente.`,
+      `Le compte de ${user.userName} a été remis en attente.`,
       'Impossible de remettre le compte en attente.',
     );
 
@@ -374,7 +374,7 @@ export function UsersManagementPage() {
     const ok = await runAction(
       user,
       () => rejectUserAccount(user.refUser, rejectModal.reason.trim()),
-      `Le compte de ${user.name} a été refusé.`,
+      `Le compte de ${user.userName} a été refusé.`,
       'Impossible de refuser le compte.',
     );
     if (ok) setRejectModal({ open: false, user: null, reason: '' });
@@ -393,7 +393,7 @@ export function UsersManagementPage() {
     const ok = await runAction(
       user,
       () => deleteUserAccount(user.refUser),
-      `Le compte de ${user.name} a été supprimé.`,
+      `Le compte de ${user.userName} a été supprimé.`,
       'Impossible de supprimer le compte.',
     );
     if (ok) setDeleteTarget(null);
@@ -614,7 +614,7 @@ export function UsersManagementPage() {
                         <div className="flex items-center gap-3">
                           <UserAvatar user={user} />
                           <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold text-slate-900">{user.name}</p>
+                            <p className="truncate text-sm font-semibold text-slate-900">{user.userName}</p>
                             <p className="truncate text-xs text-slate-500">{user.email}</p>
                           </div>
                         </div>
@@ -737,7 +737,7 @@ export function UsersManagementPage() {
             <div className="mt-5 flex items-center gap-3 rounded-2xl border border-slate-200/80 bg-slate-50/70 p-3">
               <UserAvatar user={rejectModal.user} />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold text-slate-900">{rejectModal.user.name}</p>
+                <p className="truncate text-sm font-semibold text-slate-900">{rejectModal.user.userName}</p>
                 <p className="truncate text-xs text-slate-500">{rejectModal.user.email}</p>
               </div>
               <RoleBadge role={rejectModal.user.role} />
@@ -800,7 +800,7 @@ export function UsersManagementPage() {
               Supprimer ce compte ?
             </h2>
             <p className="mt-1.5 text-sm leading-6 text-slate-500">
-              Le compte de <span className="font-semibold text-slate-700">{deleteTarget.name}</span> sera
+              Le compte de <span className="font-semibold text-slate-700">{deleteTarget.userName}</span> sera
               supprimé définitivement. Cette action est irréversible.
             </p>
           </div>
@@ -955,7 +955,7 @@ function UserActions({
       type="button"
       disabled={isBusy}
       onClick={onDelete}
-      aria-label={`Supprimer le compte de ${user.name}`}
+      aria-label={`Supprimer le compte de ${user.userName}`}
       title="Supprimer le compte"
       className={`${base} w-9 shrink-0 px-0 border border-rose-200 bg-white text-rose-600 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-700 focus-visible:ring-rose-500/30`}
     >
@@ -1019,7 +1019,7 @@ function UserMobileCard(props: UserActionsProps) {
         <div className="flex min-w-0 items-center gap-3">
           <UserAvatar user={user} size="lg" />
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-slate-900">{user.name}</p>
+            <p className="truncate text-sm font-semibold text-slate-900">{user.userName}</p>
             <p className="truncate text-xs text-slate-500">{user.email}</p>
           </div>
         </div>

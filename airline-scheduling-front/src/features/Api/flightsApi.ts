@@ -12,7 +12,7 @@ export interface Flight {
   arrivalAirportCode: string;
   departureTime: string;
   arrivalTime: string;
-  status: 'Scheduled' | 'Delayed' | 'Cancelled' | 'Completed';
+  flightStatus: 'Scheduled' | 'Delayed' | 'Cancelled' | 'Completed';
   aircraft?: Aircraft;
   refAircraft?: string;
 }

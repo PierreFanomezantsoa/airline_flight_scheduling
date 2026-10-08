@@ -56,7 +56,7 @@ const DEFAULT_FORM_STATE: CreateAircraftDto = {
   capacity: 189,
   maintenanceHoursLimit: 5000,
   totalFlightHours: 0,
-  status: 'Active',
+  aircraftStatus: 'Active',
   homeBase: 'TNR',
 };
 
@@ -286,7 +286,7 @@ export const FleetManagement: React.FC = () => {
    * BADGE STATUT
    * ----------------------------------------------------------------------- */
 
-  const getStatusBadge = (status: Aircraft['status']) => {
+  const getStatusBadge = (status: Aircraft['aircraftStatus']) => {
     const config = AIRCRAFT_STATUSES[status] || AIRCRAFT_STATUSES.Active;
     const Icon = config.icon;
     return (
@@ -471,11 +471,11 @@ export const FleetManagement: React.FC = () => {
                   Statut Initial
                 </label>
                 <select
-                  value={form.status || 'Active'}
+                  value={form.aircraftStatus || 'Active'}
                   onChange={(e) =>
                     setForm({
                       ...form,
-                      status: e.target.value as Aircraft['status'],
+                      aircraftStatus: e.target.value as Aircraft['aircraftStatus'],
                     })
                   }
                   className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 transition focus:border-emerald-700 focus:outline-none"
@@ -537,7 +537,7 @@ export const FleetManagement: React.FC = () => {
                   aircraft.maintenanceHoursLimit - aircraft.totalFlightHours;
                 const isMaintenanceCritical =
                   hoursBeforeMaintenance <= CRITICAL_THRESHOLD_HOURS &&
-                  aircraft.status === 'Active';
+                  aircraft.aircraftStatus === 'Active';
 
                 return (
                   <div
@@ -558,7 +558,7 @@ export const FleetManagement: React.FC = () => {
                             <span className="font-mono text-base font-black tracking-wide text-slate-900">
                               {aircraft.registration}
                             </span>
-                            {getStatusBadge(aircraft.status)}
+                            {getStatusBadge(aircraft.aircraftStatus)}
                           </div>
                           <p className="text-xs font-medium text-slate-500">
                             {aircraft.model} •{' '}
@@ -600,7 +600,7 @@ export const FleetManagement: React.FC = () => {
                         </div>
 
                         <div className="flex gap-1 pl-2">
-                          {aircraft.status === 'Maintenance' && (
+                          {aircraft.aircraftStatus === 'Maintenance' && (
                             <button
                               type="button"
                               onClick={() =>

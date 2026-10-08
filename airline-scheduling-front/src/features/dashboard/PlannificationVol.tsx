@@ -59,7 +59,7 @@ export interface Flight {
   localDeparture?: string | null;
   localArrival?: string | null;
   durationMinutes?: number | null;
-  status: FlightStatus;
+  flightStatus: FlightStatus;
   weatherSeverity: number;
   legs?: FlightLeg[];
 }
@@ -199,7 +199,7 @@ const normalizeStatus = (status: FlightStatus): string => {
 const matchesFilter = (flight: Flight, filter: StatusFilter) => {
   if (filter === 'ALL') return true;
   if (filter === 'UNASSIGNED') return flight.aircraft === UNASSIGNED_AIRCRAFT;
-  return normalizeStatus(flight.status) === normalizeStatus(filter);
+  return normalizeStatus(flight.flightStatus) === normalizeStatus(filter);
 };
 
 /** Extrait l'heure « HH:MM » et le jour « JJ/MM » d'une date déjà formatée « JJ/MM HH:MM ». */
@@ -284,12 +284,15 @@ const FlightCard: FC<FlightCardProps> = ({
   onSelectFlight,
 }) => {
   const statusLabel =
-    statusStyles[String(flight.status)]?.label ?? String(flight.status ?? 'Inconnu');
+    statusStyles[String(flight.flightStatus)]?.label ??
+    String(flight.flightStatus ?? 'Inconnu');
 
-  const tone = getStatusTone(flight.status);
+  const tone = getStatusTone(flight.flightStatus);
   const weather = getWeatherIndicator(flight.weatherSeverity);
   const isUnassigned = flight.aircraft === UNASSIGNED_AIRCRAFT;
-  const isDone = flight.status === 'Effectué' || flight.status === 'Completed';
+  const isDone =
+    flight.flightStatus === 'Effectué' ||
+    flight.flightStatus === 'Completed';
   const hasStopover = Boolean(
     Array.isArray(flight.stopover) ? flight.stopover.length : flight.stopover,
   );
@@ -324,7 +327,7 @@ const FlightCard: FC<FlightCardProps> = ({
           {isDone && <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-600" />}
         </div>
         <div className="flex items-center gap-1">
-          <StatusBadge status={flight.status} label={statusLabel} />
+          <StatusBadge status={flight.flightStatus} label={statusLabel} />
           <ChevronRight className="h-4 w-4 shrink-0 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-emerald-600" />
         </div>
       </div>

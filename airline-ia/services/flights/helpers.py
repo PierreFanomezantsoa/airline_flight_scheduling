@@ -36,7 +36,7 @@ def parse_stopover_codes(value) -> list[str]:
 
 
 def is_aircraft_operational(aircraft: Aircraft) -> bool:
-    status = normalize_status(getattr(aircraft, "status", "Active"))
+    status = normalize_status(getattr(aircraft, "aircraftStatus", "Active"))
     return not status or status in ACTIVE_AIRCRAFT_STATUSES
 
 
@@ -89,7 +89,7 @@ def validate_aircraft_maintenance(
                 "code": "AIRCRAFT_UNAVAILABLE",
                 "message": (
                     f"L'appareil {getattr(aircraft, 'registration', None) or aircraft.refAircraft} "
-                    f"n'est pas opérationnel (status : {aircraft.status})."
+                    f"n'est pas opérationnel (status : {aircraft.aircraftStatus})."
                 ),
             },
             409,
@@ -128,7 +128,7 @@ def validate_aircraft_maintenance(
             previous_hours = sum(
                 flight_hours_for_maintenance(flight) or 0
                 for flight in previous_flights
-                if normalize_status(getattr(flight, "status", None))
+                if normalize_status(getattr(flight, "flightStatus", None))
                 not in {"CANCELLED", "CANCELED", "ANNULE", "ANNULÉ"}
             )
             candidate_hours = flight_hours_for_maintenance(
@@ -168,7 +168,7 @@ def validate_aircraft_maintenance(
         (
             slot
             for slot in slots
-            if normalize_status(getattr(slot, "status", None))
+            if normalize_status(getattr(slot, "maintenanceStatus", None))
             not in INACTIVE_MAINTENANCE_STATUSES
         ),
         None,
@@ -213,7 +213,7 @@ def check_aircraft_conflict(avion_id, dep_time, arr_time, current_flight_id=None
         return None
     query = Flight.query.filter(
         Flight.refAircraft == avion_id,
-        Flight.status != "Cancelled",
+        Flight.flightStatus != "Cancelled",
         Flight.departureTime < arr_time,
         Flight.arrivalTime > dep_time,
     )

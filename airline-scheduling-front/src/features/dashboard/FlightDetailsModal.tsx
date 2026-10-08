@@ -182,19 +182,19 @@ export const FlightDetailsModal: FC<FlightDetailsModalProps> = ({
    * ---------------------------------------------------------------------- */
 
   const statusStyle =
-    statusStyles[selectedFlight.status] ?? statusStyles.Scheduled;
+    statusStyles[selectedFlight.flightStatus] ?? statusStyles.Scheduled;
 
   const weather = getWeatherIndicator(selectedFlight.weatherSeverity);
   const isUnassigned = selectedFlight.aircraft === UNASSIGNED_AIRCRAFT;
   const severityValue = normalizeSeverity(selectedFlight.weatherSeverity);
   const severityPct = Math.round(severityValue * 100);
 
-  const isInFlight = selectedFlight.status === 'In-Flight';
-  const isCancelled = selectedFlight.status === 'Cancelled';
-  const isDone = selectedFlight.status === 'Effectué';
+  const isInFlight = selectedFlight.flightStatus === 'In-Flight';
+  const isCancelled = selectedFlight.flightStatus === 'Cancelled';
+  const isDone = selectedFlight.flightStatus === 'Effectué';
 
   const statusBarClass =
-    STATUS_BAR_CLASSES[selectedFlight.status] ?? 'bg-slate-300';
+    STATUS_BAR_CLASSES[selectedFlight.flightStatus] ?? 'bg-slate-300';
 
   // Narrowing sans `!` — évite l'assertion non-null
   const legs = selectedFlight.legs ?? [];

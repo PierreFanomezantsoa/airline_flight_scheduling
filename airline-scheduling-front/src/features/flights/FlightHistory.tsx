@@ -118,7 +118,7 @@ export interface Flight {
   localDeparture?: string | null;
   localArrival?: string | null;
   durationMinutes?: number | null;
-  status?: string;
+  flightStatus?: string;
   aircraft?: string | null;
   aircraftModel?: string | null;
   stopover?: string | null;
@@ -151,7 +151,7 @@ interface NormalizedFlight {
   localDeparture: string | null;
   localArrival: string | null;
   durationMinutes: number | null;
-  status: FlightStatus;
+  flightStatus: FlightStatus;
   refAircraft: string;
   aircraftRegistration: string;
   stopover: string | null;
@@ -192,7 +192,7 @@ const normalizeFlight = (flight: Flight): NormalizedFlight => ({
   localDeparture: flight.localDeparture ?? null,
   localArrival: flight.localArrival ?? null,
   durationMinutes: flight.durationMinutes ?? null,
-  status: normalizeStatus(flight.status),
+  flightStatus: normalizeStatus(flight.flightStatus),
   refAircraft: flight.aircraft || 'NON ASSIGNÉ',
   aircraftRegistration: flight.aircraftModel || 'Sans registration',
   stopover: flight.stopover ?? null,
@@ -250,7 +250,7 @@ const formatPercentage = (value?: number | null): string => {
 };
 
 const isHistoryFlight = (flight: NormalizedFlight): boolean => {
-  if (['Completed', 'Delayed', 'Cancelled'].includes(flight.status)) return true;
+  if (['Completed', 'Delayed', 'Cancelled'].includes(flight.flightStatus)) return true;
   if (flight.arrivalUtc) {
     const arrival = new Date(flight.arrivalUtc);
     if (!Number.isNaN(arrival.getTime()) && arrival.getTime() < Date.now()) {
@@ -436,7 +436,7 @@ const MobileHistoryCard: FC<MobileHistoryCardProps> = ({ flight, onOpen }) => (
           </p>
         </div>
       </div>
-      <StatusBadge status={flight.status} />
+      <StatusBadge status={flight.flightStatus} />
     </div>
 
     <div className="space-y-3 p-4">
@@ -651,7 +651,7 @@ const FlightHistory: FC<FlightHistoryProps> = ({
         flight.aircraftRegistration.toLowerCase().includes(query);
 
       const matchesStatus =
-        statusFilter === 'ALL' || flight.status === statusFilter;
+        statusFilter === 'ALL' || flight.flightStatus === statusFilter;
 
       let matchesFrom = true;
       let matchesTo = true;
@@ -693,9 +693,9 @@ const FlightHistory: FC<FlightHistoryProps> = ({
    * ----------------------------------------------------------------------- */
 
   const statistics = useMemo(() => {
-    const completed = flights.filter((f) => f.status === 'Completed').length;
-    const delayed = flights.filter((f) => f.status === 'Delayed').length;
-    const cancelled = flights.filter((f) => f.status === 'Cancelled').length;
+    const completed = flights.filter((f) => f.flightStatus === 'Completed').length;
+    const delayed = flights.filter((f) => f.flightStatus === 'Delayed').length;
+    const cancelled = flights.filter((f) => f.flightStatus === 'Cancelled').length;
     const completionRate =
       flights.length > 0 ? Math.round((completed / flights.length) * 100) : 0;
 
@@ -971,7 +971,7 @@ const FlightHistory: FC<FlightHistoryProps> = ({
                           </td>
 
                           <td className="px-4 py-4 align-middle">
-                            <StatusBadge status={flight.status} />
+                            <StatusBadge status={flight.flightStatus} />
                           </td>
 
                           <td className="px-4 py-4 align-middle">
@@ -1114,7 +1114,7 @@ const FlightHistory: FC<FlightHistoryProps> = ({
                                     <DetailItem label="Route" value={flight.route} />
                                     <DetailItem
                                       label="Statut final"
-                                      value={<StatusBadge status={flight.status} />}
+                                      value={<StatusBadge status={flight.flightStatus} />}
                                     />
                                     {flight.stopover && (
                                       <DetailItem
@@ -1297,7 +1297,7 @@ const FlightHistory: FC<FlightHistoryProps> = ({
                   <h2 className="font-mono text-xl font-bold text-slate-900">
                     {selectedFlight.flightNumber}
                   </h2>
-                  <StatusBadge status={selectedFlight.status} />
+                  <StatusBadge status={selectedFlight.flightStatus} />
                 </div>
                 <p className="mt-1 truncate font-mono text-xs text-slate-500">
                   {selectedFlight.route}
@@ -1360,7 +1360,7 @@ const FlightHistory: FC<FlightHistoryProps> = ({
                 />
                 <DetailItem
                   label="Statut"
-                  value={<StatusBadge status={selectedFlight.status} />}
+                  value={<StatusBadge status={selectedFlight.flightStatus} />}
                 />
               </div>
 

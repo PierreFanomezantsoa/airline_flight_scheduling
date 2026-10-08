@@ -47,7 +47,7 @@ export class UpdateFlightDto {
 
   @IsOptional()
   @IsEnum(FlightStatus)
-  status?: FlightStatus;
+  flightStatus?: FlightStatus;
 
   @IsOptional()
   @IsUUID()

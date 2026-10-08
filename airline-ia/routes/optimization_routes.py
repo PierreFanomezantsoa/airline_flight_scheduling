@@ -72,7 +72,7 @@ def optimize_schedule_with_fastapi():
                 "refAircraft": str(f.refAircraft) if f.refAircraft else "SANS_ENGIN",
                 "departure_time": f.departureTime.isoformat() if f.departureTime else None,
                 "arrival_time": f.arrivalTime.isoformat() if f.arrivalTime else None,
-                "status": f.status,
+                "flightStatus": f.flightStatus,
                 "ai_features": {
                     "traffic_density": traffic_density,
                     "weather_severity": weather_severity,
@@ -90,7 +90,7 @@ def optimize_schedule_with_fastapi():
                 if flight:
                     flight.departureTime = datetime.fromisoformat(opt_f["departure_time"].replace('Z', '+00:00'))
                     flight.arrivalTime = datetime.fromisoformat(opt_f["arrival_time"].replace('Z', '+00:00'))
-                    flight.status = opt_f["status"]
+                    flight.flightStatus = opt_f["flightStatus"]
             db.session.commit()
             return jsonify({"status": "success", "message": "Planning mis à jour avec succès."}), 200
 

@@ -16,9 +16,9 @@ import { Aircraft } from '../../fleet/entities/aircraft.entity';
 
 @Entity('maintenance_slots')
 @Index(['refAircraft', 'startTime', 'endTime'])
-@Index(['status', 'startTime'])
+@Index(['maintenanceStatus', 'startTime'])
 // Index used by the scheduled job that closes maintenance slots.
-@Index(['status', 'autoCloseAt'])
+@Index(['maintenanceStatus', 'autoCloseAt'])
 export class MaintenanceSlot {
   @PrimaryGeneratedColumn('uuid', { name: 'ref_maintenance_slot' })
   refMaintenanceSlot!: string;
@@ -34,11 +34,12 @@ export class MaintenanceSlot {
   maintenanceType!: MaintenanceType;
 
   @Column({
+    name: 'maintenance_status',
     type: 'enum',
     enum: MaintenanceStatus,
     default: MaintenanceStatus.PLANNED,
   })
-  status!: MaintenanceStatus;
+  maintenanceStatus!: MaintenanceStatus;
 
   @Column({ type: 'timestamptz' })
   startTime!: Date;

@@ -113,7 +113,7 @@ def _safe_float(value, default: float = 0.0) -> float:
 def _credit_completed_flight_hours(flight, reference_time: datetime) -> bool:
     """Crédite les compteurs aircraft une seule fois après l'arrivée réelle."""
     completed_statuses = {"effectué", "effectue", "completed", "done", "landed"}
-    if str(flight.status or "").strip().casefold() not in completed_statuses:
+    if str(flight.flightStatus or "").strip().casefold() not in completed_statuses:
         return False
 
     locked_flight = (
@@ -157,7 +157,7 @@ def _credit_completed_flight_hours(flight, reference_time: datetime) -> bool:
     )
     maintenance_limit = _safe_float(aircraft.maintenanceHoursLimit)
     if maintenance_limit > 0 and aircraft.hoursSinceMaintenance >= maintenance_limit:
-        aircraft.status = "Maintenance"
+        aircraft.aircraftStatus = "Maintenance"
     locked_flight.flightHoursRecorded = True
     locked_flight.creditedFlightHours = flight_hours
     locked_flight.flightHoursRecordedAt = reference_time
@@ -348,7 +348,7 @@ def get_flights():
             arr_utc = ensure_utc(flight.arrivalTime)
 
             assessment = weather_assessments.get(str(flight.refFlight), {})
-            current_status = flight.status
+            current_status = flight.flightStatus
 
             # On ne laisse PAS la météo écraser un status terminal.
             if _is_terminal_status(current_status):
@@ -375,7 +375,7 @@ def get_flights():
                 )
 
             if derived_status != current_status:
-                flight.status = derived_status
+                flight.flightStatus = derived_status
                 current_status = derived_status
                 has_changes = True
 
@@ -631,7 +631,7 @@ def get_flights_fast():
                         arr_utc, flight.arrivalAirportCode
                     ),
                     "durationMinutes": duration_minutes,
-                    "status": flight.status,
+                    "flightStatus": flight.flightStatus,
                     "aircraft": (
                         str(flight.refAircraft)
                         if flight.refAircraft
@@ -697,7 +697,7 @@ def get_weather_alerts():
             .all()
         )
         flights = [
-            f for f in all_flights if not _is_cancelled_status(f.status)
+            f for f in all_flights if not _is_cancelled_status(f.flightStatus)
         ]
 
         alerts = []
@@ -742,7 +742,7 @@ def get_weather_alerts():
                         if flight.departureTime
                         else None
                     ),
-                    "status": flight.status,
+                    "flightStatus": flight.flightStatus,
                     "weatherAI": assessment,
                 })
 
@@ -802,7 +802,7 @@ def get_weather_outlook():
             .all()
         )
         flights = [
-            f for f in all_flights if not _is_cancelled_status(f.status)
+            f for f in all_flights if not _is_cancelled_status(f.flightStatus)
         ]
 
         assessments = weather_engine.assess_many_flights(
@@ -843,7 +843,7 @@ def get_weather_outlook():
                     if flight.departureTime
                     else None
                 ),
-                "status": flight.status,
+                "flightStatus": flight.flightStatus,
                 "forecastPhase": phase,
                 "forecastPhaseLabel": assessment.get(
                     "forecastPhaseLabel"
@@ -1083,7 +1083,7 @@ def create_flight():
         # ---------------------------------------------------------------
         # Statut initial : intention user > météo
         # ---------------------------------------------------------------
-        frontend_status = data.get("status", "Planifié")
+        frontend_status = data.get("flightStatus", "Planifié")
         status_mapping = {
             "Planifié": "Scheduled",
             "Retardé": "Delayed",
@@ -1127,7 +1127,7 @@ def create_flight():
             departureTime=dep_time,
             arrivalTime=arr_time,
             refAircraft=avion_id,
-            status=initial_status,
+            flightStatus=initial_status,
         )
 
         db.session.add(new_flight)
@@ -1137,7 +1137,7 @@ def create_flight():
         return jsonify({
             "status": "success",
             "refFlight": str(new_flight.refFlight),
-            "assigned_status": initial_status,
+            "flightStatus": initial_status,
             "weatherSeverity": response_weather_assessment.get("score"),
             "weatherAI": response_weather_assessment,
         }), 201
@@ -1244,7 +1244,7 @@ def update_flight(id):
             force_refresh=False,
         )
 
-        frontend_status = data.get("status", flight.status)
+        frontend_status = data.get("flightStatus", flight.flightStatus)
         status_mapping = {
             "Planifié": "Scheduled",
             "Retardé": "Delayed",
@@ -1289,7 +1289,7 @@ def update_flight(id):
         flight.departureTime = dep_time
         flight.arrivalTime = arr_time
         flight.refAircraft = avion_id
-        flight.status = new_status
+        flight.flightStatus = new_status
 
         _credit_completed_flight_hours(flight, now_utc)
         db.session.commit()
@@ -1297,7 +1297,7 @@ def update_flight(id):
         return jsonify({
             "status": "success",
             "message": "Vol mis à jour",
-            "assigned_status": new_status,
+            "flightStatus": new_status,
             "weatherSeverity": response_weather_assessment.get("score"),
             "weatherAI": response_weather_assessment,
         }), 200

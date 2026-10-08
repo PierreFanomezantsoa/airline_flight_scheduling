@@ -40,7 +40,7 @@ export class AirportsService {
     return this.airportRepository.save(
       this.airportRepository.create({
         refAirport,
-        name: dto.name.trim(),
+        airportName: dto.airportName.trim(),
         timezone: dto.timezone.trim(),
         city: dto.city?.trim() ?? null,
         country: dto.country?.trim() ?? null,
@@ -51,7 +51,9 @@ export class AirportsService {
   async update(refAirport: string, dto: UpdateAirportDto): Promise<Airport> {
     const airport = await this.findOne(refAirport);
 
-    if (dto.name !== undefined) airport.name = dto.name.trim();
+    if (dto.airportName !== undefined) {
+      airport.airportName = dto.airportName.trim();
+    }
     if (dto.timezone !== undefined) airport.timezone = dto.timezone.trim();
     if (dto.city !== undefined) airport.city = dto.city?.trim() || null;
     if (dto.country !== undefined) airport.country = dto.country?.trim() || null;

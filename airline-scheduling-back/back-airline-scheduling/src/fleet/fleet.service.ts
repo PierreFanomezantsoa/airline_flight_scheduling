@@ -51,9 +51,9 @@ export class FleetService {
     return aircraft;
   }
 
-  findByStatus(status: AircraftStatus): Promise<Aircraft[]> {
+  findByAircraftStatus(aircraftStatus: AircraftStatus): Promise<Aircraft[]> {
     return this.aircraftRepository.find({
-      where: { status },
+      where: { aircraftStatus },
       relations: ['aircraftType'],
       order: { registration: 'ASC' },
     });
@@ -81,7 +81,7 @@ export class FleetService {
       totalFlightHours: dto.totalFlightHours ?? 0,
       maintenanceHoursLimit: dto.maintenanceHoursLimit,
       hoursSinceMaintenance: 0,
-      status: dto.status ?? AircraftStatus.ACTIVE,
+      aircraftStatus: dto.aircraftStatus ?? AircraftStatus.ACTIVE,
       homeBase: dto.homeBase ? normalizeIata(dto.homeBase) : null,
       refAircraftType: type?.refAircraftType ?? null,
       aircraftType: type,
@@ -115,7 +115,9 @@ export class FleetService {
     if (dto.capacity !== undefined) aircraft.capacity = dto.capacity;
     if (dto.maintenanceHoursLimit !== undefined) aircraft.maintenanceHoursLimit = dto.maintenanceHoursLimit;
     if (dto.totalFlightHours !== undefined) aircraft.totalFlightHours = dto.totalFlightHours;
-    if (dto.status !== undefined) aircraft.status = dto.status;
+    if (dto.aircraftStatus !== undefined) {
+      aircraft.aircraftStatus = dto.aircraftStatus;
+    }
     if (dto.homeBase !== undefined) aircraft.homeBase = dto.homeBase ? normalizeIata(dto.homeBase) : null;
 
     if (dto.refAircraftType !== undefined) {
@@ -129,7 +131,7 @@ export class FleetService {
 
   async retire(id: string): Promise<{ retired: true; refAircraft: string }> {
     const aircraft = await this.findOne(id);
-    aircraft.status = AircraftStatus.RETIRED;
+    aircraft.aircraftStatus = AircraftStatus.RETIRED;
     await this.aircraftRepository.save(aircraft);
     return { retired: true, refAircraft: id };
   }
@@ -197,7 +199,7 @@ export class FleetService {
       aircraft.hoursSinceMaintenance >=
       aircraft.maintenanceHoursLimit
     ) {
-      aircraft.status = AircraftStatus.MAINTENANCE;
+      aircraft.aircraftStatus = AircraftStatus.MAINTENANCE;
     }
 
     return manager.save(Aircraft, aircraft);
@@ -215,7 +217,7 @@ export class FleetService {
     const aircraft = await this.findOne(id);
     aircraft.lastMaintenanceAt = new Date();
     aircraft.hoursSinceMaintenance = 0;
-    aircraft.status = AircraftStatus.ACTIVE;
+    aircraft.aircraftStatus = AircraftStatus.ACTIVE;
     return this.aircraftRepository.save(aircraft);
   }
 
@@ -225,10 +227,10 @@ export class FleetService {
 
     return {
       totalAvions: aircrafts.length,
-      avionsActifs: aircrafts.filter((a) => a.status === AircraftStatus.ACTIVE).length,
-      avionsEnMaintenance: aircrafts.filter((a) => a.status === AircraftStatus.MAINTENANCE).length,
-      avionsHorsService: aircrafts.filter((a) => a.status === AircraftStatus.OUT_OF_SERVICE).length,
-      avionsRetires: aircrafts.filter((a) => a.status === AircraftStatus.RETIRED).length,
+      avionsActifs: aircrafts.filter((a) => a.aircraftStatus === AircraftStatus.ACTIVE).length,
+      avionsEnMaintenance: aircrafts.filter((a) => a.aircraftStatus === AircraftStatus.MAINTENANCE).length,
+      avionsHorsService: aircrafts.filter((a) => a.aircraftStatus === AircraftStatus.OUT_OF_SERVICE).length,
+      avionsRetires: aircrafts.filter((a) => a.aircraftStatus === AircraftStatus.RETIRED).length,
       totalFlightHours: totalHours,
       moyenneHeuresDeVol: aircrafts.length ? totalHours / aircrafts.length : 0,
       capaciteMoyenne: aircrafts.length

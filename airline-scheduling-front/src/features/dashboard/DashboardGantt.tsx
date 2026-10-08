@@ -163,7 +163,7 @@ async function requestJson<T>(path: string, options: RequestInit = {}): Promise<
 const buildFallbackAnalytics = (flights: Flight[]): Analytics => {
   const totalFlights = flights.length;
   const count = (status: FlightStatus) =>
-    flights.filter(flight => flight.status === status).length;
+    flights.filter(flight => flight.flightStatus === status).length;
   const onTimeCount = count('Scheduled');
   const delayedCount = count('Delayed');
   const cancelledCount = count('Cancelled');
@@ -372,7 +372,7 @@ export const DashboardGantt: React.FC = () => {
             ...payload.metrics,
             effectueCount:
               payload.metrics?.effectueCount ??
-              flightsList.filter(flight => flight.status === 'Effectué').length,
+              flightsList.filter(flight => flight.flightStatus === 'Effectué').length,
           },
         });
       } else {

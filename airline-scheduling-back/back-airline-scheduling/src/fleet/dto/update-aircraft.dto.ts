@@ -40,7 +40,7 @@ export class UpdateAircraftDto {
 
   @IsOptional()
   @IsEnum(AircraftStatus)
-  status?: AircraftStatus;
+  aircraftStatus?: AircraftStatus;
 
   @IsOptional()
   @IsString()

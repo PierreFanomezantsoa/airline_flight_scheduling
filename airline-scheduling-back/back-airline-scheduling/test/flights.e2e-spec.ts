@@ -61,7 +61,7 @@ describe('Flights (E2E - PostgreSQL)', () => {
       arrivalAirportCode: 'CDG',
       departureTime: '2026-08-01T10:00:00Z',
       arrivalTime: '2026-08-01T20:00:00Z',
-      status: 'Scheduled',
+      flightStatus: 'Scheduled',
     };
 
     const response = await request(app.getHttpServer())

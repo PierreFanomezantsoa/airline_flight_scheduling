@@ -19,7 +19,7 @@ import { Aircraft } from '../../fleet/entities/aircraft.entity';
 @Index(['flightNumber', 'departureTime'], { unique: true })
 @Index(['refAircraft', 'departureTime', 'arrivalTime'])
 @Index(['departureTime'])
-@Index(['status'])
+@Index(['flightStatus'])
 export class Flight {
   @PrimaryGeneratedColumn('uuid', { name: 'ref_flight' })
   refFlight!: string;
@@ -46,8 +46,13 @@ export class Flight {
   @Column({ type: 'timestamptz' })
   arrivalTime!: Date;
 
-  @Column({ type: 'enum', enum: FlightStatus, default: FlightStatus.SCHEDULED })
-  status!: FlightStatus;
+  @Column({
+    name: 'flight_status',
+    type: 'enum',
+    enum: FlightStatus,
+    default: FlightStatus.SCHEDULED,
+  })
+  flightStatus!: FlightStatus;
 
   @Column({ name: 'ref_aircraft', type: 'uuid', nullable: true })
   refAircraft!: string | null;

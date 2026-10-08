@@ -5,8 +5,8 @@ export class Airport {
   @PrimaryColumn({ name: 'ref_airport', type: 'varchar', length: 3 })
   refAirport!: string;
 
-  @Column({ type: 'varchar', length: 120 })
-  name!: string;
+  @Column({ name: 'airport_name', type: 'varchar', length: 120 })
+  airportName!: string;
 
   /** Fuseau IANA, ex. Indian/Antananarivo, Europe/Paris. */
   @Column({ type: 'varchar', length: 80 })

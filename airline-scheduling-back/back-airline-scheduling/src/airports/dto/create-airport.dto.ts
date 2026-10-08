@@ -7,7 +7,7 @@ export class CreateAirportDto {
 
   @IsString()
   @Length(2, 120)
-  name!: string;
+  airportName!: string;
 
   @IsString()
   @Length(3, 80)

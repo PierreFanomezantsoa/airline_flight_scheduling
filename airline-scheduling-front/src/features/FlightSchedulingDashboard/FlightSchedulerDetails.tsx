@@ -21,7 +21,7 @@ export interface Flight {
   localDeparture?: string | null;
   localArrival?: string | null;
   durationMinutes?: number | null;
-  status: string;
+  flightStatus: string;
   aircraft?: string | null;
   aircraftModel?: string | null;
   weatherSeverity?: number | null;
@@ -60,7 +60,7 @@ export interface AutoScheduleUnassigned {
 }
 
 export interface AutoScheduleResponse {
-  status: string;
+  flightStatus: string;
   message?: string;
   generatedAt?: string;
   strategy?: string;

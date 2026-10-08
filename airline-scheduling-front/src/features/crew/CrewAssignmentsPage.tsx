@@ -80,7 +80,7 @@ interface Flight {
   arrivalAirportCode?: string;
   departureTime?: string;
   arrivalTime?: string;
-  status?: FlightStatus;
+  flightStatus?: FlightStatus;
   refAircraft?: string | null;
 }
 
@@ -169,7 +169,7 @@ function normalizeStatus(value?: string | null): string {
 }
 
 function isAssignableFlight(flight: Flight): boolean {
-  const status = normalizeStatus(flight.status);
+  const status = normalizeStatus(flight.flightStatus);
   return ['scheduled', 'planifie', 'delayed', 'retarde'].includes(status);
 }
 
@@ -558,7 +558,7 @@ export const CrewAssignmentsPage: React.FC = () => {
         flight?.flightNumber,
         flight?.departureAirportCode,
         flight?.arrivalAirportCode,
-        user?.name,
+        user?.userName,
         user?.email,
         assignment.crewRole,
       ]
@@ -836,7 +836,7 @@ export const CrewAssignmentsPage: React.FC = () => {
                   </option>
                   {users.map(user => (
                     <option key={user.refUser} value={user.refUser}>
-                      {user.name} — {user.email}
+                      {user.userName} — {user.email}
                     </option>
                   ))}
                 </select>
@@ -901,7 +901,7 @@ export const CrewAssignmentsPage: React.FC = () => {
               filteredAssignments.map(assignment => {
                 const flight = assignment.flight;
                 const user = assignment.user;
-                const initials = (user?.name ?? 'U').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+                const initials = (user?.userName ?? 'U').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
 
                 return (
                   <article key={assignment.refCrewAssignment} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md">
@@ -919,8 +919,8 @@ export const CrewAssignmentsPage: React.FC = () => {
                           </p>
                         </div>
                       </div>
-                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${getFlightStatusStyle(flight?.status)}`}>
-                        {flight?.status ?? 'Inconnu'}
+                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${getFlightStatusStyle(flight?.flightStatus)}`}>
+                        {flight?.flightStatus ?? 'Inconnu'}
                       </span>
                     </div>
 
@@ -931,7 +931,7 @@ export const CrewAssignmentsPage: React.FC = () => {
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-1.5">
-                            <p className="truncate text-sm font-semibold text-slate-900">{user?.name ?? 'Utilisateur'}</p>
+                            <p className="truncate text-sm font-semibold text-slate-900">{user?.userName ?? 'Utilisateur'}</p>
                             <RoleBadge role={assignment.crewRole} size="sm" />
                           </div>
                           <p className="mt-1 flex items-center gap-1 truncate text-[11px] text-slate-500">
@@ -1027,7 +1027,7 @@ export const CrewAssignmentsPage: React.FC = () => {
                   filteredAssignments.map(assignment => {
                     const flight = assignment.flight;
                     const user = assignment.user;
-                    const initials = (user?.name ?? 'U').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+                    const initials = (user?.userName ?? 'U').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
 
                     return (
                       <tr key={assignment.refCrewAssignment} className="group transition hover:bg-slate-50/70">
@@ -1040,8 +1040,8 @@ export const CrewAssignmentsPage: React.FC = () => {
                               <p className="truncate font-mono text-sm font-bold text-slate-900">
                                 {flight?.flightNumber ?? getAssignmentFlightId(assignment)}
                               </p>
-                              <span className={`mt-0.5 inline-flex rounded-full px-2 py-0.5 text-[9px] font-medium ${getFlightStatusStyle(flight?.status)}`}>
-                                {flight?.status ?? 'Inconnu'}
+                              <span className={`mt-0.5 inline-flex rounded-full px-2 py-0.5 text-[9px] font-medium ${getFlightStatusStyle(flight?.flightStatus)}`}>
+                                {flight?.flightStatus ?? 'Inconnu'}
                               </span>
                             </div>
                           </div>
@@ -1061,7 +1061,7 @@ export const CrewAssignmentsPage: React.FC = () => {
                               {initials}
                             </div>
                             <div className="min-w-0">
-                              <p className="truncate text-sm font-semibold text-slate-800">{user?.name ?? 'Utilisateur'}</p>
+                              <p className="truncate text-sm font-semibold text-slate-800">{user?.userName ?? 'Utilisateur'}</p>
                               <p className="mt-0.5 truncate text-[11px] text-slate-500">{user?.email ?? getAssignmentUserId(assignment)}</p>
                             </div>
                           </div>
@@ -1208,7 +1208,7 @@ export const CrewAssignmentsPage: React.FC = () => {
                     </option>
                     {modalUsers.map(user => (
                       <option key={user.refUser} value={user.refUser}>
-                        {user.name} — {user.email}
+                        {user.userName} — {user.email}
                       </option>
                     ))}
                   </select>
@@ -1338,7 +1338,7 @@ export const CrewAssignmentsPage: React.FC = () => {
                   <div className="min-w-0 flex-1">
                     <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Membre</p>
                     <p className="mt-0.5 truncate text-sm font-semibold text-slate-900">
-                      {assignmentToDelete.user?.name ?? 'Utilisateur'}
+                      {assignmentToDelete.user?.userName ?? 'Utilisateur'}
                     </p>
                   </div>
                   <RoleBadge role={assignmentToDelete.crewRole} />

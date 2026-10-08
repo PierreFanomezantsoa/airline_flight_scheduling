@@ -24,7 +24,7 @@ export class AnalyticsService {
     ]);
 
     const plannedBlockHours = flights.reduce((sum, flight) => {
-      if (flight.status === FlightStatus.CANCELLED) return sum;
+      if (flight.flightStatus === FlightStatus.CANCELLED) return sum;
       return sum + Math.max(
         0,
         (flight.arrivalTime.getTime() - flight.departureTime.getTime()) / 3_600_000,
@@ -37,12 +37,14 @@ export class AnalyticsService {
       generatedAt: new Date().toISOString(),
       flights: {
         total: flights.length,
-        scheduled: flights.filter((f) => f.status === FlightStatus.SCHEDULED).length,
-        delayed: flights.filter((f) => f.status === FlightStatus.DELAYED).length,
-        cancelled: flights.filter((f) => f.status === FlightStatus.CANCELLED).length,
-        inFlight: flights.filter((f) => f.status === FlightStatus.IN_FLIGHT).length,
+        scheduled: flights.filter((f) => f.flightStatus === FlightStatus.SCHEDULED).length,
+        delayed: flights.filter((f) => f.flightStatus === FlightStatus.DELAYED).length,
+        cancelled: flights.filter((f) => f.flightStatus === FlightStatus.CANCELLED).length,
+        inFlight: flights.filter((f) => f.flightStatus === FlightStatus.IN_FLIGHT).length,
         completed: flights.filter(
-          (f) => f.status === FlightStatus.COMPLETED || f.status === FlightStatus.EFFECTUE,
+          (f) =>
+            f.flightStatus === FlightStatus.COMPLETED ||
+            f.flightStatus === FlightStatus.EFFECTUE,
         ).length,
         assigned: assignedFlights,
         unassigned: flights.length - assignedFlights,
@@ -50,10 +52,10 @@ export class AnalyticsService {
       },
       fleet: {
         total: aircrafts.length,
-        active: aircrafts.filter((a) => a.status === AircraftStatus.ACTIVE).length,
-        maintenance: aircrafts.filter((a) => a.status === AircraftStatus.MAINTENANCE).length,
-        outOfService: aircrafts.filter((a) => a.status === AircraftStatus.OUT_OF_SERVICE).length,
-        retired: aircrafts.filter((a) => a.status === AircraftStatus.RETIRED).length,
+        active: aircrafts.filter((a) => a.aircraftStatus === AircraftStatus.ACTIVE).length,
+        maintenance: aircrafts.filter((a) => a.aircraftStatus === AircraftStatus.MAINTENANCE).length,
+        outOfService: aircrafts.filter((a) => a.aircraftStatus === AircraftStatus.OUT_OF_SERVICE).length,
+        retired: aircrafts.filter((a) => a.aircraftStatus === AircraftStatus.RETIRED).length,
       },
       conflicts: {
         total: conflictResult.totalConflicts,

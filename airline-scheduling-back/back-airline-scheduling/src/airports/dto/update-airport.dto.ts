@@ -4,7 +4,7 @@ export class UpdateAirportDto {
   @IsOptional()
   @IsString()
   @Length(2, 120)
-  name?: string;
+  airportName?: string;
 
   @IsOptional()
   @IsString()

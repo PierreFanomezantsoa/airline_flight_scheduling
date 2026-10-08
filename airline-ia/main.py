@@ -26,7 +26,7 @@ class FlightItem(BaseModel):
     refAircraft: str
     departure_time: str
     arrival_time: str
-    status: str
+    flightStatus: str
     ai_features: AIFeatures
 
 class OptimizeRequest(BaseModel):
@@ -70,7 +70,7 @@ async def predict_and_optimize_flights(payload: OptimizeRequest):
                 "refFlight": flight.refFlight,
                 "departure_time": flight.departure_time,
                 "arrival_time": flight.arrival_time,
-                "status": predicted_status
+                "flightStatus": predicted_status
             })
             
         return {"optimized_flights": optimized_flights}

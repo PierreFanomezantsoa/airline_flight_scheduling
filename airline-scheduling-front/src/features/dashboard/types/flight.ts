@@ -17,7 +17,7 @@ export interface FlightFormData {
   departureTime: string;
   arrivalTime: string;
   refAircraft: string;
-  status?: 'Planifié' | 'Retardé' | 'En Vol' | 'Annulé' | 'Effectué';
+  flightStatus?: 'Planifié' | 'Retardé' | 'En Vol' | 'Annulé' | 'Effectué';
   motifAnnulation?: string;
   legs?: FlightLegData[];
 }

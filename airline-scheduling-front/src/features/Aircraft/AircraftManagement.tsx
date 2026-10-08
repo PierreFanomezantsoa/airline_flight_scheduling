@@ -88,7 +88,7 @@ export interface Aircraft {
   maintenanceHoursLimit: number;
   hoursSinceMaintenance: number;
   lastMaintenanceAt: string | null;
-  status: AircraftStatus;
+  aircraftStatus: AircraftStatus;
   homeBase: string | null;
   refAircraftType: string | null;
   aircraftType?: AircraftType | null;
@@ -113,7 +113,7 @@ interface AircraftFormData {
   capacity: number;
   totalFlightHours: number;
   maintenanceHoursLimit: number;
-  status: AircraftStatus;
+  aircraftStatus: AircraftStatus;
   homeBase: string;
   refAircraftType: string;
 }
@@ -138,7 +138,7 @@ const EMPTY_FORM: AircraftFormData = {
   capacity: 100,
   totalFlightHours: 0,
   maintenanceHoursLimit: 500,
-  status: AircraftStatus.ACTIVE,
+  aircraftStatus: AircraftStatus.ACTIVE,
   homeBase: '',
   refAircraftType: '',
 };
@@ -650,7 +650,7 @@ export function AircraftManagement() {
     const query = searchTerm.trim().toLowerCase();
 
     return aircrafts.filter(aircraft => {
-      if (statusFilter !== 'ALL' && aircraft.status !== statusFilter) {
+      if (statusFilter !== 'ALL' && aircraft.aircraftStatus !== statusFilter) {
         return false;
       }
       if (!query) return true;
@@ -697,7 +697,7 @@ export function AircraftManagement() {
       capacity: aircraft.capacity,
       totalFlightHours: aircraft.totalFlightHours,
       maintenanceHoursLimit: aircraft.maintenanceHoursLimit,
-      status: aircraft.status,
+      aircraftStatus: aircraft.aircraftStatus,
       homeBase: aircraft.homeBase ?? '',
       refAircraftType: aircraft.refAircraftType ?? '',
     });
@@ -826,7 +826,7 @@ export function AircraftManagement() {
       capacity: formData.capacity,
       totalFlightHours: formData.totalFlightHours,
       maintenanceHoursLimit: formData.maintenanceHoursLimit,
-      status: formData.status,
+      aircraftStatus: formData.aircraftStatus,
       homeBase: formData.homeBase.trim().toUpperCase() || undefined,
     };
 
@@ -881,7 +881,7 @@ export function AircraftManagement() {
    * ====================================================================== */
 
   const retireAircraft = async (aircraft: Aircraft) => {
-    if (aircraft.status === AircraftStatus.RETIRED) return;
+    if (aircraft.aircraftStatus === AircraftStatus.RETIRED) return;
 
     const confirmed = window.confirm(
       `Retirer l'aircraft ${aircraft.registration} de la flotte ?\n\nLe backend ne supprime pas la ligne : le status deviendra "Retired".`,
@@ -918,7 +918,7 @@ export function AircraftManagement() {
    * ====================================================================== */
 
   const openMaintenanceResetModal = (aircraft: Aircraft) => {
-    if (aircraft.status === AircraftStatus.RETIRED) return;
+    if (aircraft.aircraftStatus === AircraftStatus.RETIRED) return;
     setMaintenanceAircraft(aircraft);
     setNotice(null);
   };
@@ -1110,7 +1110,7 @@ export function AircraftManagement() {
             label="Actifs"
             value={
               statistics?.avionsActifs ??
-              aircrafts.filter(a => a.status === AircraftStatus.ACTIVE).length
+              aircrafts.filter(a => a.aircraftStatus === AircraftStatus.ACTIVE).length
             }
             hint="Opérationnels"
             icon={<CheckCircle2 className="h-5 w-5" />}
@@ -1120,7 +1120,7 @@ export function AircraftManagement() {
             label="Maintenance"
             value={
               statistics?.avionsEnMaintenance ??
-              aircrafts.filter(a => a.status === AircraftStatus.MAINTENANCE)
+              aircrafts.filter(a => a.aircraftStatus === AircraftStatus.MAINTENANCE)
                 .length
             }
             hint="Immobilisés"
@@ -1131,7 +1131,7 @@ export function AircraftManagement() {
             label="Hors service"
             value={
               statistics?.avionsHorsService ??
-              aircrafts.filter(a => a.status === AircraftStatus.OUT_OF_SERVICE)
+              aircrafts.filter(a => a.aircraftStatus === AircraftStatus.OUT_OF_SERVICE)
                 .length
             }
             hint="Action requise"
@@ -1142,7 +1142,7 @@ export function AircraftManagement() {
             label="Retirés"
             value={
               statistics?.avionsRetires ??
-              aircrafts.filter(a => a.status === AircraftStatus.RETIRED).length
+              aircrafts.filter(a => a.aircraftStatus === AircraftStatus.RETIRED).length
             }
             hint="Hors flotte"
             icon={<History className="h-5 w-5" />}
@@ -1225,7 +1225,7 @@ export function AircraftManagement() {
                 {paginatedAircrafts.map(aircraft => {
                   const ratio = maintenanceRatio(aircraft);
                   const busy = actionAircraftId === aircraft.refAircraft;
-                  const isRetired = aircraft.status === AircraftStatus.RETIRED;
+                  const isRetired = aircraft.aircraftStatus === AircraftStatus.RETIRED;
 
                   return (
                     <article
@@ -1252,7 +1252,7 @@ export function AircraftManagement() {
                           </div>
                         </div>
                         <div className="shrink-0">
-                          {renderStatusBadge(aircraft.status)}
+                          {renderStatusBadge(aircraft.aircraftStatus)}
                         </div>
                       </div>
 
@@ -1384,7 +1384,7 @@ export function AircraftManagement() {
                     {paginatedAircrafts.map(aircraft => {
                       const ratio = maintenanceRatio(aircraft);
                       const busy = actionAircraftId === aircraft.refAircraft;
-                      const isRetired = aircraft.status === AircraftStatus.RETIRED;
+                      const isRetired = aircraft.aircraftStatus === AircraftStatus.RETIRED;
 
                       return (
                         <tr
@@ -1455,7 +1455,7 @@ export function AircraftManagement() {
                           </td>
 
                           <td className="px-4 py-4 align-middle">
-                            {renderStatusBadge(aircraft.status)}
+                            {renderStatusBadge(aircraft.aircraftStatus)}
                           </td>
 
                           <td className="px-4 py-4 align-middle">
@@ -1741,7 +1741,7 @@ export function AircraftManagement() {
                 <Field label="Statut" required>
                   <select
                     name="status"
-                    value={formData.status}
+                    value={formData.aircraftStatus}
                     onChange={handleChange}
                     className={inputClass}
                   >

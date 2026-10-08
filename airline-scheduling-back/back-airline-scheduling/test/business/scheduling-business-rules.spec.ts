@@ -90,7 +90,7 @@ describe('Règles métier OCC - planification des vols', () => {
     ({
       refAircraft: 'aircraft-1',
       registration: 'AFK-412',
-      status: AircraftStatus.ACTIVE,
+      aircraftStatus: AircraftStatus.ACTIVE,
       homeBase: 'TNR',
       hoursSinceMaintenance: 20,
       maintenanceHoursLimit: 100,
@@ -118,7 +118,7 @@ describe('Règles métier OCC - planification des vols', () => {
       departureTime: new Date(depart),
       arrivalTime: new Date(arrivee),
 
-      status: FlightStatus.SCHEDULED,
+      flightStatus: FlightStatus.SCHEDULED,
 
       refAircraft: aircraft.refAircraft,
       aircraft: aircraft,
@@ -360,7 +360,7 @@ describe('Règles métier OCC - planification des vols', () => {
     'RG04 - bloque un aircraft déjà indisponible ou en maintenance',
     async () => {
       const aircraft = makeAircraft({
-        status: AircraftStatus.MAINTENANCE,
+        aircraftStatus: AircraftStatus.MAINTENANCE,
       });
 
       (flightRepository.find as jest.Mock).mockResolvedValue([
@@ -543,7 +543,7 @@ describe('Règles métier OCC - planification des vols', () => {
         refMaintenanceSlot: 'maintenance-1',
         refAircraft: aircraft.refAircraft,
         maintenanceType: MaintenanceType.TYPE_A,
-        status: MaintenanceStatus.PLANNED,
+        maintenanceStatus: MaintenanceStatus.PLANNED,
         startTime: new Date(
           '2026-08-20T11:00:00+03:00',
         ),
@@ -631,7 +631,7 @@ describe('Règles métier OCC - planification des vols', () => {
           refUser: 'user-1',
           flight: f1,
           user: {
-            name: 'Rakoto',
+            userName: 'Rakoto',
           },
         },
         {
@@ -639,7 +639,7 @@ describe('Règles métier OCC - planification des vols', () => {
           refUser: 'user-1',
           flight: f2,
           user: {
-            name: 'Rakoto',
+            userName: 'Rakoto',
           },
         },
       ] as CrewAssignment[]);
@@ -701,7 +701,7 @@ describe('Règles métier OCC - planification des vols', () => {
           refUser: 'user-1',
           flight: f1,
           user: {
-            name: 'Rakoto',
+            userName: 'Rakoto',
           },
         },
         {
@@ -709,7 +709,7 @@ describe('Règles métier OCC - planification des vols', () => {
           refUser: 'user-1',
           flight: f2,
           user: {
-            name: 'Rakoto',
+            userName: 'Rakoto',
           },
         },
       ] as CrewAssignment[]);

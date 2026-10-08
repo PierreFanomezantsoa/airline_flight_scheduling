@@ -16,7 +16,7 @@ export interface GanttRow {
   capacity?: number | null;
   base?: string | null;
   currentPosition?: string | null;
-  status?: string | null;
+  aircraftStatus?: string | null;
 }
 
 export interface GanttItem {
@@ -34,7 +34,7 @@ export interface GanttItem {
   stopoverDurationMinutes?: number | null;
   durationMinutes?: number | null;
   label?: string | null;
-  status?: string | null;
+  flightStatus?: string | null;
   shiftMinutes?: number;
   weatherSeverity?: number | null;
 }
@@ -254,7 +254,7 @@ const FlightSchedulerGantt: FC<FlightSchedulerGanttProps> = ({
     const term = searchTerm.trim().toLowerCase();
 
     const filteredItems = (schedule.items ?? []).filter((item) => {
-      const status = normalizeFlightStatus(item.status);
+      const status = normalizeFlightStatus(item.flightStatus);
       const matchesStatus = selectedStatus === 'TOUS' || status === selectedStatus;
       const matchesSearch =
         !term ||
@@ -453,7 +453,7 @@ const FlightSchedulerGantt: FC<FlightSchedulerGanttProps> = ({
 
                 <div className="mt-3 space-y-2">
                   {row.items.map((item) => {
-                    const status = normalizeFlightStatus(item.status);
+                    const status = normalizeFlightStatus(item.flightStatus);
                     const config = STATUS_CONFIG[status];
                     const route =
                       getRoute(item) ||
@@ -656,7 +656,7 @@ const FlightSchedulerGantt: FC<FlightSchedulerGanttProps> = ({
                         ((endMs - startMs) / ganttData.totalDuration) * 100,
                       );
 
-                      const status = normalizeFlightStatus(item.status);
+                      const status = normalizeFlightStatus(item.flightStatus);
                       const config = STATUS_CONFIG[status];
                       const assignment = assignmentLookup.get(item.refFlight);
                       const shiftMinutes =

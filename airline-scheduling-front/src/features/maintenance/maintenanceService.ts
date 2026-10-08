@@ -59,7 +59,7 @@ export interface MaintenanceSlot {
   refAircraft: string;
   aircraft: Aircraft;
   maintenanceType: MaintenanceType;
-  status: MaintenanceStatus;
+  maintenanceStatus: MaintenanceStatus;
   startTime: string;
   endTime: string;
   description?: string | null;
@@ -76,7 +76,7 @@ export interface MaintenanceSlot {
 export interface CreateMaintenanceSlotDto {
   refAircraft: string;
   maintenanceType: MaintenanceType;
-  status?: MaintenanceStatus;
+  maintenanceStatus?: MaintenanceStatus;
   startTime: string;
   endTime: string;
   description?: string;
@@ -85,7 +85,7 @@ export interface CreateMaintenanceSlotDto {
 export interface UpdateMaintenanceSlotDto {
   refAircraft?: string;
   maintenanceType?: MaintenanceType;
-  status?: MaintenanceStatus;
+  maintenanceStatus?: MaintenanceStatus;
   startTime?: string;
   endTime?: string;
   description?: string | null;
@@ -102,7 +102,7 @@ export interface MaintenanceAvailability {
   maintenanceConflict: {
     refMaintenanceSlot: string;
     maintenanceType: string;
-    status: MaintenanceStatus;
+    maintenanceStatus: MaintenanceStatus;
     startTime: string;
     endTime: string;
   } | null;
@@ -123,7 +123,7 @@ interface RawMaintenanceSlotResponse {
   refMaintenanceSlot: string;
   refAircraft: string;
   maintenanceType: MaintenanceType;
-  status?: MaintenanceStatus;
+  maintenanceStatus?: MaintenanceStatus;
   startTime: string;
   endTime: string;
   description?: string | null;
@@ -217,7 +217,7 @@ class MaintenanceService {
       refAircraft: data.refAircraft,
       aircraft: mappedAircraft as Aircraft,
       maintenanceType: data.maintenanceType,
-      status: (data.status ?? 'Planned') as MaintenanceStatus,
+      maintenanceStatus: (data.maintenanceStatus ?? 'Planned') as MaintenanceStatus,
       startTime: data.startTime,
       endTime: data.endTime,
       description: data.description ?? null,

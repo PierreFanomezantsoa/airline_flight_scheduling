@@ -759,7 +759,7 @@ class WeatherRiskEngine:
             arr_utc = ensure_utc(flight.arrivalTime)
             current_status = getattr(
                 flight,
-                "status",
+                "flightStatus",
                 None,
             )
 
@@ -1070,5 +1070,4 @@ def build_flight_weather_assessment(flight, force_refresh=False) -> dict:
         stopovers=stopovers,
         force_refresh=force_refresh,
     )
-
 

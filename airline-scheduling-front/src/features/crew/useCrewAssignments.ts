@@ -18,12 +18,12 @@ export interface FlightOption {
   arrivalAirportCode: string;
   departureTime?: string;
   arrivalTime?: string;
-  status?: string;
+  flightStatus?: string;
 }
 
 export interface CrewMember {
   refUser: string;
-  name: string;
+  userName: string;
   email: string;
   role: string;
   technicalLevel?: string;
@@ -38,7 +38,7 @@ export interface CrewAssignmentDTO {
   user: {
     refUser: string;
     email: string;
-    name: string;
+    userName: string;
     role: string;
     technicalLevel?: string;
     professionalLevel?: string;
@@ -60,13 +60,13 @@ interface RawFlight {
   destination?: string;
   departureTime?: string;
   arrivalTime?: string;
-  status?: string;
+  flightStatus?: string;
 }
 
 interface RawUser {
   refUser: string;
   email?: string;
-  name?: string;
+  userName?: string;
   firstName?: string;
   lastName?: string;
   role?: string;
@@ -154,7 +154,7 @@ function normalizeFlight(raw: RawFlight): FlightOption {
     arrivalAirportCode: raw.arrivalAirportCode || raw.destination || '—',
     departureTime: raw.departureTime,
     arrivalTime: raw.arrivalTime,
-    status: raw.status || 'Scheduled',
+    flightStatus: raw.flightStatus || 'Scheduled',
   };
 }
 
@@ -171,7 +171,7 @@ function normalizeCrewMember(
   return {
     refUser: raw.refUser,
     email: raw.email || '',
-    name: raw.name || fallbackName,
+    userName: raw.userName || fallbackName,
     role: raw.role || "Membre d'équipage",
     technicalLevel: raw.technicalLevel,
     professionalLevel: raw.professionalLevel,

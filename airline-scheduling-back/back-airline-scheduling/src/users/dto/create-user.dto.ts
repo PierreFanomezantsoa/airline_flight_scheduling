@@ -27,7 +27,7 @@ export class CreateUserDto {
   @IsString()
   @IsNotEmpty()
   @Length(1, 150)
-  name!: string;
+  userName!: string;
 
   @IsIn(SELF_REGISTRATION_ROLES, {
     message:

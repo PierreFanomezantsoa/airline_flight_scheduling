@@ -23,7 +23,7 @@ import { ApiError, authFetch } from '../Api/apiService';
 
 interface Airport {
   refAirport: string;
-  name: string;
+  airportName: string;
   timezone: string;
   city: string | null;
   country: string | null;
@@ -32,7 +32,7 @@ interface Airport {
 
 interface AirportForm {
   refAirport: string;
-  name: string;
+  airportName: string;
   timezone: string;
   city: string;
   country: string;
@@ -49,7 +49,7 @@ interface ConfirmDialogState {
 
 const EMPTY_FORM: AirportForm = {
   refAirport: '',
-  name: '',
+  airportName: '',
   timezone: '',
   city: '',
   country: '',
@@ -127,7 +127,7 @@ export function AirportManagement() {
     return airports.filter((airport) => {
       const matchesSearch =
         !query ||
-        [airport.refAirport, airport.name, airport.city, airport.country, airport.timezone]
+        [airport.refAirport, airport.airportName, airport.city, airport.country, airport.timezone]
           .filter(Boolean)
           .some((value) => value!.toLocaleLowerCase('fr').includes(query));
 
@@ -196,7 +196,7 @@ export function AirportManagement() {
     setEditingAirport(airport);
     setForm({
       refAirport: airport.refAirport,
-      name: airport.name,
+      airportName: airport.airportName,
       timezone: airport.timezone,
       city: airport.city ?? '',
       country: airport.country ?? '',
@@ -211,7 +211,7 @@ export function AirportManagement() {
     setNotice(null);
 
     const payload = {
-      name: form.name.trim(),
+      airportName: form.airportName.trim(),
       timezone: form.timezone.trim(),
       city: form.city.trim() || null,
       country: form.country.trim() || null,
@@ -538,7 +538,7 @@ export function AirportManagement() {
 
                     {/* Nom de l'aéroport */}
                     <p className="mt-2.5 text-sm font-semibold leading-5 text-slate-800">
-                      {airport.name}
+                      {airport.airportName}
                     </p>
 
                     {/* Fuseau horaire */}
@@ -659,7 +659,7 @@ export function AirportManagement() {
 
                       <td className="px-4 py-4">
                         <span className="block text-sm font-semibold text-slate-800">
-                          {airport.name}
+                          {airport.airportName}
                         </span>
                         <span className="mt-0.5 block text-[11px] font-medium text-slate-400">
                           {airport.country || '—'}
@@ -924,9 +924,9 @@ export function AirportManagement() {
                     required
                     minLength={2}
                     maxLength={120}
-                    value={form.name}
+                    value={form.airportName}
                     onChange={(event) =>
-                      setForm((current) => ({ ...current, name: event.target.value }))
+                      setForm((current) => ({ ...current, airportName: event.target.value }))
                     }
                     placeholder="Paris Charles de Gaulle"
                     className={`${inputClass} mt-1.5`}
@@ -1047,7 +1047,7 @@ export function AirportManagement() {
                       {confirmDialog.airport.refAirport}
                     </div>
                     <p className="mt-0.5 truncate text-xs font-medium text-slate-600">
-                      {confirmDialog.airport.name}
+                      {confirmDialog.airport.airportName}
                     </p>
                   </div>
                   <div className="text-right text-[11px] font-medium text-slate-400">

@@ -17,7 +17,7 @@ export class UpdateUserDto {
   @IsOptional()
   @IsString()
   @Length(1, 150)
-  name?: string;
+  userName?: string;
 
   @IsOptional()
   @IsEnum(UserRole)

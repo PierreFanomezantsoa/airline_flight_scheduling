@@ -151,7 +151,7 @@ interface Flight {
   localDeparture?: string | null;
   localArrival?: string | null;
   durationMinutes?: number | null;
-  status: FlightStatus;
+  flightStatus: FlightStatus;
   aircraft: string;
   aircraftModel: string;
   weatherSeverity?: number | null;
@@ -699,7 +699,7 @@ export const FlightsPlanning: FC = () => {
    * ----------------------------------------------------------------------- */
 
   const getCalculatedStatus = useCallback((flight: Flight): NormalizedStatus => {
-    const rawStatus = String(flight.status ?? '').trim();
+    const rawStatus = String(flight.flightStatus ?? '').trim();
     const normalizedRawStatus = rawStatus.toLowerCase();
     if (['cancelled', 'canceled', 'annulé', 'annule'].includes(normalizedRawStatus)) return 'Annulé';
     if (['delayed', 'retardé', 'retarde'].includes(normalizedRawStatus)) return 'Retardé';
@@ -971,9 +971,9 @@ export const FlightsPlanning: FC = () => {
           arrivalTime: formData.arrivalTime,
           refAircraft: formData.refAircraft || null,
           legs: formData.legs,
-          status: isEdition
-            ? formData.status || editingFlight!.status
-            : formData.status || 'Planifié',
+          flightStatus: isEdition
+            ? formData.flightStatus || editingFlight!.flightStatus
+            : formData.flightStatus || 'Planifié',
         }),
       });
 
@@ -1076,7 +1076,7 @@ export const FlightsPlanning: FC = () => {
 
   const mapStatusToModalFormat = (
     status?: FlightStatus,
-  ): FlightFormData['status'] => {
+  ): FlightFormData['flightStatus'] => {
     if (!status) return undefined;
     switch (status) {
       case 'Scheduled':
@@ -1092,7 +1092,7 @@ export const FlightsPlanning: FC = () => {
       case 'Cancelled':
         return 'Annulé';
       default:
-        return status as FlightFormData['status'];
+        return status as FlightFormData['flightStatus'];
     }
   };
 
@@ -1677,7 +1677,7 @@ export const FlightsPlanning: FC = () => {
                   editingFlight.aircraft !== 'NON ASSIGNÉ'
                     ? editingFlight.aircraft
                     : '',
-                status: mapStatusToModalFormat(editingFlight.status),
+                flightStatus: mapStatusToModalFormat(editingFlight.flightStatus),
               }
             : undefined
         }

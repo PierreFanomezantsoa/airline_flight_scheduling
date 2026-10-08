@@ -22,7 +22,7 @@ export class AircraftAvailabilityService {
     excludeFlightId?: string,
   ): Promise<Aircraft[]> {
     const aircrafts = await this.aircraftRepository.find({
-      where: { status: AircraftStatus.ACTIVE },
+      where: { aircraftStatus: AircraftStatus.ACTIVE },
       relations: ['type'],
       order: { registration: 'ASC' },
     });

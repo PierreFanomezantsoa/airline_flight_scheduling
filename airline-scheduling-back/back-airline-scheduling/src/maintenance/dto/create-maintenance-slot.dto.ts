@@ -29,5 +29,5 @@ export class CreateMaintenanceSlotDto {
 
   @IsOptional()
   @IsEnum(MaintenanceStatus)
-  status?: MaintenanceStatus;
+  maintenanceStatus?: MaintenanceStatus;
 }

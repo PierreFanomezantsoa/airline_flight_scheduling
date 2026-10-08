@@ -12,7 +12,7 @@ class Aircraft(db.Model):
     maintenanceHoursLimit = db.Column(db.Float, nullable=True)
     hoursSinceMaintenance = db.Column(db.Float, default=0)
     lastMaintenanceAt = db.Column(db.DateTime(timezone=True), nullable=True)
-    status = db.Column(db.String(50), default='Active')
+    aircraftStatus = db.Column('aircraft_status', db.String(50), default='Active')
 
 
 class MaintenanceSlot(db.Model):
@@ -26,7 +26,7 @@ class MaintenanceSlot(db.Model):
     )
     startTime = db.Column(db.DateTime(timezone=True), nullable=False)
     endTime = db.Column(db.DateTime(timezone=True), nullable=False)
-    status = db.Column(db.String(50), nullable=True)
+    maintenanceStatus = db.Column('maintenance_status', db.String(50), nullable=True)
 
 class Flight(db.Model):
     __tablename__ = 'flights'
@@ -41,7 +41,7 @@ class Flight(db.Model):
     
     departureTime = db.Column(db.DateTime(timezone=True), nullable=False)
     arrivalTime = db.Column(db.DateTime(timezone=True), nullable=False)
-    status = db.Column(db.String(50), default='Scheduled') 
+    flightStatus = db.Column('flight_status', db.String(50), default='Scheduled')
     
     refAircraft = db.Column(
         'ref_aircraft',

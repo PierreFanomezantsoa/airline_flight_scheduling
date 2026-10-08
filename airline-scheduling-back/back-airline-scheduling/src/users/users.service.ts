@@ -96,7 +96,7 @@ export class UsersService {
         },
 
         order: {
-          name:
+          userName:
             'ASC',
         },
       });
@@ -308,8 +308,8 @@ export class UsersService {
             12,
           ),
 
-        name:
-          dto.name.trim(),
+        userName:
+          dto.userName.trim(),
 
         role:
           dto.role,
@@ -584,11 +584,11 @@ export class UsersService {
     }
 
     if (
-      dto.name !==
+      dto.userName !==
       undefined
     ) {
-      user.name =
-        dto.name.trim();
+      user.userName =
+        dto.userName.trim();
     }
 
     if (

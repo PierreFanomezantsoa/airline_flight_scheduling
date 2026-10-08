@@ -44,7 +44,7 @@ describe('Airports CRUD', () => {
   it('normalizes and stores a new airport', async () => {
     const airport = {
       refAirport: 'CDG',
-      name: 'Charles de Gaulle',
+      airportName: 'Charles de Gaulle',
       timezone: 'Europe/Paris',
       city: 'Paris',
       country: 'France',
@@ -56,7 +56,7 @@ describe('Airports CRUD', () => {
 
     const result = await service.create({
       refAirport: ' cdg ',
-      name: ' Charles de Gaulle ',
+      airportName: ' Charles de Gaulle ',
       timezone: ' Europe/Paris ',
       city: ' Paris ',
       country: ' France ',
@@ -64,7 +64,7 @@ describe('Airports CRUD', () => {
 
     expect(repository.create).toHaveBeenCalledWith({
       refAirport: 'CDG',
-      name: 'Charles de Gaulle',
+      airportName: 'Charles de Gaulle',
       timezone: 'Europe/Paris',
       city: 'Paris',
       country: 'France',
@@ -75,7 +75,7 @@ describe('Airports CRUD', () => {
   it('updates airport details and activation state', async () => {
     const airport = {
       refAirport: 'CDG',
-      name: 'Charles de Gaulle',
+      airportName: 'Charles de Gaulle',
       timezone: 'Europe/Paris',
       city: 'Paris',
       country: 'France',
@@ -85,12 +85,12 @@ describe('Airports CRUD', () => {
     repository.save.mockImplementation(async (value) => value as Airport);
 
     await service.update('cdg', {
-      name: ' Roissy Charles de Gaulle ',
+      airportName: ' Roissy Charles de Gaulle ',
       city: null,
       active: false,
     });
 
-    expect(airport.name).toBe('Roissy Charles de Gaulle');
+    expect(airport.airportName).toBe('Roissy Charles de Gaulle');
     expect(airport.city).toBeNull();
     expect(airport.active).toBe(false);
     expect(repository.save).toHaveBeenCalledWith(airport);
@@ -99,7 +99,7 @@ describe('Airports CRUD', () => {
   it('soft-deletes airports and excludes inactive ones from flight validation', async () => {
     const airport = {
       refAirport: 'CDG',
-      name: 'Charles de Gaulle',
+      airportName: 'Charles de Gaulle',
       timezone: 'Europe/Paris',
       city: 'Paris',
       country: 'France',

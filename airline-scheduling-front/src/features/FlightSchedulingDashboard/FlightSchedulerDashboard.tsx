@@ -184,7 +184,7 @@ const inferAircraftPosition = (row: GanttRow, flights: Flight[]): string | null 
   const now = Date.now();
 
   const inFlight = aircraftFlights.find(
-    (flight) => normalizeFlightStatus(flight.status) === 'En Vol',
+    (flight) => normalizeFlightStatus(flight.flightStatus) === 'En Vol',
   );
   if (inFlight?.destination) return inFlight.destination;
 
@@ -192,7 +192,7 @@ const inferAircraftPosition = (row: GanttRow, flights: Flight[]): string | null 
     .filter((flight) => {
       const arrival = safeDate(flight.arrival);
       return (
-        normalizeFlightStatus(flight.status) === 'Effectué' ||
+        normalizeFlightStatus(flight.flightStatus) === 'Effectué' ||
         Boolean(arrival && arrival.getTime() <= now)
       );
     })
@@ -258,7 +258,7 @@ const normalizeGanttPayload = (payload: unknown, flights: Flight[]): GanttPayloa
         capacity: row.capacity ?? null,
         base,
         currentPosition,
-        status: row.status ?? null,
+        aircraftStatus: row.aircraftStatus ?? null,
       };
 
       if (!normalized.currentPosition) {
@@ -271,7 +271,7 @@ const normalizeGanttPayload = (payload: unknown, flights: Flight[]): GanttPayloa
 };
 
 const buildFallbackAnalytics = (flights: Flight[]): AnalyticsMetrics => {
-  const statuses = flights.map((flight) => normalizeFlightStatus(flight.status));
+  const statuses = flights.map((flight) => normalizeFlightStatus(flight.flightStatus));
   const count = (status: string) => statuses.filter((c) => c === status).length;
   const onTimeCount = count('Planifié');
   const delayedCount = count('Retardé');
@@ -493,7 +493,7 @@ export const FlightSchedulerDashboard: FC = () => {
     () =>
       flights.map((flight) => ({
         ...flight,
-        status: normalizeFlightStatus(flight.status),
+        flightStatus: normalizeFlightStatus(flight.flightStatus),
       })),
     [flights],
   );
@@ -507,7 +507,7 @@ export const FlightSchedulerDashboard: FC = () => {
           .filter(Boolean)
           .some((value) => String(value).toLowerCase().includes(term));
       const matchesStatus =
-        selectedStatus === 'TOUS' || flight.status === selectedStatus;
+        selectedStatus === 'TOUS' || flight.flightStatus === selectedStatus;
       return matchesSearch && matchesStatus;
     });
 

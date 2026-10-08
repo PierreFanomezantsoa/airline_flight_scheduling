@@ -74,7 +74,7 @@ const PASSWORD_MIN_LENGTH = 8;
 
 export interface AuthenticatedUser {
   refUser: string;
-  name: string;
+  userName: string;
   email: string;
   role: UserRole;
 }
@@ -501,7 +501,7 @@ export function AuthPage({ onAuthenticate }: AuthPageProps) {
   const authenticate = (user: PublicUser) => {
     onAuthenticate({
       refUser: user.refUser,
-      name: user.name,
+      userName: user.userName,
       email: user.email,
       role: user.role,
     });
@@ -522,7 +522,7 @@ export function AuthPage({ onAuthenticate }: AuthPageProps) {
 
     try {
       if (isSignUp) {
-        await signUp({ email, password: form.password, name, role: form.role });
+        await signUp({ email, password: form.password, userName: name, role: form.role });
 
         setIsSignUp(false);
         setShowPassword(false);

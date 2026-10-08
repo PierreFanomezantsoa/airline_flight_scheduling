@@ -65,7 +65,7 @@ export interface FlightFormData {
   departureTime: string;
   arrivalTime: string;
   refAircraft: string;
-  status?: 'Planifié' | 'Retardé' | 'En Vol' | 'Annulé' | 'Effectué';
+  flightStatus?: 'Planifié' | 'Retardé' | 'En Vol' | 'Annulé' | 'Effectué';
   motifAnnulation?: string;
   legs?: FlightLegData[];
 }
@@ -88,7 +88,7 @@ export interface AircraftData {
   refAircraft: string;
   model?: string;
   registration?: string;
-  status?: string;
+  aircraftStatus?: string;
 }
 
 export interface ExistingFlightData {
@@ -114,12 +114,12 @@ export interface ExistingFlightData {
     refAircraft?: string;
     registration?: string;
   } | null;
-  status?: string;
+  flightStatus?: string;
 }
 
 export interface AirportOption {
   refAirport: string;
-  name: string;
+  airportName: string;
   timezone: string;
   active: boolean;
 }
@@ -236,7 +236,7 @@ const INITIAL_FORM_STATE: FlightFormData = {
   departureTime: '',
   arrivalTime: '',
   refAircraft: '',
-  status: 'Planifié',
+  flightStatus: 'Planifié',
   motifAnnulation: '',
   legs: [],
 };
@@ -257,9 +257,9 @@ const normalizeReference = (value?: string | null): string =>
 const normalizeAircraft = (aircraft: AircraftData) => {
   const registration = aircraft.registration || '';
   const model = aircraft.model || 'Modèle inconnu';
-  const status = aircraft.status || '';
+  const aircraftStatus = aircraft.aircraftStatus || '';
   const refAircraft = aircraft.refAircraft || registration;
-  return { refAircraft, registration, model, status };
+  return { refAircraft, registration, model, aircraftStatus };
 };
 
 const getAircraftRefs = (aircraft: ReturnType<typeof normalizeAircraft>): string[] =>
@@ -357,7 +357,7 @@ const getExistingFlightNumber = (flight: ExistingFlightData): string =>
   flight.flightNumber || flight.flightNumber || 'Vol existant';
 
 const getExistingFlightStatus = (flight: ExistingFlightData): string =>
-  normalizeReference(flight.status || flight.status || '');
+  normalizeReference(flight.flightStatus || flight.flightStatus || '');
 
 const isCancelledFlight = (flight: ExistingFlightData): boolean => {
   const status = getExistingFlightStatus(flight);
@@ -1375,7 +1375,7 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
     return fleetAircrafts.map((rawAircraft) => {
       const aircraft = normalizeAircraft(rawAircraft);
 
-      const isGlobalMaint = isAircraftInMaintenanceStatus(aircraft.status);
+      const isGlobalMaint = isAircraftInMaintenanceStatus(aircraft.aircraftStatus);
 
       let slotConflict: MaintenanceSlot | undefined;
 
@@ -1505,7 +1505,7 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
       if (selectedAircraft.isGlobalMaint) {
         return (
           `Immobilisation technique : l'appareil ${aircraftName} ` +
-          `est actuellement en maintenance (${selectedAircraft.status || 'indisponible'}).`
+          `est actuellement en maintenance (${selectedAircraft.aircraftStatus || 'indisponible'}).`
         );
       }
 
@@ -1574,7 +1574,7 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
         stopoverDurationMinutes: selectedStop ? layoverMinutes : undefined,
         arrivalTime: routeCalculation.calculatedArrival,
         legs: routeCalculation.generatedLegs,
-        status: isPastDate ? 'Annulé' : newFlight.status || 'Planifié',
+        flightStatus: isPastDate ? 'Annulé' : newFlight.flightStatus || 'Planifié',
         motifAnnulation: isPastDate
           ? 'Date de départ dépassée à la création'
           : newFlight.motifAnnulation,
@@ -1601,14 +1601,14 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
   const weatherSourceBadge = getWeatherSourceBadge(weatherPreview);
   const airportOptions: SearchableSelectOption[] = airports.map((airport) => ({
     value: airport.refAirport,
-    label: airport.name,
+    label: airport.airportName,
     description: `${airport.refAirport} · ${airport.timezone}`,
-    displayLabel: `${airport.refAirport} · ${airport.name}`,
-    searchText: `${airport.refAirport} ${airport.name} ${airport.timezone}`,
+    displayLabel: `${airport.refAirport} · ${airport.airportName}`,
+    searchText: `${airport.refAirport} ${airport.airportName} ${airport.timezone}`,
   }));
   const aircraftOptions: SearchableSelectOption[] = fleetWithStatus.map((aircraft) => {
     const availability = aircraft.isGlobalMaint
-      ? `En maintenance${aircraft.status ? ` · ${aircraft.status}` : ''}`
+      ? `En maintenance${aircraft.aircraftStatus ? ` · ${aircraft.aircraftStatus}` : ''}`
       : aircraft.isSlotMaint
         ? 'Maintenance prévue sur ce créneau'
         : aircraft.flightConflict
@@ -1625,7 +1625,7 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
       displayLabel: aircraft.registration && aircraft.model
         ? `${aircraft.registration} · ${aircraft.model}`
         : label,
-      searchText: `${aircraft.refAircraft} ${aircraft.registration} ${aircraft.model} ${aircraft.status} ${availability}`,
+      searchText: `${aircraft.refAircraft} ${aircraft.registration} ${aircraft.model} ${aircraft.aircraftStatus} ${availability}`,
       disabled: aircraft.isDisabled,
     };
   });
@@ -1838,7 +1838,7 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
                                 active ? 'text-emerald-100' : 'text-slate-400'
                               }`}
                             >
-                              {stopAirport?.name}
+                              {stopAirport?.airportName}
                             </p>
                           </div>
                           {active && <CheckCircle2 className="h-4 w-4" />}

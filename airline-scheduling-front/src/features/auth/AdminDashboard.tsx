@@ -27,7 +27,7 @@ import {
 // TYPES
 // =============================================================================
 
-type AdminUser = Pick<PublicUser, 'refUser' | 'name' | 'email' | 'role'>;
+type AdminUser = Pick<PublicUser, 'refUser' | 'userName' | 'email' | 'role'>;
 
 interface AdminDashboardProps {
   onAuthenticate: (user: AdminUser) => void;
@@ -272,7 +272,7 @@ export function AdminDashboard({
 
       onAuthenticate({
         refUser: auth.user.refUser,
-        name: auth.user.name,
+        userName: auth.user.userName,
         email: auth.user.email,
         role: auth.user.role,
       });

@@ -173,9 +173,9 @@ def _normalized_flight_status(flight: Flight) -> str:
     - status inconnu.
     """
     try:
-        return (normalize_status(getattr(flight, "status", None)) or "").upper()
+        return (normalize_status(getattr(flight, "flightStatus", None)) or "").upper()
     except Exception:
-        raw = getattr(flight, "status", None)
+        raw = getattr(flight, "flightStatus", None)
         return str(raw).strip().upper() if raw else ""
 
 
@@ -259,7 +259,7 @@ def maintenance_slots_for_aircrafts_bulk(
         }
 
         for slot in slots:
-            if normalize_status(getattr(slot, "status", None)) in {
+            if normalize_status(getattr(slot, "maintenanceStatus", None)) in {
                 "CANCELLED",
                 "CANCELED",
                 "CANCELLE",
@@ -591,7 +591,7 @@ def generate_schedule_scenario(
             "aircraftRegistration": aircraft_registration(aircraft),
             "capacity": aircraft_capacity(aircraft),
             "base": aircraft_base(aircraft),
-            "status": getattr(aircraft, "status", None),
+            "aircraftStatus": getattr(aircraft, "aircraftStatus", None),
         }
         for aircraft in usable_aircrafts
     ]
@@ -841,7 +841,7 @@ def generate_automatic_schedule():
                 flight.arrivalTime = datetime.fromisoformat(item["arrival"])
 
                 if not _is_cancelled_flight(flight):
-                    flight.status = "Scheduled"
+                    flight.flightStatus = "Scheduled"
 
             db.session.commit()
             scenario["applied"] = True
@@ -979,7 +979,7 @@ def get_current_schedule_gantt():
                     "capacity": aircraft_capacity(aircraft),
                     "base": aircraft_base(aircraft),
                     "currentPosition": current_position_by_aircraft.get(aid),
-                    "status": getattr(aircraft, "status", None),
+                    "aircraftStatus": getattr(aircraft, "aircraftStatus", None),
                 }
             )
 
@@ -1030,7 +1030,7 @@ def get_current_schedule_gantt():
                     "durationMinutes": int(
                         round((arr - dep).total_seconds() / 60)
                     ),
-                    "status": getattr(flight, "status", None),
+                    "flightStatus": getattr(flight, "flightStatus", None),
                     "label": (
                         f"{flight_number or 'VOL'} · {origin} → {destination}"
                     ),

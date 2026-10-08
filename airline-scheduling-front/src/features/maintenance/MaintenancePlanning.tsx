@@ -57,9 +57,6 @@ interface DeleteModalState {
 }
 
 type AircraftLike = Aircraft & {
-  registration?: string;
-  model?: string;
-  status?: string;
   homeBase?: string | null;
   totalFlightHours?: number;
   hoursSinceMaintenance?: number;
@@ -99,16 +96,15 @@ const BADGE =
  * ========================================================================== */
 
 const getAircraftRegistration = (aircraft?: AircraftLike | null): string =>
-  aircraft?.registration || aircraft?.registration || 'Appareil inconnu';
+  aircraft?.registration || 'Appareil inconnu';
 
 const getAircraftModel = (aircraft?: AircraftLike | null): string =>
-  aircraft?.model ||
   aircraft?.model ||
   aircraft?.aircraftType?.modelName ||
   'Modèle inconnu';
 
 const getAircraftStatus = (aircraft?: AircraftLike | null): string =>
-  (aircraft?.status || aircraft?.status || '').trim().toLowerCase();
+  (aircraft?.aircraftStatus || '').trim().toLowerCase();
 
 const isMaintenanceAircraft = (aircraft: AircraftLike): boolean => {
   const status = getAircraftStatus(aircraft);
@@ -121,7 +117,7 @@ const isRetiredAircraft = (aircraft: AircraftLike): boolean => {
 };
 
 const isPendingReview = (slot: MaintenanceSlot): boolean =>
-  slot.status === 'Pending Review';
+  slot.maintenanceStatus === 'Pending Review';
 
 interface StatusVisual {
   label: string;
@@ -137,14 +133,14 @@ const getStatusVisual = (slot: MaintenanceSlot): StatusVisual => {
       dot: 'bg-amber-500',
     };
   }
-  if (slot.status === 'Cancelled') {
+  if (slot.maintenanceStatus === 'Cancelled') {
     return {
       label: 'Annulé',
       className: 'bg-slate-100 text-slate-600',
       dot: 'bg-slate-400',
     };
   }
-  if (slot.status === 'Completed') {
+  if (slot.maintenanceStatus === 'Completed') {
     return {
       label: 'Terminé',
       className: 'bg-emerald-50 text-emerald-700',
@@ -484,7 +480,7 @@ export const MaintenancePlanning: React.FC = () => {
       slots
         .filter((slot) => {
           if (isPendingReview(slot)) return true;
-          if (slot.status === 'Cancelled' || slot.status === 'Completed')
+          if (slot.maintenanceStatus === 'Cancelled' || slot.maintenanceStatus === 'Completed')
             return false;
           return new Date(slot.endTime).getTime() >= now;
         })
@@ -502,7 +498,7 @@ export const MaintenancePlanning: React.FC = () => {
       const end = new Date(slot.endTime).getTime();
       if (isPendingReview(slot)) continue;
       if (slot.maintenanceType === 'Aircraft On Ground' && end >= now) aog += 1;
-      if (slot.status === 'Cancelled') continue;
+      if (slot.maintenanceStatus === 'Cancelled') continue;
       if (now < start) planned += 1;
       else if (now <= end) active += 1;
     }
@@ -516,14 +512,16 @@ export const MaintenancePlanning: React.FC = () => {
       result = result.filter(isPendingReview);
     } else if (activeTab === 'history') {
       result = result.filter(
-        (s) => s.status === 'Completed' || s.status === 'Cancelled',
+        (s) =>
+          s.maintenanceStatus === 'Completed' ||
+          s.maintenanceStatus === 'Cancelled',
       );
     } else {
       result = result.filter(
         (s) =>
           !isPendingReview(s) &&
-          s.status !== 'Completed' &&
-          s.status !== 'Cancelled',
+          s.maintenanceStatus !== 'Completed' &&
+          s.maintenanceStatus !== 'Cancelled',
       );
     }
 

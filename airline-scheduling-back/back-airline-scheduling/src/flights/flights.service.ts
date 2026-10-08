@@ -89,7 +89,7 @@ export class FlightsService {
         arrivalAirportCode: candidate.arrivalAirportCode,
         departureTime: candidate.departureTime,
         arrivalTime: candidate.arrivalTime,
-        status: dto.status ?? FlightStatus.SCHEDULED,
+        flightStatus: dto.flightStatus ?? FlightStatus.SCHEDULED,
         refAircraft: aircraft?.refAircraft ?? null,
         flightHoursRecorded: false,
         creditedFlightHours: null,
@@ -140,7 +140,7 @@ export class FlightsService {
       id,
     );
 
-    const targetStatus = dto.status ?? flight.status;
+    const targetStatus = dto.flightStatus ?? flight.flightStatus;
     this.assertCreditedFlightIsNotRewritten(flight, candidate, targetStatus);
 
     /*
@@ -177,8 +177,8 @@ export class FlightsService {
       lockedFlight.arrivalTime = candidate.arrivalTime;
       lockedFlight.refAircraft = aircraft?.refAircraft ?? null;
 
-      if (dto.status !== undefined) {
-        lockedFlight.status = dto.status;
+      if (dto.flightStatus !== undefined) {
+        lockedFlight.flightStatus = dto.flightStatus;
       }
 
       if (dto.stopoverAirportCodes !== undefined) {
@@ -227,8 +227,8 @@ export class FlightsService {
 
       const wasAlreadyCredited = flight.flightHoursRecorded;
 
-      if (!this.isCompletedStatus(flight.status)) {
-        flight.status = FlightStatus.EFFECTUE;
+      if (!this.isCompletedStatus(flight.flightStatus)) {
+        flight.flightStatus = FlightStatus.EFFECTUE;
         await manager.save(Flight, flight);
       }
 
@@ -256,16 +256,16 @@ export class FlightsService {
       .createQueryBuilder('flight')
       .select([
         'flight.refFlight',
-        'flight.status',
+        'flight.flightStatus',
         'flight.flightHoursRecorded',
         'flight.arrivalTime',
       ])
       .where('flight.arrivalTime <= :now', { now })
-      .andWhere('flight.status != :cancelled', {
+      .andWhere('flight.flightStatus != :cancelled', {
         cancelled: FlightStatus.CANCELLED,
       })
       .andWhere(
-        `(flight.status NOT IN (:...completedStatuses)
+        `(flight.flightStatus NOT IN (:...completedStatuses)
           OR flight.flightHoursRecorded = FALSE)`,
         {
           completedStatuses: [
@@ -367,7 +367,7 @@ export class FlightsService {
     flight: Flight,
     referenceTime = new Date(),
   ): Promise<void> {
-    if (!this.isCompletedStatus(flight.status)) {
+    if (!this.isCompletedStatus(flight.flightStatus)) {
       return;
     }
 
@@ -410,7 +410,7 @@ export class FlightsService {
     flight: Flight,
     referenceTime: Date,
   ): void {
-    if (flight.status === FlightStatus.CANCELLED) {
+    if (flight.flightStatus === FlightStatus.CANCELLED) {
       throw new ConflictException({
         code: 'CANCELLED_FLIGHT_CANNOT_BE_COMPLETED',
         message: 'Un flight annulé ne peut pas être déclaré effectué.',
@@ -457,10 +457,10 @@ export class FlightsService {
     return Math.round(airborneHours * 1000) / 1000;
   }
 
-  private isCompletedStatus(status: FlightStatus): boolean {
+  private isCompletedStatus(flightStatus: FlightStatus): boolean {
     return (
-      status === FlightStatus.COMPLETED ||
-      status === FlightStatus.EFFECTUE
+      flightStatus === FlightStatus.COMPLETED ||
+      flightStatus === FlightStatus.EFFECTUE
     );
   }
 

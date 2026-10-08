@@ -56,7 +56,7 @@ interface MenuSection {
 interface SidebarProps {
   activeScreen: ActiveScreen;
   setActiveScreen: (screen: ActiveScreen) => void;
-  user: { name: string; email: string; role?: string } | null;
+  user: { userName: string; email: string; role?: string } | null;
   onLogout: () => void;
   isCollapsed: boolean;
   onCollapsedChange: (collapsed: boolean) => void;
@@ -211,7 +211,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     operations: true,
   });
 
-  const userDisplayName = user?.name?.trim() || 'Utilisateur';
+  const userDisplayName = user?.userName?.trim() || 'Utilisateur';
   const userInitial = userDisplayName.charAt(0).toUpperCase();
 
   const currentRole = useMemo(() => normalizeRole(user?.role), [user?.role]);

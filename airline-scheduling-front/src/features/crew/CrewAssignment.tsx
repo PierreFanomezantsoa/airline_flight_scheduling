@@ -308,7 +308,7 @@ export const CrewAssignment: React.FC = () => {
     if (member.volAssigne) {
       setFeedback({
         type: 'error',
-        msg: `${member.name} est déjà assigné(e) au Vol ${member.volAssigne.flightNumber}.`,
+        msg:         `${member.userName} est déjà assigné(e) au Vol ${member.volAssigne.flightNumber}.`,
       });
       return;
     }
@@ -317,7 +317,7 @@ export const CrewAssignment: React.FC = () => {
     if (restHours < MIN_REST_HOURS) {
       setFeedback({
         type: 'error',
-        msg: `Réglementation non respectée : ${member.name} n'a que ${restHours}h de repos.`,
+        msg: `Réglementation non respectée : ${member.userName} n'a que ${restHours}h de repos.`,
       });
       return;
     }
@@ -327,7 +327,7 @@ export const CrewAssignment: React.FC = () => {
       await assignCrewMember(refFlight, member.refUser, restHours);
       setFeedback({
         type: 'success',
-        msg: `Affectation validée avec succès pour ${member.name}.`,
+        msg: `Affectation validée avec succès pour ${member.userName}.`,
       });
       setSelectedMemberId('');
     } catch (err: unknown) {
@@ -452,7 +452,7 @@ export const CrewAssignment: React.FC = () => {
                   const isRestOk = restHours >= MIN_REST_HOURS;
                   const isAssigned = Boolean(member.volAssigne);
                   const isAvailable = isRestOk && !isAssigned;
-                  const initials = getInitials(member.name);
+                  const initials = getInitials(member.userName);
                   const status: 'available' | 'assigned' | 'rest' = isAvailable
                     ? 'available'
                     : isAssigned
@@ -475,7 +475,7 @@ export const CrewAssignment: React.FC = () => {
 
                           <div className="min-w-0">
                             <h3 className="truncate text-sm font-semibold text-slate-900">
-                              {member.name}
+                              {member.userName}
                             </h3>
                             <div className="mt-1 flex flex-wrap items-center gap-1.5">
                               <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600 ring-1 ring-inset ring-slate-200/70">
@@ -617,7 +617,7 @@ export const CrewAssignment: React.FC = () => {
 
                     return (
                       <option key={m.refUser} value={m.refUser} disabled={isDisabled}>
-                        {m.name} ({m.role}) — {statusText}
+                        {m.userName} ({m.role}) — {statusText}
                       </option>
                     );
                   })}
@@ -630,10 +630,10 @@ export const CrewAssignment: React.FC = () => {
                   <div className="flex items-center justify-between gap-2 border-b border-emerald-100 pb-3">
                     <div className="flex min-w-0 items-center gap-2.5">
                       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-[10px] font-bold text-emerald-700 ring-1 ring-inset ring-emerald-200/70">
-                        {getInitials(currentSelectedUser.name)}
+                        {getInitials(currentSelectedUser.userName)}
                       </div>
                       <span className="truncate text-xs font-semibold text-slate-900">
-                        {currentSelectedUser.name}
+                        {currentSelectedUser.userName}
                       </span>
                     </div>
                     <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200/70">

@@ -94,7 +94,8 @@ export class MaintenanceService {
         refAircraft: aircraft.refAircraft,
         aircraft,
         maintenanceType: dto.maintenanceType,
-        status: dto.status ?? MaintenanceStatus.PLANNED,
+        maintenanceStatus:
+          dto.maintenanceStatus ?? MaintenanceStatus.PLANNED,
         startTime: start,
         endTime: end,
         description: dto.description?.trim() ?? null,
@@ -120,13 +121,14 @@ export class MaintenanceService {
 
     const start = dto.startTime ? new Date(dto.startTime) : slot.startTime;
     const end = dto.endTime ? new Date(dto.endTime) : slot.endTime;
-    const status = dto.status ?? slot.status;
+    const maintenanceStatus =
+      dto.maintenanceStatus ?? slot.maintenanceStatus;
 
     this.assertWindow(start, end);
 
     if (
-      status !== MaintenanceStatus.CANCELLED &&
-      status !== MaintenanceStatus.COMPLETED
+      maintenanceStatus !== MaintenanceStatus.CANCELLED &&
+      maintenanceStatus !== MaintenanceStatus.COMPLETED
     ) {
       await this.assertNoMaintenanceOverlap(refAircraft, start, end, id);
       await this.assertNoFlightOverlap(refAircraft, start, end);
@@ -136,7 +138,7 @@ export class MaintenanceService {
     slot.aircraft = aircraft;
     slot.startTime = start;
     slot.endTime = end;
-    slot.status = status;
+    slot.maintenanceStatus = maintenanceStatus;
 
     if (dto.maintenanceType !== undefined) {
       slot.maintenanceType = dto.maintenanceType;
@@ -148,7 +150,7 @@ export class MaintenanceService {
 
     await this.maintenanceRepository.save(slot);
 
-    if (status === MaintenanceStatus.COMPLETED) {
+    if (maintenanceStatus === MaintenanceStatus.COMPLETED) {
       await this.completeAircraftMaintenance(refAircraft, end);
     } else {
       await this.syncAircraftStatus(refAircraft);
@@ -164,7 +166,7 @@ export class MaintenanceService {
   async remove(id: string): Promise<{ cancelled: true; id: string }> {
     const slot = await this.findOne(id);
 
-    slot.status = MaintenanceStatus.CANCELLED;
+    slot.maintenanceStatus = MaintenanceStatus.CANCELLED;
     slot.pendingReviewSince = null;
     slot.autoCloseAt = null;
 
@@ -207,12 +209,12 @@ export class MaintenanceService {
     const slot = await this.findOne(id);
 
     if (
-      slot.status !== MaintenanceStatus.IN_PROGRESS &&
-      slot.status !== MaintenanceStatus.PENDING_REVIEW &&
-      slot.status !== MaintenanceStatus.PLANNED
+      slot.maintenanceStatus !== MaintenanceStatus.IN_PROGRESS &&
+      slot.maintenanceStatus !== MaintenanceStatus.PENDING_REVIEW &&
+      slot.maintenanceStatus !== MaintenanceStatus.PLANNED
     ) {
       throw new ConflictException(
-        `Impossible de prolonger un créneau au status ${slot.status}.`,
+        `Impossible de prolonger un créneau au status ${slot.maintenanceStatus}.`,
       );
     }
 
@@ -220,7 +222,7 @@ export class MaintenanceService {
     newEnd.setDate(newEnd.getDate() + additionalDays);
     slot.endTime = newEnd;
 
-    slot.status = MaintenanceStatus.IN_PROGRESS;
+    slot.maintenanceStatus = MaintenanceStatus.IN_PROGRESS;
     slot.pendingReviewSince = null;
     slot.autoCloseAt = null;
     slot.extensionCount = (slot.extensionCount ?? 0) + 1;
@@ -229,7 +231,7 @@ export class MaintenanceService {
 
     // Remettre l'aircraft en maintenance (au cas où il aurait été libéré)
     await this.aircraftRepository.update(slot.refAircraft, {
-      status: AircraftStatus.MAINTENANCE,
+      aircraftStatus: AircraftStatus.MAINTENANCE,
     });
 
     return this.findOne(id);
@@ -246,17 +248,17 @@ export class MaintenanceService {
 
     const slot = await this.findOne(id);
 
-    if (slot.status === MaintenanceStatus.COMPLETED) {
+    if (slot.maintenanceStatus === MaintenanceStatus.COMPLETED) {
       return slot;
     }
 
-    if (slot.status === MaintenanceStatus.CANCELLED) {
+    if (slot.maintenanceStatus === MaintenanceStatus.CANCELLED) {
       throw new ConflictException(
         'Ce créneau a été annulé, il ne peut pas être clôturé.',
       );
     }
 
-    slot.status = MaintenanceStatus.COMPLETED;
+    slot.maintenanceStatus = MaintenanceStatus.COMPLETED;
     slot.pendingReviewSince = null;
     slot.autoCloseAt = null;
 
@@ -279,7 +281,7 @@ export class MaintenanceService {
     maintenanceConflict: {
       refMaintenanceSlot: string;
       maintenanceType: string;
-      status: MaintenanceStatus;
+      maintenanceStatus: MaintenanceStatus;
       startTime: Date;
       endTime: Date;
     } | null;
@@ -301,7 +303,7 @@ export class MaintenanceService {
     const maintenanceConflict = await this.maintenanceRepository
       .createQueryBuilder('slot')
       .where('slot.refAircraft = :refAircraft', { refAircraft })
-      .andWhere('slot.status NOT IN (:...ignored)', {
+      .andWhere('slot.maintenanceStatus NOT IN (:...ignored)', {
         ignored: [
           MaintenanceStatus.CANCELLED,
           MaintenanceStatus.COMPLETED,
@@ -315,7 +317,7 @@ export class MaintenanceService {
     const flightConflict = await this.flightRepository
       .createQueryBuilder('flight')
       .where('flight.refAircraft = :refAircraft', { refAircraft })
-      .andWhere('flight.status != :cancelled', {
+      .andWhere('flight.flightStatus != :cancelled', {
         cancelled: FlightStatus.CANCELLED,
       })
       .andWhere('flight.departureTime < :end', { end })
@@ -330,7 +332,7 @@ export class MaintenanceService {
         ? {
             refMaintenanceSlot: maintenanceConflict.refMaintenanceSlot,
             maintenanceType: maintenanceConflict.maintenanceType,
-            status: maintenanceConflict.status,
+            maintenanceStatus: maintenanceConflict.maintenanceStatus,
             startTime: maintenanceConflict.startTime,
             endTime: maintenanceConflict.endTime,
           }
@@ -376,7 +378,7 @@ export class MaintenanceService {
     // ─── PHASE 1 : IN_PROGRESS / PLANNED → PENDING_REVIEW ───
     const expiredSlots = await this.maintenanceRepository.find({
       where: {
-        status: MaintenanceStatus.IN_PROGRESS,
+        maintenanceStatus: MaintenanceStatus.IN_PROGRESS,
         endTime: LessThanOrEqual(now),
       },
     });
@@ -385,7 +387,7 @@ export class MaintenanceService {
     // (créneau jamais démarré explicitement).
     const plannedExpired = await this.maintenanceRepository.find({
       where: {
-        status: MaintenanceStatus.PLANNED,
+        maintenanceStatus: MaintenanceStatus.PLANNED,
         endTime: LessThanOrEqual(now),
       },
     });
@@ -393,7 +395,7 @@ export class MaintenanceService {
     const toMoveToPendingReview = [...expiredSlots, ...plannedExpired];
 
     for (const slot of toMoveToPendingReview) {
-      slot.status = MaintenanceStatus.PENDING_REVIEW;
+      slot.maintenanceStatus = MaintenanceStatus.PENDING_REVIEW;
       slot.pendingReviewSince = now;
       slot.autoCloseAt = new Date(now.getTime() + PENDING_REVIEW_WINDOW_MS);
     }
@@ -405,7 +407,7 @@ export class MaintenanceService {
     // ─── PHASE 2 : PENDING_REVIEW → COMPLETED (auto-clôture) ───
     const toClose = await this.maintenanceRepository.find({
       where: {
-        status: MaintenanceStatus.PENDING_REVIEW,
+        maintenanceStatus: MaintenanceStatus.PENDING_REVIEW,
         autoCloseAt: LessThanOrEqual(now),
       },
     });
@@ -413,7 +415,7 @@ export class MaintenanceService {
     const closedAircraftIds: string[] = [];
 
     for (const slot of toClose) {
-      slot.status = MaintenanceStatus.COMPLETED;
+      slot.maintenanceStatus = MaintenanceStatus.COMPLETED;
       slot.pendingReviewSince = null;
       slot.autoCloseAt = null;
 
@@ -447,8 +449,8 @@ export class MaintenanceService {
     const aircraft = await this.getAircraft(refAircraft);
 
     if (
-      aircraft.status === AircraftStatus.RETIRED ||
-      aircraft.status === AircraftStatus.OUT_OF_SERVICE
+      aircraft.aircraftStatus === AircraftStatus.RETIRED ||
+      aircraft.aircraftStatus === AircraftStatus.OUT_OF_SERVICE
     ) {
       return false;
     }
@@ -467,14 +469,14 @@ export class MaintenanceService {
       await this.maintenanceRepository
         .createQueryBuilder('slot')
         .where('slot.refAircraft = :refAircraft', { refAircraft })
-        .andWhere('slot.status NOT IN (:...ignored)', {
+        .andWhere('slot.maintenanceStatus NOT IN (:...ignored)', {
           ignored: [
             MaintenanceStatus.CANCELLED,
             MaintenanceStatus.COMPLETED,
           ],
         })
         .andWhere(
-          '(slot.startTime <= :now AND slot.endTime > :now) OR slot.status = :pending',
+          '(slot.startTime <= :now AND slot.endTime > :now) OR slot.maintenanceStatus = :pending',
           {
             now,
             pending: MaintenanceStatus.PENDING_REVIEW,
@@ -485,7 +487,7 @@ export class MaintenanceService {
     aircraft.hoursSinceMaintenance = 0;
     aircraft.lastMaintenanceAt = maintenanceEnd;
 
-    aircraft.status = anotherCurrentMaintenance
+    aircraft.aircraftStatus = anotherCurrentMaintenance
       ? AircraftStatus.MAINTENANCE
       : AircraftStatus.ACTIVE;
 
@@ -499,7 +501,7 @@ export class MaintenanceService {
 
     if (
       [AircraftStatus.OUT_OF_SERVICE, AircraftStatus.RETIRED].includes(
-        aircraft.status,
+        aircraft.aircraftStatus,
       )
     ) {
       return;
@@ -519,14 +521,14 @@ export class MaintenanceService {
     const activeMaintenance = await this.maintenanceRepository
       .createQueryBuilder('slot')
       .where('slot.refAircraft = :refAircraft', { refAircraft })
-      .andWhere('slot.status NOT IN (:...ignored)', {
+      .andWhere('slot.maintenanceStatus NOT IN (:...ignored)', {
         ignored: [
           MaintenanceStatus.CANCELLED,
           MaintenanceStatus.COMPLETED,
         ],
       })
       .andWhere(
-        '(slot.startTime <= :now AND slot.endTime > :now) OR slot.status IN (:...blocking)',
+        '(slot.startTime <= :now AND slot.endTime > :now) OR slot.maintenanceStatus IN (:...blocking)',
         {
           now,
           blocking: [
@@ -538,7 +540,7 @@ export class MaintenanceService {
       .getOne();
 
     if (activeMaintenance) {
-      aircraft.status = AircraftStatus.MAINTENANCE;
+      aircraft.aircraftStatus = AircraftStatus.MAINTENANCE;
       await this.aircraftRepository.save(aircraft);
     }
   }
@@ -576,7 +578,7 @@ export class MaintenanceService {
     const qb = this.maintenanceRepository
       .createQueryBuilder('slot')
       .where('slot.refAircraft = :refAircraft', { refAircraft })
-      .andWhere('slot.status NOT IN (:...ignored)', {
+      .andWhere('slot.maintenanceStatus NOT IN (:...ignored)', {
         ignored: [
           MaintenanceStatus.CANCELLED,
           MaintenanceStatus.COMPLETED,
@@ -609,7 +611,7 @@ export class MaintenanceService {
     const flight = await this.flightRepository
       .createQueryBuilder('flight')
       .where('flight.refAircraft = :refAircraft', { refAircraft })
-      .andWhere('flight.status != :cancelled', {
+      .andWhere('flight.flightStatus != :cancelled', {
         cancelled: FlightStatus.CANCELLED,
       })
       .andWhere('flight.departureTime < :end', { end })

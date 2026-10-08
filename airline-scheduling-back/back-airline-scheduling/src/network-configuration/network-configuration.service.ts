@@ -71,7 +71,7 @@ export class NetworkConfigurationService implements OnModuleInit {
         return airport
           ? {
               refAirport: airport.refAirport,
-              name: airport.name,
+              airportName: airport.airportName,
               city: airport.city,
               country: airport.country,
               timezone: airport.timezone,
@@ -79,7 +79,7 @@ export class NetworkConfigurationService implements OnModuleInit {
             }
           : {
               refAirport,
-              name: null,
+              airportName: null,
               city: null,
               country: null,
               timezone: null,

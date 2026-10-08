@@ -147,7 +147,7 @@ class DeterministicAdvisoryTests(unittest.TestCase):
                         "refAircraft": "aircraft-1",
                         "departure_time": "2026-01-01T12:00:00+00:00",
                         "arrival_time": "2026-01-01T14:00:00+00:00",
-                        "status": "Scheduled",
+                        "flightStatus": "Scheduled",
                         "ai_features": {
                             "traffic_density": 0.2,
                             "weather_severity": 0.95,
@@ -164,7 +164,7 @@ class DeterministicAdvisoryTests(unittest.TestCase):
 
         self.assertEqual(first, second)
         self.assertEqual(first["status"], "ADVISORY_ONLY")
-        self.assertEqual(first["optimized_flights"][0]["status"], "Scheduled")
+        self.assertEqual(first["optimized_flights"][0]["flightStatus"], "Scheduled")
         self.assertEqual(
             first["optimized_flights"][0]["recommendation"], "WEATHER_REVIEW"
         )
@@ -179,7 +179,7 @@ class DeterministicAdvisoryTests(unittest.TestCase):
                         "refAircraft": "aircraft-1",
                         "departure_time": "2026-01-01T12:00:00+00:00",
                         "arrival_time": "2026-01-01T14:00:00+00:00",
-                        "status": "Scheduled",
+                        "flightStatus": "Scheduled",
                         "ai_features": {
                             "traffic_density": 0.2,
                             "weather_severity": 0.95,
@@ -196,7 +196,7 @@ class DeterministicAdvisoryTests(unittest.TestCase):
 
         self.assertEqual(first, second)
         self.assertEqual(first["optimized_flights"][0]["recommendation"], "WEATHER_REVIEW")
-        self.assertEqual(first["optimized_flights"][0]["status"], "Scheduled")
+        self.assertEqual(first["optimized_flights"][0]["flightStatus"], "Scheduled")
 
     def test_out_of_range_weather_input_is_rejected(self):
         with self.assertRaises(ValueError):
@@ -209,7 +209,7 @@ class DeterministicAdvisoryTests(unittest.TestCase):
                             "refAircraft": "aircraft-1",
                             "departure_time": "2026-01-01T12:00:00+00:00",
                             "arrival_time": "2026-01-01T14:00:00+00:00",
-                            "status": "Scheduled",
+                            "flightStatus": "Scheduled",
                             "ai_features": {
                                 "traffic_density": 0.2,
                                 "weather_severity": 1.1,
@@ -231,7 +231,7 @@ class DeterministicAdvisoryTests(unittest.TestCase):
                         "refAircraft": "aircraft-1",
                         "departure_time": "2026-01-01T12:00:00+00:00",
                         "arrival_time": "2026-01-01T14:00:00+00:00",
-                        "status": "Scheduled",
+                        "flightStatus": "Scheduled",
                         "ai_features": {
                             "traffic_density": 0.1,
                             "weather_severity": 0.1,
@@ -249,4 +249,4 @@ class DeterministicAdvisoryTests(unittest.TestCase):
             result["optimized_flights"][0]["recommendation"],
             "WEATHER_DATA_UNAVAILABLE",
         )
-        self.assertEqual(result["optimized_flights"][0]["status"], "Scheduled")
+        self.assertEqual(result["optimized_flights"][0]["flightStatus"], "Scheduled")

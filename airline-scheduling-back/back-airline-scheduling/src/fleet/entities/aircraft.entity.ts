@@ -13,7 +13,7 @@ import { AircraftType } from './aircraft-type.entity';
 
 @Entity('aircrafts')
 @Index(['registration'], { unique: true })
-@Index(['status'])
+@Index(['aircraftStatus'])
 @Index(['homeBase'])
 @Index(['refAircraftType'])
 export class Aircraft {
@@ -42,8 +42,13 @@ export class Aircraft {
   @Column({ type: 'timestamptz', nullable: true })
   lastMaintenanceAt!: Date | null;
 
-  @Column({ type: 'enum', enum: AircraftStatus, default: AircraftStatus.ACTIVE })
-  status!: AircraftStatus;
+  @Column({
+    name: 'aircraft_status',
+    type: 'enum',
+    enum: AircraftStatus,
+    default: AircraftStatus.ACTIVE,
+  })
+  aircraftStatus!: AircraftStatus;
 
   @Column({ type: 'varchar', length: 3, nullable: true })
   homeBase!: string | null;

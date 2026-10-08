@@ -114,7 +114,7 @@ export class CrewService {
   private async getFlight(id: string): Promise<Flight> {
     const flight = await this.flightRepository.findOne({ where: { refFlight: id } });
     if (!flight) throw new NotFoundException(`Vol "${id}" introuvable.`);
-    if (flight.status === FlightStatus.CANCELLED) {
+    if (flight.flightStatus === FlightStatus.CANCELLED) {
       throw new ConflictException('Impossible d’affecter un équipage à un flight annulé.');
     }
     return flight;
@@ -146,7 +146,7 @@ export class CrewService {
       .createQueryBuilder('assignment')
       .innerJoinAndSelect('assignment.flight', 'flight')
       .where('assignment.refUser = :refUser', { refUser })
-      .andWhere('flight.status != :cancelled', { cancelled: FlightStatus.CANCELLED });
+      .andWhere('flight.flightStatus != :cancelled', { cancelled: FlightStatus.CANCELLED });
 
     if (excludeAssignmentId) {
       qb.andWhere('assignment.refCrewAssignment != :excludeAssignmentId', { excludeAssignmentId });

@@ -1,8 +1,24 @@
 import { QueryRunner } from 'typeorm';
 
 const enumColumnRenames = [
-  { table: 'flights', from: 'statut', to: 'status' },
-  { table: 'aircrafts', from: 'statut', to: 'status' },
+  {
+    table: 'flights',
+    from: 'statut',
+    to: 'status',
+    specificName: 'flight_status',
+  },
+  {
+    table: 'aircrafts',
+    from: 'statut',
+    to: 'status',
+    specificName: 'aircraft_status',
+  },
+  {
+    table: 'maintenance_slots',
+    from: 'status',
+    to: 'status',
+    specificName: 'maintenance_status',
+  },
   { table: 'crew_assignments', from: 'fonction', to: 'crewRole' },
 ];
 
@@ -12,9 +28,14 @@ const quoteIdentifier = (identifier: string): string =>
 export async function reconcileEntityEnumTypes(
   queryRunner: QueryRunner,
   reverse = false,
+  specificNames = false,
 ): Promise<void> {
   for (const enumColumn of enumColumnRenames) {
-    const columnName = reverse ? enumColumn.from : enumColumn.to;
+    const columnName = reverse
+      ? enumColumn.from
+      : specificNames
+        ? (enumColumn.specificName ?? enumColumn.to)
+        : enumColumn.to;
     const expectedName = `${enumColumn.table}_${columnName.toLowerCase()}_enum`;
     const [column] = await queryRunner.query(
       `

@@ -36,7 +36,7 @@ export class CreateAircraftDto {
 
   @IsOptional()
   @IsEnum(AircraftStatus)
-  status?: AircraftStatus;
+  aircraftStatus?: AircraftStatus;
 
   @IsOptional()
   @IsString()

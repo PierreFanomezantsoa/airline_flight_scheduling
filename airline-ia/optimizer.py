@@ -101,7 +101,7 @@ class AirlineOptimizer:
                         # Mise à jour des données du flight affecté
                         next_flight['departure_time'] = new_dep.isoformat()
                         next_flight['arrival_time'] = new_arr.isoformat()
-                        next_flight['status'] = 'Delayed'
+                        next_flight['flightStatus'] = 'Delayed'
                     
                     break
 
@@ -126,7 +126,7 @@ if __name__ == "__main__":
             "refAircraft": "AIR-A320",
             "departure_time": "2026-07-02T08:00:00",
             "arrival_time": "2026-07-02T10:00:00",
-            "status": "Scheduled",
+            "flightStatus": "Scheduled",
             "ai_features": {
                 "traffic_density": 0.4,
                 "weather_severity": 0.9,  # Forte valeur -> va déclencher un gros retard via le neurone
@@ -138,7 +138,7 @@ if __name__ == "__main__":
             "refAircraft": "AIR-A320",
             "departure_time": "2026-07-02T10:50:00",  # Théoriquement 50 min au sol (ok par rapport aux 45 min requises)
             "arrival_time": "2026-07-02T12:00:00",
-            "status": "Scheduled",
+            "flightStatus": "Scheduled",
             "ai_features": {"traffic_density": 0.1, "weather_severity": 0.0, "is_weekend": 1.0}
         }
     ]
@@ -151,4 +151,4 @@ if __name__ == "__main__":
         
     print("\n--- Horaires recalculés après filtrage par le Réseau de Neurones ---")
     for flight in result['optimized_flights']:
-        print(f"✈️ {flight['refFlight']} (Retard Prédit: {flight['predicted_delay_minutes']} min) -> DEP: {flight['departure_time']} | ARR: {flight['arrival_time']} | {flight['status']}")
+        print(f"✈️ {flight['refFlight']} (Retard Prédit: {flight['predicted_delay_minutes']} min) -> DEP: {flight['departure_time']} | ARR: {flight['arrival_time']} | {flight['flightStatus']}")

@@ -14,7 +14,7 @@ class AutomaticScheduleScenarioTests(unittest.TestCase):
         return SimpleNamespace(
             refAircraft=aircraft_id,
             registration=aircraft_id,
-            status="Active",
+            aircraftStatus="Active",
             homeBase="TNR",
             hoursSinceMaintenance=hours,
             maintenanceHoursLimit=100,
@@ -39,7 +39,7 @@ class AutomaticScheduleScenarioTests(unittest.TestCase):
             arrivalAirportCode=destination,
             departureTime=departure,
             arrivalTime=arrival,
-            status="Scheduled",
+            flightStatus="Scheduled",
         )
 
     def run_scenario(self, flights, aircrafts, **options):
@@ -177,7 +177,7 @@ class AutomaticScheduleScenarioTests(unittest.TestCase):
 
     def test_no_operational_aircraft_returns_no_valid_scenario(self):
         aircraft = self.make_aircraft()
-        aircraft.status = "Maintenance"
+        aircraft.aircraftStatus = "Maintenance"
         flight = self.make_flight(
             "flight-1", self.departure, self.departure + timedelta(hours=2)
         )

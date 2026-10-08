@@ -25,8 +25,8 @@ export class User {
   @Column({ type: 'varchar', length: 255, select: false })
   passwordHash!: string;
 
-  @Column({ type: 'varchar', length: 150 })
-  name!: string;
+  @Column({ name: 'user_name', type: 'varchar', length: 150 })
+  userName!: string;
 
   @Column({ type: 'enum', enum: UserRole, default: UserRole.CREW_MEMBER })
   role!: UserRole;

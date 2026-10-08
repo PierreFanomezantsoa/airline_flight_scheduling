@@ -102,13 +102,13 @@ export class ScheduleConflictService {
       return this.toValidationResult(conflicts);
     }
 
-    if (aircraft.status !== AircraftStatus.ACTIVE) {
+    if (aircraft.aircraftStatus !== AircraftStatus.ACTIVE) {
       conflicts.push({
         id: `AIRCRAFT_STATUS:${candidate.flightNumber}:${aircraft.refAircraft}`,
         type: ScheduleConflictType.AIRCRAFT_UNAVAILABLE,
         severity: ConflictSeverity.CRITICAL,
         blocking: true,
-        reason: `${aircraft.registration} est au status "${aircraft.status}".`,
+        reason: `${aircraft.registration} est au status "${aircraft.aircraftStatus}".`,
         recommendation: 'Choisir un appareil isActive.',
         flightNumber: candidate.flightNumber,
         refAircraft: aircraft.refAircraft,
@@ -128,7 +128,7 @@ export class ScheduleConflictService {
 
   async detectAll(): Promise<ScheduleConflict[]> {
     const flights = await this.flightRepository.find({
-      where: { status: Not(FlightStatus.CANCELLED) },
+      where: { flightStatus: Not(FlightStatus.CANCELLED) },
       relations: ['aircraft', 'aircraft.type'],
       order: { departureTime: 'ASC' },
     });
@@ -155,13 +155,13 @@ export class ScheduleConflictService {
       list.push(flight);
       byAircraft.set(flight.refAircraft, list);
 
-      if (flight.aircraft.status !== AircraftStatus.ACTIVE) {
+      if (flight.aircraft.aircraftStatus !== AircraftStatus.ACTIVE) {
         conflicts.push({
           id: `AIRCRAFT_STATUS:${flight.refFlight}`,
           type: ScheduleConflictType.AIRCRAFT_UNAVAILABLE,
           severity: ConflictSeverity.CRITICAL,
           blocking: true,
-          reason: `${flight.flightNumber} utilise ${flight.aircraft.registration}, au status "${flight.aircraft.status}".`,
+          reason: `${flight.flightNumber} utilise ${flight.aircraft.registration}, au status "${flight.aircraft.aircraftStatus}".`,
           recommendation: 'Réaffecter le flight à un appareil isActive.',
           refFlight: flight.refFlight,
           flightNumber: flight.flightNumber,
@@ -278,7 +278,7 @@ export class ScheduleConflictService {
     const qb = this.flightRepository
       .createQueryBuilder('flight')
       .where('flight.refAircraft = :refAircraft', { refAircraft: aircraft.refAircraft })
-      .andWhere('flight.status != :cancelled', { cancelled: FlightStatus.CANCELLED })
+      .andWhere('flight.flightStatus != :cancelled', { cancelled: FlightStatus.CANCELLED })
       .andWhere('flight.departureTime < :arrival', { arrival: candidate.arrivalTime })
       .andWhere('flight.arrivalTime > :departure', { departure: candidate.departureTime });
     if (excludeFlightId) qb.andWhere('flight.refFlight != :excludeFlightId', { excludeFlightId });
@@ -312,7 +312,7 @@ export class ScheduleConflictService {
     const qb = this.flightRepository
       .createQueryBuilder('flight')
       .where('flight.refAircraft = :refAircraft', { refAircraft: aircraft.refAircraft })
-      .andWhere('flight.status != :cancelled', { cancelled: FlightStatus.CANCELLED });
+      .andWhere('flight.flightStatus != :cancelled', { cancelled: FlightStatus.CANCELLED });
     if (excludeFlightId) qb.andWhere('flight.refFlight != :excludeFlightId', { excludeFlightId });
 
     const rotations = await qb.orderBy('flight.departureTime', 'ASC').getMany();
@@ -344,7 +344,7 @@ export class ScheduleConflictService {
     const slots = await this.maintenanceRepository
       .createQueryBuilder('slot')
       .where('slot.refAircraft = :refAircraft', { refAircraft: aircraft.refAircraft })
-      .andWhere('slot.status NOT IN (:...ignored)', {
+      .andWhere('slot.maintenanceStatus NOT IN (:...ignored)', {
         ignored: [MaintenanceStatus.CANCELLED, MaintenanceStatus.COMPLETED],
       })
       .andWhere('slot.startTime < :arrival', { arrival: candidate.arrivalTime })
@@ -380,7 +380,7 @@ export class ScheduleConflictService {
     const qb = this.flightRepository
       .createQueryBuilder('flight')
       .where('flight.refAircraft = :refAircraft', { refAircraft: aircraft.refAircraft })
-      .andWhere('flight.status != :cancelled', {
+      .andWhere('flight.flightStatus != :cancelled', {
         cancelled: FlightStatus.CANCELLED,
       })
       .andWhere('flight.flightHoursRecorded = FALSE')
@@ -510,7 +510,7 @@ export class ScheduleConflictService {
     const byUser = new Map<string, CrewAssignment[]>();
 
     for (const assignment of assignments) {
-      if (assignment.flight.status === FlightStatus.CANCELLED) continue;
+      if (assignment.flight.flightStatus === FlightStatus.CANCELLED) continue;
       const list = byUser.get(assignment.refUser) ?? [];
       list.push(assignment);
       byUser.set(assignment.refUser, list);
@@ -530,7 +530,7 @@ export class ScheduleConflictService {
             type: ScheduleConflictType.CREW_OVERLAP,
             severity: ConflictSeverity.CRITICAL,
             blocking: true,
-            reason: `${current.user.name} est affecté simultanément à ${current.flight.flightNumber} et ${next.flight.flightNumber}.`,
+            reason: `${current.user.userName} est affecté simultanément à ${current.flight.flightNumber} et ${next.flight.flightNumber}.`,
             recommendation: 'Réaffecter un membre d’équipage.',
             refFlight: current.flight.refFlight,
             relatedRefFlight: next.flight.refFlight,
@@ -544,7 +544,7 @@ export class ScheduleConflictService {
             type: ScheduleConflictType.CREW_REST,
             severity: ConflictSeverity.HIGH,
             blocking: true,
-            reason: `${current.user.name} dispose de ${gapHours.toFixed(1)} h de repos entre ${current.flight.flightNumber} et ${next.flight.flightNumber}.`,
+            reason: `${current.user.userName} dispose de ${gapHours.toFixed(1)} h de repos entre ${current.flight.flightNumber} et ${next.flight.flightNumber}.`,
             recommendation: `Respecter la politique de repos configurée (${this.policy.minimumCrewRestHours} h) ou réaffecter l'équipage.`,
             refFlight: current.flight.refFlight,
             relatedRefFlight: next.flight.refFlight,
@@ -590,7 +590,7 @@ export class ScheduleConflictService {
       arrivalAirportCode: candidate.arrivalAirportCode,
       departureTime: candidate.departureTime,
       arrivalTime: candidate.arrivalTime,
-      status: FlightStatus.SCHEDULED,
+      flightStatus: FlightStatus.SCHEDULED,
       refAircraft: aircraft.refAircraft,
       aircraft: aircraft,
       flightHoursRecorded: false,

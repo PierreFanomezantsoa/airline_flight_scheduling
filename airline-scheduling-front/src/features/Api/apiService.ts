@@ -26,7 +26,7 @@ export type AccountStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 export interface PublicUser {
   refUser: string;
   email: string;
-  name: string;
+  userName: string;
   role: UserRole;
   technicalLevel?: string;
   professionalLevel?: string;
@@ -53,7 +53,7 @@ export interface LoginPayload {
 export interface SignUpPayload {
   email: string;
   password: string;
-  name: string;
+  userName: string;
   role: UserRole;
   technicalLevel?: string;
   professionalLevel?: string;
@@ -574,7 +574,7 @@ export async function signUp(payload: SignUpPayload): Promise<PublicUser> {
     body: JSON.stringify({
       ...payload,
       email: payload.email.trim().toLowerCase(),
-      name: payload.name.trim(),
+      userName: payload.userName.trim(),
     }),
   });
 }
@@ -633,7 +633,7 @@ export function getAuthSession(): AuthSession | null {
     if (
       typeof user.refUser !== 'string' ||
       typeof user.email !== 'string' ||
-      typeof user.name !== 'string' ||
+      typeof user.userName !== 'string' ||
       typeof user.role !== 'string'
     ) {
       clearAuthSession();

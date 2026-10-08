@@ -21,7 +21,7 @@ export class UpdateMaintenanceSlotDto {
 
   @IsOptional()
   @IsEnum(MaintenanceStatus)
-  status?: MaintenanceStatus;
+  maintenanceStatus?: MaintenanceStatus;
 
   @IsOptional()
   @IsDateString()

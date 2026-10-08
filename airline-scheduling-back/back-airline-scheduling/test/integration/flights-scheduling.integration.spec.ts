@@ -104,7 +104,7 @@ describe('Flights + Scheduling (integration)', () => {
         departureTime: '2026-08-20T14:05:00+03:00',
         arrivalTime: '2026-08-20T20:30:00+03:00',
         refAircraft: refAircraft,
-        status: FlightStatus.SCHEDULED,
+        flightStatus: FlightStatus.SCHEDULED,
       });
 
       expect(airportsService.assertExists).toHaveBeenCalledWith('TNR');
@@ -130,7 +130,7 @@ describe('Flights + Scheduling (integration)', () => {
           departureAirportCode: 'TNR',
           arrivalAirportCode: 'CDG',
           refAircraft: refAircraft,
-          status: FlightStatus.SCHEDULED,
+          flightStatus: FlightStatus.SCHEDULED,
         }),
       );
 
@@ -228,7 +228,7 @@ describe('Flights + Scheduling (integration)', () => {
       const arrival = new Date('2026-08-20T12:00:00.000Z');
       const flight = {
         refFlight: 'flight-completed',
-        status: FlightStatus.EFFECTUE,
+        flightStatus: FlightStatus.EFFECTUE,
         refAircraft: refAircraft,
         departureTime: new Date('2026-08-20T10:00:00.000Z'),
         arrivalTime: arrival,

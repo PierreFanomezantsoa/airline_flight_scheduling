@@ -51,7 +51,7 @@ export class ScheduleOptimizationService {
         relations: ['aircraft'],
       });
 
-      if (!flight || flight.status === FlightStatus.CANCELLED) continue;
+      if (!flight || flight.flightStatus === FlightStatus.CANCELLED) continue;
 
       const alternatives = await this.availabilityService.findAvailable(
         flight.departureTime,
