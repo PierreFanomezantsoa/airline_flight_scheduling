@@ -29,7 +29,7 @@ describe('Flights + Scheduling (integration)', () => {
 
       save: jest.fn(async (_entity, value) => {
         const savedFlight = {
-          id: 'flight-1',
+          refFlight: 'flight-1',
           ...value,
         };
 
@@ -70,7 +70,7 @@ describe('Flights + Scheduling (integration)', () => {
       };
 
       const aircraft = {
-        id: refAircraft,
+        refAircraft,
         registration: '5R-MAD',
       };
 
@@ -139,13 +139,13 @@ describe('Flights + Scheduling (integration)', () => {
       expect(repository.findOne).toHaveBeenCalledWith(
         expect.objectContaining({
           where: {
-            id: 'flight-1',
+            refFlight: 'flight-1',
           },
         }),
       );
 
       expect(created).toBeDefined();
-      expect(created.id).toBe('flight-1');
+      expect(created.refFlight).toBe('flight-1');
       expect(created.flightNumber).toBe('AFK-412');
       expect(created.departureAirportCode).toBe('TNR');
       expect(created.arrivalAirportCode).toBe('CDG');
@@ -227,7 +227,7 @@ describe('Flights + Scheduling (integration)', () => {
       const repository = makeRepository();
       const arrival = new Date('2026-08-20T12:00:00.000Z');
       const flight = {
-        id: 'flight-completed',
+        refFlight: 'flight-completed',
         status: FlightStatus.EFFECTUE,
         refAircraft: refAircraft,
         departureTime: new Date('2026-08-20T10:00:00.000Z'),
