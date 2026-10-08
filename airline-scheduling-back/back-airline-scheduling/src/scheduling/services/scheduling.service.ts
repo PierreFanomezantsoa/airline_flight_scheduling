@@ -33,14 +33,14 @@ export class SchedulingService {
         blocking: conflicts.filter((c) => c.blocking).length,
         affectedFlights: new Set(
           conflicts.flatMap((conflict) =>
-            [conflict.flightId, conflict.relatedFlightId].filter(
+            [conflict.refFlight, conflict.relatedRefFlight].filter(
               (id): id is string => Boolean(id),
             ),
           ),
         ).size,
         affectedAircraft: new Set(
           conflicts
-            .map((conflict) => conflict.aircraftId)
+            .map((conflict) => conflict.refAircraft)
             .filter((id): id is string => Boolean(id)),
         ).size,
       },

@@ -16,73 +16,73 @@ import { CrewAssignment } from '../../crew/entities/crew-assignment.entity';
 import { Aircraft } from '../../fleet/entities/aircraft.entity';
 
 @Entity('flights')
-@Index(['numeroVol', 'heureDepart'], { unique: true })
-@Index(['avionId', 'heureDepart', 'heureArrivee'])
-@Index(['heureDepart'])
-@Index(['statut'])
+@Index(['flightNumber', 'departureTime'], { unique: true })
+@Index(['refAircraft', 'departureTime', 'arrivalTime'])
+@Index(['departureTime'])
+@Index(['status'])
 export class Flight {
-  @PrimaryGeneratedColumn('uuid')
-  id!: string;
+  @PrimaryGeneratedColumn('uuid', { name: 'ref_flight' })
+  refFlight!: string;
 
   @Column({ type: 'varchar', length: 20 })
-  numeroVol!: string;
+  flightNumber!: string;
 
   @Column({ type: 'varchar', length: 3 })
-  aeroportDepart!: string;
+  departureAirportCode!: string;
 
-  /** Codes IATA séparés par virgule pour compatibilité avec l'IHM actuelle. */
+  /** Comma-separated IATA codes for compatibility with the current UI. */
   @Column({ type: 'varchar', length: 100, nullable: true })
-  aeroportEscale!: string | null;
+  stopoverAirportCodes!: string | null;
 
   @Column({ type: 'integer', nullable: true })
-  dureeEscale!: number | null;
+  stopoverDurationMinutes!: number | null;
 
   @Column({ type: 'varchar', length: 3 })
-  aeroportArrivee!: string;
+  arrivalAirportCode!: string;
 
   @Column({ type: 'timestamptz' })
-  heureDepart!: Date;
+  departureTime!: Date;
 
   @Column({ type: 'timestamptz' })
-  heureArrivee!: Date;
+  arrivalTime!: Date;
 
   @Column({ type: 'enum', enum: FlightStatus, default: FlightStatus.SCHEDULED })
-  statut!: FlightStatus;
+  status!: FlightStatus;
 
-  @Column({ type: 'uuid', nullable: true })
-  avionId!: string | null;
+  @Column({ name: 'ref_aircraft', type: 'uuid', nullable: true })
+  refAircraft!: string | null;
 
   @ManyToOne(() => Aircraft, { nullable: true, onDelete: 'SET NULL' })
-  @JoinColumn({ name: 'avionId' })
-  avion!: Aircraft | null;
+  @JoinColumn({ name: 'ref_aircraft' })
+  aircraft!: Aircraft | null;
 
   /**
-   * Empêche de créditer plusieurs fois les mêmes heures de vol.
-   * La valeur passe à true uniquement lorsque le vol est réellement terminé.
+   * Empêche de créditer plusieurs fois les mêmes heures de flight.
+   * La valeur passe à true uniquement lorsque le flight est réellement terminé.
    */
   @Column({ type: 'boolean', default: false })
-  heuresComptabilisees!: boolean;
+  flightHoursRecorded!: boolean;
 
-  /** Nombre d'heures effectivement créditées à l'appareil pour ce vol. */
+  /** Nombre d'heures effectivement créditées à l'appareil pour ce flight. */
   @Column({ type: 'double precision', nullable: true })
-  heuresCreditees!: number | null;
+  creditedFlightHours!: number | null;
 
   /** Date de l'écriture des heures dans le compteur de flotte. */
   @Column({ type: 'timestamptz', nullable: true })
-  heuresComptabiliseesAt!: Date | null;
+  flightHoursRecordedAt!: Date | null;
 
-  @OneToMany(() => CrewAssignment, (assignment) => assignment.vol)
-  affectationsEquipage!: CrewAssignment[];
+  @OneToMany(() => CrewAssignment, (assignment) => assignment.flight)
+  crewAssignments!: CrewAssignment[];
 
   @VersionColumn({ type: 'integer', default: 1 })
   version!: number;
 
   @CreateDateColumn({ type: 'timestamptz' })
-  creeA!: Date;
+  createdAt!: Date;
 
   @UpdateDateColumn({ type: 'timestamptz' })
-  misAJourA!: Date;
+  updatedAt!: Date;
 
   @DeleteDateColumn({ type: 'timestamptz', nullable: true })
-  supprimeA!: Date | null;
+  deletedAt!: Date | null;
 }

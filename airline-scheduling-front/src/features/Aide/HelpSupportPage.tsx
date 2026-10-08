@@ -160,7 +160,7 @@ const START_GUIDES: GuideCardData[] = [
       'Cliquez sur le bouton de connexion.',
       'Après authentification, l’application affiche les écrans autorisés pour votre rôle.',
     ],
-    note: 'Les menus accessibles peuvent varier selon votre profil utilisateur.',
+    note: 'Les menus accessibles peuvent varier selon votre profil user.',
   },
   {
     id: 'navigation',
@@ -204,7 +204,7 @@ const DASHBOARD_GUIDES: GuideCardData[] = [
       'Total vols indique le nombre de vols suivis.',
       'OTP indique le niveau de ponctualité opérationnelle.',
       'Retardés indique les vols actuellement en retard.',
-      'En vol indique les opérations en cours.',
+      'En flight indique les opérations en cours.',
       'Annulés indique les vols annulés.',
       'Le programme de vols regroupe les rotations selon les appareils affectés.',
     ],
@@ -212,28 +212,28 @@ const DASHBOARD_GUIDES: GuideCardData[] = [
   {
     id: 'dashboard-filter',
     title: 'Rechercher et filtrer',
-    description: 'Retrouver rapidement un vol dans le programme de vols.',
+    description: 'Retrouver rapidement un flight dans le programme de vols.',
     icon: <Search className="h-5 w-5" />,
     tone: 'bg-sky-50 text-sky-700',
     steps: [
       'Cliquez dans la barre de recherche.',
-      'Saisissez un numéro de vol, un aéroport ou un appareil.',
-      'Utilisez les boutons de statut pour limiter les résultats.',
+      'Saisissez un numéro de flight, un aéroport ou un appareil.',
+      'Utilisez les boutons de status pour limiter les résultats.',
       'Le filtre Non assignés permet d’afficher les vols sans appareil.',
       'Cliquez sur Réinitialiser pour supprimer les filtres.',
     ],
   },
   {
     id: 'dashboard-details',
-    title: 'Ouvrir la fiche d’un vol',
+    title: 'Ouvrir la fiche d’un flight',
     description: 'Consulter les informations détaillées d’une rotation.',
     icon: <Info className="h-5 w-5" />,
     tone: 'bg-slate-100 text-slate-700',
     steps: [
-      'Cliquez sur une carte de vol.',
+      'Cliquez sur une carte de flight.',
       'La fiche opérationnelle s’ouvre au centre de l’écran.',
       'Consultez l’origine et la destination.',
-      'Vérifiez le statut et l’appareil.',
+      'Vérifiez le status et l’appareil.',
       'Consultez le départ local, l’arrivée locale et la durée.',
       'Vérifiez les informations météo.',
       'Fermez la fiche avec le bouton Fermer ou la croix.',
@@ -244,13 +244,13 @@ const DASHBOARD_GUIDES: GuideCardData[] = [
 const FLIGHT_GUIDES: GuideCardData[] = [
   {
     id: 'create-flight',
-    title: 'Créer un nouveau vol',
-    description: 'Ajouter un vol au programme de vols de la compagnie.',
+    title: 'Créer un nouveau flight',
+    description: 'Ajouter un flight au programme de vols de la compagnie.',
     icon: <Plane className="h-5 w-5" />,
     tone: 'bg-emerald-50 text-emerald-700',
     steps: [
-      'Ouvrez Gestion des vols ou cliquez sur Planifier un vol.',
-      'Saisissez le numéro du vol.',
+      'Ouvrez Gestion des vols ou cliquez sur Planifier un flight.',
+      'Saisissez le numéro du flight.',
       'Sélectionnez l’aéroport de départ.',
       'Sélectionnez l’aéroport d’arrivée.',
       'Renseignez la date et l’heure de départ.',
@@ -263,13 +263,13 @@ const FLIGHT_GUIDES: GuideCardData[] = [
   },
   {
     id: 'edit-flight',
-    title: 'Modifier un vol',
-    description: 'Mettre à jour les informations d’un vol existant.',
+    title: 'Modifier un flight',
+    description: 'Mettre à jour les informations d’un flight existant.',
     icon: <Settings className="h-5 w-5" />,
     tone: 'bg-sky-50 text-sky-700',
     steps: [
       'Ouvrez le module Gestion des vols.',
-      'Recherchez le vol concerné.',
+      'Recherchez le flight concerné.',
       'Cliquez sur Modifier.',
       'Changez les informations nécessaires.',
       'Vérifiez les horaires et l’appareil affecté.',
@@ -280,15 +280,15 @@ const FLIGHT_GUIDES: GuideCardData[] = [
   {
     id: 'status-flight',
     title: 'Comprendre les statuts',
-    description: 'Identifier rapidement l’état d’un vol.',
+    description: 'Identifier rapidement l’état d’un flight.',
     icon: <Activity className="h-5 w-5" />,
     tone: 'bg-violet-50 text-violet-700',
     steps: [
-      'Planifié : le vol est programmé.',
-      'Retardé : le vol est toujours prévu mais son horaire a été décalé.',
-      'En vol : l’opération est actuellement en cours.',
-      'Effectué : le vol est terminé.',
-      'Annulé : le vol ne sera pas exécuté.',
+      'Planifié : le flight est programmé.',
+      'Retardé : le flight est toujours prévu mais son horaire a été décalé.',
+      'En flight : l’opération est actuellement en cours.',
+      'Effectué : le flight est terminé.',
+      'Annulé : le flight ne sera pas exécuté.',
     ],
   },
   {
@@ -381,19 +381,19 @@ const FLEET_GUIDES: GuideCardData[] = [
     icon: <PlaneTakeoff className="h-5 w-5" />,
     tone: 'bg-emerald-50 text-emerald-700',
     steps: [
-      'Ouvrez Gestion des avions.',
+      'Ouvrez Gestion des aircraft.',
       'Consultez la liste des appareils.',
-      'Vérifiez l’immatriculation.',
+      'Vérifiez l’registration.',
       'Consultez le modèle.',
       'Vérifiez la capacité.',
       'Vérifiez la base de l’appareil.',
-      'Consultez son statut opérationnel.',
+      'Consultez son status opérationnel.',
     ],
   },
   {
     id: 'aircraft-status',
-    title: 'Comprendre le statut d’un appareil',
-    description: 'Savoir rapidement si un avion peut être utilisé.',
+    title: 'Comprendre le status d’un appareil',
+    description: 'Savoir rapidement si un aircraft peut être utilisé.',
     icon: <Activity className="h-5 w-5" />,
     tone: 'bg-sky-50 text-sky-700',
     steps: [
@@ -406,14 +406,14 @@ const FLEET_GUIDES: GuideCardData[] = [
   {
     id: 'aircraft-assign',
     title: 'Affecter un appareil',
-    description: 'Associer un avion disponible à un vol.',
+    description: 'Associer un aircraft disponible à un flight.',
     icon: <Plane className="h-5 w-5" />,
     tone: 'bg-violet-50 text-violet-700',
     steps: [
-      'Sélectionnez le vol concerné.',
+      'Sélectionnez le flight concerné.',
       'Choisissez un appareil.',
       'Vérifiez qu’il n’est pas déjà utilisé.',
-      'Vérifiez son statut technique.',
+      'Vérifiez son status technique.',
       'Contrôlez son positionnement.',
       'Enregistrez l’affectation.',
     ],
@@ -424,15 +424,15 @@ const CREW_GUIDES: GuideCardData[] = [
   {
     id: 'crew-add',
     title: 'Affecter un membre d’équipage',
-    description: 'Ajouter une affectation sur un vol.',
+    description: 'Ajouter une affectation sur un flight.',
     icon: <Users className="h-5 w-5" />,
     tone: 'bg-sky-50 text-sky-700',
     steps: [
       'Ouvrez Affectation des équipages.',
       'Cliquez sur Nouvelle affectation.',
-      'Sélectionnez le vol.',
+      'Sélectionnez le flight.',
       'Sélectionnez le membre.',
-      'Choisissez sa fonction.',
+      'Choisissez sa crewRole.',
       'Cliquez sur Affecter.',
       'Corrigez les éventuels conflits signalés.',
     ],
@@ -458,10 +458,10 @@ const CREW_GUIDES: GuideCardData[] = [
     icon: <AlertTriangle className="h-5 w-5" />,
     tone: 'bg-amber-50 text-amber-700',
     steps: [
-      'Le membre peut déjà être affecté sur un autre vol.',
+      'Le membre peut déjà être affecté sur un autre flight.',
       'Les horaires peuvent se chevaucher.',
       'Le temps de repos peut être insuffisant.',
-      'Le vol ou le membre peut ne pas être valide.',
+      'Le flight ou le membre peut ne pas être valide.',
       'Consultez le message d’erreur affiché par l’application.',
     ],
   },
@@ -491,8 +491,8 @@ const MAINTENANCE_GUIDES: GuideCardData[] = [
     icon: <AlertTriangle className="h-5 w-5" />,
     tone: 'bg-rose-50 text-rose-700',
     steps: [
-      'Un appareil ne peut pas assurer un vol pendant une maintenance.',
-      'Un chevauchement entre vol et maintenance est signalé.',
+      'Un appareil ne peut pas assurer un flight pendant une maintenance.',
+      'Un chevauchement entre flight et maintenance est signalé.',
       'Un seuil de maintenance atteint peut empêcher une affectation.',
       'Vérifiez les créneaux avant d’affecter l’appareil.',
     ],
@@ -508,9 +508,9 @@ const CONFLICT_GUIDES: GuideCardData[] = [
     tone: 'bg-amber-50 text-amber-700',
     steps: [
       'Horaires invalides : la fenêtre temporelle n’est pas cohérente.',
-      'Avion non assigné : aucun appareil n’est associé au vol.',
+      'Avion non assigné : aucun appareil n’est associé au flight.',
       'Avion indisponible : l’appareil ne peut pas être utilisé.',
-      'Chevauchement avion : le même appareil est utilisé sur deux vols simultanément.',
+      'Chevauchement aircraft : le même appareil est utilisé sur deux vols simultanément.',
       'Turnaround insuffisant : le temps entre deux rotations est trop court.',
       'Positionnement incohérent : l’appareil n’est pas au bon endroit.',
       'Maintenance : l’appareil n’est pas disponible.',
@@ -525,7 +525,7 @@ const CONFLICT_GUIDES: GuideCardData[] = [
     icon: <ShieldCheck className="h-5 w-5" />,
     tone: 'bg-emerald-50 text-emerald-700',
     steps: [
-      'Identifiez le vol concerné.',
+      'Identifiez le flight concerné.',
       'Lisez le type de conflit.',
       'Vérifiez la ressource responsable.',
       'Consultez les alternatives disponibles.',
@@ -540,7 +540,7 @@ const WEATHER_GUIDES: GuideCardData[] = [
   {
     id: 'weather-read',
     title: 'Comprendre le risque météo',
-    description: 'Interpréter le niveau affiché sur un vol.',
+    description: 'Interpréter le niveau affiché sur un flight.',
     icon: <Cloud className="h-5 w-5" />,
     tone: 'bg-sky-50 text-sky-700',
     steps: [
@@ -589,8 +589,8 @@ const HISTORY_GUIDES: GuideCardData[] = [
     tone: 'bg-slate-100 text-slate-700',
     steps: [
       'Ouvrez Historique des vols.',
-      'Utilisez la recherche pour retrouver un vol.',
-      'Filtrez par statut.',
+      'Utilisez la recherche pour retrouver un flight.',
+      'Filtrez par status.',
       'Choisissez une période si nécessaire.',
       'Cliquez sur Détails pour consulter les informations.',
     ],
@@ -598,16 +598,16 @@ const HISTORY_GUIDES: GuideCardData[] = [
   {
     id: 'history-details',
     title: 'Lire les détails historiques',
-    description: 'Consulter les informations enregistrées pour un vol passé.',
+    description: 'Consulter les informations enregistrées pour un flight passé.',
     icon: <FileQuestion className="h-5 w-5" />,
     tone: 'bg-sky-50 text-sky-700',
     steps: [
-      'Vérifiez le numéro du vol.',
+      'Vérifiez le numéro du flight.',
       'Consultez l’itinéraire.',
       'Vérifiez les horaires locaux.',
       'Consultez les références UTC.',
       'Vérifiez l’appareil.',
-      'Consultez le statut final.',
+      'Consultez le status final.',
       'Vérifiez les informations météo disponibles.',
     ],
   },
@@ -618,15 +618,15 @@ const HISTORY_GUIDES: GuideCardData[] = [
  * ========================================================================== */
 
 const FAQ_ITEMS: FAQItem[] = [
-  { id: 'faq1', category: 'Vols', question: 'Pourquoi mon vol apparaît-il comme Non assigné ?', answer: 'Cela signifie qu’aucun appareil n’est actuellement affecté au vol. Vous pouvez sélectionner un appareil disponible ou générer un scénario de programmation.', keywords: ['non assigné', 'avion', 'affectation'] },
-  { id: 'faq2', category: 'Vols', question: 'Pourquoi l’heure d’arrivée est-elle refusée ?', answer: 'L’heure d’arrivée doit être postérieure à l’heure de départ. Vérifiez également les dates lorsque le vol traverse minuit.', keywords: ['heure', 'arrivée', 'départ'] },
-  { id: 'faq3', category: 'Programmation', question: 'Quels vols sont utilisés lors d’une génération ?', answer: 'Les vols Planifiés et Retardés peuvent être utilisés. Les vols En vol, Effectués et Annulés sont exclus.', keywords: ['génération', 'programme de vols', 'statut'] },
-  { id: 'faq4', category: 'Programmation', question: 'L’optimisation modifie-t-elle automatiquement le programme de vols ?', answer: 'Non. Elle propose des alternatives que l’utilisateur autorisé doit examiner et valider.', keywords: ['optimisation', 'automatique', 'validation'] },
-  { id: 'faq5', category: 'Flotte', question: 'Pourquoi un avion ne peut-il pas être affecté ?', answer: 'Il peut être déjà utilisé, indisponible, en maintenance, hors service ou mal positionné.', keywords: ['avion', 'indisponible', 'maintenance'] },
-  { id: 'faq6', category: 'Équipage', question: 'Pourquoi mon affectation équipage est-elle refusée ?', answer: 'Le membre peut déjà être affecté sur un autre vol ou ne pas respecter le temps de repos nécessaire.', keywords: ['équipage', 'repos', 'chevauchement'] },
-  { id: 'faq7', category: 'Météo', question: 'La météo peut-elle annuler automatiquement un vol ?', answer: 'Non. Le système peut recommander une révision ou un retard, mais la décision finale reste manuelle.', keywords: ['météo', 'annulation', 'occ'] },
+  { id: 'faq1', category: 'Vols', question: 'Pourquoi mon flight apparaît-il comme Non assigné ?', answer: 'Cela signifie qu’aucun appareil n’est actuellement affecté au flight. Vous pouvez sélectionner un appareil disponible ou générer un scénario de programmation.', keywords: ['non assigné', 'aircraft', 'affectation'] },
+  { id: 'faq2', category: 'Vols', question: 'Pourquoi l’heure d’arrivée est-elle refusée ?', answer: 'L’heure d’arrivée doit être postérieure à l’heure de départ. Vérifiez également les dates lorsque le flight traverse minuit.', keywords: ['heure', 'arrivée', 'départ'] },
+  { id: 'faq3', category: 'Programmation', question: 'Quels vols sont utilisés lors d’une génération ?', answer: 'Les vols Planifiés et Retardés peuvent être utilisés. Les vols En flight, Effectués et Annulés sont exclus.', keywords: ['génération', 'programme de vols', 'status'] },
+  { id: 'faq4', category: 'Programmation', question: 'L’optimisation modifie-t-elle automatiquement le programme de vols ?', answer: 'Non. Elle propose des alternatives que l’user autorisé doit examiner et valider.', keywords: ['optimisation', 'automatique', 'validation'] },
+  { id: 'faq5', category: 'Flotte', question: 'Pourquoi un aircraft ne peut-il pas être affecté ?', answer: 'Il peut être déjà utilisé, indisponible, en maintenance, hors service ou mal positionné.', keywords: ['aircraft', 'indisponible', 'maintenance'] },
+  { id: 'faq6', category: 'Équipage', question: 'Pourquoi mon affectation équipage est-elle refusée ?', answer: 'Le membre peut déjà être affecté sur un autre flight ou ne pas respecter le temps de repos nécessaire.', keywords: ['équipage', 'repos', 'chevauchement'] },
+  { id: 'faq7', category: 'Météo', question: 'La météo peut-elle annuler automatiquement un flight ?', answer: 'Non. Le système peut recommander une révision ou un retard, mais la décision finale reste manuelle.', keywords: ['météo', 'annulation', 'occ'] },
   { id: 'faq8', category: 'Horaires', question: 'Pourquoi l’heure locale est-elle différente de l’heure UTC ?', answer: 'Chaque aéroport possède son propre fuseau horaire. L’UTC sert de référence commune alors que l’heure locale sert à l’affichage opérationnel.', keywords: ['utc', 'heure locale', 'fuseau'] },
-  { id: 'faq9', category: 'Historique', question: 'Pourquoi consulter l’historique des vols ?', answer: 'Il permet de retrouver les opérations passées, leurs horaires, leur statut final et les principales informations opérationnelles.', keywords: ['historique', 'vol effectué'] },
+  { id: 'faq9', category: 'Historique', question: 'Pourquoi consulter l’historique des vols ?', answer: 'Il permet de retrouver les opérations passées, leurs horaires, leur status final et les principales informations opérationnelles.', keywords: ['historique', 'flight effectué'] },
   { id: 'faq10', category: 'Accès', question: 'Pourquoi certains menus ne sont-ils pas visibles ?', answer: 'Les menus dépendent de votre rôle et des permissions associées à votre compte.', keywords: ['rôle', 'permission', 'menu'] },
 ];
 
@@ -844,7 +844,7 @@ const HelpSupportPage: React.FC = () => {
                     Centre d’aide
                   </h1>
                   <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-700">
-                    Guide utilisateur
+                    Guide user
                   </span>
                 </div>
                 <p className="mt-1.5 max-w-2xl text-[13px] leading-6 text-slate-500">
@@ -1104,7 +1104,7 @@ const HelpSupportPage: React.FC = () => {
                 <input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Rechercher : équipage, avion, météo, horaire..."
+                  placeholder="Rechercher : équipage, aircraft, météo, horaire..."
                   className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-11 text-[13px] font-medium text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
                 />
                 {searchQuery && (
@@ -1193,7 +1193,7 @@ const HelpSupportPage: React.FC = () => {
             <SectionHeader
               icon={<Headphones className="h-4 w-4" />}
               title="Contacter le support"
-              subtitle="Décrivez le problème lié à un vol, une affectation ou une ressource opérationnelle"
+              subtitle="Décrivez le problème lié à un flight, une affectation ou une ressource opérationnelle"
             />
 
             <div className="grid lg:grid-cols-[minmax(0,1fr)_320px]">
@@ -1287,7 +1287,7 @@ const HelpSupportPage: React.FC = () => {
                         description: e.target.value,
                       }))
                     }
-                    placeholder="Décrivez ce que vous faisiez, le vol ou la ressource concernée, puis le message affiché..."
+                    placeholder="Décrivez ce que vous faisiez, le flight ou la ressource concernée, puis le message affiché..."
                     className="w-full resize-none rounded-xl border border-slate-200 bg-slate-50 p-3 text-[13px] font-medium leading-6 text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-100"
                   />
                 </label>
@@ -1325,7 +1325,7 @@ const HelpSupportPage: React.FC = () => {
 
                 <div className="mt-5 space-y-3">
                   <SupportTip number={1} text="Indiquez le module où le problème apparaît." />
-                  <SupportTip number={2} text="Précisez le numéro de vol ou l’appareil concerné." />
+                  <SupportTip number={2} text="Précisez le numéro de flight ou l’appareil concerné." />
                   <SupportTip number={3} text="Copiez le message d’erreur exactement." />
                   <SupportTip number={4} text="Expliquez l’action effectuée juste avant le problème." />
                   <SupportTip number={5} text="Précisez ce que vous attendiez comme résultat." />
@@ -1336,7 +1336,7 @@ const HelpSupportPage: React.FC = () => {
                     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
                     <p className="text-[10px] font-medium leading-5 text-amber-900">
                       Pour une situation opérationnelle importante, vérifiez
-                      toujours le vol et les ressources avant de valider une
+                      toujours le flight et les ressources avant de valider une
                       modification.
                     </p>
                   </div>

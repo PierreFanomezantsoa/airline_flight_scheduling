@@ -14,7 +14,7 @@ describe('Flights (E2E - PostgreSQL)', () => {
   jest.setTimeout(30000);
 
   beforeAll(async () => {
-    // Optionnel : On peut surcharger ici le nom de la BDD si vous avez une BDD dédiée aux tests
+    // Optionnel : On peut surcharger ici le name de la BDD si vous avez une BDD dédiée aux tests
     // process.env.DB_NAME = 'airline_test_db';
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -54,14 +54,14 @@ describe('Flights (E2E - PostgreSQL)', () => {
   });
 
   // --- 2. TEST CRÉATION D'UN VOL ---
-  it('POST /flights - Doit créer et persister un vol en BDD', async () => {
+  it('POST /flights - Doit créer et persister un flight en BDD', async () => {
     const newFlightPayload = {
-      numeroVol: 'MD050',
-      aeroportDepart: 'TNR',
-      aeroportArrivee: 'CDG',
-      heureDepart: '2026-08-01T10:00:00Z',
-      heureArrivee: '2026-08-01T20:00:00Z',
-      statut: 'Scheduled',
+      flightNumber: 'MD050',
+      departureAirportCode: 'TNR',
+      arrivalAirportCode: 'CDG',
+      departureTime: '2026-08-01T10:00:00Z',
+      arrivalTime: '2026-08-01T20:00:00Z',
+      status: 'Scheduled',
     };
 
     const response = await request(app.getHttpServer())
@@ -70,12 +70,12 @@ describe('Flights (E2E - PostgreSQL)', () => {
       .expect(201);
 
     expect(response.body).toHaveProperty('id');
-    expect(response.body.numeroVol).toBe('MD050');
+    expect(response.body.flightNumber).toBe('MD050');
 
     // Vérification de la persistance réelle en BDD via GET
     const checkGet = await request(app.getHttpServer()).get('/flights').expect(200);
     expect(checkGet.body.length).toBe(1);
-    expect(checkGet.body[0].numeroVol).toBe('MD050');
+    expect(checkGet.body[0].flightNumber).toBe('MD050');
   });
 
   // --- 3. TEST OPTIMISATION IA ---

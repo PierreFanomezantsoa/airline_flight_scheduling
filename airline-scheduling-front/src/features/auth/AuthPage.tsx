@@ -45,7 +45,7 @@ import {
 
 const ROLE_LABELS: Record<UserRole, string> = {
   Admin: 'Administrateur',
-  Planificateur: 'Planificateur de vol',
+  Planificateur: 'Planificateur de flight',
   Regulator: 'Régulateur OCC',
   Crew_Member: "Membre d'équipage",
   Maintenance_Engineer: 'Ingénieur de maintenance',
@@ -73,8 +73,8 @@ const PASSWORD_MIN_LENGTH = 8;
 // =============================================================================
 
 export interface AuthenticatedUser {
-  id: string;
-  nom: string;
+  refUser: string;
+  name: string;
   email: string;
   role: UserRole;
 }
@@ -87,7 +87,7 @@ interface AuthPageProps {
 interface AuthFormState {
   email: string;
   password: string;
-  nom: string;
+  name: string;
   role: UserRole;
 }
 
@@ -100,11 +100,11 @@ type FieldErrors = Partial<Record<keyof AuthFormState, string>>;
 const INITIAL_FORM: AuthFormState = {
   email: '',
   password: '',
-  nom: '',
+  name: '',
   role: 'Regulator',
 };
 
-const FIELD_ORDER: (keyof AuthFormState)[] = ['nom', 'email', 'password', 'role'];
+const FIELD_ORDER: (keyof AuthFormState)[] = ['name', 'email', 'password', 'role'];
 
 // =============================================================================
 // LABEL
@@ -325,7 +325,7 @@ const InfoPanel = memo(() => (
       aria-hidden="true"
     />
 
-    {/* Trajectoire de vol décorative */}
+    {/* Trajectoire de flight décorative */}
     <svg
       className="absolute inset-x-0 top-28 h-40 w-full text-emerald-400/25"
       viewBox="0 0 400 160"
@@ -461,15 +461,15 @@ export function AuthPage({ onAuthenticate }: AuthPageProps) {
 
   const validateForm = (): boolean => {
     const email = form.email.trim().toLowerCase();
-    const nom = form.nom.trim();
+    const name = form.name.trim();
     const errors: FieldErrors = {};
 
-    if (isSignUp && !nom) errors.nom = 'Veuillez renseigner votre nom complet.';
+    if (isSignUp && !name) errors.name = 'Veuillez renseigner votre name complet.';
 
     if (!email) {
       errors.email = 'Veuillez renseigner votre adresse e-mail.';
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      errors.email = 'Format attendu : prenom.nom@compagnie.com';
+      errors.email = 'Format attendu : prenom.name@compagnie.com';
     }
 
     if (!form.password) {
@@ -500,8 +500,8 @@ export function AuthPage({ onAuthenticate }: AuthPageProps) {
 
   const authenticate = (user: PublicUser) => {
     onAuthenticate({
-      id: user.id,
-      nom: user.nom,
+      refUser: user.refUser,
+      name: user.name,
       email: user.email,
       role: user.role,
     });
@@ -516,13 +516,13 @@ export function AuthPage({ onAuthenticate }: AuthPageProps) {
     if (!validateForm()) return;
 
     const email = form.email.trim().toLowerCase();
-    const nom = form.nom.trim();
+    const name = form.name.trim();
 
     setIsLoading(true);
 
     try {
       if (isSignUp) {
-        await signUp({ email, password: form.password, nom, role: form.role });
+        await signUp({ email, password: form.password, name, role: form.role });
 
         setIsSignUp(false);
         setShowPassword(false);
@@ -535,9 +535,9 @@ export function AuthPage({ onAuthenticate }: AuthPageProps) {
       const auth = await logIn({ email, password: form.password });
 
       if (!auth || !auth.user) {
-        throw new Error("Le serveur n'a pas retourné les informations de l'utilisateur.");
+        throw new Error("Le serveur n'a pas retourné les informations de l'user.");
       }
-      if (!auth.user.id || !auth.user.email || !auth.user.role) {
+      if (!auth.user.refUser || !auth.user.email || !auth.user.role) {
         throw new Error("La réponse d'authentification est incomplète.");
       }
 
@@ -609,15 +609,15 @@ export function AuthPage({ onAuthenticate }: AuthPageProps) {
               <InputField
                 label="Nom complet"
                 icon={<User className="h-4 w-4" />}
-                id="nom"
-                name="nom"
+                id="name"
+                name="name"
                 type="text"
-                value={form.nom}
+                value={form.name}
                 onChange={handleInputChange}
-                placeholder="Nom et prénom"
+                placeholder="Nom et préname"
                 disabled={isLoading}
                 autoComplete="name"
-                error={fieldErrors.nom}
+                error={fieldErrors.name}
                 required
               />
             )}
@@ -630,7 +630,7 @@ export function AuthPage({ onAuthenticate }: AuthPageProps) {
               type="email"
               value={form.email}
               onChange={handleInputChange}
-              placeholder="prenom.nom@compagnie.com"
+              placeholder="prenom.name@compagnie.com"
               disabled={isLoading}
               autoComplete="username"
               inputMode="email"

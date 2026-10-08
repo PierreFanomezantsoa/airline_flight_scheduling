@@ -143,8 +143,8 @@ class DeterministicAdvisoryTests(unittest.TestCase):
                 "turnaround_minutes": 45,
                 "flights": [
                     {
-                        "id": "flight-1",
-                        "aircraft_id": "aircraft-1",
+                        "refFlight": "flight-1",
+                        "refAircraft": "aircraft-1",
                         "departure_time": "2026-01-01T12:00:00+00:00",
                         "arrival_time": "2026-01-01T14:00:00+00:00",
                         "status": "Scheduled",
@@ -175,8 +175,8 @@ class DeterministicAdvisoryTests(unittest.TestCase):
                 "turnaround_minutes": 45,
                 "flights": [
                     {
-                        "id": "flight-1",
-                        "aircraft_id": "aircraft-1",
+                        "refFlight": "flight-1",
+                        "refAircraft": "aircraft-1",
                         "departure_time": "2026-01-01T12:00:00+00:00",
                         "arrival_time": "2026-01-01T14:00:00+00:00",
                         "status": "Scheduled",
@@ -205,8 +205,8 @@ class DeterministicAdvisoryTests(unittest.TestCase):
                     "turnaround_minutes": 45,
                     "flights": [
                         {
-                            "id": "flight-1",
-                            "aircraft_id": "aircraft-1",
+                            "refFlight": "flight-1",
+                            "refAircraft": "aircraft-1",
                             "departure_time": "2026-01-01T12:00:00+00:00",
                             "arrival_time": "2026-01-01T14:00:00+00:00",
                             "status": "Scheduled",
@@ -227,8 +227,8 @@ class DeterministicAdvisoryTests(unittest.TestCase):
                 "turnaround_minutes": 45,
                 "flights": [
                     {
-                        "id": "flight-1",
-                        "aircraft_id": "aircraft-1",
+                        "refFlight": "flight-1",
+                        "refAircraft": "aircraft-1",
                         "departure_time": "2026-01-01T12:00:00+00:00",
                         "arrival_time": "2026-01-01T14:00:00+00:00",
                         "status": "Scheduled",

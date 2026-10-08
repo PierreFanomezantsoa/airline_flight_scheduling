@@ -1,8 +1,8 @@
 [
-  { "iata": "TNR", "name": "Antananarivo (Ivato)", "timezone": "Indian/Antananarivo" },
-  { "iata": "CDG", "name": "Paris (Charles de Gaulle)", "timezone": "Europe/Paris" },
-  { "iata": "JFK", "name": "New York (JFK)", "timezone": "America/New_York" },
-  { "iata": "DXB", "name": "Dubai International", "timezone": "Asia/Dubai" },
-  { "iata": "RUN", "name": "La Réunion (Roland Garros)", "timezone": "Indian/Reunion" },
-  { "iata": "MRU", "name": "Maurice (Sir Seewoosagur Ramgoolam)", "timezone": "Indian/Mauritius" }
+  { "refAirport": "TNR", "name": "Antananarivo (Ivato)", "timezone": "Indian/Antananarivo" },
+  { "refAirport": "CDG", "name": "Paris (Charles de Gaulle)", "timezone": "Europe/Paris" },
+  { "refAirport": "JFK", "name": "New York (JFK)", "timezone": "America/New_York" },
+  { "refAirport": "DXB", "name": "Dubai International", "timezone": "Asia/Dubai" },
+  { "refAirport": "RUN", "name": "La Réunion (Roland Garros)", "timezone": "Indian/Reunion" },
+  { "refAirport": "MRU", "name": "Maurice (Sir Seewoosagur Ramgoolam)", "timezone": "Indian/Mauritius" }
 ]

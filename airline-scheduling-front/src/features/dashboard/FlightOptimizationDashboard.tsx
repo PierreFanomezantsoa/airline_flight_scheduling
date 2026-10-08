@@ -56,13 +56,13 @@ interface ConflictProposal {
 
 interface ConflictFlightRef {
   id: string;
-  numeroVol: string;
-  aeroportDepart: string;
-  aeroportArrivee: string;
-  heureDepart?: string | null;
-  heureArrivee?: string | null;
-  statut?: string;
-  avionId?: string | null;
+  flightNumber: string;
+  departureAirportCode: string;
+  arrivalAirportCode: string;
+  departureTime?: string | null;
+  arrivalTime?: string | null;
+  status?: string;
+  refAircraft?: string | null;
   aircraftRegistration?: string | null;
 }
 
@@ -72,7 +72,7 @@ interface FlightConflict {
   severity: ConflictSeverity;
   probability: number;
   detector?: string;
-  aircraftId?: string | null;
+  refAircraft?: string | null;
   aircraftRegistration?: string | null;
   flightA: ConflictFlightRef;
   flightB?: ConflictFlightRef | null;
@@ -176,8 +176,8 @@ const CONFLICT_TYPE_LABELS: Record<string, string> = {
 
 const PROPOSAL_LABELS: Record<string, string> = {
   REASSIGN_AIRCRAFT: 'Réaffecter l’appareil',
-  SHIFT_FLIGHT: 'Décaler le vol',
-  CANCEL_FLIGHT: 'Annuler le vol',
+  SHIFT_FLIGHT: 'Décaler le flight',
+  CANCEL_FLIGHT: 'Annuler le flight',
   KEEP_CURRENT: 'Conserver le planning',
   MANUAL_REVIEW: 'Analyse manuelle',
 };
@@ -273,7 +273,7 @@ export const FlightOptimizationDashboard: React.FC = () => {
       const confirmed = window.confirm(
         proposal.action === 'CANCEL_FLIGHT'
           ? 'Confirmer la validation OCC de cette proposition d’annulation ?'
-          : 'Confirmer la validation OCC de ce décalage de vol ?',
+          : 'Confirmer la validation OCC de ce décalage de flight ?',
       );
       if (!confirmed) return;
     }
@@ -385,8 +385,8 @@ export const FlightOptimizationDashboard: React.FC = () => {
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       result = result.filter(c => {
-        const numeroA = c.flightA?.numeroVol?.toLowerCase() || '';
-        const numeroB = c.flightB?.numeroVol?.toLowerCase() || '';
+        const numeroA = c.flightA?.flightNumber?.toLowerCase() || '';
+        const numeroB = c.flightB?.flightNumber?.toLowerCase() || '';
         const reg = c.aircraftRegistration?.toLowerCase() || '';
         const type = getConflictTypeLabel(c.type).toLowerCase();
         return (
@@ -444,13 +444,6 @@ export const FlightOptimizationDashboard: React.FC = () => {
       <div className="mx-auto max-w-[1600px] space-y-5 p-4 sm:p-6">
         {/* ═══════════════ ACTIONS RAPIDES ═══════════════ */}
         <div className="flex items-center justify-end gap-2">
-          <span className="hidden items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-medium text-slate-500 sm:inline-flex">
-            <span className="relative flex h-1.5 w-1.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
-            </span>
-            Sync 60s
-          </span>
           <button
             type="button"
             onClick={() => void loadConflicts(false)}
@@ -542,7 +535,7 @@ export const FlightOptimizationDashboard: React.FC = () => {
                 type="text"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Rechercher un vol, appareil..."
+                placeholder="Rechercher un flight, appareil..."
                 className="h-11 w-full rounded-full border border-slate-200 bg-white pl-11 pr-10 text-sm text-slate-700 placeholder:text-slate-400 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
               />
               {searchQuery && (
@@ -799,21 +792,21 @@ function ConflictRow({
         <td className="px-3 py-3.5">
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 font-mono text-[11px] font-semibold text-slate-700">
-              {conflict.flightA.numeroVol}
+              {conflict.flightA.flightNumber}
             </span>
             {conflict.flightB && (
               <>
                 <ArrowRight className="h-3 w-3 text-slate-300" />
                 <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 font-mono text-[11px] font-semibold text-slate-700">
-                  {conflict.flightB.numeroVol}
+                  {conflict.flightB.flightNumber}
                 </span>
               </>
             )}
           </div>
           <p className="mt-1 font-mono text-[10px] text-slate-400">
-            {conflict.flightA.aeroportDepart}
+            {conflict.flightA.departureAirportCode}
             <span className="mx-1">→</span>
-            {conflict.flightA.aeroportArrivee}
+            {conflict.flightA.arrivalAirportCode}
           </p>
         </td>
 

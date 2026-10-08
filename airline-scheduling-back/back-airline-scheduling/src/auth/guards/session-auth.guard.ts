@@ -83,7 +83,7 @@ export class SessionAuthGuard implements CanActivate {
     }
 
     return {
-      id,
+      refUser: id,
       role: role as SessionUser['role'],
       exp,
     };

@@ -241,7 +241,7 @@ function StatusDot({ status }: { status: 'available' | 'assigned' | 'rest' }) {
   };
   const label = {
     available: 'Disponible',
-    assigned: 'En vol',
+    assigned: 'En flight',
     rest: 'Repos insuffisant',
   };
   return (
@@ -267,7 +267,7 @@ export const CrewAssignment: React.FC = () => {
     msg: string;
   } | null>(null);
 
-  const currentSelectedUser = crew.find(m => m.id === selectedMemberId);
+  const currentSelectedUser = crew.find(m => m.refUser === selectedMemberId);
 
   /* -------------------- Auto-dismiss feedback -------------------- */
   useEffect(() => {
@@ -281,10 +281,10 @@ export const CrewAssignment: React.FC = () => {
     const total = crew.length;
     const assigned = crew.filter(m => Boolean(m.volAssigne)).length;
     const available = crew.filter(
-      m => !m.volAssigne && (m.heuresReposAvant ?? 0) >= MIN_REST_HOURS,
+      m => !m.volAssigne && (m.priorRestHours ?? 0) >= MIN_REST_HOURS,
     ).length;
     const alerts = crew.filter(
-      m => (m.heuresReposAvant ?? 0) < MIN_REST_HOURS,
+      m => (m.priorRestHours ?? 0) < MIN_REST_HOURS,
     ).length;
 
     return { total, assigned, available, alerts };
@@ -294,13 +294,13 @@ export const CrewAssignment: React.FC = () => {
     e.preventDefault();
     setFeedback(null);
 
-    const flightId = selectedFlightId || flights[0]?.id;
+    const refFlight = selectedFlightId || flights[0]?.refFlight;
     const member = currentSelectedUser;
 
-    if (!flightId || !member) {
+    if (!refFlight || !member) {
       setFeedback({
         type: 'error',
-        msg: 'Veuillez sélectionner un vol et un membre du personnel.',
+        msg: 'Veuillez sélectionner un flight et un membre du personnel.',
       });
       return;
     }
@@ -308,26 +308,26 @@ export const CrewAssignment: React.FC = () => {
     if (member.volAssigne) {
       setFeedback({
         type: 'error',
-        msg: `${member.nom} est déjà assigné(e) au Vol ${member.volAssigne.numeroVol}.`,
+        msg: `${member.name} est déjà assigné(e) au Vol ${member.volAssigne.flightNumber}.`,
       });
       return;
     }
 
-    const restHours = member.heuresReposAvant ?? 0;
+    const restHours = member.priorRestHours ?? 0;
     if (restHours < MIN_REST_HOURS) {
       setFeedback({
         type: 'error',
-        msg: `Réglementation non respectée : ${member.nom} n'a que ${restHours}h de repos.`,
+        msg: `Réglementation non respectée : ${member.name} n'a que ${restHours}h de repos.`,
       });
       return;
     }
 
     try {
       setSubmitting(true);
-      await assignCrewMember(flightId, member.id, restHours);
+      await assignCrewMember(refFlight, member.refUser, restHours);
       setFeedback({
         type: 'success',
-        msg: `Affectation validée avec succès pour ${member.nom}.`,
+        msg: `Affectation validée avec succès pour ${member.name}.`,
       });
       setSelectedMemberId('');
     } catch (err: unknown) {
@@ -402,7 +402,7 @@ export const CrewAssignment: React.FC = () => {
             accent="sky"
           />
           <KpiCard
-            label="En vol"
+            label="En flight"
             value={stats.assigned}
             hint="Actuellement affectés"
             icon={<Plane className="h-4 w-4" />}
@@ -448,11 +448,11 @@ export const CrewAssignment: React.FC = () => {
                 </div>
               ) : (
                 crew.map(member => {
-                  const restHours = member.heuresReposAvant ?? 0;
+                  const restHours = member.priorRestHours ?? 0;
                   const isRestOk = restHours >= MIN_REST_HOURS;
                   const isAssigned = Boolean(member.volAssigne);
                   const isAvailable = isRestOk && !isAssigned;
-                  const initials = getInitials(member.nom);
+                  const initials = getInitials(member.name);
                   const status: 'available' | 'assigned' | 'rest' = isAvailable
                     ? 'available'
                     : isAssigned
@@ -460,7 +460,7 @@ export const CrewAssignment: React.FC = () => {
                       : 'rest';
 
                   return (
-                    <article key={member.id} className="group transition hover:bg-slate-50/70">
+                    <article key={member.refUser} className="group transition hover:bg-slate-50/70">
                       <div className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
                         {/* Identité */}
                         <div className="flex min-w-0 items-center gap-3">
@@ -475,20 +475,20 @@ export const CrewAssignment: React.FC = () => {
 
                           <div className="min-w-0">
                             <h3 className="truncate text-sm font-semibold text-slate-900">
-                              {member.nom}
+                              {member.name}
                             </h3>
                             <div className="mt-1 flex flex-wrap items-center gap-1.5">
                               <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600 ring-1 ring-inset ring-slate-200/70">
                                 {member.role}
                               </span>
-                              {member.niveauMetier && (
+                              {member.professionalLevel && (
                                 <span className="rounded-md bg-slate-50 px-1.5 py-0.5 text-[10px] font-medium text-slate-500 ring-1 ring-inset ring-slate-200/70">
-                                  Niv. {member.niveauMetier}
+                                  Niv. {member.professionalLevel}
                                 </span>
                               )}
-                              {member.niveauTechnique && (
+                              {member.technicalLevel && (
                                 <span className="rounded-md bg-sky-50 px-1.5 py-0.5 text-[10px] font-medium text-sky-700 ring-1 ring-inset ring-sky-200/70">
-                                  Tech {member.niveauTechnique}
+                                  Tech {member.technicalLevel}
                                 </span>
                               )}
                             </div>
@@ -523,7 +523,7 @@ export const CrewAssignment: React.FC = () => {
                             {member.volAssigne ? (
                               <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-2.5 py-1 text-[11px] font-semibold text-sky-700 ring-1 ring-inset ring-sky-200/70">
                                 <Plane className="h-3 w-3" />
-                                Vol {member.volAssigne.numeroVol}
+                                Vol {member.volAssigne.flightNumber}
                               </span>
                             ) : (
                               <span
@@ -567,7 +567,7 @@ export const CrewAssignment: React.FC = () => {
               </div>
               <div>
                 <h2 className="text-sm font-semibold text-slate-900">Nouvelle affectation</h2>
-                <p className="mt-0.5 text-xs text-slate-500">Sélectionnez un vol et un agent</p>
+                <p className="mt-0.5 text-xs text-slate-500">Sélectionnez un flight et un agent</p>
               </div>
             </header>
 
@@ -582,10 +582,10 @@ export const CrewAssignment: React.FC = () => {
                   onChange={e => setSelectedFlightId(e.target.value)}
                   className={`h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 ${FOCUS_RING}`}
                 >
-                  <option value="">Sélectionner un vol</option>
+                  <option value="">Sélectionner un flight</option>
                   {flights.map(f => (
-                    <option key={f.id} value={f.id}>
-                      Vol {f.numeroVol} ({f.aeroportDepart} → {f.aeroportArrivee})
+                    <option key={f.refFlight} value={f.refFlight}>
+                      Vol {f.flightNumber} ({f.departureAirportCode} → {f.arrivalAirportCode})
                     </option>
                   ))}
                 </select>
@@ -603,7 +603,7 @@ export const CrewAssignment: React.FC = () => {
                 >
                   <option value="">Sélectionner un agent</option>
                   {crew.map(m => {
-                    const restHours = m.heuresReposAvant ?? 0;
+                    const restHours = m.priorRestHours ?? 0;
                     const isRestOk = restHours >= MIN_REST_HOURS;
                     const isAlreadyAssigned = Boolean(m.volAssigne);
                     const isDisabled = !isRestOk || isAlreadyAssigned;
@@ -612,12 +612,12 @@ export const CrewAssignment: React.FC = () => {
                     if (!isRestOk) {
                       statusText = `⚠ Repos insuffisant (${restHours}h)`;
                     } else if (isAlreadyAssigned) {
-                      statusText = `⛔ Déjà affecté (Vol ${m.volAssigne?.numeroVol})`;
+                      statusText = `⛔ Déjà affecté (Vol ${m.volAssigne?.flightNumber})`;
                     }
 
                     return (
-                      <option key={m.id} value={m.id} disabled={isDisabled}>
-                        {m.nom} ({m.role}) — {statusText}
+                      <option key={m.refUser} value={m.refUser} disabled={isDisabled}>
+                        {m.name} ({m.role}) — {statusText}
                       </option>
                     );
                   })}
@@ -630,10 +630,10 @@ export const CrewAssignment: React.FC = () => {
                   <div className="flex items-center justify-between gap-2 border-b border-emerald-100 pb-3">
                     <div className="flex min-w-0 items-center gap-2.5">
                       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-[10px] font-bold text-emerald-700 ring-1 ring-inset ring-emerald-200/70">
-                        {getInitials(currentSelectedUser.nom)}
+                        {getInitials(currentSelectedUser.name)}
                       </div>
                       <span className="truncate text-xs font-semibold text-slate-900">
-                        {currentSelectedUser.nom}
+                        {currentSelectedUser.name}
                       </span>
                     </div>
                     <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200/70">
@@ -646,22 +646,22 @@ export const CrewAssignment: React.FC = () => {
                       <span className="text-slate-600">Repos cumulé</span>
                       <span
                         className={`font-mono font-bold ${
-                          (currentSelectedUser.heuresReposAvant ?? 0) >= MIN_REST_HOURS
+                          (currentSelectedUser.priorRestHours ?? 0) >= MIN_REST_HOURS
                             ? 'text-emerald-600'
                             : 'text-amber-600'
                         }`}
                       >
-                        {currentSelectedUser.heuresReposAvant ?? 0} h / {MIN_REST_HOURS} h
+                        {currentSelectedUser.priorRestHours ?? 0} h / {MIN_REST_HOURS} h
                       </span>
                     </div>
 
-                    {currentSelectedUser.niveauMetier && (
+                    {currentSelectedUser.professionalLevel && (
                       <div className="flex items-center justify-between">
                         <span className="text-slate-600">Qualification</span>
                         <span className="font-medium text-slate-800">
-                          Niv. {currentSelectedUser.niveauMetier}
-                          {currentSelectedUser.niveauTechnique
-                            ? ` · Tech ${currentSelectedUser.niveauTechnique}`
+                          Niv. {currentSelectedUser.professionalLevel}
+                          {currentSelectedUser.technicalLevel
+                            ? ` · Tech ${currentSelectedUser.technicalLevel}`
                             : ''}
                         </span>
                       </div>

@@ -94,7 +94,7 @@ import {
 // TYPES
 // =============================================================================
 
-type AppUser = Pick<PublicUser, 'id' | 'nom' | 'email' | 'role'> & {
+type AppUser = Pick<PublicUser, 'refUser' | 'name' | 'email' | 'role'> & {
   avatarUrl?: string;
 };
 
@@ -172,7 +172,7 @@ const SCREEN_META: Record<
     subtitle: 'Génération, affectation et validation du programme de vols',
   },
   aircraft: {
-    title: 'Gestion des avions',
+    title: 'Gestion des aircraft',
     subtitle: 'Aéronefs physiques et immatriculations',
   },
   airports: {
@@ -201,7 +201,7 @@ const SCREEN_META: Record<
   },
   help: {
     title: 'Aide et support',
-    subtitle: 'Documentation et assistance utilisateur',
+    subtitle: 'Documentation et assistance user',
   },
 };
 
@@ -252,8 +252,8 @@ function normalizeAuthenticatedUser(user: PublicUser): AppUser | null {
   }
 
   return {
-    id: user.id,
-    nom: user.nom,
+    refUser: user.refUser,
+    name: user.name,
     email: user.email,
     role: user.role,
   };
@@ -278,7 +278,7 @@ const UserAvatar: React.FC<UserAvatarProps> = ({ user, size }) => {
       {user.avatarUrl ? (
         <img
           src={user.avatarUrl}
-          alt={user.nom}
+          alt={user.name}
           className="h-full w-full object-cover"
         />
       ) : (
@@ -287,7 +287,7 @@ const UserAvatar: React.FC<UserAvatarProps> = ({ user, size }) => {
             size === 'sm' ? 'text-sm' : 'text-xl'
           }`}
         >
-          {user.nom?.charAt(0)?.toUpperCase() || (
+          {user.name?.charAt(0)?.toUpperCase() || (
             <User className={size === 'sm' ? 'h-4 w-4' : 'h-7 w-7'} />
           )}
         </span>
@@ -608,7 +608,7 @@ function App() {
 
                 <div className="hidden flex-col text-left sm:flex">
                   <span className="max-w-36 truncate text-[13px] font-bold leading-tight text-slate-900">
-                    {user.nom}
+                    {user.name}
                   </span>
                   <span className="mt-0.5 max-w-36 truncate text-[11px] font-medium text-slate-500">
                     {userRoleLabel}
@@ -662,7 +662,7 @@ function App() {
                       <UserAvatar user={user} size="lg" />
                     </div>
                     <p className="mt-2.5 max-w-full truncate text-base font-bold tracking-tight text-slate-900">
-                      {user.nom}
+                      {user.name}
                     </p>
                     <p className="max-w-full truncate text-xs text-slate-500" title={user.email}>
                       {user.email}
@@ -726,7 +726,7 @@ function App() {
             </h2>
             <p id="logout-dialog-desc" className="mt-1.5 text-sm leading-6 text-slate-500">
               Vous allez quitter la session de{' '}
-              <span className="font-semibold text-slate-800">{user.nom}</span>.
+              <span className="font-semibold text-slate-800">{user.name}</span>.
             </p>
 
             <div className="mt-6 grid grid-cols-2 gap-2">

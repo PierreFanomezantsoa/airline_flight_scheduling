@@ -27,7 +27,7 @@ export class CreateUserDto {
   @IsString()
   @IsNotEmpty()
   @Length(1, 150)
-  nom!: string;
+  name!: string;
 
   @IsIn(SELF_REGISTRATION_ROLES, {
     message:
@@ -42,10 +42,10 @@ export class CreateUserDto {
   @IsOptional()
   @IsString()
   @Length(1, 50)
-  niveauTechnique?: string;
+  technicalLevel?: string;
 
   @IsOptional()
   @IsString()
   @Length(1, 50)
-  niveauMetier?: string;
+  professionalLevel?: string;
 }

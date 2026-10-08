@@ -59,16 +59,16 @@ describe('ScheduleConflictService (unit)', () => {
   });
 
   it(
-    'bloque un vol dont l’arrivée est antérieure au départ',
+    'bloque un flight dont l’arrivée est antérieure au départ',
     async () => {
       const result =
         await service.validateCandidate({
-          numeroVol: 'AFK412',
-          aeroportDepart: 'TNR',
-          aeroportArrivee: 'CDG',
-          heureDepart:new Date(  '2026-08-19T14:05:00+03:00',),
-          heureArrivee:new Date(  '2026-08-19T13:05:00+03:00',),
-          avionId:'11111111-1111-4111-8111-111111111111',
+          flightNumber: 'AFK412',
+          departureAirportCode: 'TNR',
+          arrivalAirportCode: 'CDG',
+          departureTime:new Date(  '2026-08-19T14:05:00+03:00',),
+          arrivalTime:new Date(  '2026-08-19T13:05:00+03:00',),
+          refAircraft:'11111111-1111-4111-8111-111111111111',
         });
       expect(result.valid,).toBe(false,);
       expect(result.conflicts,
@@ -85,16 +85,16 @@ describe('ScheduleConflictService (unit)', () => {
     },
   );
   it(
-    'signale un avion non affecté sans bloquer la saisie',
+    'signale un aircraft non affecté sans bloquer la saisie',
     async () => {
       const result =
         await service.validateCandidate({
-          numeroVol:'MD045',
-          aeroportDepart:'TNR',
-          aeroportArrivee:'NOS',
-          heureDepart:  new Date('2026-08-20T08:00:00+03:00',  ),
-          heureArrivee:  new Date(  '2026-08-20T09:30:00+03:00',),
-          avionId:   null,
+          flightNumber:'MD045',
+          departureAirportCode:'TNR',
+          arrivalAirportCode:'NOS',
+          departureTime:  new Date('2026-08-20T08:00:00+03:00',  ),
+          arrivalTime:  new Date(  '2026-08-20T09:30:00+03:00',),
+          refAircraft:   null,
         });
       expect(  result.valid,).toBe(  true,);
       expect(  result.operationallyReady,).toBe(  false,);

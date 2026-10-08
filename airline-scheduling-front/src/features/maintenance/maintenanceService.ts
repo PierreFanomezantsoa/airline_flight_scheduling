@@ -55,8 +55,8 @@ export type MaintenanceType =
   | 'Aircraft On Ground';
 
 export interface MaintenanceSlot {
-  id: string;
-  aircraftId: string;
+  refMaintenanceSlot: string;
+  refAircraft: string;
   aircraft: Aircraft;
   maintenanceType: MaintenanceType;
   status: MaintenanceStatus;
@@ -69,12 +69,12 @@ export interface MaintenanceSlot {
   autoCloseAt: string | null;
   extensionCount: number;
 
-  creeA?: string;
-  misAJourA?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface CreateMaintenanceSlotDto {
-  aircraftId: string;
+  refAircraft: string;
   maintenanceType: MaintenanceType;
   status?: MaintenanceStatus;
   startTime: string;
@@ -83,7 +83,7 @@ export interface CreateMaintenanceSlotDto {
 }
 
 export interface UpdateMaintenanceSlotDto {
-  aircraftId?: string;
+  refAircraft?: string;
   maintenanceType?: MaintenanceType;
   status?: MaintenanceStatus;
   startTime?: string;
@@ -100,7 +100,7 @@ export interface MaintenanceAvailability {
   available: boolean;
 
   maintenanceConflict: {
-    id: string;
+    refMaintenanceSlot: string;
     maintenanceType: string;
     status: MaintenanceStatus;
     startTime: string;
@@ -108,20 +108,20 @@ export interface MaintenanceAvailability {
   } | null;
 
   flightConflict: {
-    id: string;
-    numeroVol: string;
-    heureDepart: string;
-    heureArrivee: string;
+    refFlight: string;
+    flightNumber: string;
+    departureTime: string;
+    arrivalTime: string;
   } | null;
 }
 
 /**
  * Réponse brute du backend.
- * Les noms peuvent varier (immatriculation/modele vs registration/model).
+ * Les noms peuvent varier (registration/model vs registration/model).
  */
 interface RawMaintenanceSlotResponse {
-  id: string;
-  aircraftId: string;
+  refMaintenanceSlot: string;
+  refAircraft: string;
   maintenanceType: MaintenanceType;
   status?: MaintenanceStatus;
   startTime: string;
@@ -133,15 +133,14 @@ interface RawMaintenanceSlotResponse {
   autoCloseAt?: string | null;
   extensionCount?: number;
 
-  creeA?: string;
-  misAJourA?: string;
+  createdAt?: string;
+  updatedAt?: string;
 
   aircraft?: {
-    id: string;
-    immatriculation?: string;
+    refAircraft?: string;
     registration?: string;
-    modele?: string;
     model?: string;
+    aircraftType?: Aircraft['aircraftType'];
     [key: string]: unknown;
   };
 }
@@ -204,18 +203,18 @@ class MaintenanceService {
           ...data.aircraft,
           registration:
             data.aircraft.registration ??
-            data.aircraft.immatriculation ??
+            data.aircraft.registration ??
             'Inconnu',
           model:
             data.aircraft.model ??
-            data.aircraft.modele ??
+            data.aircraft.model ??
             'N/A',
         } as Aircraft)
       : undefined;
 
     return {
-      id: data.id,
-      aircraftId: data.aircraftId,
+      refMaintenanceSlot: data.refMaintenanceSlot,
+      refAircraft: data.refAircraft,
       aircraft: mappedAircraft as Aircraft,
       maintenanceType: data.maintenanceType,
       status: (data.status ?? 'Planned') as MaintenanceStatus,
@@ -228,8 +227,8 @@ class MaintenanceService {
       autoCloseAt: data.autoCloseAt ?? null,
       extensionCount: data.extensionCount ?? 0,
 
-      creeA: data.creeA,
-      misAJourA: data.misAJourA,
+      createdAt: data.createdAt,
+      updatedAt: data.updatedAt,
     };
   }
 
@@ -259,7 +258,7 @@ class MaintenanceService {
    * systématiquement un POST 409.
    */
   async checkAvailability(
-    aircraftId: string,
+    refAircraft: string,
     startTime: string,
     endTime: string,
   ): Promise<MaintenanceAvailability> {
@@ -267,7 +266,7 @@ class MaintenanceService {
       '/maintenance/check-availability',
       {
         params: {
-          aircraftId,
+          refAircraft,
           startTime,
           endTime,
         },
@@ -322,7 +321,7 @@ class MaintenanceService {
    *   - status = `In Progress`
    *   - pendingReviewSince / autoCloseAt remis à null
    *   - extensionCount += 1
-   *   - avion reste en MAINTENANCE
+   *   - aircraft reste en MAINTENANCE
    */
   async extend(
     id: string,
@@ -339,7 +338,7 @@ class MaintenanceService {
   }
 
   /**
-   * ⭐ CLÔTURER : termine un créneau et remet l'avion en ACTIVE.
+   * ⭐ CLÔTURER : termine un créneau et remet l'aircraft en ACTIVE.
    *
    * Utilisable quand le créneau est `In Progress` ou `Pending Review`.
    * Idempotent si déjà `Completed`.

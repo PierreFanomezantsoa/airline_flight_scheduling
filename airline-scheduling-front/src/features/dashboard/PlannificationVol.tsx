@@ -37,15 +37,15 @@ export type FlightStatus =
 export type StatusFilter = 'ALL' | FlightStatus | 'UNASSIGNED';
 
 export interface FlightLeg {
-  numeroVol?: string;
-  aeroportDepart: string;
-  aeroportArrivee: string;
-  heureDepart?: string | null;
-  heureArrivee?: string | null;
+  flightNumber?: string;
+  departureAirportCode: string;
+  arrivalAirportCode: string;
+  departureTime?: string | null;
+  arrivalTime?: string | null;
 }
 
 export interface Flight {
-  id: string;
+  refFlight: string;
   flightNumber: string;
   aircraft: string;
   aircraftModel: string;
@@ -65,9 +65,9 @@ export interface Flight {
 }
 
 export interface AircraftData {
-  id: string;
+  refAircraft: string;
   model: string;
-  immatriculation?: string;
+  registration?: string;
 }
 
 export interface StatusStyle {
@@ -170,7 +170,7 @@ const FILTERS: ReadonlyArray<readonly [StatusFilter, string]> = [
   ['ALL', 'Tous'],
   ['Planifié', 'Planifiés'],
   ['Retardé', 'Retardés'],
-  ['En Vol', 'En vol'],
+  ['En Vol', 'En flight'],
   ['Effectué', 'Effectués'],
   ['Annulé', 'Annulés'],
   ['UNASSIGNED', 'Non assignés'],
@@ -312,7 +312,7 @@ const FlightCard: FC<FlightCardProps> = ({
         isDone ? 'bg-slate-50/40' : '',
       ].join(' ')}
     >
-      {/* Barre d'accent couleur du statut */}
+      {/* Barre d'accent couleur du status */}
       <span className={`absolute inset-y-0 left-0 w-1 ${tone.accent}`} aria-hidden="true" />
 
       {/* En-tête */}
@@ -577,7 +577,7 @@ export const FlightPlanning: FC<FlightPlanningProps> = ({
   const aircraftLookup = useMemo(
     () =>
       new Map(
-        fleetAircrafts.map((aircraft) => [aircraft.id, aircraft.immatriculation || aircraft.model]),
+        fleetAircrafts.map((aircraft) => [aircraft.refAircraft, aircraft.registration || aircraft.model]),
       ),
     [fleetAircrafts],
   );
@@ -626,7 +626,7 @@ export const FlightPlanning: FC<FlightPlanningProps> = ({
           <div>
             <h2 className="text-sm font-bold tracking-tight text-slate-900">Planning des rotations</h2>
             <p className="text-[11px] text-slate-500">
-              {filteredFlights.length} vol{filteredFlights.length > 1 ? 's' : ''} ·{' '}
+              {filteredFlights.length} flight{filteredFlights.length > 1 ? 's' : ''} ·{' '}
               {aircraftWithFlightsCount} appareil{aircraftWithFlightsCount > 1 ? 's' : ''}
             </p>
           </div>
@@ -647,8 +647,8 @@ export const FlightPlanning: FC<FlightPlanningProps> = ({
           <input
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="Rechercher un vol, appareil…"
-            aria-label="Rechercher un vol"
+            placeholder="Rechercher un flight, appareil…"
+            aria-label="Rechercher un flight"
             className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-9 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
           />
           {searchQuery && (
@@ -679,7 +679,7 @@ export const FlightPlanning: FC<FlightPlanningProps> = ({
                   key={value}
                   onClick={() => setStatusFilter(value)}
                   aria-pressed={active}
-                  title={`${filterCounts.get(value) ?? 0} vol(s)`}
+                  title={`${filterCounts.get(value) ?? 0} flight(s)`}
                   className={`h-9 shrink-0 cursor-pointer rounded-full px-4 text-sm font-medium transition ${FOCUS_RING} ${
                     active
                       ? isUnassignedFilter
@@ -715,7 +715,7 @@ export const FlightPlanning: FC<FlightPlanningProps> = ({
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-500">
             {activeFilterCount > 0 ? <Search className="h-6 w-6" /> : <Plane className="h-6 w-6" />}
           </div>
-          <p className="mt-4 text-sm font-bold text-slate-900">Aucun vol trouvé</p>
+          <p className="mt-4 text-sm font-bold text-slate-900">Aucun flight trouvé</p>
           <p className="mt-1 text-sm text-slate-500">
             {activeFilterCount > 0
               ? 'Ajustez vos filtres ou votre recherche.'
@@ -746,7 +746,7 @@ export const FlightPlanning: FC<FlightPlanningProps> = ({
                 />
                 <div className="grid gap-2.5 sm:grid-cols-2">
                   {aircraftFlights.map((flight) => (
-                    <FlightCard key={flight.id} flight={flight} {...cardProps} />
+                    <FlightCard key={flight.refFlight} flight={flight} {...cardProps} />
                   ))}
                 </div>
               </div>
@@ -784,7 +784,7 @@ export const FlightPlanning: FC<FlightPlanningProps> = ({
 
                     <div className="grid grid-cols-1 gap-2.5 p-3 xl:grid-cols-2 2xl:grid-cols-3">
                       {aircraftFlights.map((flight) => (
-                        <FlightCard key={flight.id} flight={flight} {...cardProps} />
+                        <FlightCard key={flight.refFlight} flight={flight} {...cardProps} />
                       ))}
                     </div>
                   </div>

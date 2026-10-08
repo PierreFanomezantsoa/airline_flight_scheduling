@@ -48,7 +48,7 @@ ml_conflicts_bp = Blueprint(
 MIN_TURNAROUND_MINUTES = 45
 POSITIONING_MINUTES = 180
 
-# Pour éviter de comparer chaque vol avec absolument tous les autres.
+# Pour éviter de comparer chaque flight avec absolument tous les autres.
 PAIR_SCAN_WINDOW_MINUTES = 6 * 60
 
 MODEL_VERSION = "pure-python-decision-tree-v1"
@@ -82,7 +82,7 @@ def is_delayed(value: Any) -> bool:
 
 
 def get_aircraft_id(flight: Flight) -> Optional[str]:
-    value = getattr(flight, "avionId", None)
+    value = getattr(flight, "refAircraft", None)
 
     if value in [None, ""]:
         return None
@@ -95,13 +95,13 @@ def get_aircraft_registration_from_flight(
 ) -> Optional[str]:
     aircraft = getattr(
         flight,
-        "avion",
+        "aircraft",
         None,
     )
 
     if aircraft is not None:
         for attr in (
-            "immatriculation",
+            "registration",
             "registration",
             "numero",
         ):
@@ -123,7 +123,7 @@ def flight_payload(
     dep = ensure_utc(
         getattr(
             flight,
-            "heureDepart",
+            "departureTime",
             None,
         )
     )
@@ -131,44 +131,44 @@ def flight_payload(
     arr = ensure_utc(
         getattr(
             flight,
-            "heureArrivee",
+            "arrivalTime",
             None,
         )
     )
 
     return {
-        "id": str(flight.id),
-        "numeroVol": getattr(
+        "refFlight": str(flight.refFlight),
+        "flightNumber": getattr(
             flight,
-            "numeroVol",
+            "flightNumber",
             None,
         ),
-        "aeroportDepart": getattr(
+        "departureAirportCode": getattr(
             flight,
-            "aeroportDepart",
+            "departureAirportCode",
             None,
         ),
-        "aeroportArrivee": getattr(
+        "arrivalAirportCode": getattr(
             flight,
-            "aeroportArrivee",
+            "arrivalAirportCode",
             None,
         ),
-        "heureDepart": (
+        "departureTime": (
             dep.isoformat()
             if dep
             else None
         ),
-        "heureArrivee": (
+        "arrivalTime": (
             arr.isoformat()
             if arr
             else None
         ),
-        "statut": getattr(
+        "status": getattr(
             flight,
-            "statut",
+            "status",
             None,
         ),
-        "avionId": get_aircraft_id(
+        "refAircraft": get_aircraft_id(
             flight
         ),
         "aircraftRegistration": (
@@ -191,8 +191,8 @@ def build_features(
     Transforme deux vols en variables exploitables par l'arbre.
 
     Les vols sont ordonnés par départ :
-        A = premier vol
-        B = vol suivant
+        A = premier flight
+        B = flight suivant
 
     gap_minutes :
         > 0  : espace entre A et B
@@ -202,7 +202,7 @@ def build_features(
     a_dep = ensure_utc(
         getattr(
             flight_a,
-            "heureDepart",
+            "departureTime",
             None,
         )
     )
@@ -210,7 +210,7 @@ def build_features(
     a_arr = ensure_utc(
         getattr(
             flight_a,
-            "heureArrivee",
+            "arrivalTime",
             None,
         )
     )
@@ -218,7 +218,7 @@ def build_features(
     b_dep = ensure_utc(
         getattr(
             flight_b,
-            "heureDepart",
+            "departureTime",
             None,
         )
     )
@@ -226,7 +226,7 @@ def build_features(
     b_arr = ensure_utc(
         getattr(
             flight_b,
-            "heureArrivee",
+            "arrivalTime",
             None,
         )
     )
@@ -251,19 +251,19 @@ def build_features(
         )
 
         a_dep = ensure_utc(
-            flight_a.heureDepart
+            flight_a.departureTime
         )
 
         a_arr = ensure_utc(
-            flight_a.heureArrivee
+            flight_a.arrivalTime
         )
 
         b_dep = ensure_utc(
-            flight_b.heureDepart
+            flight_b.departureTime
         )
 
         b_arr = ensure_utc(
-            flight_b.heureArrivee
+            flight_b.arrivalTime
         )
 
     gap_minutes = (
@@ -288,7 +288,7 @@ def build_features(
         str(
             getattr(
                 flight_a,
-                "aeroportArrivee",
+                "arrivalAirportCode",
                 "",
             )
             or ""
@@ -301,7 +301,7 @@ def build_features(
         str(
             getattr(
                 flight_b,
-                "aeroportDepart",
+                "departureAirportCode",
                 "",
             )
             or ""
@@ -339,7 +339,7 @@ def build_features(
             is_delayed(
                 getattr(
                     flight_a,
-                    "statut",
+                    "status",
                     None,
                 )
             )
@@ -348,7 +348,7 @@ def build_features(
             is_delayed(
                 getattr(
                     flight_b,
-                    "statut",
+                    "status",
                     None,
                 )
             )
@@ -507,8 +507,8 @@ class PurePythonConflictDecisionTree:
                 "type": "AIRCRAFT_POSITIONING",
                 "severity": "HIGH",
                 "reason": (
-                    "L'appareil termine le premier vol dans un "
-                    "aéroport différent de celui du départ du vol "
+                    "L'appareil termine le premier flight dans un "
+                    "aéroport différent de celui du départ du flight "
                     "suivant, avec un temps de repositionnement "
                     "insuffisant."
                 ),
@@ -559,7 +559,7 @@ def recommendation_for(
     ):
         return (
             "Décaler un des vols ou "
-            "réaffecter le second vol."
+            "réaffecter le second flight."
         )
 
     if (
@@ -608,7 +608,7 @@ def detect_conflicts(
         if not is_cancelled_or_completed(
             getattr(
                 flight,
-                "statut",
+                "status",
                 None,
             )
         )
@@ -627,7 +627,7 @@ def detect_conflicts(
                 {
                     "id": (
                         f"UNASSIGNED:"
-                        f"{flight.id}"
+                        f"{flight.refFlight}"
                     ),
                     "type": (
                         "UNASSIGNED_AIRCRAFT"
@@ -635,7 +635,7 @@ def detect_conflicts(
                     "severity": "HIGH",
                     "probability": 1.0,
                     "detector": "RULE",
-                    "aircraftId": None,
+                    "refAircraft": None,
                     "aircraftRegistration": None,
                     "flightA": flight_payload(
                         flight
@@ -644,8 +644,8 @@ def detect_conflicts(
                     "overlapMinutes": 0,
                     "gapMinutes": None,
                     "reason": (
-                        f"Le vol "
-                        f"{flight.numeroVol} "
+                        f"Le flight "
+                        f"{flight.flightNumber} "
                         "n'a aucun appareil assigné."
                     ),
                     "recommendation": (
@@ -686,7 +686,7 @@ def detect_conflicts(
         aircraft_flights.sort(
             key=lambda flight: (
                 ensure_utc(
-                    flight.heureDepart
+                    flight.departureTime
                 )
                 or datetime.max.replace(
                     tzinfo=timezone.utc
@@ -706,7 +706,7 @@ def detect_conflicts(
             )
 
             a_dep = ensure_utc(
-                flight_a.heureDepart
+                flight_a.departureTime
             )
 
             if not a_dep:
@@ -725,7 +725,7 @@ def detect_conflicts(
                 )
 
                 b_dep = ensure_utc(
-                    flight_b.heureDepart
+                    flight_b.departureTime
                 )
 
                 if not b_dep:
@@ -782,8 +782,8 @@ def detect_conflicts(
                     {
                         "id": (
                             f"{conflict_type}:"
-                            f"{final_a.id}:"
-                            f"{final_b.id}"
+                            f"{final_a.refFlight}:"
+                            f"{final_b.refFlight}"
                         ),
                         "type": conflict_type,
                         "severity": (
@@ -797,7 +797,7 @@ def detect_conflicts(
                             ]
                         ),
                         "detector": "DECISION_TREE",
-                        "aircraftId": aircraft_id,
+                        "refAircraft": aircraft_id,
                         "aircraftRegistration": (
                             get_aircraft_registration_from_flight(
                                 final_a
@@ -891,7 +891,7 @@ def aircraft_id_from_object(
 ) -> Optional[str]:
     for attr in (
         "id",
-        "avionId",
+        "refAircraft",
     ):
         value = getattr(
             aircraft,
@@ -914,10 +914,10 @@ def aircraft_label(
     aircraft,
 ) -> str:
     for attr in (
-        "immatriculation",
+        "registration",
         "registration",
         "numero",
-        "modele",
+        "model",
         "model",
     ):
         value = getattr(
@@ -945,7 +945,7 @@ def aircraft_in_maintenance(
     status = ""
 
     for attr in (
-        "statut",
+        "status",
         "status",
     ):
         value = getattr(
@@ -994,13 +994,13 @@ def available_aircrafts() -> list:
 
     # Fallback :
     # récupère les appareils déjà
-    # présents dans Flight.avion.
+    # présents dans Flight.aircraft.
     unique = {}
 
     for flight in Flight.query.all():
         aircraft = getattr(
             flight,
-            "avion",
+            "aircraft",
             None,
         )
 
@@ -1029,11 +1029,11 @@ def can_assign_aircraft(
     all_flights: list,
 ) -> bool:
     target_dep = ensure_utc(
-        target_flight.heureDepart
+        target_flight.departureTime
     )
 
     target_arr = ensure_utc(
-        target_flight.heureArrivee
+        target_flight.arrivalTime
     )
 
     if not target_dep or not target_arr:
@@ -1042,8 +1042,8 @@ def can_assign_aircraft(
     others = [
         flight
         for flight in all_flights
-        if str(flight.id)
-        != str(target_flight.id)
+        if str(flight.refFlight)
+        != str(target_flight.refFlight)
         and get_aircraft_id(
             flight
         )
@@ -1051,7 +1051,7 @@ def can_assign_aircraft(
         and not is_cancelled_or_completed(
             getattr(
                 flight,
-                "statut",
+                "status",
                 None,
             )
         )
@@ -1060,11 +1060,11 @@ def can_assign_aircraft(
     # Chevauchement exact
     for other in others:
         other_dep = ensure_utc(
-            other.heureDepart
+            other.departureTime
         )
 
         other_arr = ensure_utc(
-            other.heureArrivee
+            other.arrivalTime
         )
 
         if not other_dep or not other_arr:
@@ -1080,10 +1080,10 @@ def can_assign_aircraft(
         flight
         for flight in others
         if ensure_utc(
-            flight.heureArrivee
+            flight.arrivalTime
         )
         and ensure_utc(
-            flight.heureArrivee
+            flight.arrivalTime
         )
         <= target_dep
     ]
@@ -1092,10 +1092,10 @@ def can_assign_aircraft(
         flight
         for flight in others
         if ensure_utc(
-            flight.heureDepart
+            flight.departureTime
         )
         and ensure_utc(
-            flight.heureDepart
+            flight.departureTime
         )
         >= target_arr
     ]
@@ -1105,13 +1105,13 @@ def can_assign_aircraft(
             previous,
             key=lambda flight: (
                 ensure_utc(
-                    flight.heureArrivee
+                    flight.arrivalTime
                 )
             ),
         )
 
         prev_arr = ensure_utc(
-            prev_flight.heureArrivee
+            prev_flight.arrivalTime
         )
 
         gap = (
@@ -1122,8 +1122,8 @@ def can_assign_aircraft(
             return False
 
         if (
-            prev_flight.aeroportArrivee
-            != target_flight.aeroportDepart
+            prev_flight.arrivalAirportCode
+            != target_flight.departureAirportCode
             and gap < POSITIONING_MINUTES
         ):
             return False
@@ -1133,13 +1133,13 @@ def can_assign_aircraft(
             following,
             key=lambda flight: (
                 ensure_utc(
-                    flight.heureDepart
+                    flight.departureTime
                 )
             ),
         )
 
         next_dep = ensure_utc(
-            next_flight.heureDepart
+            next_flight.departureTime
         )
 
         gap = (
@@ -1150,8 +1150,8 @@ def can_assign_aircraft(
             return False
 
         if (
-            target_flight.aeroportArrivee
-            != next_flight.aeroportDepart
+            target_flight.arrivalAirportCode
+            != next_flight.departureAirportCode
             and gap < POSITIONING_MINUTES
         ):
             return False
@@ -1409,7 +1409,7 @@ def optimize_flights():
                     continue
 
                 # On modifie de préférence le
-                # deuxième vol de la rotation.
+                # deuxième flight de la rotation.
                 target_id = (
                     flight_b[
                         "id"
@@ -1450,7 +1450,7 @@ def optimize_flights():
                 details.append(
                     {
                         "flightNumber": (
-                            target_flight.numeroVol
+                            target_flight.flightNumber
                         ),
                         "status": (
                             "UNRESOLVED"
@@ -1485,7 +1485,7 @@ def optimize_flights():
                 details.append(
                     {
                         "flightNumber": (
-                            target_flight.numeroVol
+                            target_flight.flightNumber
                         ),
                         "status": (
                             "UNRESOLVED"
@@ -1516,7 +1516,7 @@ def optimize_flights():
                 or "NON ASSIGNÉ"
             )
 
-            target_flight.avionId = (
+            target_flight.refAircraft = (
                 candidate_id
             )
 
@@ -1525,7 +1525,7 @@ def optimize_flights():
             details.append(
                 {
                     "flightNumber": (
-                        target_flight.numeroVol
+                        target_flight.flightNumber
                     ),
                     "status": (
                         "REASSIGNED"

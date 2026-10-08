@@ -4,15 +4,15 @@ import {
 } from '../../common/enums/airline.enums';
 
 export interface FlightCandidate {
-  numeroVol: string;
-  aeroportDepart: string;
-  aeroportEscale?: string | null;
-  aeroportArrivee: string;
-  heureDepart: Date;
-  heureArrivee: Date;
-  avionId?: string | null;
-  /** Durée totale au sol pendant les escales, en minutes. */
-  dureeEscaleMinutes?: number | null;
+  flightNumber: string;
+  departureAirportCode: string;
+  stopoverAirportCodes?: string | null;
+  arrivalAirportCode: string;
+  departureTime: Date;
+  arrivalTime: Date;
+  refAircraft?: string | null;
+  /** Total ground time during stopovers, in minutes. */
+  stopoverDurationMinutes?: number | null;
 }
 
 export interface ScheduleConflict {
@@ -22,11 +22,11 @@ export interface ScheduleConflict {
   blocking: boolean;
   reason: string;
   recommendation: string;
-  flightId?: string;
-  relatedFlightId?: string;
+  refFlight?: string;
+  relatedRefFlight?: string;
   flightNumber?: string;
   relatedFlightNumber?: string;
-  aircraftId?: string | null;
+  refAircraft?: string | null;
   aircraftRegistration?: string | null;
   overlapMinutes?: number;
   gapMinutes?: number;

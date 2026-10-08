@@ -12,7 +12,7 @@ import {
 
 export class CreateMaintenanceSlotDto {
   @IsUUID()
-  aircraftId!: string;
+  refAircraft!: string;
 
   @IsEnum(MaintenanceType)
   maintenanceType!: MaintenanceType;

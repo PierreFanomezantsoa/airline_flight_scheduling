@@ -56,7 +56,7 @@ interface MenuSection {
 interface SidebarProps {
   activeScreen: ActiveScreen;
   setActiveScreen: (screen: ActiveScreen) => void;
-  user: { nom: string; email: string; role?: string } | null;
+  user: { name: string; email: string; role?: string } | null;
   onLogout: () => void;
   isCollapsed: boolean;
   onCollapsedChange: (collapsed: boolean) => void;
@@ -73,7 +73,7 @@ export type AvailableRoles =
 type UserRoleLabel =
   | 'Utilisateur'
   | 'Administrateur système'
-  | 'Planificateur de vol'
+  | 'Planificateur de flight'
   | 'Régulateur OCC'
   | 'Membre d’équipage'
   | 'Ingénieur maintenance'
@@ -92,7 +92,7 @@ const MENU_SECTIONS: MenuSection[] = [
       { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
       { id: 'users', label: 'Gestion des utilisateurs', icon: UserCog },
       { id: 'scheduling', label: 'Programmation des vols', icon: CalendarClock },
-      { id: 'aircraft', label: 'Gestion des avions', icon: Plane },
+      { id: 'aircraft', label: 'Gestion des aircraft', icon: Plane },
       { id: 'airports', label: 'Aéroports', icon: MapPin },
       { id: 'flights', label: 'Gestion des vols', icon: CalendarDays },
       { id: 'flight-history', label: 'Historique des vols', icon: History },
@@ -137,7 +137,7 @@ const allowedScreens: Record<AvailableRoles, ActiveScreen[]> = {
 
 const roleLabels: Record<AvailableRoles, UserRoleLabel> = {
   Admin: 'Administrateur système',
-  Planificateur: 'Planificateur de vol',
+  Planificateur: 'Planificateur de flight',
   Regulator: 'Régulateur OCC',
   Crew_Member: 'Membre d’équipage',
   Maintenance_Engineer: 'Ingénieur maintenance',
@@ -211,7 +211,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     operations: true,
   });
 
-  const userDisplayName = user?.nom?.trim() || 'Utilisateur';
+  const userDisplayName = user?.name?.trim() || 'Utilisateur';
   const userInitial = userDisplayName.charAt(0).toUpperCase();
 
   const currentRole = useMemo(() => normalizeRole(user?.role), [user?.role]);
@@ -506,7 +506,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {isMobileProfileOpen && (
           <div
             role="menu"
-            aria-label="Compte utilisateur"
+            aria-label="Compte user"
             className="absolute right-0 top-[calc(100%+0.75rem)] z-50 w-64 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-xl border border-slate-200 bg-white p-3 text-slate-900 shadow-xl shadow-slate-900/10"
           >
             <div className="min-w-0 border-b border-slate-100 px-1 pb-3">

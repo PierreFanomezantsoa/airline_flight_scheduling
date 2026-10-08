@@ -11,7 +11,7 @@ import { MapPin, Plane } from 'lucide-react';
 export type FlightStatus = 'Planifié' | 'En Vol' | 'Retardé' | 'Annulé' | 'Effectué';
 
 export interface GanttRow {
-  aircraftId: string;
+  refAircraft: string;
   aircraftRegistration: string;
   capacity?: number | null;
   base?: string | null;
@@ -20,10 +20,9 @@ export interface GanttRow {
 }
 
 export interface GanttItem {
-  id: string;
-  flightId: string;
+  refFlight: string;
   flightNumber?: string | null;
-  rowId: string;
+  refAircraft: string;
   aircraftRegistration?: string | null;
   start: string;
   end: string;
@@ -47,9 +46,9 @@ export interface GanttPayload {
 }
 
 export interface AutoScheduleAssignment {
-  flightId: string;
+  refFlight: string;
   flightNumber?: string | null;
-  aircraftId: string;
+  refAircraft: string;
   aircraftRegistration?: string | null;
   origin?: string | null;
   destination?: string | null;
@@ -273,15 +272,15 @@ const FlightSchedulerGantt: FC<FlightSchedulerGanttProps> = ({
 
     const itemsByRow = new Map<string, GanttItem[]>();
     filteredItems.forEach((item) => {
-      const rowItems = itemsByRow.get(item.rowId) ?? [];
+      const rowItems = itemsByRow.get(item.refAircraft) ?? [];
       rowItems.push(item);
-      itemsByRow.set(item.rowId, rowItems);
+      itemsByRow.set(item.refAircraft, rowItems);
     });
 
     const rows: GanttRowWithItems[] = schedule.rows
       .map((row) => ({
         ...row,
-        items: itemsByRow.get(row.aircraftId) ?? [],
+        items: itemsByRow.get(row.refAircraft) ?? [],
       }))
       .filter((row) => row.items.length > 0);
 
@@ -348,12 +347,12 @@ const FlightSchedulerGantt: FC<FlightSchedulerGanttProps> = ({
     let activeRows = 0;
 
     ganttData.rows.forEach((row) => {
-      if (row.aircraftId !== 'UNASSIGNED' && row.items.length > 0) activeRows += 1;
+      if (row.refAircraft !== 'UNASSIGNED' && row.items.length > 0) activeRows += 1;
       row.items.forEach((item) => {
         total += 1;
         const shift =
           item.shiftMinutes ??
-          assignmentLookup.get(item.flightId)?.shiftMinutes ??
+          assignmentLookup.get(item.refFlight)?.shiftMinutes ??
           0;
         if (shift > 0) shifted += 1;
       });
@@ -394,7 +393,7 @@ const FlightSchedulerGantt: FC<FlightSchedulerGanttProps> = ({
             </span>
           )}
           <span className="text-xs text-slate-500">
-            · {stats.activeRows} appareil{stats.activeRows > 1 ? 's' : ''} actif
+            · {stats.activeRows} appareil{stats.activeRows > 1 ? 's' : ''} isActive
             {stats.activeRows > 1 ? 's' : ''}
             {stats.shifted > 0 &&
               ` · ${stats.shifted} décalé${stats.shifted > 1 ? 's' : ''}`}
@@ -403,7 +402,7 @@ const FlightSchedulerGantt: FC<FlightSchedulerGanttProps> = ({
 
         <div className="hidden flex-wrap items-center gap-3 sm:flex">
           <LegendDot className="bg-blue-500" label="Planifié" />
-          <LegendDot className="bg-amber-500" label="En vol" />
+          <LegendDot className="bg-amber-500" label="En flight" />
           <LegendDot className="bg-orange-500" label="Retardé" />
           <LegendDot className="bg-emerald-500" label="Effectué" />
           <LegendDot className="bg-rose-500" label="Annulé" />
@@ -416,21 +415,21 @@ const FlightSchedulerGantt: FC<FlightSchedulerGanttProps> = ({
             <Plane className="h-5 w-5" />
           </div>
           <p className="mt-3 text-sm font-medium text-slate-700">
-            Aucun vol programmé sur la période
+            Aucun flight programmé sur la période
           </p>
           <p className="mt-1 text-xs text-slate-500">
-            Ajustez la recherche ou les filtres de statut.
+            Ajustez la recherche ou les filtres de status.
           </p>
         </div>
       ) : (
         <div className="flex flex-col">
           <div className="order-2 divide-y divide-slate-100 sm:hidden">
             {ganttData.rows.map((row) => (
-              <div key={row.aircraftId} className="p-3">
+              <div key={row.refAircraft} className="p-3">
                 <div className="flex items-center gap-3">
                   <div
                     className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border ${
-                      row.aircraftId === 'UNASSIGNED'
+                      row.refAircraft === 'UNASSIGNED'
                         ? 'border-rose-200 bg-rose-50 text-rose-600'
                         : 'border-emerald-200 bg-emerald-50 text-emerald-600'
                     }`}
@@ -444,7 +443,7 @@ const FlightSchedulerGantt: FC<FlightSchedulerGanttProps> = ({
                     <p className="mt-0.5 flex items-center gap-1 text-xs text-slate-500">
                       <MapPin className="h-3 w-3 shrink-0" />
                       <span className="truncate">
-                        {row.aircraftId === 'UNASSIGNED'
+                        {row.refAircraft === 'UNASSIGNED'
                           ? 'Affectation requise'
                           : row.currentPosition || row.base || 'Position à déterminer'}
                       </span>
@@ -459,13 +458,13 @@ const FlightSchedulerGantt: FC<FlightSchedulerGanttProps> = ({
                     const route =
                       getRoute(item) ||
                       `${item.origin ?? '?'} → ${item.destination ?? '?'}`;
-                    const assignment = assignmentLookup.get(item.flightId);
+                    const assignment = assignmentLookup.get(item.refFlight);
                     const shiftMinutes =
                       item.shiftMinutes ?? assignment?.shiftMinutes ?? 0;
 
                     return (
                       <article
-                        key={item.id}
+                        key={item.refFlight}
                         className={`rounded-lg border p-3 ${config.bg} ${config.border}`}
                         title={buildItemTooltip(
                           item,
@@ -570,14 +569,14 @@ const FlightSchedulerGantt: FC<FlightSchedulerGanttProps> = ({
             <div className="divide-y divide-slate-100">
               {ganttData.rows.map((row) => (
                 <div
-                  key={row.aircraftId}
+                  key={row.refAircraft}
                   className="group flex items-center transition hover:bg-slate-50/60"
                 >
                   {/* CARTE APPAREIL */}
                   <div className="sticky left-0 z-20 flex w-32 shrink-0 items-center gap-2 border-r border-slate-200 bg-white px-2 py-3 group-hover:bg-slate-50 sm:w-64 sm:gap-3 sm:px-4">
                     <div
                       className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border sm:h-9 sm:w-9 ${
-                        row.aircraftId === 'UNASSIGNED'
+                        row.refAircraft === 'UNASSIGNED'
                           ? 'border-rose-200 bg-rose-50 text-rose-600'
                           : 'border-emerald-200 bg-emerald-50 text-emerald-600'
                       }`}
@@ -588,7 +587,7 @@ const FlightSchedulerGantt: FC<FlightSchedulerGanttProps> = ({
                       <span className="block truncate text-[11px] font-semibold text-slate-800 sm:text-xs">
                         {row.aircraftRegistration}
                       </span>
-                      {row.aircraftId === 'UNASSIGNED' ? (
+                      {row.refAircraft === 'UNASSIGNED' ? (
                         <span className="mt-0.5 inline-flex items-center gap-1 text-[10px] font-medium text-rose-600">
                           <span className="h-1 w-1 animate-pulse rounded-full bg-rose-500" />
                           Affectation requise
@@ -625,7 +624,7 @@ const FlightSchedulerGantt: FC<FlightSchedulerGanttProps> = ({
                       );
                       return (
                         <div
-                          key={`${row.aircraftId}-${tick}`}
+                          key={`${row.refAircraft}-${tick}`}
                           className="absolute bottom-0 top-0 border-l border-slate-100"
                           style={{ left: `${left}%` }}
                         />
@@ -659,7 +658,7 @@ const FlightSchedulerGantt: FC<FlightSchedulerGanttProps> = ({
 
                       const status = normalizeFlightStatus(item.status);
                       const config = STATUS_CONFIG[status];
-                      const assignment = assignmentLookup.get(item.flightId);
+                      const assignment = assignmentLookup.get(item.refFlight);
                       const shiftMinutes =
                         item.shiftMinutes ?? assignment?.shiftMinutes ?? 0;
                       const localStart = item.localStart ?? assignment?.localDeparture;
@@ -669,7 +668,7 @@ const FlightSchedulerGantt: FC<FlightSchedulerGanttProps> = ({
 
                       return (
                         <div
-                          key={item.id}
+                          key={item.refFlight}
                           className={`group/item absolute bottom-2 top-2 flex min-w-24 cursor-pointer items-center justify-between overflow-hidden rounded-lg border px-1.5 shadow-sm transition-all duration-150 hover:z-30 hover:-translate-y-0.5 hover:shadow-md sm:min-w-31.25 sm:px-2.5 ${config.bg} ${config.border}`}
                           style={{ left: `${left}%`, width: `${width}%` }}
                           title={buildItemTooltip(item, localStart, localEnd, shiftMinutes)}

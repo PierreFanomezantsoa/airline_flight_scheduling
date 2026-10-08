@@ -54,65 +54,65 @@ export class ScheduleConflictService {
     const conflicts: ScheduleConflict[] = [];
 
     if (
-      Number.isNaN(candidate.heureDepart.getTime()) ||
-      Number.isNaN(candidate.heureArrivee.getTime()) ||
-      candidate.heureArrivee <= candidate.heureDepart
+      Number.isNaN(candidate.departureTime.getTime()) ||
+      Number.isNaN(candidate.arrivalTime.getTime()) ||
+      candidate.arrivalTime <= candidate.departureTime
     ) {
       conflicts.push({
-        id: `INVALID_WINDOW:${candidate.numeroVol}`,
+        id: `INVALID_WINDOW:${candidate.flightNumber}`,
         type: ScheduleConflictType.INVALID_TIME_WINDOW,
         severity: ConflictSeverity.CRITICAL,
         blocking: true,
         reason: "L'heure d'arrivée doit être postérieure à l'heure de départ.",
         recommendation: 'Corriger la fenêtre horaire.',
-        flightNumber: candidate.numeroVol,
+        flightNumber: candidate.flightNumber,
       });
       return this.toValidationResult(conflicts);
     }
 
-    if (!candidate.avionId) {
+    if (!candidate.refAircraft) {
       conflicts.push({
-        id: `UNASSIGNED:${candidate.numeroVol}`,
+        id: `UNASSIGNED:${candidate.flightNumber}`,
         type: ScheduleConflictType.UNASSIGNED_AIRCRAFT,
         severity: ConflictSeverity.HIGH,
         blocking: false,
-        reason: `Le vol ${candidate.numeroVol} n'a pas encore d'appareil assigné.`,
+        reason: `Le flight ${candidate.flightNumber} n'a pas encore d'appareil assigné.`,
         recommendation: 'Affecter un appareil avant publication opérationnelle.',
-        flightNumber: candidate.numeroVol,
+        flightNumber: candidate.flightNumber,
       });
       return this.toValidationResult(conflicts);
     }
 
     const aircraft = await this.aircraftRepository.findOne({
-      where: { id: candidate.avionId },
-      relations: ['type'],
+      where: { refAircraft: candidate.refAircraft },
+      relations: ['aircraftType'],
     });
 
     if (!aircraft) {
       conflicts.push({
-        id: `AIRCRAFT_NOT_FOUND:${candidate.avionId}`,
+        id: `AIRCRAFT_NOT_FOUND:${candidate.refAircraft}`,
         type: ScheduleConflictType.AIRCRAFT_UNAVAILABLE,
         severity: ConflictSeverity.CRITICAL,
         blocking: true,
-        reason: `L'appareil ${candidate.avionId} est introuvable.`,
+        reason: `L'appareil ${candidate.refAircraft} est introuvable.`,
         recommendation: 'Sélectionner un appareil existant.',
-        flightNumber: candidate.numeroVol,
-        aircraftId: candidate.avionId,
+        flightNumber: candidate.flightNumber,
+        refAircraft: candidate.refAircraft,
       });
       return this.toValidationResult(conflicts);
     }
 
-    if (aircraft.statut !== AircraftStatus.ACTIVE) {
+    if (aircraft.status !== AircraftStatus.ACTIVE) {
       conflicts.push({
-        id: `AIRCRAFT_STATUS:${candidate.numeroVol}:${aircraft.id}`,
+        id: `AIRCRAFT_STATUS:${candidate.flightNumber}:${aircraft.refAircraft}`,
         type: ScheduleConflictType.AIRCRAFT_UNAVAILABLE,
         severity: ConflictSeverity.CRITICAL,
         blocking: true,
-        reason: `${aircraft.immatriculation} est au statut "${aircraft.statut}".`,
-        recommendation: 'Choisir un appareil actif.',
-        flightNumber: candidate.numeroVol,
-        aircraftId: aircraft.id,
-        aircraftRegistration: aircraft.immatriculation,
+        reason: `${aircraft.registration} est au status "${aircraft.status}".`,
+        recommendation: 'Choisir un appareil isActive.',
+        flightNumber: candidate.flightNumber,
+        refAircraft: aircraft.refAircraft,
+        aircraftRegistration: aircraft.registration,
       });
     }
 
@@ -128,70 +128,70 @@ export class ScheduleConflictService {
 
   async detectAll(): Promise<ScheduleConflict[]> {
     const flights = await this.flightRepository.find({
-      where: { statut: Not(FlightStatus.CANCELLED) },
-      relations: ['avion', 'avion.type'],
-      order: { heureDepart: 'ASC' },
+      where: { status: Not(FlightStatus.CANCELLED) },
+      relations: ['aircraft', 'aircraft.type'],
+      order: { departureTime: 'ASC' },
     });
 
     const conflicts: ScheduleConflict[] = [];
     const byAircraft = new Map<string, Flight[]>();
 
     for (const flight of flights) {
-      if (!flight.avionId || !flight.avion) {
+      if (!flight.refAircraft || !flight.aircraft) {
         conflicts.push({
-          id: `UNASSIGNED:${flight.id}`,
+          id: `UNASSIGNED:${flight.refFlight}`,
           type: ScheduleConflictType.UNASSIGNED_AIRCRAFT,
           severity: ConflictSeverity.HIGH,
           blocking: false,
-          reason: `Le vol ${flight.numeroVol} n'a aucun appareil assigné.`,
+          reason: `Le flight ${flight.flightNumber} n'a aucun appareil assigné.`,
           recommendation: 'Affecter un appareil avant publication opérationnelle.',
-          flightId: flight.id,
-          flightNumber: flight.numeroVol,
+          refFlight: flight.refFlight,
+          flightNumber: flight.flightNumber,
         });
         continue;
       }
 
-      const list = byAircraft.get(flight.avionId) ?? [];
+      const list = byAircraft.get(flight.refAircraft) ?? [];
       list.push(flight);
-      byAircraft.set(flight.avionId, list);
+      byAircraft.set(flight.refAircraft, list);
 
-      if (flight.avion.statut !== AircraftStatus.ACTIVE) {
+      if (flight.aircraft.status !== AircraftStatus.ACTIVE) {
         conflicts.push({
-          id: `AIRCRAFT_STATUS:${flight.id}`,
+          id: `AIRCRAFT_STATUS:${flight.refFlight}`,
           type: ScheduleConflictType.AIRCRAFT_UNAVAILABLE,
           severity: ConflictSeverity.CRITICAL,
           blocking: true,
-          reason: `${flight.numeroVol} utilise ${flight.avion.immatriculation}, au statut "${flight.avion.statut}".`,
-          recommendation: 'Réaffecter le vol à un appareil actif.',
-          flightId: flight.id,
-          flightNumber: flight.numeroVol,
-          aircraftId: flight.avionId,
-          aircraftRegistration: flight.avion.immatriculation,
+          reason: `${flight.flightNumber} utilise ${flight.aircraft.registration}, au status "${flight.aircraft.status}".`,
+          recommendation: 'Réaffecter le flight à un appareil isActive.',
+          refFlight: flight.refFlight,
+          flightNumber: flight.flightNumber,
+          refAircraft: flight.refAircraft,
+          aircraftRegistration: flight.aircraft.registration,
         });
       }
 
       conflicts.push(
         ...(await this.detectMaintenanceOverlap(
           this.toCandidate(flight),
-          flight.avion,
+          flight.aircraft,
         )),
       );
 
-      if (!flight.heuresComptabilisees) {
+      if (!flight.flightHoursRecorded) {
         conflicts.push(
           ...(await this.detectMaintenanceDue(
             this.toCandidate(flight),
-            flight.avion,
-            flight.id,
+            flight.aircraft,
+            flight.refFlight,
           )),
         );
       }
     }
 
-    for (const [aircraftId, rotations] of byAircraft.entries()) {
-      rotations.sort((a, b) => a.heureDepart.getTime() - b.heureDepart.getTime());
+    for (const [refAircraft, rotations] of byAircraft.entries()) {
+      rotations.sort((a, b) => a.departureTime.getTime() - b.departureTime.getTime());
       for (let i = 0; i < rotations.length - 1; i += 1) {
-        conflicts.push(...this.compareConsecutiveFlights(rotations[i], rotations[i + 1], aircraftId));
+        conflicts.push(...this.compareConsecutiveFlights(rotations[i], rotations[i + 1], refAircraft));
       }
     }
 
@@ -203,25 +203,25 @@ export class ScheduleConflictService {
   private compareConsecutiveFlights(
     current: Flight,
     next: Flight,
-    aircraftId: string,
+    refAircraft: string,
   ): ScheduleConflict[] {
-    const aircraftRegistration = current.avion?.immatriculation ?? next.avion?.immatriculation ?? aircraftId;
-    const gapMinutes = (next.heureDepart.getTime() - current.heureArrivee.getTime()) / 60_000;
+    const aircraftRegistration = current.aircraft?.registration ?? next.aircraft?.registration ?? refAircraft;
+    const gapMinutes = (next.departureTime.getTime() - current.arrivalTime.getTime()) / 60_000;
     const conflicts: ScheduleConflict[] = [];
 
     if (gapMinutes < 0) {
       conflicts.push({
-        id: `OVERLAP:${current.id}:${next.id}`,
+        id: `OVERLAP:${current.refFlight}:${next.refFlight}`,
         type: ScheduleConflictType.AIRCRAFT_OVERLAP,
         severity: ConflictSeverity.CRITICAL,
         blocking: true,
-        reason: `${current.numeroVol} et ${next.numeroVol} se chevauchent de ${Math.round(Math.abs(gapMinutes))} min sur ${aircraftRegistration}.`,
-        recommendation: 'Décaler un vol ou réaffecter un appareil.',
-        flightId: current.id,
-        relatedFlightId: next.id,
-        flightNumber: current.numeroVol,
-        relatedFlightNumber: next.numeroVol,
-        aircraftId,
+        reason: `${current.flightNumber} et ${next.flightNumber} se chevauchent de ${Math.round(Math.abs(gapMinutes))} min sur ${aircraftRegistration}.`,
+        recommendation: 'Décaler un flight ou réaffecter un appareil.',
+        refFlight: current.refFlight,
+        relatedRefFlight: next.refFlight,
+        flightNumber: current.flightNumber,
+        relatedFlightNumber: next.flightNumber,
+        refAircraft,
         aircraftRegistration,
         overlapMinutes: Math.abs(gapMinutes),
       });
@@ -230,38 +230,38 @@ export class ScheduleConflictService {
 
     if (gapMinutes < this.policy.minimumTurnaroundMinutes) {
       conflicts.push({
-        id: `TURNAROUND:${current.id}:${next.id}`,
+        id: `TURNAROUND:${current.refFlight}:${next.refFlight}`,
         type: ScheduleConflictType.TURNAROUND_TOO_SHORT,
         severity: ConflictSeverity.HIGH,
         blocking: true,
-        reason: `Rotation ${current.numeroVol} → ${next.numeroVol}: ${Math.round(gapMinutes)} min au sol.`,
+        reason: `Rotation ${current.flightNumber} → ${next.flightNumber}: ${Math.round(gapMinutes)} min au sol.`,
         recommendation: `Respecter la politique de turnaround configurée (${this.policy.minimumTurnaroundMinutes} min) ou changer d'appareil.`,
-        flightId: current.id,
-        relatedFlightId: next.id,
-        flightNumber: current.numeroVol,
-        relatedFlightNumber: next.numeroVol,
-        aircraftId,
+        refFlight: current.refFlight,
+        relatedRefFlight: next.refFlight,
+        flightNumber: current.flightNumber,
+        relatedFlightNumber: next.flightNumber,
+        refAircraft,
         aircraftRegistration,
         gapMinutes,
       });
     }
 
     if (
-      current.aeroportArrivee !== next.aeroportDepart &&
+      current.arrivalAirportCode !== next.departureAirportCode &&
       gapMinutes < this.policy.positioningBufferMinutes
     ) {
       conflicts.push({
-        id: `POSITION:${current.id}:${next.id}`,
+        id: `POSITION:${current.refFlight}:${next.refFlight}`,
         type: ScheduleConflictType.AIRCRAFT_POSITIONING,
         severity: ConflictSeverity.HIGH,
         blocking: true,
-        reason: `${aircraftRegistration} termine ${current.numeroVol} à ${current.aeroportArrivee}, mais ${next.numeroVol} repart de ${next.aeroportDepart}.`,
-        recommendation: 'Insérer un vol de repositionnement ou réaffecter le vol suivant.',
-        flightId: current.id,
-        relatedFlightId: next.id,
-        flightNumber: current.numeroVol,
-        relatedFlightNumber: next.numeroVol,
-        aircraftId,
+        reason: `${aircraftRegistration} termine ${current.flightNumber} à ${current.arrivalAirportCode}, mais ${next.flightNumber} repart de ${next.departureAirportCode}.`,
+        recommendation: 'Insérer un flight de repositionnement ou réaffecter le flight suivant.',
+        refFlight: current.refFlight,
+        relatedRefFlight: next.refFlight,
+        flightNumber: current.flightNumber,
+        relatedFlightNumber: next.flightNumber,
+        refAircraft,
         aircraftRegistration,
         gapMinutes,
       });
@@ -277,28 +277,28 @@ export class ScheduleConflictService {
   ): Promise<ScheduleConflict[]> {
     const qb = this.flightRepository
       .createQueryBuilder('flight')
-      .where('flight.avionId = :aircraftId', { aircraftId: aircraft.id })
-      .andWhere('flight.statut != :cancelled', { cancelled: FlightStatus.CANCELLED })
-      .andWhere('flight.heureDepart < :arrival', { arrival: candidate.heureArrivee })
-      .andWhere('flight.heureArrivee > :departure', { departure: candidate.heureDepart });
-    if (excludeFlightId) qb.andWhere('flight.id != :excludeFlightId', { excludeFlightId });
+      .where('flight.refAircraft = :refAircraft', { refAircraft: aircraft.refAircraft })
+      .andWhere('flight.status != :cancelled', { cancelled: FlightStatus.CANCELLED })
+      .andWhere('flight.departureTime < :arrival', { arrival: candidate.arrivalTime })
+      .andWhere('flight.arrivalTime > :departure', { departure: candidate.departureTime });
+    if (excludeFlightId) qb.andWhere('flight.refFlight != :excludeFlightId', { excludeFlightId });
 
     const overlaps = await qb.getMany();
     return overlaps.map((other) => {
-      const start = Math.max(candidate.heureDepart.getTime(), other.heureDepart.getTime());
-      const end = Math.min(candidate.heureArrivee.getTime(), other.heureArrivee.getTime());
+      const start = Math.max(candidate.departureTime.getTime(), other.departureTime.getTime());
+      const end = Math.min(candidate.arrivalTime.getTime(), other.arrivalTime.getTime());
       return {
-        id: `OVERLAP:${candidate.numeroVol}:${other.id}`,
+        id: `OVERLAP:${candidate.flightNumber}:${other.refFlight}`,
         type: ScheduleConflictType.AIRCRAFT_OVERLAP,
         severity: ConflictSeverity.CRITICAL,
         blocking: true,
-        reason: `${aircraft.immatriculation} est déjà affecté au vol ${other.numeroVol} sur ce créneau.`,
-        recommendation: 'Décaler le vol ou choisir un autre appareil.',
-        relatedFlightId: other.id,
-        flightNumber: candidate.numeroVol,
-        relatedFlightNumber: other.numeroVol,
-        aircraftId: aircraft.id,
-        aircraftRegistration: aircraft.immatriculation,
+        reason: `${aircraft.registration} est déjà affecté au flight ${other.flightNumber} sur ce créneau.`,
+        recommendation: 'Décaler le flight ou choisir un autre appareil.',
+        relatedRefFlight: other.refFlight,
+        flightNumber: candidate.flightNumber,
+        relatedFlightNumber: other.flightNumber,
+        refAircraft: aircraft.refAircraft,
+        aircraftRegistration: aircraft.registration,
         overlapMinutes: Math.max(0, (end - start) / 60_000),
       };
     });
@@ -311,27 +311,27 @@ export class ScheduleConflictService {
   ): Promise<ScheduleConflict[]> {
     const qb = this.flightRepository
       .createQueryBuilder('flight')
-      .where('flight.avionId = :aircraftId', { aircraftId: aircraft.id })
-      .andWhere('flight.statut != :cancelled', { cancelled: FlightStatus.CANCELLED });
-    if (excludeFlightId) qb.andWhere('flight.id != :excludeFlightId', { excludeFlightId });
+      .where('flight.refAircraft = :refAircraft', { refAircraft: aircraft.refAircraft })
+      .andWhere('flight.status != :cancelled', { cancelled: FlightStatus.CANCELLED });
+    if (excludeFlightId) qb.andWhere('flight.refFlight != :excludeFlightId', { excludeFlightId });
 
-    const rotations = await qb.orderBy('flight.heureDepart', 'ASC').getMany();
+    const rotations = await qb.orderBy('flight.departureTime', 'ASC').getMany();
     const previous = rotations
-      .filter((f) => f.heureArrivee <= candidate.heureDepart)
-      .sort((a, b) => b.heureArrivee.getTime() - a.heureArrivee.getTime())[0];
+      .filter((f) => f.arrivalTime <= candidate.departureTime)
+      .sort((a, b) => b.arrivalTime.getTime() - a.arrivalTime.getTime())[0];
     const next = rotations
-      .filter((f) => f.heureDepart >= candidate.heureArrivee)
-      .sort((a, b) => a.heureDepart.getTime() - b.heureDepart.getTime())[0];
+      .filter((f) => f.departureTime >= candidate.arrivalTime)
+      .sort((a, b) => a.departureTime.getTime() - b.departureTime.getTime())[0];
 
     const conflicts: ScheduleConflict[] = [];
 
     if (previous) {
       const virtual = this.candidateAsVirtualFlight(candidate, aircraft);
-      conflicts.push(...this.compareConsecutiveFlights(previous, virtual, aircraft.id));
+      conflicts.push(...this.compareConsecutiveFlights(previous, virtual, aircraft.refAircraft));
     }
     if (next) {
       const virtual = this.candidateAsVirtualFlight(candidate, aircraft);
-      conflicts.push(...this.compareConsecutiveFlights(virtual, next, aircraft.id));
+      conflicts.push(...this.compareConsecutiveFlights(virtual, next, aircraft.refAircraft));
     }
 
     return conflicts;
@@ -343,25 +343,25 @@ export class ScheduleConflictService {
   ): Promise<ScheduleConflict[]> {
     const slots = await this.maintenanceRepository
       .createQueryBuilder('slot')
-      .where('slot.aircraftId = :aircraftId', { aircraftId: aircraft.id })
+      .where('slot.refAircraft = :refAircraft', { refAircraft: aircraft.refAircraft })
       .andWhere('slot.status NOT IN (:...ignored)', {
         ignored: [MaintenanceStatus.CANCELLED, MaintenanceStatus.COMPLETED],
       })
-      .andWhere('slot.startTime < :arrival', { arrival: candidate.heureArrivee })
-      .andWhere('slot.endTime > :departure', { departure: candidate.heureDepart })
+      .andWhere('slot.startTime < :arrival', { arrival: candidate.arrivalTime })
+      .andWhere('slot.endTime > :departure', { departure: candidate.departureTime })
       .getMany();
 
     return slots.map((slot) => ({
-      id: `MAINTENANCE:${candidate.numeroVol}:${slot.id}`,
+      id: `MAINTENANCE:${candidate.flightNumber}:${slot.refMaintenanceSlot}`,
       type: ScheduleConflictType.AIRCRAFT_MAINTENANCE,
       severity: ConflictSeverity.CRITICAL,
       blocking: true,
-      reason: `${aircraft.immatriculation} est indisponible pour maintenance sur ce créneau.`,
+      reason: `${aircraft.registration} est indisponible pour maintenance sur ce créneau.`,
       recommendation: 'Changer d’appareil ou revoir le créneau de maintenance.',
-      flightNumber: candidate.numeroVol,
-      aircraftId: aircraft.id,
-      aircraftRegistration: aircraft.immatriculation,
-      metadata: { maintenanceSlotId: slot.id, maintenanceType: slot.maintenanceType },
+      flightNumber: candidate.flightNumber,
+      refAircraft: aircraft.refAircraft,
+      aircraftRegistration: aircraft.registration,
+      metadata: { maintenanceSlotId: slot.refMaintenanceSlot, maintenanceType: slot.maintenanceType },
     }));
   }
 
@@ -373,23 +373,23 @@ export class ScheduleConflictService {
     const candidateHours = this.calculateCandidateFlightHours(candidate);
 
     /*
-     * Le compteur de l'avion contient uniquement les heures réellement volées.
-     * Pour décider si un NOUVEAU vol peut être planifié, on ajoute aussi les
+     * Le compteur de l'aircraft contient uniquement les heures réellement flightées.
+     * Pour décider si un NOUVEAU flight peut être planifié, on ajoute aussi les
      * vols déjà planifiés avant ce candidat et qui ne sont pas encore crédités.
      */
     const qb = this.flightRepository
       .createQueryBuilder('flight')
-      .where('flight.avionId = :aircraftId', { aircraftId: aircraft.id })
-      .andWhere('flight.statut != :cancelled', {
+      .where('flight.refAircraft = :refAircraft', { refAircraft: aircraft.refAircraft })
+      .andWhere('flight.status != :cancelled', {
         cancelled: FlightStatus.CANCELLED,
       })
-      .andWhere('flight.heuresComptabilisees = FALSE')
-      .andWhere('flight.heureDepart < :candidateDeparture', {
-        candidateDeparture: candidate.heureDepart,
+      .andWhere('flight.flightHoursRecorded = FALSE')
+      .andWhere('flight.departureTime < :candidateDeparture', {
+        candidateDeparture: candidate.departureTime,
       });
 
     if (excludeFlightId) {
-      qb.andWhere('flight.id != :excludeFlightId', { excludeFlightId });
+      qb.andWhere('flight.refFlight != :excludeFlightId', { excludeFlightId });
     }
 
     const earlierPlannedFlights = await qb.getMany();
@@ -400,33 +400,33 @@ export class ScheduleConflictService {
     );
 
     const projected =
-      Number(aircraft.heuresDepuisDerniereMaintenance || 0) +
+      Number(aircraft.hoursSinceMaintenance || 0) +
       earlierPlannedHours +
       candidateHours;
 
-    const remaining = aircraft.limiteHeuresMaintenance - projected;
+    const remaining = aircraft.maintenanceHoursLimit - projected;
 
     if (remaining <= 0) {
       return [
         {
-          id: `MAINTENANCE_DUE:${candidate.numeroVol}:${aircraft.id}`,
+          id: `MAINTENANCE_DUE:${candidate.flightNumber}:${aircraft.refAircraft}`,
           type: ScheduleConflictType.MAINTENANCE_DUE,
           severity: ConflictSeverity.HIGH,
           blocking: true,
           reason:
-            `${aircraft.immatriculation} dépasserait sa limite de maintenance ` +
+            `${aircraft.registration} dépasserait sa limite de maintenance ` +
             `en tenant compte des vols déjà planifiés.`,
           recommendation: 'Planifier une maintenance ou utiliser un autre appareil.',
-          flightNumber: candidate.numeroVol,
-          aircraftId: aircraft.id,
-          aircraftRegistration: aircraft.immatriculation,
+          flightNumber: candidate.flightNumber,
+          refAircraft: aircraft.refAircraft,
+          aircraftRegistration: aircraft.registration,
           metadata: {
             actualHoursSinceMaintenance:
-              aircraft.heuresDepuisDerniereMaintenance,
+              aircraft.hoursSinceMaintenance,
             earlierPlannedHours,
             candidateHours,
             projectedHours: projected,
-            limitHours: aircraft.limiteHeuresMaintenance,
+            limitHours: aircraft.maintenanceHoursLimit,
           },
         },
       ];
@@ -435,24 +435,24 @@ export class ScheduleConflictService {
     if (remaining <= this.policy.maintenanceWarningHours) {
       return [
         {
-          id: `MAINTENANCE_WARNING:${candidate.numeroVol}:${aircraft.id}`,
+          id: `MAINTENANCE_WARNING:${candidate.flightNumber}:${aircraft.refAircraft}`,
           type: ScheduleConflictType.MAINTENANCE_DUE,
           severity: ConflictSeverity.MEDIUM,
           blocking: false,
           reason:
-            `${aircraft.immatriculation} ne disposerait plus que de ` +
+            `${aircraft.registration} ne disposerait plus que de ` +
             `${remaining.toFixed(1)} h avant maintenance après les rotations planifiées.`,
           recommendation: 'Anticiper l’immobilisation de maintenance.',
-          flightNumber: candidate.numeroVol,
-          aircraftId: aircraft.id,
-          aircraftRegistration: aircraft.immatriculation,
+          flightNumber: candidate.flightNumber,
+          refAircraft: aircraft.refAircraft,
+          aircraftRegistration: aircraft.registration,
           metadata: {
             actualHoursSinceMaintenance:
-              aircraft.heuresDepuisDerniereMaintenance,
+              aircraft.hoursSinceMaintenance,
             earlierPlannedHours,
             candidateHours,
             projectedHours: projected,
-            limitHours: aircraft.limiteHeuresMaintenance,
+            limitHours: aircraft.maintenanceHoursLimit,
           },
         },
       ];
@@ -463,19 +463,19 @@ export class ScheduleConflictService {
 
   private calculateCandidateFlightHours(candidate: FlightCandidate): number {
     return this.calculateFlightHours(
-      candidate.heureDepart,
-      candidate.heureArrivee,
-      candidate.aeroportEscale,
-      candidate.dureeEscaleMinutes,
+      candidate.departureTime,
+      candidate.arrivalTime,
+      candidate.stopoverAirportCodes,
+      candidate.stopoverDurationMinutes,
     );
   }
 
   private calculateStoredFlightHours(flight: Flight): number {
     return this.calculateFlightHours(
-      flight.heureDepart,
-      flight.heureArrivee,
-      flight.aeroportEscale,
-      flight.dureeEscale,
+      flight.departureTime,
+      flight.arrivalTime,
+      flight.stopoverAirportCodes,
+      flight.stopoverDurationMinutes,
     );
   }
 
@@ -505,52 +505,52 @@ export class ScheduleConflictService {
 
   private async detectCrewConflicts(): Promise<ScheduleConflict[]> {
     const assignments = await this.crewAssignmentRepository.find({
-      relations: ['vol', 'utilisateur'],
+      relations: ['flight', 'user'],
     });
     const byUser = new Map<string, CrewAssignment[]>();
 
     for (const assignment of assignments) {
-      if (assignment.vol.statut === FlightStatus.CANCELLED) continue;
-      const list = byUser.get(assignment.utilisateurId) ?? [];
+      if (assignment.flight.status === FlightStatus.CANCELLED) continue;
+      const list = byUser.get(assignment.refUser) ?? [];
       list.push(assignment);
-      byUser.set(assignment.utilisateurId, list);
+      byUser.set(assignment.refUser, list);
     }
 
     const conflicts: ScheduleConflict[] = [];
     for (const [, userAssignments] of byUser) {
-      userAssignments.sort((a, b) => a.vol.heureDepart.getTime() - b.vol.heureDepart.getTime());
+      userAssignments.sort((a, b) => a.flight.departureTime.getTime() - b.flight.departureTime.getTime());
       for (let i = 0; i < userAssignments.length - 1; i += 1) {
         const current = userAssignments[i];
         const next = userAssignments[i + 1];
-        const gapHours = (next.vol.heureDepart.getTime() - current.vol.heureArrivee.getTime()) / 3_600_000;
+        const gapHours = (next.flight.departureTime.getTime() - current.flight.arrivalTime.getTime()) / 3_600_000;
 
         if (gapHours < 0) {
           conflicts.push({
-            id: `CREW_OVERLAP:${current.id}:${next.id}`,
+            id: `CREW_OVERLAP:${current.refCrewAssignment}:${next.refCrewAssignment}`,
             type: ScheduleConflictType.CREW_OVERLAP,
             severity: ConflictSeverity.CRITICAL,
             blocking: true,
-            reason: `${current.utilisateur.nom} est affecté simultanément à ${current.vol.numeroVol} et ${next.vol.numeroVol}.`,
+            reason: `${current.user.name} est affecté simultanément à ${current.flight.flightNumber} et ${next.flight.flightNumber}.`,
             recommendation: 'Réaffecter un membre d’équipage.',
-            flightId: current.vol.id,
-            relatedFlightId: next.vol.id,
-            flightNumber: current.vol.numeroVol,
-            relatedFlightNumber: next.vol.numeroVol,
-            metadata: { userId: current.utilisateurId },
+            refFlight: current.flight.refFlight,
+            relatedRefFlight: next.flight.refFlight,
+            flightNumber: current.flight.flightNumber,
+            relatedFlightNumber: next.flight.flightNumber,
+            metadata: { userId: current.refUser },
           });
         } else if (gapHours < this.policy.minimumCrewRestHours) {
           conflicts.push({
-            id: `CREW_REST:${current.id}:${next.id}`,
+            id: `CREW_REST:${current.refCrewAssignment}:${next.refCrewAssignment}`,
             type: ScheduleConflictType.CREW_REST,
             severity: ConflictSeverity.HIGH,
             blocking: true,
-            reason: `${current.utilisateur.nom} dispose de ${gapHours.toFixed(1)} h de repos entre ${current.vol.numeroVol} et ${next.vol.numeroVol}.`,
+            reason: `${current.user.name} dispose de ${gapHours.toFixed(1)} h de repos entre ${current.flight.flightNumber} et ${next.flight.flightNumber}.`,
             recommendation: `Respecter la politique de repos configurée (${this.policy.minimumCrewRestHours} h) ou réaffecter l'équipage.`,
-            flightId: current.vol.id,
-            relatedFlightId: next.vol.id,
-            flightNumber: current.vol.numeroVol,
-            relatedFlightNumber: next.vol.numeroVol,
-            metadata: { userId: current.utilisateurId, gapHours },
+            refFlight: current.flight.refFlight,
+            relatedRefFlight: next.flight.refFlight,
+            flightNumber: current.flight.flightNumber,
+            relatedFlightNumber: next.flight.flightNumber,
+            metadata: { userId: current.refUser, gapHours },
           });
         }
       }
@@ -569,38 +569,38 @@ export class ScheduleConflictService {
 
   private toCandidate(flight: Flight): FlightCandidate {
     return {
-      numeroVol: flight.numeroVol,
-      aeroportDepart: flight.aeroportDepart,
-      aeroportEscale: flight.aeroportEscale,
-      aeroportArrivee: flight.aeroportArrivee,
-      heureDepart: flight.heureDepart,
-      heureArrivee: flight.heureArrivee,
-      avionId: flight.avionId,
-      dureeEscaleMinutes: flight.dureeEscale,
+      flightNumber: flight.flightNumber,
+      departureAirportCode: flight.departureAirportCode,
+      stopoverAirportCodes: flight.stopoverAirportCodes,
+      arrivalAirportCode: flight.arrivalAirportCode,
+      departureTime: flight.departureTime,
+      arrivalTime: flight.arrivalTime,
+      refAircraft: flight.refAircraft,
+      stopoverDurationMinutes: flight.stopoverDurationMinutes,
     };
   }
 
   private candidateAsVirtualFlight(candidate: FlightCandidate, aircraft: Aircraft): Flight {
     return {
-      id: `candidate:${candidate.numeroVol}`,
-      numeroVol: candidate.numeroVol,
-      aeroportDepart: candidate.aeroportDepart,
-      aeroportEscale: candidate.aeroportEscale ?? null,
-      dureeEscale: candidate.dureeEscaleMinutes ?? null,
-      aeroportArrivee: candidate.aeroportArrivee,
-      heureDepart: candidate.heureDepart,
-      heureArrivee: candidate.heureArrivee,
-      statut: FlightStatus.SCHEDULED,
-      avionId: aircraft.id,
-      avion: aircraft,
-      heuresComptabilisees: false,
-      heuresCreditees: null,
-      heuresComptabiliseesAt: null,
-      affectationsEquipage: [],
+      refFlight: `candidate:${candidate.flightNumber}`,
+      flightNumber: candidate.flightNumber,
+      departureAirportCode: candidate.departureAirportCode,
+      stopoverAirportCodes: candidate.stopoverAirportCodes ?? null,
+      stopoverDurationMinutes: candidate.stopoverDurationMinutes ?? null,
+      arrivalAirportCode: candidate.arrivalAirportCode,
+      departureTime: candidate.departureTime,
+      arrivalTime: candidate.arrivalTime,
+      status: FlightStatus.SCHEDULED,
+      refAircraft: aircraft.refAircraft,
+      aircraft: aircraft,
+      flightHoursRecorded: false,
+      creditedFlightHours: null,
+      flightHoursRecordedAt: null,
+      crewAssignments: [],
       version: 0,
-      creeA: new Date(0),
-      misAJourA: new Date(0),
-      supprimeA: null,
+      createdAt: new Date(0),
+      updatedAt: new Date(0),
+      deletedAt: null,
     };
   }
 

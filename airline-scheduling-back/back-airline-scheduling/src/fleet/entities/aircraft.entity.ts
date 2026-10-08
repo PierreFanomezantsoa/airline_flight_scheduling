@@ -12,55 +12,55 @@ import { AircraftStatus } from '../../common/enums/airline.enums';
 import { AircraftType } from './aircraft-type.entity';
 
 @Entity('aircrafts')
-@Index(['immatriculation'], { unique: true })
-@Index(['statut'])
-@Index(['baseAttache'])
-@Index(['typeId'])
+@Index(['registration'], { unique: true })
+@Index(['status'])
+@Index(['homeBase'])
+@Index(['refAircraftType'])
 export class Aircraft {
-  @PrimaryGeneratedColumn('uuid')
-  id!: string;
+  @PrimaryGeneratedColumn('uuid', { name: 'ref_aircraft' })
+  refAircraft!: string;
 
-  @Column({ type: 'varchar', length: 20, unique: true })
-  immatriculation!: string;
+  @Column({ type: 'varchar', length: 20, unique: true, nullable: true })
+  registration!: string | null;
 
-  /** Copie lisible du modèle, synchronisée avec type.nomModele si typeId existe. */
-  @Column({ type: 'varchar', length: 100 })
-  modele!: string;
+  /** Readable model copy, synchronized with aircraftType.modelName when linked. */
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  model!: string | null;
 
   @Column({ type: 'int' })
-  capacite!: number;
+  capacity!: number;
 
   @Column({ type: 'double precision', default: 0 })
-  heuresDeVolTotales!: number;
+  totalFlightHours!: number;
 
   @Column({ type: 'double precision' })
-  limiteHeuresMaintenance!: number;
+  maintenanceHoursLimit!: number;
 
   @Column({ type: 'double precision', default: 0 })
-  heuresDepuisDerniereMaintenance!: number;
+  hoursSinceMaintenance!: number;
 
   @Column({ type: 'timestamptz', nullable: true })
-  dateDerniereMaintenance!: Date | null;
+  lastMaintenanceAt!: Date | null;
 
   @Column({ type: 'enum', enum: AircraftStatus, default: AircraftStatus.ACTIVE })
-  statut!: AircraftStatus;
+  status!: AircraftStatus;
 
   @Column({ type: 'varchar', length: 3, nullable: true })
-  baseAttache!: string | null;
+  homeBase!: string | null;
 
-  @Column({ type: 'uuid', nullable: true })
-  typeId!: string | null;
+  @Column({ name: 'ref_aircraft_type', type: 'uuid', nullable: true })
+  refAircraftType!: string | null;
 
-  @ManyToOne(() => AircraftType, (type) => type.avions, {
+  @ManyToOne(() => AircraftType, (aircraftType) => aircraftType.aircraft, {
     nullable: true,
     onDelete: 'SET NULL',
   })
-  @JoinColumn({ name: 'typeId' })
-  type!: AircraftType | null;
+  @JoinColumn({ name: 'ref_aircraft_type' })
+  aircraftType!: AircraftType | null;
 
   @CreateDateColumn({ type: 'timestamptz' })
-  creeA!: Date;
+  createdAt!: Date;
 
   @UpdateDateColumn({ type: 'timestamptz' })
-  misAJourA!: Date;
+  updatedAt!: Date;
 }

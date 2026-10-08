@@ -15,7 +15,7 @@ import {
 import { useState } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
 
-import myImage from '../../assets/avions.png';
+import myImage from '../../assets/avions12.png';
 
 import {
   logIn,
@@ -27,7 +27,7 @@ import {
 // TYPES
 // =============================================================================
 
-type AdminUser = Pick<PublicUser, 'id' | 'nom' | 'email' | 'role'>;
+type AdminUser = Pick<PublicUser, 'refUser' | 'name' | 'email' | 'role'>;
 
 interface AdminDashboardProps {
   onAuthenticate: (user: AdminUser) => void;
@@ -255,7 +255,7 @@ export function AdminDashboard({
         !auth.user
       ) {
         throw new Error(
-          "Le serveur n'a pas retourné les informations de l'utilisateur.",
+          "Le serveur n'a pas retourné les informations de l'user.",
         );
       }
 
@@ -271,8 +271,8 @@ export function AdminDashboard({
       );
 
       onAuthenticate({
-        id: auth.user.id,
-        nom: auth.user.nom,
+        refUser: auth.user.refUser,
+        name: auth.user.name,
         email: auth.user.email,
         role: auth.user.role,
       });
@@ -616,7 +616,7 @@ export function AdminDashboard({
                     value={form.email}
                     onChange={handleChange}
                     disabled={isLoading}
-                    placeholder="prenom.nom@compagnie.com"
+                    placeholder="prenom.name@compagnie.com"
                     autoComplete="username"
                     inputMode="email"
                     className="
@@ -1061,7 +1061,7 @@ export function AdminDashboard({
             aria-hidden="true"
           />
 
-          {/* Image avion */}
+          {/* Image aircraft */}
           <div
             className="
               absolute
@@ -1078,7 +1078,7 @@ export function AdminDashboard({
             aria-hidden="true"
           />
 
-          {/* Logo avion */}
+          {/* Logo aircraft */}
           <div
             className="
               relative

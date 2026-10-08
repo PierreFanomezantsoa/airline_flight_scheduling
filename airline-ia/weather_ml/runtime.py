@@ -7,8 +7,8 @@ Ce module est indépendant de Flask et des services météo externes. Il peut :
 - évaluer départ + arrivée + escale(s) ;
 - fusionner le score API et le score local en un *advisoryScore* OCC.
 
-IMPORTANT : le score local n'est JAMAIS autorisé à modifier seul le statut d'un
-vol. Les champs retournés portent explicitement `trustedForAutomaticStatus=False`.
+IMPORTANT : le score local n'est JAMAIS autorisé à modifier seul le status d'un
+flight. Les champs retournés portent explicitement `trustedForAutomaticStatus=False`.
 """
 
 from __future__ import annotations

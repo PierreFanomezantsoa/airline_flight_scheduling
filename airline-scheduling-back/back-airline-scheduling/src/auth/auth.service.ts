@@ -24,12 +24,12 @@ export class AuthService {
       throw new UnauthorizedException('Identifiants invalides.');
     }
 
-    const valid = await bcrypt.compare(dto.password, user.motDePasse);
+    const valid = await bcrypt.compare(dto.password, user.passwordHash);
     if (!valid) {
       throw new UnauthorizedException('Identifiants invalides.');
     }
 
-    if (!user.actif) {
+    if (!user.isActive) {
       throw new ForbiddenException(
         'Votre compte est désactivé. Contactez un administrateur.',
       );
@@ -55,12 +55,12 @@ export class AuthService {
       );
     }
 
-    const { motDePasse: _password, ...publicUser } = user;
+    const { passwordHash: _password, ...publicUser } = user;
 
     return {
       user: publicUser,
       token: this.signSessionToken({
-        sub: user.id,
+        sub: user.refUser,
         role: user.role,
         exp: Date.now() + 8 * 60 * 60 * 1000,
       }),

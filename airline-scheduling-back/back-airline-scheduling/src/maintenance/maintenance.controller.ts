@@ -58,12 +58,12 @@ export class MaintenanceController {
    */
   @Get('check-availability')
   checkAvailability(
-    @Query('aircraftId') aircraftId: string,
+    @Query('refAircraft') refAircraft: string,
     @Query('startTime') startTime: string,
     @Query('endTime') endTime: string,
   ) {
     return this.maintenanceService.checkAvailability(
-      aircraftId,
+      refAircraft,
       startTime,
       endTime,
     );

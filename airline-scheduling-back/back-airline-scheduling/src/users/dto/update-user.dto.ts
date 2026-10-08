@@ -17,7 +17,7 @@ export class UpdateUserDto {
   @IsOptional()
   @IsString()
   @Length(1, 150)
-  nom?: string;
+  name?: string;
 
   @IsOptional()
   @IsEnum(UserRole)
@@ -26,12 +26,12 @@ export class UpdateUserDto {
   @IsOptional()
   @IsString()
   @Length(1, 50)
-  niveauTechnique?: string;
+  technicalLevel?: string;
 
   @IsOptional()
   @IsString()
   @Length(1, 50)
-  niveauMetier?: string;
+  professionalLevel?: string;
 
   @IsOptional()
   @IsString()
@@ -40,5 +40,5 @@ export class UpdateUserDto {
 
   @IsOptional()
   @IsBoolean()
-  actif?: boolean;
+  isActive?: boolean;
 }

@@ -43,7 +43,7 @@ describe('Airports CRUD', () => {
 
   it('normalizes and stores a new airport', async () => {
     const airport = {
-      iata: 'CDG',
+      refAirport: 'CDG',
       name: 'Charles de Gaulle',
       timezone: 'Europe/Paris',
       city: 'Paris',
@@ -55,7 +55,7 @@ describe('Airports CRUD', () => {
     repository.save.mockResolvedValue(airport);
 
     const result = await service.create({
-      iata: ' cdg ',
+      refAirport: ' cdg ',
       name: ' Charles de Gaulle ',
       timezone: ' Europe/Paris ',
       city: ' Paris ',
@@ -63,7 +63,7 @@ describe('Airports CRUD', () => {
     });
 
     expect(repository.create).toHaveBeenCalledWith({
-      iata: 'CDG',
+      refAirport: 'CDG',
       name: 'Charles de Gaulle',
       timezone: 'Europe/Paris',
       city: 'Paris',
@@ -74,7 +74,7 @@ describe('Airports CRUD', () => {
 
   it('updates airport details and activation state', async () => {
     const airport = {
-      iata: 'CDG',
+      refAirport: 'CDG',
       name: 'Charles de Gaulle',
       timezone: 'Europe/Paris',
       city: 'Paris',
@@ -98,7 +98,7 @@ describe('Airports CRUD', () => {
 
   it('soft-deletes airports and excludes inactive ones from flight validation', async () => {
     const airport = {
-      iata: 'CDG',
+      refAirport: 'CDG',
       name: 'Charles de Gaulle',
       timezone: 'Europe/Paris',
       city: 'Paris',

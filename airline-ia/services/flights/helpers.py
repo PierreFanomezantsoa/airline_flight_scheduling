@@ -36,23 +36,23 @@ def parse_stopover_codes(value) -> list[str]:
 
 
 def is_aircraft_operational(aircraft: Aircraft) -> bool:
-    status = normalize_status(getattr(aircraft, "statut", "Active"))
+    status = normalize_status(getattr(aircraft, "status", "Active"))
     return not status or status in ACTIVE_AIRCRAFT_STATUSES
 
 
 def flight_hours_for_maintenance(flight: Flight) -> float | None:
     """Estimate flight hours, excluding ground time only for a real stopover."""
-    departure = ensure_utc(getattr(flight, "heureDepart", None))
-    arrival = ensure_utc(getattr(flight, "heureArrivee", None))
+    departure = ensure_utc(getattr(flight, "departureTime", None))
+    arrival = ensure_utc(getattr(flight, "arrivalTime", None))
     if not departure or not arrival or arrival <= departure:
         return None
 
     elapsed_minutes = (arrival - departure).total_seconds() / 60
-    if not parse_stopover_codes(getattr(flight, "aeroportEscale", None)):
+    if not parse_stopover_codes(getattr(flight, "stopoverAirportCodes", None)):
         return elapsed_minutes / 60
 
     try:
-        raw_stopover_minutes = float(getattr(flight, "dureeEscale", 0) or 0)
+        raw_stopover_minutes = float(getattr(flight, "stopoverDurationMinutes", 0) or 0)
     except (TypeError, ValueError):
         return None
     if not math.isfinite(raw_stopover_minutes):
@@ -88,16 +88,16 @@ def validate_aircraft_maintenance(
             {
                 "code": "AIRCRAFT_UNAVAILABLE",
                 "message": (
-                    f"L'appareil {getattr(aircraft, 'immatriculation', None) or aircraft.id} "
-                    f"n'est pas opérationnel (statut : {aircraft.statut})."
+                    f"L'appareil {getattr(aircraft, 'registration', None) or aircraft.refAircraft} "
+                    f"n'est pas opérationnel (status : {aircraft.status})."
                 ),
             },
             409,
         )
 
-    maintenance_limit = getattr(aircraft, "limiteHeuresMaintenance", None)
+    maintenance_limit = getattr(aircraft, "maintenanceHoursLimit", None)
     hours_since_maintenance = getattr(
-        aircraft, "heuresDepuisDerniereMaintenance", None
+        aircraft, "hoursSinceMaintenance", None
     )
     if maintenance_limit is not None:
         try:
@@ -115,28 +115,28 @@ def validate_aircraft_maintenance(
 
         if limit_hours > 0:
             previous_flights_query = Flight.query.filter(
-                Flight.avionId == aircraft_id,
-                Flight.heuresComptabilisees.is_(False),
-                Flight.heureDepart < departure,
+                Flight.refAircraft == aircraft_id,
+                Flight.flightHoursRecorded.is_(False),
+                Flight.departureTime < departure,
             )
             if current_flight_id:
                 previous_flights_query = previous_flights_query.filter(
-                    Flight.id != current_flight_id
+                    Flight.refFlight != current_flight_id
                 )
 
             previous_flights = previous_flights_query.all()
             previous_hours = sum(
                 flight_hours_for_maintenance(flight) or 0
                 for flight in previous_flights
-                if normalize_status(getattr(flight, "statut", None))
+                if normalize_status(getattr(flight, "status", None))
                 not in {"CANCELLED", "CANCELED", "ANNULE", "ANNULÉ"}
             )
             candidate_hours = flight_hours_for_maintenance(
                 SimpleNamespace(
-                    heureDepart=departure,
-                    heureArrivee=arrival,
-                    aeroportEscale=stopover_airports,
-                    dureeEscale=stopover_minutes,
+                    departureTime=departure,
+                    arrivalTime=arrival,
+                    stopoverAirportCodes=stopover_airports,
+                    stopoverDurationMinutes=stopover_minutes,
                 )
             )
             projected_hours = (
@@ -147,9 +147,9 @@ def validate_aircraft_maintenance(
                     {
                         "code": "MAINTENANCE_DUE",
                         "message": (
-                            f"L'appareil {getattr(aircraft, 'immatriculation', None) or aircraft.id} "
+                            f"L'appareil {getattr(aircraft, 'registration', None) or aircraft.refAircraft} "
                             "atteindrait ou dépasserait sa limite de maintenance "
-                            "avec ce vol et les rotations déjà programmées."
+                            "avec ce flight et les rotations déjà programmées."
                         ),
                     },
                     409,
@@ -158,7 +158,7 @@ def validate_aircraft_maintenance(
     slots = (
         MaintenanceSlot.query
         .filter(
-            MaintenanceSlot.aircraftId == aircraft_id,
+            MaintenanceSlot.refAircraft == aircraft_id,
             MaintenanceSlot.startTime < arrival,
             MaintenanceSlot.endTime > departure,
         )
@@ -178,7 +178,7 @@ def validate_aircraft_maintenance(
             {
                 "code": "AIRCRAFT_MAINTENANCE",
                 "message": (
-                    f"L'appareil {getattr(aircraft, 'immatriculation', None) or aircraft.id} est indisponible "
+                    f"L'appareil {getattr(aircraft, 'registration', None) or aircraft.refAircraft} est indisponible "
                     f"pour maintenance du {ensure_utc(conflict.startTime).isoformat()} "
                     f"au {ensure_utc(conflict.endTime).isoformat()}."
                 ),
@@ -194,9 +194,9 @@ def normalize_stopover_storage(value):
 
 
 def parse_stopover_duration(data: dict) -> int:
-    if data.get("dureeEscale") is not None:
+    if data.get("stopoverDurationMinutes") is not None:
         try:
-            return max(0, int(float(data["dureeEscale"])))
+            return max(0, int(float(data["stopoverDurationMinutes"])))
         except (TypeError, ValueError):
             return 120
     if data.get("layoverHours") is not None:
@@ -208,24 +208,24 @@ def parse_stopover_duration(data: dict) -> int:
 
 
 def check_aircraft_conflict(avion_id, dep_time, arr_time, current_flight_id=None):
-    """Retourne le premier vol qui chevauche le créneau de l'appareil."""
+    """Retourne le premier flight qui chevauche le créneau de l'appareil."""
     if not avion_id:
         return None
     query = Flight.query.filter(
-        Flight.avionId == avion_id,
-        Flight.statut != "Cancelled",
-        Flight.heureDepart < arr_time,
-        Flight.heureArrivee > dep_time,
+        Flight.refAircraft == avion_id,
+        Flight.status != "Cancelled",
+        Flight.departureTime < arr_time,
+        Flight.arrivalTime > dep_time,
     )
     if current_flight_id:
-        query = query.filter(Flight.id != current_flight_id)
+        query = query.filter(Flight.refFlight != current_flight_id)
     return query.first()
 
 
 def build_route_string(flight) -> str:
-    points = [flight.aeroportDepart]
-    points.extend(parse_stopover_codes(getattr(flight, "aeroportEscale", None)))
-    points.append(flight.aeroportArrivee)
+    points = [flight.departureAirportCode]
+    points.extend(parse_stopover_codes(getattr(flight, "stopoverAirportCodes", None)))
+    points.append(flight.arrivalAirportCode)
     return " ➔ ".join(points)
 
 
@@ -235,11 +235,11 @@ def build_legs_payload(flight) -> list[dict]:
         for leg in flight.legs:
             payload.append(
                 {
-                    "numeroVol": getattr(leg, "numeroVol", flight.numeroVol),
-                    "aeroportDepart": leg.aeroportDepart,
-                    "aeroportArrivee": leg.aeroportArrivee,
-                    "heureDepart": ensure_utc(leg.heureDepart).isoformat() if leg.heureDepart else None,
-                    "heureArrivee": ensure_utc(leg.heureArrivee).isoformat() if leg.heureArrivee else None,
+                    "flightNumber": getattr(leg, "flightNumber", flight.flightNumber),
+                    "departureAirportCode": leg.departureAirportCode,
+                    "arrivalAirportCode": leg.arrivalAirportCode,
+                    "departureTime": ensure_utc(leg.departureTime).isoformat() if leg.departureTime else None,
+                    "arrivalTime": ensure_utc(leg.arrivalTime).isoformat() if leg.arrivalTime else None,
                 }
             )
     return payload

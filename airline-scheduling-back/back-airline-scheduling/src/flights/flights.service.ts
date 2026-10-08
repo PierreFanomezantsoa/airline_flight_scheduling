@@ -31,23 +31,23 @@ export class FlightsService {
   findAll(): Promise<Flight[]> {
     return this.flightRepository.find({
       relations: [
-        'avion',
-        'avion.type',
-        'affectationsEquipage',
-        'affectationsEquipage.utilisateur',
+        'aircraft',
+        'aircraft.aircraftType',
+        'crewAssignments',
+        'crewAssignments.user',
       ],
-      order: { heureDepart: 'ASC' },
+      order: { departureTime: 'ASC' },
     });
   }
 
   async findOne(id: string): Promise<Flight> {
     const flight = await this.flightRepository.findOne({
-      where: { id },
+      where: { refFlight: id },
       relations: [
-        'avion',
-        'avion.type',
-        'affectationsEquipage',
-        'affectationsEquipage.utilisateur',
+        'aircraft',
+        'aircraft.aircraftType',
+        'crewAssignments',
+        'crewAssignments.user',
       ],
     });
 
@@ -61,46 +61,46 @@ export class FlightsService {
   async create(dto: CreateFlightDto): Promise<Flight> {
     const candidate = await this.prepareCandidate(dto);
     await this.assertUniqueOccurrence(
-      candidate.numeroVol,
-      candidate.heureDepart,
+      candidate.flightNumber,
+      candidate.departureTime,
     );
 
     const validation = await this.schedulingService.validateCandidate(candidate);
     if (!validation.valid) {
       throw new ConflictException({
         code: 'FLIGHT_SCHEDULING_CONFLICT',
-        message: 'Le vol ne peut pas être planifié avec les ressources proposées.',
+        message: 'Le flight ne peut pas être planifié avec les ressources proposées.',
         conflicts: validation.conflicts,
       });
     }
 
-    const aircraft = candidate.avionId
-      ? await this.fleetService.findOne(candidate.avionId)
+    const aircraft = candidate.refAircraft
+      ? await this.fleetService.findOne(candidate.refAircraft)
       : null;
 
     const savedFlightId = await this.dataSource.transaction(async (manager) => {
       const flight = manager.create(Flight, {
-        numeroVol: candidate.numeroVol,
-        aeroportDepart: candidate.aeroportDepart,
-        aeroportEscale: dto.aeroportEscale
-          ? this.normalizeStopovers(dto.aeroportEscale)
+        flightNumber: candidate.flightNumber,
+        departureAirportCode: candidate.departureAirportCode,
+        stopoverAirportCodes: dto.stopoverAirportCodes
+          ? this.normalizeStopovers(dto.stopoverAirportCodes)
           : null,
-        dureeEscale: dto.dureeEscale ?? null,
-        aeroportArrivee: candidate.aeroportArrivee,
-        heureDepart: candidate.heureDepart,
-        heureArrivee: candidate.heureArrivee,
-        statut: dto.statut ?? FlightStatus.SCHEDULED,
-        avionId: aircraft?.id ?? null,
-        heuresComptabilisees: false,
-        heuresCreditees: null,
-        heuresComptabiliseesAt: null,
+        stopoverDurationMinutes: dto.stopoverDurationMinutes ?? null,
+        arrivalAirportCode: candidate.arrivalAirportCode,
+        departureTime: candidate.departureTime,
+        arrivalTime: candidate.arrivalTime,
+        status: dto.status ?? FlightStatus.SCHEDULED,
+        refAircraft: aircraft?.refAircraft ?? null,
+        flightHoursRecorded: false,
+        creditedFlightHours: null,
+        flightHoursRecordedAt: null,
       });
 
       const saved = await manager.save(Flight, flight);
 
       await this.creditFlightHoursIfEligible(manager, saved);
 
-      return saved.id;
+      return saved.refFlight;
     });
 
     return this.findOne(savedFlightId);
@@ -110,45 +110,45 @@ export class FlightsService {
     const flight = await this.findOne(id);
 
     const candidate = {
-      numeroVol: normalizeFlightNumber(dto.numeroVol ?? flight.numeroVol),
-      aeroportDepart: normalizeIata(
-        dto.aeroportDepart ?? flight.aeroportDepart,
+      flightNumber: normalizeFlightNumber(dto.flightNumber ?? flight.flightNumber),
+      departureAirportCode: normalizeIata(
+        dto.departureAirportCode ?? flight.departureAirportCode,
       ),
-      aeroportArrivee: normalizeIata(
-        dto.aeroportArrivee ?? flight.aeroportArrivee,
+      arrivalAirportCode: normalizeIata(
+        dto.arrivalAirportCode ?? flight.arrivalAirportCode,
       ),
-      heureDepart: dto.heureDepart
-        ? new Date(dto.heureDepart)
-        : flight.heureDepart,
-      heureArrivee: dto.heureArrivee
-        ? new Date(dto.heureArrivee)
-        : flight.heureArrivee,
-      avionId: dto.avionId === undefined ? flight.avionId : dto.avionId,
-      dureeEscaleMinutes:
-        dto.dureeEscale === undefined ? flight.dureeEscale : dto.dureeEscale,
+      departureTime: dto.departureTime
+        ? new Date(dto.departureTime)
+        : flight.departureTime,
+      arrivalTime: dto.arrivalTime
+        ? new Date(dto.arrivalTime)
+        : flight.arrivalTime,
+      refAircraft: dto.refAircraft === undefined ? flight.refAircraft : dto.refAircraft,
+      stopoverDurationMinutes:
+        dto.stopoverDurationMinutes === undefined ? flight.stopoverDurationMinutes : dto.stopoverDurationMinutes,
     };
 
     await this.validateAirports(
-      candidate.aeroportDepart,
-      candidate.aeroportArrivee,
-      dto.aeroportEscale ?? flight.aeroportEscale,
+      candidate.departureAirportCode,
+      candidate.arrivalAirportCode,
+      dto.stopoverAirportCodes ?? flight.stopoverAirportCodes,
     );
 
     await this.assertUniqueOccurrence(
-      candidate.numeroVol,
-      candidate.heureDepart,
+      candidate.flightNumber,
+      candidate.departureTime,
       id,
     );
 
-    const targetStatus = dto.statut ?? flight.statut;
+    const targetStatus = dto.status ?? flight.status;
     this.assertCreditedFlightIsNotRewritten(flight, candidate, targetStatus);
 
     /*
-     * Un vol déjà effectué n'est plus une ressource à replanifier.
+     * Un flight déjà effectué n'est plus une ressource à replanifier.
      * On autorise uniquement les corrections administratives qui ne changent
-     * ni l'appareil, ni les horaires, ni le statut terminé.
+     * ni l'appareil, ni les horaires, ni le status terminé.
      */
-    if (!flight.heuresComptabilisees) {
+    if (!flight.flightHoursRecorded) {
       const validation = await this.schedulingService.validateCandidate(
         candidate,
         id,
@@ -163,32 +163,32 @@ export class FlightsService {
       }
     }
 
-    const aircraft = candidate.avionId
-      ? await this.fleetService.findOne(candidate.avionId)
+    const aircraft = candidate.refAircraft
+      ? await this.fleetService.findOne(candidate.refAircraft)
       : null;
 
     await this.dataSource.transaction(async (manager) => {
       const lockedFlight = await this.findOneForUpdate(manager, id);
 
-      lockedFlight.numeroVol = candidate.numeroVol;
-      lockedFlight.aeroportDepart = candidate.aeroportDepart;
-      lockedFlight.aeroportArrivee = candidate.aeroportArrivee;
-      lockedFlight.heureDepart = candidate.heureDepart;
-      lockedFlight.heureArrivee = candidate.heureArrivee;
-      lockedFlight.avionId = aircraft?.id ?? null;
+      lockedFlight.flightNumber = candidate.flightNumber;
+      lockedFlight.departureAirportCode = candidate.departureAirportCode;
+      lockedFlight.arrivalAirportCode = candidate.arrivalAirportCode;
+      lockedFlight.departureTime = candidate.departureTime;
+      lockedFlight.arrivalTime = candidate.arrivalTime;
+      lockedFlight.refAircraft = aircraft?.refAircraft ?? null;
 
-      if (dto.statut !== undefined) {
-        lockedFlight.statut = dto.statut;
+      if (dto.status !== undefined) {
+        lockedFlight.status = dto.status;
       }
 
-      if (dto.aeroportEscale !== undefined) {
-        lockedFlight.aeroportEscale = dto.aeroportEscale
-          ? this.normalizeStopovers(dto.aeroportEscale)
+      if (dto.stopoverAirportCodes !== undefined) {
+        lockedFlight.stopoverAirportCodes = dto.stopoverAirportCodes
+          ? this.normalizeStopovers(dto.stopoverAirportCodes)
           : null;
       }
 
-      if (dto.dureeEscale !== undefined) {
-        lockedFlight.dureeEscale = dto.dureeEscale;
+      if (dto.stopoverDurationMinutes !== undefined) {
+        lockedFlight.stopoverDurationMinutes = dto.stopoverDurationMinutes;
       }
 
       await manager.save(Flight, lockedFlight);
@@ -199,13 +199,13 @@ export class FlightsService {
   }
 
   /**
-   * Termine explicitement un vol et crédite ses heures à l'appareil.
+   * Termine explicitement un flight et crédite ses heures à l'appareil.
    *
    * Sécurités :
-   * - un vol annulé ne peut pas être terminé ;
-   * - un vol dont l'heure d'arrivée n'est pas encore atteinte ne peut pas
+   * - un flight annulé ne peut pas être terminé ;
+   * - un flight dont l'heure d'arrivée n'est pas encore atteinte ne peut pas
    *   alimenter le compteur réel ;
-   * - l'opération est idempotente grâce à heuresComptabilisees.
+   * - l'opération est idempotente grâce à flightHoursRecorded.
    */
   async complete(id: string): Promise<Flight> {
     await this.completeAt(id, new Date());
@@ -225,10 +225,10 @@ export class FlightsService {
 
       this.assertFlightCanBeCompleted(flight, referenceTime);
 
-      const wasAlreadyCredited = flight.heuresComptabilisees;
+      const wasAlreadyCredited = flight.flightHoursRecorded;
 
-      if (!this.isCompletedStatus(flight.statut)) {
-        flight.statut = FlightStatus.EFFECTUE;
+      if (!this.isCompletedStatus(flight.status)) {
+        flight.status = FlightStatus.EFFECTUE;
         await manager.save(Flight, flight);
       }
 
@@ -238,7 +238,7 @@ export class FlightsService {
         referenceTime,
       );
 
-      return !wasAlreadyCredited && flight.heuresComptabilisees;
+      return !wasAlreadyCredited && flight.flightHoursRecorded;
     });
   }
 
@@ -255,18 +255,18 @@ export class FlightsService {
     const candidates = await this.flightRepository
       .createQueryBuilder('flight')
       .select([
-        'flight.id',
-        'flight.statut',
-        'flight.heuresComptabilisees',
-        'flight.heureArrivee',
+        'flight.refFlight',
+        'flight.status',
+        'flight.flightHoursRecorded',
+        'flight.arrivalTime',
       ])
-      .where('flight.heureArrivee <= :now', { now })
-      .andWhere('flight.statut != :cancelled', {
+      .where('flight.arrivalTime <= :now', { now })
+      .andWhere('flight.status != :cancelled', {
         cancelled: FlightStatus.CANCELLED,
       })
       .andWhere(
-        `(flight.statut NOT IN (:...completedStatuses)
-          OR flight.heuresComptabilisees = FALSE)`,
+        `(flight.status NOT IN (:...completedStatuses)
+          OR flight.flightHoursRecorded = FALSE)`,
         {
           completedStatuses: [
             FlightStatus.COMPLETED,
@@ -274,7 +274,7 @@ export class FlightsService {
           ],
         },
       )
-      .orderBy('flight.heureArrivee', 'ASC')
+      .orderBy('flight.arrivalTime', 'ASC')
       .getMany();
 
     const result: CompletedFlightsSyncResult = {
@@ -287,7 +287,7 @@ export class FlightsService {
 
     for (const candidate of candidates) {
       try {
-        const creditedNow = await this.completeAt(candidate.id, now);
+        const creditedNow = await this.completeAt(candidate.refFlight, now);
         result.completed += 1;
 
         if (creditedNow) {
@@ -297,7 +297,7 @@ export class FlightsService {
         }
       } catch (error: unknown) {
         result.errors.push({
-          flightId: candidate.id,
+          refFlight: candidate.refFlight,
           message:
             error instanceof Error
               ? error.message
@@ -312,13 +312,13 @@ export class FlightsService {
   async remove(id: string): Promise<void> {
     const flight = await this.findOne(id);
 
-    if (flight.heuresComptabilisees) {
+    if (flight.flightHoursRecorded) {
       throw new ConflictException({
         code: 'FLIGHT_HOURS_ALREADY_CREDITED',
         message:
-          'Ce vol a déjà alimenté le compteur d’heures de l’appareil. ' +
+          'Ce flight a déjà alimenté le compteur d’heures de l’appareil. ' +
           'Il ne peut pas être supprimé sans opération de régularisation.',
-        creditedHours: flight.heuresCreditees,
+        creditedHours: flight.creditedFlightHours,
       });
     }
 
@@ -344,19 +344,19 @@ export class FlightsService {
 
   private async prepareCandidate(dto: CreateFlightDto) {
     const candidate = {
-      numeroVol: normalizeFlightNumber(dto.numeroVol),
-      aeroportDepart: normalizeIata(dto.aeroportDepart),
-      aeroportArrivee: normalizeIata(dto.aeroportArrivee),
-      heureDepart: new Date(dto.heureDepart),
-      heureArrivee: new Date(dto.heureArrivee),
-      avionId: dto.avionId ?? null,
-      dureeEscaleMinutes: dto.dureeEscale ?? 0,
+      flightNumber: normalizeFlightNumber(dto.flightNumber),
+      departureAirportCode: normalizeIata(dto.departureAirportCode),
+      arrivalAirportCode: normalizeIata(dto.arrivalAirportCode),
+      departureTime: new Date(dto.departureTime),
+      arrivalTime: new Date(dto.arrivalTime),
+      refAircraft: dto.refAircraft ?? null,
+      dureeEscaleMinutes: dto.stopoverDurationMinutes ?? 0,
     };
 
     await this.validateAirports(
-      candidate.aeroportDepart,
-      candidate.aeroportArrivee,
-      dto.aeroportEscale,
+      candidate.departureAirportCode,
+      candidate.arrivalAirportCode,
+      dto.stopoverAirportCodes,
     );
 
     return candidate;
@@ -367,41 +367,41 @@ export class FlightsService {
     flight: Flight,
     referenceTime = new Date(),
   ): Promise<void> {
-    if (!this.isCompletedStatus(flight.statut)) {
+    if (!this.isCompletedStatus(flight.status)) {
       return;
     }
 
-    if (flight.heuresComptabilisees) {
+    if (flight.flightHoursRecorded) {
       return;
     }
 
     /*
-     * Un statut « Effectué » ne suffit pas à lui seul : l'heure d'arrivée
-     * doit réellement être atteinte. Cela empêche un statut saisi par erreur
-     * sur un vol futur d'augmenter les compteurs de cellule/maintenance.
+     * Un status « Effectué » ne suffit pas à lui seul : l'heure d'arrivée
+     * doit réellement être atteinte. Cela empêche un status saisi par erreur
+     * sur un flight futur d'augmenter les compteurs de cellule/maintenance.
      */
     this.assertFlightCanBeCompleted(flight, referenceTime);
 
-    if (!flight.avionId) {
+    if (!flight.refAircraft) {
       throw new ConflictException({
         code: 'COMPLETED_FLIGHT_WITHOUT_AIRCRAFT',
         message:
-          'Impossible de comptabiliser les heures : aucun appareil n’est affecté au vol.',
-        flightId: flight.id,
+          'Impossible de comptabiliser les heures : aucun appareil n’est affecté au flight.',
+        refFlight: flight.refFlight,
       });
     }
 
     const flightHours = this.calculateFlightHours(flight);
 
     await this.fleetService.addFlightHours(
-      flight.avionId,
+      flight.refAircraft,
       flightHours,
       manager,
     );
 
-    flight.heuresComptabilisees = true;
-    flight.heuresCreditees = flightHours;
-    flight.heuresComptabiliseesAt = new Date();
+    flight.flightHoursRecorded = true;
+    flight.creditedFlightHours = flightHours;
+    flight.flightHoursRecordedAt = new Date();
 
     await manager.save(Flight, flight);
   }
@@ -410,29 +410,29 @@ export class FlightsService {
     flight: Flight,
     referenceTime: Date,
   ): void {
-    if (flight.statut === FlightStatus.CANCELLED) {
+    if (flight.status === FlightStatus.CANCELLED) {
       throw new ConflictException({
         code: 'CANCELLED_FLIGHT_CANNOT_BE_COMPLETED',
-        message: 'Un vol annulé ne peut pas être déclaré effectué.',
-        flightId: flight.id,
+        message: 'Un flight annulé ne peut pas être déclaré effectué.',
+        refFlight: flight.refFlight,
       });
     }
 
-    if (Number.isNaN(flight.heureArrivee.getTime())) {
+    if (Number.isNaN(flight.arrivalTime.getTime())) {
       throw new BadRequestException({
         code: 'INVALID_FLIGHT_ARRIVAL_TIME',
-        message: "L'heure d'arrivée du vol est invalide.",
-        flightId: flight.id,
+        message: "L'heure d'arrivée du flight est invalide.",
+        refFlight: flight.refFlight,
       });
     }
 
-    if (flight.heureArrivee.getTime() > referenceTime.getTime()) {
+    if (flight.arrivalTime.getTime() > referenceTime.getTime()) {
       throw new ConflictException({
         code: 'FLIGHT_NOT_FINISHED',
         message:
-          "Les heures ne peuvent être comptabilisées qu'après l'heure réelle d'arrivée du vol.",
-        flightId: flight.id,
-        arrivalTime: flight.heureArrivee.toISOString(),
+          "Les heures ne peuvent être comptabilisées qu'après l'heure réelle d'arrivée du flight.",
+        refFlight: flight.refFlight,
+        arrivalTime: flight.arrivalTime.toISOString(),
         referenceTime: referenceTime.toISOString(),
       });
     }
@@ -440,20 +440,20 @@ export class FlightsService {
 
   private calculateFlightHours(flight: Flight): number {
     const elapsedHours =
-      (flight.heureArrivee.getTime() - flight.heureDepart.getTime()) /
+      (flight.arrivalTime.getTime() - flight.departureTime.getTime()) /
       3_600_000;
 
-    const layoverHours = Math.max(0, Number(flight.dureeEscale || 0)) / 60;
+    const layoverHours = Math.max(0, Number(flight.stopoverDurationMinutes || 0)) / 60;
     const airborneHours = elapsedHours - layoverHours;
 
     if (!Number.isFinite(airborneHours) || airborneHours <= 0) {
       throw new BadRequestException(
-        'La durée réellement volée doit être strictement positive.',
+        'La durée réellement flightée doit être strictement positive.',
       );
     }
 
     // Les escales sont du temps au sol : elles ne doivent pas augmenter
-    // les heures de vol de la cellule. Précision 1/1000 h (~3,6 secondes).
+    // les heures de flight de la cellule. Précision 1/1000 h (~3,6 secondes).
     return Math.round(airborneHours * 1000) / 1000;
   }
 
@@ -467,28 +467,28 @@ export class FlightsService {
   private assertCreditedFlightIsNotRewritten(
     flight: Flight,
     candidate: {
-      heureDepart: Date;
-      heureArrivee: Date;
-      avionId: string | null;
+      departureTime: Date;
+      arrivalTime: Date;
+      refAircraft: string | null;
     },
     targetStatus: FlightStatus,
   ): void {
-    if (!flight.heuresComptabilisees) {
+    if (!flight.flightHoursRecorded) {
       return;
     }
 
     const accountingBasisChanged =
-      flight.avionId !== candidate.avionId ||
-      flight.heureDepart.getTime() !== candidate.heureDepart.getTime() ||
-      flight.heureArrivee.getTime() !== candidate.heureArrivee.getTime();
+      flight.refAircraft !== candidate.refAircraft ||
+      flight.departureTime.getTime() !== candidate.departureTime.getTime() ||
+      flight.arrivalTime.getTime() !== candidate.arrivalTime.getTime();
 
     if (accountingBasisChanged || !this.isCompletedStatus(targetStatus)) {
       throw new ConflictException({
         code: 'CREDITED_FLIGHT_IMMUTABLE',
         message:
-          'Les heures de ce vol ont déjà été comptabilisées. ' +
-          'L’appareil, les horaires et le statut terminé ne peuvent plus être modifiés directement.',
-        creditedHours: flight.heuresCreditees,
+          'Les heures de ce flight ont déjà été comptabilisées. ' +
+          'L’appareil, les horaires et le status terminé ne peuvent plus être modifiés directement.',
+        creditedHours: flight.creditedFlightHours,
       });
     }
   }
@@ -498,7 +498,7 @@ export class FlightsService {
     id: string,
   ): Promise<Flight> {
     const flight = await manager.findOne(Flight, {
-      where: { id },
+      where: { refFlight: id },
       lock: { mode: 'pessimistic_write' },
     });
 
@@ -517,8 +517,8 @@ export class FlightsService {
     await Promise.all([
       this.airportsService.assertExists(departure),
       this.airportsService.assertExists(arrival),
-      ...this.parseStopovers(stopovers).map((iata) =>
-        this.airportsService.assertExists(iata),
+      ...this.parseStopovers(stopovers).map((refAirport) =>
+        this.airportsService.assertExists(refAirport),
       ),
     ]);
   }
@@ -539,22 +539,22 @@ export class FlightsService {
   }
 
   private async assertUniqueOccurrence(
-    numeroVol: string,
-    heureDepart: Date,
+    flightNumber: string,
+    departureTime: Date,
     excludeId?: string,
   ): Promise<void> {
     const qb = this.flightRepository
       .createQueryBuilder('flight')
-      .where('flight.numeroVol = :numeroVol', { numeroVol })
-      .andWhere('flight.heureDepart = :heureDepart', { heureDepart });
+      .where('flight.flightNumber = :flightNumber', { flightNumber })
+      .andWhere('flight.departureTime = :departureTime', { departureTime });
 
     if (excludeId) {
-      qb.andWhere('flight.id != :excludeId', { excludeId });
+      qb.andWhere('flight.refFlight != :excludeId', { excludeId });
     }
 
     if (await qb.getExists()) {
       throw new ConflictException(
-        `Le vol ${numeroVol} existe déjà à cette date/heure.`,
+        `Le flight ${flightNumber} existe déjà à cette date/heure.`,
       );
     }
   }

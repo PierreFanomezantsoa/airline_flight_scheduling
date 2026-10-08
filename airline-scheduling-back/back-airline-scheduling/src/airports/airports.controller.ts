@@ -16,9 +16,9 @@ export class AirportsController {
     return this.airportsService.findAll();
   }
 
-  @Get(':iata')
-  findOne(@Param('iata') iata: string) {
-    return this.airportsService.findOne(iata);
+  @Get(':refAirport')
+  findOne(@Param('refAirport') refAirport: string) {
+    return this.airportsService.findOne(refAirport);
   }
 
   @Post()
@@ -27,15 +27,15 @@ export class AirportsController {
     return this.airportsService.create(dto);
   }
 
-  @Patch(':iata')
+  @Patch(':refAirport')
   @AuthenticatedRoles(UserRole.PLANIFICATEUR, UserRole.REGULATOR)
-  update(@Param('iata') iata: string, @Body() dto: UpdateAirportDto) {
-    return this.airportsService.update(iata, dto);
+  update(@Param('refAirport') refAirport: string, @Body() dto: UpdateAirportDto) {
+    return this.airportsService.update(refAirport, dto);
   }
 
-  @Delete(':iata')
+  @Delete(':refAirport')
   @AuthenticatedRoles(UserRole.PLANIFICATEUR, UserRole.REGULATOR)
-  remove(@Param('iata') iata: string) {
-    return this.airportsService.remove(iata);
+  remove(@Param('refAirport') refAirport: string) {
+    return this.airportsService.remove(refAirport);
   }
 }

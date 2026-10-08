@@ -18,31 +18,31 @@ export class AnalyticsService {
 
   async overview() {
     const [flights, aircrafts, conflictResult] = await Promise.all([
-      this.flightRepository.find({ relations: ['avion'] }),
+      this.flightRepository.find({ relations: ['aircraft'] }),
       this.aircraftRepository.find(),
       this.schedulingService.detectAll(),
     ]);
 
     const plannedBlockHours = flights.reduce((sum, flight) => {
-      if (flight.statut === FlightStatus.CANCELLED) return sum;
+      if (flight.status === FlightStatus.CANCELLED) return sum;
       return sum + Math.max(
         0,
-        (flight.heureArrivee.getTime() - flight.heureDepart.getTime()) / 3_600_000,
+        (flight.arrivalTime.getTime() - flight.departureTime.getTime()) / 3_600_000,
       );
     }, 0);
 
-    const assignedFlights = flights.filter((flight) => Boolean(flight.avionId)).length;
+    const assignedFlights = flights.filter((flight) => Boolean(flight.refAircraft)).length;
 
     return {
       generatedAt: new Date().toISOString(),
       flights: {
         total: flights.length,
-        scheduled: flights.filter((f) => f.statut === FlightStatus.SCHEDULED).length,
-        delayed: flights.filter((f) => f.statut === FlightStatus.DELAYED).length,
-        cancelled: flights.filter((f) => f.statut === FlightStatus.CANCELLED).length,
-        inFlight: flights.filter((f) => f.statut === FlightStatus.IN_FLIGHT).length,
+        scheduled: flights.filter((f) => f.status === FlightStatus.SCHEDULED).length,
+        delayed: flights.filter((f) => f.status === FlightStatus.DELAYED).length,
+        cancelled: flights.filter((f) => f.status === FlightStatus.CANCELLED).length,
+        inFlight: flights.filter((f) => f.status === FlightStatus.IN_FLIGHT).length,
         completed: flights.filter(
-          (f) => f.statut === FlightStatus.COMPLETED || f.statut === FlightStatus.EFFECTUE,
+          (f) => f.status === FlightStatus.COMPLETED || f.status === FlightStatus.EFFECTUE,
         ).length,
         assigned: assignedFlights,
         unassigned: flights.length - assignedFlights,
@@ -50,10 +50,10 @@ export class AnalyticsService {
       },
       fleet: {
         total: aircrafts.length,
-        active: aircrafts.filter((a) => a.statut === AircraftStatus.ACTIVE).length,
-        maintenance: aircrafts.filter((a) => a.statut === AircraftStatus.MAINTENANCE).length,
-        outOfService: aircrafts.filter((a) => a.statut === AircraftStatus.OUT_OF_SERVICE).length,
-        retired: aircrafts.filter((a) => a.statut === AircraftStatus.RETIRED).length,
+        active: aircrafts.filter((a) => a.status === AircraftStatus.ACTIVE).length,
+        maintenance: aircrafts.filter((a) => a.status === AircraftStatus.MAINTENANCE).length,
+        outOfService: aircrafts.filter((a) => a.status === AircraftStatus.OUT_OF_SERVICE).length,
+        retired: aircrafts.filter((a) => a.status === AircraftStatus.RETIRED).length,
       },
       conflicts: {
         total: conflictResult.totalConflicts,

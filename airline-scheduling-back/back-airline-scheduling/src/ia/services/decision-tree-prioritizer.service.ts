@@ -29,16 +29,16 @@ export class DecisionTreePrioritizerService {
 
     if (conflict.type === ScheduleConflictType.AIRCRAFT_OVERLAP) {
       probability = 0.99;
-      explanation = 'Chevauchement temporel certain sur une même ressource avion.';
+      explanation = 'Chevauchement temporel certain sur une même ressource aircraft.';
     } else if (conflict.type === ScheduleConflictType.AIRCRAFT_MAINTENANCE) {
       probability = 0.98;
-      explanation = 'Le vol intersecte une période d’indisponibilité maintenance.';
+      explanation = 'Le flight intersecte une période d’indisponibilité maintenance.';
     } else if (conflict.type === ScheduleConflictType.CREW_OVERLAP) {
       probability = 0.98;
       explanation = 'Le même membre d’équipage est affecté à deux vols simultanés.';
     } else if (conflict.type === ScheduleConflictType.AIRCRAFT_UNAVAILABLE) {
       probability = 0.96;
-      explanation = 'L’appareil n’est pas disponible au statut opérationnel requis.';
+      explanation = 'L’appareil n’est pas disponible au status opérationnel requis.';
     } else if (conflict.type === ScheduleConflictType.TURNAROUND_TOO_SHORT) {
       probability = 0.88;
       explanation = 'La marge au sol est inférieure à la politique de turnaround configurée.';
@@ -47,13 +47,13 @@ export class DecisionTreePrioritizerService {
       explanation = 'La période de repos est inférieure à la politique configurée.';
     } else if (conflict.type === ScheduleConflictType.AIRCRAFT_POSITIONING) {
       probability = 0.85;
-      explanation = 'La continuité géographique de la rotation avion n’est pas assurée.';
+      explanation = 'La continuité géographique de la rotation aircraft n’est pas assurée.';
     } else if (conflict.type === ScheduleConflictType.MAINTENANCE_DUE) {
       probability = conflict.blocking ? 0.9 : 0.68;
       explanation = 'Le compteur maintenance approche ou dépasse la limite configurée.';
     } else if (conflict.type === ScheduleConflictType.UNASSIGNED_AIRCRAFT) {
       probability = 0.7;
-      explanation = 'Le vol reste planifiable en brouillon mais n’est pas prêt opérationnellement.';
+      explanation = 'Le flight reste planifiable en brouillon mais n’est pas prêt opérationnellement.';
     }
 
     const severityWeight = {

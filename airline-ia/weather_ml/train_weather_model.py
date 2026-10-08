@@ -15,7 +15,7 @@ Améliorations par rapport à la version initiale :
 - métadonnées JSON (version, couverture, aéroports, qualité) ;
 - profil climatologique par aéroport pour fallback / confiance ;
 - modèle enrichi optionnel lorsqu'un historique contient des variables météo ;
-- aucun changement de statut opérationnel automatique à partir du ML local.
+- aucun changement de status opérationnel automatique à partir du ML local.
 
 CSV minimal :
     airport,observed_at,severity

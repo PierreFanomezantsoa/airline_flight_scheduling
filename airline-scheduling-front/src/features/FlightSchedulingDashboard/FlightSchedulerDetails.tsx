@@ -12,7 +12,7 @@ import {
  * ========================================================================== */
 
 export interface Flight {
-  id: string;
+  refFlight: string;
   flightNumber: string;
   origin: string;
   destination: string;
@@ -50,7 +50,7 @@ export interface AutoScheduleMetrics {
 }
 
 export interface AutoScheduleUnassigned {
-  flightId: string;
+  refFlight: string;
   flightNumber?: string | null;
   origin?: string | null;
   destination?: string | null;
@@ -200,7 +200,7 @@ const FlightSchedulerDetails: FC<FlightSchedulerDetailsProps> = ({
             </h3>
             <p className="mt-0.5 text-xs text-slate-500">
               {scenarioUnassigned > 0
-                ? `${scenarioUnassigned} vol${scenarioUnassigned > 1 ? 's' : ''} à traiter`
+                ? `${scenarioUnassigned} flight${scenarioUnassigned > 1 ? 's' : ''} à traiter`
                 : 'Tous les vols ont reçu une affectation'}
             </p>
           </div>
@@ -210,14 +210,14 @@ const FlightSchedulerDetails: FC<FlightSchedulerDetailsProps> = ({
           <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5">
             <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
             <p className="text-xs font-medium text-slate-700">
-              Aucun vol en attente d&apos;affectation dans ce scénario.
+              Aucun flight en attente d&apos;affectation dans ce scénario.
             </p>
           </div>
         ) : (
           <div className="max-h-44 space-y-2 overflow-y-auto pr-1">
             {unassignedList.map((item, index) => (
               <UnassignedFlightRow
-                key={`${item.flightId}-${index}`}
+                key={`${item.refFlight}-${index}`}
                 item={item}
               />
             ))}

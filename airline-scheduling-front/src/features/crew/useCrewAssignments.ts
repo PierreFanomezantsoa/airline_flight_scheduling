@@ -12,38 +12,38 @@ import {
 // =============================================================================
 
 export interface FlightOption {
-  id: string;
-  numeroVol: string;
-  aeroportDepart: string;
-  aeroportArrivee: string;
-  heureDepart?: string;
-  heureArrivee?: string;
-  statut?: string;
+  refFlight: string;
+  flightNumber: string;
+  departureAirportCode: string;
+  arrivalAirportCode: string;
+  departureTime?: string;
+  arrivalTime?: string;
+  status?: string;
 }
 
 export interface CrewMember {
-  id: string;
-  nom: string;
+  refUser: string;
+  name: string;
   email: string;
   role: string;
-  niveauTechnique?: string;
-  niveauMetier?: string;
-  heuresReposAvant: number;
+  technicalLevel?: string;
+  professionalLevel?: string;
+  priorRestHours: number;
   volAssigne: FlightOption | null;
 }
 
 export interface CrewAssignmentDTO {
-  id: string;
-  vol: FlightOption;
-  utilisateur: {
-    id: string;
+  refCrewAssignment: string;
+  flight: FlightOption;
+  user: {
+    refUser: string;
     email: string;
-    nom: string;
+    name: string;
     role: string;
-    niveauTechnique?: string;
-    niveauMetier?: string;
+    technicalLevel?: string;
+    professionalLevel?: string;
   };
-  heuresReposAvant: number;
+  priorRestHours: number;
 }
 
 // =============================================================================
@@ -51,29 +51,28 @@ export interface CrewAssignmentDTO {
 // =============================================================================
 
 interface RawFlight {
-  id: string;
-  numeroVol?: string;
+  refFlight: string;
   flightNumber?: string;
   code?: string;
-  aeroportDepart?: string;
+  departureAirportCode?: string;
   origin?: string;
-  aeroportArrivee?: string;
+  arrivalAirportCode?: string;
   destination?: string;
-  heureDepart?: string;
-  heureArrivee?: string;
-  statut?: string;
+  departureTime?: string;
+  arrivalTime?: string;
+  status?: string;
 }
 
 interface RawUser {
-  id: string;
+  refUser: string;
   email?: string;
-  nom?: string;
+  name?: string;
   firstName?: string;
   lastName?: string;
   role?: string;
-  niveauTechnique?: string;
-  niveauMetier?: string;
-  heuresReposAvant?: number;
+  technicalLevel?: string;
+  professionalLevel?: string;
+  priorRestHours?: number;
   restTimeHours?: number;
 }
 
@@ -82,7 +81,7 @@ interface RawUser {
 // =============================================================================
 
 /**
- * Transforme une erreur quelconque en message utilisateur lisible.
+ * Transforme une erreur quelconque en message user lisible.
  */
 function getFriendlyError(error: unknown): string {
   if (error instanceof ApiError) {
@@ -145,22 +144,22 @@ async function extractErrorMessage(response: Response, fallback: string): Promis
 }
 
 /**
- * Normalise un vol brut en `FlightOption`.
+ * Normalise un flight brut en `FlightOption`.
  */
 function normalizeFlight(raw: RawFlight): FlightOption {
   return {
-    id: raw.id,
-    numeroVol: raw.numeroVol || raw.flightNumber || raw.code || 'N/A',
-    aeroportDepart: raw.aeroportDepart || raw.origin || '—',
-    aeroportArrivee: raw.aeroportArrivee || raw.destination || '—',
-    heureDepart: raw.heureDepart,
-    heureArrivee: raw.heureArrivee,
-    statut: raw.statut || 'Scheduled',
+    refFlight: raw.refFlight,
+    flightNumber: raw.flightNumber || raw.code || 'N/A',
+    departureAirportCode: raw.departureAirportCode || raw.origin || '—',
+    arrivalAirportCode: raw.arrivalAirportCode || raw.destination || '—',
+    departureTime: raw.departureTime,
+    arrivalTime: raw.arrivalTime,
+    status: raw.status || 'Scheduled',
   };
 }
 
 /**
- * Normalise un utilisateur brut + son affectation éventuelle en `CrewMember`.
+ * Normalise un user brut + son affectation éventuelle en `CrewMember`.
  */
 function normalizeCrewMember(
   raw: RawUser,
@@ -170,19 +169,19 @@ function normalizeCrewMember(
     `${raw.firstName || ''} ${raw.lastName || ''}`.trim() || raw.email || 'Utilisateur';
 
   return {
-    id: raw.id,
+    refUser: raw.refUser,
     email: raw.email || '',
-    nom: raw.nom || fallbackName,
+    name: raw.name || fallbackName,
     role: raw.role || "Membre d'équipage",
-    niveauTechnique: raw.niveauTechnique,
-    niveauMetier: raw.niveauMetier,
-    heuresReposAvant:
-      assignment?.heuresReposAvant ??
-      raw.heuresReposAvant ??
+    technicalLevel: raw.technicalLevel,
+    professionalLevel: raw.professionalLevel,
+    priorRestHours:
+      assignment?.priorRestHours ??
+      raw.priorRestHours ??
       raw.restTimeHours ??
       12,
-    volAssigne: assignment?.vol
-      ? normalizeFlight(assignment.vol as RawFlight)
+    volAssigne: assignment?.flight
+      ? normalizeFlight(assignment.flight as RawFlight)
       : null,
   };
 }
@@ -257,7 +256,7 @@ export const useCrewAssignments = () => {
 
       const formattedCrew = usersData.map((raw) => {
         const activeAssignment = assignmentsData.find(
-          (a) => a.utilisateur?.id === raw.id,
+          (a) => a.user?.refUser === raw.refUser,
         );
         return normalizeCrewMember(raw, activeAssignment);
       });
@@ -295,17 +294,17 @@ export const useCrewAssignments = () => {
 
   const assignCrewMember = useCallback(
     async (
-      volId: string,
-      utilisateurId: string,
-      heuresReposAvant: number,
+      refFlight: string,
+      refUser: string,
+      priorRestHours: number,
     ): Promise<void> => {
       // ✅ authFetch gère automatiquement l'URL et le token
       const response = await authFetch('/crew-assignments', {
         method: 'POST',
         body: JSON.stringify({
-          volId,
-          utilisateurId,
-          heuresReposAvant,
+          refFlight,
+          refUser,
+          priorRestHours,
         }),
       });
 

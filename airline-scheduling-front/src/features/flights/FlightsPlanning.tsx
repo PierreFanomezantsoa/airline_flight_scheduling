@@ -138,7 +138,7 @@ interface WeatherAI {
 }
 
 interface Flight {
-  id: string;
+  refFlight: string;
   flightNumber: string;
   origin: string;
   destination: string;
@@ -166,7 +166,7 @@ interface Flight {
 }
 
 interface WeatherAlert {
-  flightId: string;
+  refFlight: string;
   weatherAI: WeatherAI;
 }
 
@@ -177,8 +177,8 @@ interface WeatherAlertsResponse {
 }
 
 interface AircraftData {
-  id: string;
-  model: string;
+  refAircraft: string;
+  model?: string;
 }
 
 interface Toast {
@@ -703,7 +703,7 @@ export const FlightsPlanning: FC = () => {
     const normalizedRawStatus = rawStatus.toLowerCase();
     if (['cancelled', 'canceled', 'annulé', 'annule'].includes(normalizedRawStatus)) return 'Annulé';
     if (['delayed', 'retardé', 'retarde'].includes(normalizedRawStatus)) return 'Retardé';
-    if (['in-flight', 'en vol'].includes(normalizedRawStatus)) return 'En Vol';
+    if (['in-flight', 'en flight'].includes(normalizedRawStatus)) return 'En Vol';
     if (['effectué', 'effectue', 'completed', 'done', 'landed'].includes(normalizedRawStatus)) return 'Effectué';
 
     const now = new Date();
@@ -770,16 +770,21 @@ export const FlightsPlanning: FC = () => {
       if (
         !Array.isArray(data) ||
         !data.every(
-          (aircraft): aircraft is AircraftData =>
+          (aircraft): aircraft is { refAircraft: string; model?: unknown } =>
             typeof aircraft === 'object' &&
             aircraft !== null &&
-            'id' in aircraft &&
-            typeof aircraft.id === 'string',
+            'refAircraft' in aircraft &&
+            typeof aircraft.refAircraft === 'string',
         )
       ) {
         throw new Error('La réponse du serveur ne contient pas une liste d’appareils.');
       }
-      setFleet(data);
+      setFleet(
+        data.map(({ refAircraft, model }) => ({
+          refAircraft,
+          model: typeof model === 'string' ? model : undefined,
+        })),
+      );
     } catch (error: unknown) {
       if (error instanceof DOMException && error.name === 'AbortError') return;
       const message =
@@ -810,11 +815,11 @@ export const FlightsPlanning: FC = () => {
         if (!Array.isArray(data)) return;
 
         const enrichedMap = new Map<string, Flight>(
-          data.map((flight: Flight) => [flight.id, flight]),
+          data.map((flight: Flight) => [flight.refFlight, flight]),
         );
         setFlights((current) =>
           current.map((flight) => {
-            const enriched = enrichedMap.get(flight.id);
+            const enriched = enrichedMap.get(flight.refFlight);
             return enriched
               ? { ...flight, ...enriched, weatherPending: false }
               : flight;
@@ -853,10 +858,10 @@ export const FlightsPlanning: FC = () => {
       const alerts = Array.isArray(payload.alerts) ? payload.alerts : [];
 
       if (alerts.length > 0) {
-        const alertMap = new Map(alerts.map((alert) => [alert.flightId, alert]));
+        const alertMap = new Map(alerts.map((alert) => [alert.refFlight, alert]));
         setFlights((current) =>
           current.map((flight) => {
-            const alert = alertMap.get(flight.id);
+            const alert = alertMap.get(flight.refFlight);
             if (!alert) return flight;
             const ai = alert.weatherAI;
             return {
@@ -951,20 +956,20 @@ export const FlightsPlanning: FC = () => {
     try {
       setIsSubmitting(true);
       const isEdition = Boolean(editingFlight);
-      const path = isEdition ? `/flights/${editingFlight!.id}` : '/flights';
+      const path = isEdition ? `/flights/${editingFlight!.refFlight}` : '/flights';
 
       const response = await fetchPython(path, {
         method: isEdition ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          numeroVol: formData.numeroVol,
-          aeroportDepart: formData.aeroportDepart,
-          aeroportEscale: formData.aeroportEscale,
-          dureeEscale: formData.dureeEscale,
-          aeroportArrivee: formData.aeroportArrivee,
-          heureDepart: formData.heureDepart,
-          heureArrivee: formData.heureArrivee,
-          avionId: formData.avionId || null,
+          flightNumber: formData.flightNumber,
+          departureAirportCode: formData.departureAirportCode,
+          stopoverAirportCodes: formData.stopoverAirportCodes,
+          stopoverDurationMinutes: formData.stopoverDurationMinutes,
+          arrivalAirportCode: formData.arrivalAirportCode,
+          departureTime: formData.departureTime,
+          arrivalTime: formData.arrivalTime,
+          refAircraft: formData.refAircraft || null,
           legs: formData.legs,
           status: isEdition
             ? formData.status || editingFlight!.status
@@ -985,7 +990,7 @@ export const FlightsPlanning: FC = () => {
       closeModal();
       addToast(
         'success',
-        isEdition ? 'Vol mis à jour avec succès.' : 'Nouveau vol planifié avec succès.',
+        isEdition ? 'Vol mis à jour avec succès.' : 'Nouveau flight planifié avec succès.',
       );
     } catch (error: unknown) {
       const message = getFriendlyError(error, 'Erreur inconnue');
@@ -1004,16 +1009,16 @@ export const FlightsPlanning: FC = () => {
     if (!deletingFlight) return;
     try {
       setIsDeleting(true);
-      const response = await fetchPython(`/flights/${deletingFlight.id}`, {
+      const response = await fetchPython(`/flights/${deletingFlight.refFlight}`, {
         method: 'DELETE',
       });
       if (!response.ok) {
         throw new Error('Erreur lors de la suppression sur le serveur.');
       }
       setFlights((previous) =>
-        previous.filter((flight) => flight.id !== deletingFlight.id),
+        previous.filter((flight) => flight.refFlight !== deletingFlight.refFlight),
       );
-      addToast('success', `Le vol ${deletingFlight.flightNumber} a été supprimé.`);
+      addToast('success', `Le flight ${deletingFlight.flightNumber} a été supprimé.`);
       setDeletingFlight(null);
       setDeleteConfirmed(false);
     } catch (error: unknown) {
@@ -1240,15 +1245,15 @@ export const FlightsPlanning: FC = () => {
           className="inline-flex h-10 min-w-0 flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-2.5 text-xs font-medium text-white shadow-sm transition hover:bg-emerald-700 sm:h-9 sm:flex-none sm:px-4 sm:text-sm"
         >
           <Plus className="h-4 w-4 shrink-0" />
-          <span className="truncate sm:hidden">Nouveau vol</span>
-          <span className="hidden sm:inline">Planifier un vol</span>
+          <span className="truncate sm:hidden">Nouveau flight</span>
+          <span className="hidden sm:inline">Planifier un flight</span>
         </button>
       </header>
 
       {/* KPI */}
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard label="Total rotations" value={stats.total} hint="Flotte active" icon={<Plane className="h-5 w-5" />} />
-        <KpiCard label="En vol" value={stats.inFlight} hint="Maintenant" icon={<Globe className="h-5 w-5" />} />
+        <KpiCard label="En flight" value={stats.inFlight} hint="Maintenant" icon={<Globe className="h-5 w-5" />} />
         <KpiCard label="En attente" value={stats.pending} hint="À venir" icon={<Clock className="h-5 w-5" />} />
         <KpiCard
           label="Retardés"
@@ -1268,7 +1273,7 @@ export const FlightsPlanning: FC = () => {
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
                 type="search"
-                placeholder="Rechercher un vol, appareil..."
+                placeholder="Rechercher un flight, appareil..."
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
                 className={`h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-4 text-sm text-slate-700 placeholder:text-slate-400 ${FOCUS_RING}`}
@@ -1359,7 +1364,7 @@ export const FlightsPlanning: FC = () => {
             <div className="space-y-3 bg-slate-50/50 p-4 sm:hidden">
               {paginatedFlights.map((flight) => (
                 <MobileFlightCard
-                  key={flight.id}
+                  key={flight.refFlight}
                   flight={flight}
                   computedStatus={getCalculatedStatus(flight)}
                   onEdit={openEditModal}
@@ -1392,7 +1397,7 @@ export const FlightsPlanning: FC = () => {
                     const severityPct = normalized == null ? 0 : Math.round(normalized * 100);
 
                     return (
-                      <tr key={flight.id} className="group transition hover:bg-slate-50/50">
+                      <tr key={flight.refFlight} className="group transition hover:bg-slate-50/50">
                         <td className="px-5 py-4">
                           <div className="flex items-center gap-3">
                             <div
@@ -1583,7 +1588,7 @@ export const FlightsPlanning: FC = () => {
               </div>
               <div className="min-w-0">
                 <h3 className="text-base font-semibold text-slate-900">
-                  Supprimer le vol{' '}
+                  Supprimer le flight{' '}
                   <span className="font-mono">{deletingFlight.flightNumber}</span>
                 </h3>
                 <p className="mt-1 text-sm text-slate-500">
@@ -1661,14 +1666,14 @@ export const FlightsPlanning: FC = () => {
         initialData={
           editingFlight
             ? {
-                numeroVol: editingFlight.flightNumber,
-                aeroportDepart: editingFlight.origin,
-                aeroportArrivee: editingFlight.destination,
-                aeroportEscale: normalizeStops(editingFlight)[0] || undefined,
-                dureeEscale: editingFlight.stopoverDurationMinutes ?? undefined,
-                heureDepart: editingFlight.departure || '',
-                heureArrivee: editingFlight.arrival || '',
-                avionId:
+                flightNumber: editingFlight.flightNumber,
+                departureAirportCode: editingFlight.origin,
+                arrivalAirportCode: editingFlight.destination,
+                stopoverAirportCodes: normalizeStops(editingFlight)[0] || undefined,
+                stopoverDurationMinutes: editingFlight.stopoverDurationMinutes ?? undefined,
+                departureTime: editingFlight.departure || '',
+                arrivalTime: editingFlight.arrival || '',
+                refAircraft:
                   editingFlight.aircraft !== 'NON ASSIGNÉ'
                     ? editingFlight.aircraft
                     : '',

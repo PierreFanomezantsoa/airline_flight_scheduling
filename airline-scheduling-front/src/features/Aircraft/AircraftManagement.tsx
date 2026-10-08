@@ -69,31 +69,31 @@ export type AircraftStatus =
 // =============================================================================
 
 export interface AircraftType {
-  id: string;
-  nomModele: string;
-  fabricant?: string;
-  capaciteMax?: number;
-  vitesseCroisiere?: number;
-  autonomieMax?: number;
-  consommationCarburant?: number;
-  intervalleMaintenanceHeures?: number;
+  refAircraftType: string;
+  modelName: string;
+  manufacturer?: string;
+  maxCapacity?: number;
+  cruiseSpeed?: number;
+  maxRange?: number;
+  fuelConsumption?: number;
+  maintenanceIntervalHours?: number;
 }
 
 export interface Aircraft {
-  id: string;
-  immatriculation: string;
-  modele: string;
-  capacite: number;
-  heuresDeVolTotales: number;
-  limiteHeuresMaintenance: number;
-  heuresDepuisDerniereMaintenance: number;
-  dateDerniereMaintenance: string | null;
-  statut: AircraftStatus;
-  baseAttache: string | null;
-  typeId: string | null;
-  type?: AircraftType | null;
-  creeA?: string;
-  misAJourA?: string;
+  refAircraft: string;
+  registration: string;
+  model: string;
+  capacity: number;
+  totalFlightHours: number;
+  maintenanceHoursLimit: number;
+  hoursSinceMaintenance: number;
+  lastMaintenanceAt: string | null;
+  status: AircraftStatus;
+  homeBase: string | null;
+  refAircraftType: string | null;
+  aircraftType?: AircraftType | null;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 interface FleetStatistics {
@@ -102,20 +102,20 @@ interface FleetStatistics {
   avionsEnMaintenance: number;
   avionsHorsService: number;
   avionsRetires: number;
-  heuresDeVolTotales: number;
+  totalFlightHours: number;
   moyenneHeuresDeVol: number;
   capaciteMoyenne: number;
 }
 
 interface AircraftFormData {
-  immatriculation: string;
-  modele: string;
-  capacite: number;
-  heuresDeVolTotales: number;
-  limiteHeuresMaintenance: number;
-  statut: AircraftStatus;
-  baseAttache: string;
-  typeId: string;
+  registration: string;
+  model: string;
+  capacity: number;
+  totalFlightHours: number;
+  maintenanceHoursLimit: number;
+  status: AircraftStatus;
+  homeBase: string;
+  refAircraftType: string;
 }
 
 type Notice =
@@ -133,14 +133,14 @@ const ITEMS_PER_PAGE = 10;
 // =============================================================================
 
 const EMPTY_FORM: AircraftFormData = {
-  immatriculation: '',
-  modele: '',
-  capacite: 100,
-  heuresDeVolTotales: 0,
-  limiteHeuresMaintenance: 500,
-  statut: AircraftStatus.ACTIVE,
-  baseAttache: '',
-  typeId: '',
+  registration: '',
+  model: '',
+  capacity: 100,
+  totalFlightHours: 0,
+  maintenanceHoursLimit: 500,
+  status: AircraftStatus.ACTIVE,
+  homeBase: '',
+  refAircraftType: '',
 };
 
 // =============================================================================
@@ -335,8 +335,8 @@ function formatDate(value?: string | null): string {
 // =============================================================================
 
 function maintenanceRatio(aircraft: Aircraft): number {
-  const current = Number(aircraft.heuresDepuisDerniereMaintenance);
-  const limit = Number(aircraft.limiteHeuresMaintenance);
+  const current = Number(aircraft.hoursSinceMaintenance);
+  const limit = Number(aircraft.maintenanceHoursLimit);
   if (!Number.isFinite(current) || !Number.isFinite(limit) || limit <= 0) {
     return 0;
   }
@@ -642,25 +642,25 @@ export function AircraftManagement() {
    * ====================================================================== */
 
   const selectedType = useMemo(
-    () => types.find(item => item.id === formData.typeId) ?? null,
-    [types, formData.typeId],
+    () => types.find(item => item.refAircraftType === formData.refAircraftType) ?? null,
+    [types, formData.refAircraftType],
   );
 
   const filteredAircrafts = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
 
     return aircrafts.filter(aircraft => {
-      if (statusFilter !== 'ALL' && aircraft.statut !== statusFilter) {
+      if (statusFilter !== 'ALL' && aircraft.status !== statusFilter) {
         return false;
       }
       if (!query) return true;
 
       return [
-        aircraft.immatriculation,
-        aircraft.modele,
-        aircraft.baseAttache ?? '',
-        aircraft.type?.nomModele ?? '',
-        aircraft.type?.fabricant ?? '',
+        aircraft.registration,
+        aircraft.model,
+        aircraft.homeBase ?? '',
+        aircraft.aircraftType?.modelName ?? '',
+        aircraft.aircraftType?.manufacturer ?? '',
       ].some(value => value.toLowerCase().includes(query));
     });
   }, [aircrafts, searchTerm, statusFilter]);
@@ -692,14 +692,14 @@ export function AircraftManagement() {
   const openEdit = (aircraft: Aircraft) => {
     setEditingAircraft(aircraft);
     setFormData({
-      immatriculation: aircraft.immatriculation,
-      modele: aircraft.modele,
-      capacite: aircraft.capacite,
-      heuresDeVolTotales: aircraft.heuresDeVolTotales,
-      limiteHeuresMaintenance: aircraft.limiteHeuresMaintenance,
-      statut: aircraft.statut,
-      baseAttache: aircraft.baseAttache ?? '',
-      typeId: aircraft.typeId ?? '',
+      registration: aircraft.registration,
+      model: aircraft.model,
+      capacity: aircraft.capacity,
+      totalFlightHours: aircraft.totalFlightHours,
+      maintenanceHoursLimit: aircraft.maintenanceHoursLimit,
+      status: aircraft.status,
+      homeBase: aircraft.homeBase ?? '',
+      refAircraftType: aircraft.refAircraftType ?? '',
     });
     setNotice(null);
     setIsModalOpen(true);
@@ -722,38 +722,38 @@ export function AircraftManagement() {
     const { name, value } = event.target;
 
     setFormData(current => {
-      if (name === 'typeId') {
-        const selected = types.find(item => item.id === value);
-        if (!selected) return { ...current, typeId: '' };
+      if (name === 'refAircraftType') {
+        const selected = types.find(item => item.refAircraftType === value);
+        if (!selected) return { ...current, refAircraftType: '' };
 
         const capacity =
-          typeof selected.capaciteMax === 'number' && selected.capaciteMax > 0
-            ? Math.min(Math.max(1, current.capacite), selected.capaciteMax)
-            : current.capacite;
+          typeof selected.maxCapacity === 'number' && selected.maxCapacity > 0
+            ? Math.min(Math.max(1, current.capacity), selected.maxCapacity)
+            : current.capacity;
 
         const maintenanceLimit =
-          typeof selected.intervalleMaintenanceHeures === 'number' &&
-          selected.intervalleMaintenanceHeures > 0
-            ? selected.intervalleMaintenanceHeures
-            : current.limiteHeuresMaintenance;
+          typeof selected.maintenanceIntervalHours === 'number' &&
+          selected.maintenanceIntervalHours > 0
+            ? selected.maintenanceIntervalHours
+            : current.maintenanceHoursLimit;
 
         return {
           ...current,
-          typeId: selected.id,
-          modele: selected.nomModele,
-          capacite: capacity,
-          limiteHeuresMaintenance: maintenanceLimit,
+          refAircraftType: selected.refAircraftType,
+          model: selected.modelName,
+          capacity: capacity,
+          maintenanceHoursLimit: maintenanceLimit,
         };
       }
 
-      if (name === 'immatriculation' || name === 'baseAttache') {
+      if (name === 'registration' || name === 'homeBase') {
         return { ...current, [name]: value.toUpperCase() };
       }
 
       if (
-        name === 'capacite' ||
-        name === 'heuresDeVolTotales' ||
-        name === 'limiteHeuresMaintenance'
+        name === 'capacity' ||
+        name === 'totalFlightHours' ||
+        name === 'maintenanceHoursLimit'
       ) {
         return { ...current, [name]: value === '' ? 0 : Number(value) };
       }
@@ -767,38 +767,38 @@ export function AircraftManagement() {
    * ====================================================================== */
 
   const validateForm = (): string | null => {
-    if (!formData.immatriculation.trim()) {
-      return "L'immatriculation est obligatoire.";
+    if (!formData.registration.trim()) {
+      return "L'registration est obligatoire.";
     }
-    if (!formData.modele.trim()) {
+    if (!formData.model.trim()) {
       return 'Le modèle est obligatoire.';
     }
-    if (!Number.isInteger(formData.capacite) || formData.capacite <= 0) {
+    if (!Number.isInteger(formData.capacity) || formData.capacity <= 0) {
       return 'La capacité doit être un entier strictement positif.';
     }
     if (
-      !Number.isFinite(formData.limiteHeuresMaintenance) ||
-      formData.limiteHeuresMaintenance <= 0
+      !Number.isFinite(formData.maintenanceHoursLimit) ||
+      formData.maintenanceHoursLimit <= 0
     ) {
       return 'La limite de maintenance doit être strictement positive.';
     }
     if (
-      !Number.isFinite(formData.heuresDeVolTotales) ||
-      formData.heuresDeVolTotales < 0
+      !Number.isFinite(formData.totalFlightHours) ||
+      formData.totalFlightHours < 0
     ) {
-      return 'Les heures de vol totales ne peuvent pas être négatives.';
+      return 'Les heures de flight totales ne peuvent pas être négatives.';
     }
     if (
-      formData.baseAttache &&
-      formData.baseAttache.trim().length !== 3
+      formData.homeBase &&
+      formData.homeBase.trim().length !== 3
     ) {
       return "La base d'attache doit être un code IATA de 3 caractères.";
     }
     if (
-      selectedType?.capaciteMax &&
-      formData.capacite > selectedType.capaciteMax
+      selectedType?.maxCapacity &&
+      formData.capacity > selectedType.maxCapacity
     ) {
-      return `La capacité ne peut pas dépasser ${selectedType.capaciteMax} sièges pour ${selectedType.nomModele}.`;
+      return `La capacité ne peut pas dépasser ${selectedType.maxCapacity} sièges pour ${selectedType.modelName}.`;
     }
     return null;
   };
@@ -821,42 +821,42 @@ export function AircraftManagement() {
     setNotice(null);
 
     const commonPayload = {
-      immatriculation: formData.immatriculation.trim().toUpperCase(),
-      modele: formData.modele.trim(),
-      capacite: formData.capacite,
-      heuresDeVolTotales: formData.heuresDeVolTotales,
-      limiteHeuresMaintenance: formData.limiteHeuresMaintenance,
-      statut: formData.statut,
-      baseAttache: formData.baseAttache.trim().toUpperCase() || undefined,
+      registration: formData.registration.trim().toUpperCase(),
+      model: formData.model.trim(),
+      capacity: formData.capacity,
+      totalFlightHours: formData.totalFlightHours,
+      maintenanceHoursLimit: formData.maintenanceHoursLimit,
+      status: formData.status,
+      homeBase: formData.homeBase.trim().toUpperCase() || undefined,
     };
 
     try {
       if (editingAircraft) {
         await requestJson<Aircraft>(
-          `/fleet/aircrafts/${editingAircraft.id}`,
+          `/fleet/aircrafts/${editingAircraft.refAircraft}`,
           {
             method: 'PATCH',
             body: JSON.stringify({
               ...commonPayload,
-              typeId: formData.typeId || null,
+              refAircraftType: formData.refAircraftType || null,
             }),
           },
         );
         setNotice({
           kind: 'success',
-          message: `L'avion ${commonPayload.immatriculation} a été mis à jour.`,
+          message: `L'aircraft ${commonPayload.registration} a été mis à jour.`,
         });
       } else {
         await requestJson<Aircraft>('/fleet/aircrafts', {
           method: 'POST',
           body: JSON.stringify({
             ...commonPayload,
-            typeId: formData.typeId || undefined,
+            refAircraftType: formData.refAircraftType || undefined,
           }),
         });
         setNotice({
           kind: 'success',
-          message: `L'avion ${commonPayload.immatriculation} a été créé.`,
+          message: `L'aircraft ${commonPayload.registration} a été créé.`,
         });
       }
 
@@ -868,7 +868,7 @@ export function AircraftManagement() {
         kind: 'error',
         message: getErrorMessage(
           error,
-          "Impossible d'enregistrer l'avion.",
+          "Impossible d'enregistrer l'aircraft.",
         ),
       });
     } finally {
@@ -881,32 +881,32 @@ export function AircraftManagement() {
    * ====================================================================== */
 
   const retireAircraft = async (aircraft: Aircraft) => {
-    if (aircraft.statut === AircraftStatus.RETIRED) return;
+    if (aircraft.status === AircraftStatus.RETIRED) return;
 
     const confirmed = window.confirm(
-      `Retirer l'avion ${aircraft.immatriculation} de la flotte ?\n\nLe backend ne supprime pas la ligne : le statut deviendra "Retired".`,
+      `Retirer l'aircraft ${aircraft.registration} de la flotte ?\n\nLe backend ne supprime pas la ligne : le status deviendra "Retired".`,
     );
     if (!confirmed) return;
 
-    setActionAircraftId(aircraft.id);
+    setActionAircraftId(aircraft.refAircraft);
     setNotice(null);
 
     try {
       await requestJson<{ retired: true; id: string }>(
-        `/fleet/aircrafts/${aircraft.id}`,
+        `/fleet/aircrafts/${aircraft.refAircraft}`,
         { method: 'DELETE' },
       );
 
       setNotice({
         kind: 'success',
-        message: `L'avion ${aircraft.immatriculation} a été retiré de la flotte.`,
+        message: `L'aircraft ${aircraft.registration} a été retiré de la flotte.`,
       });
 
       await loadData(undefined, true);
     } catch (error: unknown) {
       setNotice({
         kind: 'error',
-        message: getErrorMessage(error, "Impossible de retirer l'avion."),
+        message: getErrorMessage(error, "Impossible de retirer l'aircraft."),
       });
     } finally {
       setActionAircraftId(null);
@@ -918,7 +918,7 @@ export function AircraftManagement() {
    * ====================================================================== */
 
   const openMaintenanceResetModal = (aircraft: Aircraft) => {
-    if (aircraft.statut === AircraftStatus.RETIRED) return;
+    if (aircraft.status === AircraftStatus.RETIRED) return;
     setMaintenanceAircraft(aircraft);
     setNotice(null);
   };
@@ -926,7 +926,7 @@ export function AircraftManagement() {
   const closeMaintenanceResetModal = () => {
     if (
       maintenanceAircraft &&
-      actionAircraftId === maintenanceAircraft.id
+      actionAircraftId === maintenanceAircraft.refAircraft
     ) {
       return;
     }
@@ -937,19 +937,19 @@ export function AircraftManagement() {
     if (!maintenanceAircraft) return;
     const aircraft = maintenanceAircraft;
 
-    setActionAircraftId(aircraft.id);
+    setActionAircraftId(aircraft.refAircraft);
     setNotice(null);
 
     try {
       await requestJson<Aircraft>(
-        `/fleet/aircrafts/${aircraft.id}/maintenance/reset`,
+        `/fleet/aircrafts/${aircraft.refAircraft}/maintenance/reset`,
         { method: 'PATCH' },
       );
 
       setMaintenanceAircraft(null);
       setNotice({
         kind: 'success',
-        message: `Maintenance de ${aircraft.immatriculation} réinitialisée avec succès.`,
+        message: `Maintenance de ${aircraft.registration} réinitialisée avec succès.`,
       });
 
       await loadData(undefined, true);
@@ -978,7 +978,7 @@ export function AircraftManagement() {
     if (!Number.isFinite(hours) || hours <= 0) {
       setNotice({
         kind: 'error',
-        message: 'Les heures volées doivent être strictement positives.',
+        message: 'Les heures flightées doivent être strictement positives.',
       });
       return;
     }
@@ -988,14 +988,14 @@ export function AircraftManagement() {
 
     try {
       await requestJson<Aircraft>(
-        `/fleet/aircrafts/${hoursAircraft.id}/flight-hours`,
+        `/fleet/aircrafts/${hoursAircraft.refAircraft}/flight-hours`,
         {
           method: 'PATCH',
           body: JSON.stringify({ heuresVolees: hours }),
         },
       );
 
-      const registration = hoursAircraft.immatriculation;
+      const registration = hoursAircraft.registration;
       setHoursAircraft(null);
       setFlightHours('');
       setNotice({
@@ -1009,7 +1009,7 @@ export function AircraftManagement() {
         kind: 'error',
         message: getErrorMessage(
           error,
-          "Impossible d'ajouter les heures de vol.",
+          "Impossible d'ajouter les heures de flight.",
         ),
       });
     } finally {
@@ -1084,7 +1084,7 @@ export function AircraftManagement() {
             className={`inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-medium text-white shadow-sm transition hover:bg-emerald-700 ${FOCUS_RING}`}
           >
             <Plus className="h-4 w-4" />
-            Ajouter un avion
+            Ajouter un aircraft
           </button>
         </header>
 
@@ -1110,7 +1110,7 @@ export function AircraftManagement() {
             label="Actifs"
             value={
               statistics?.avionsActifs ??
-              aircrafts.filter(a => a.statut === AircraftStatus.ACTIVE).length
+              aircrafts.filter(a => a.status === AircraftStatus.ACTIVE).length
             }
             hint="Opérationnels"
             icon={<CheckCircle2 className="h-5 w-5" />}
@@ -1120,7 +1120,7 @@ export function AircraftManagement() {
             label="Maintenance"
             value={
               statistics?.avionsEnMaintenance ??
-              aircrafts.filter(a => a.statut === AircraftStatus.MAINTENANCE)
+              aircrafts.filter(a => a.status === AircraftStatus.MAINTENANCE)
                 .length
             }
             hint="Immobilisés"
@@ -1131,7 +1131,7 @@ export function AircraftManagement() {
             label="Hors service"
             value={
               statistics?.avionsHorsService ??
-              aircrafts.filter(a => a.statut === AircraftStatus.OUT_OF_SERVICE)
+              aircrafts.filter(a => a.status === AircraftStatus.OUT_OF_SERVICE)
                 .length
             }
             hint="Action requise"
@@ -1142,7 +1142,7 @@ export function AircraftManagement() {
             label="Retirés"
             value={
               statistics?.avionsRetires ??
-              aircrafts.filter(a => a.statut === AircraftStatus.RETIRED).length
+              aircrafts.filter(a => a.status === AircraftStatus.RETIRED).length
             }
             hint="Hors flotte"
             icon={<History className="h-5 w-5" />}
@@ -1162,7 +1162,7 @@ export function AircraftManagement() {
                   type="search"
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
-                  placeholder="Immatriculation, modèle, fabricant..."
+                  placeholder="Immatriculation, modèle, manufacturer..."
                   className={`h-10 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-9 text-sm text-slate-700 placeholder:text-slate-400 ${FOCUS_RING}`}
                 />
                 {searchTerm && (
@@ -1212,7 +1212,7 @@ export function AircraftManagement() {
                 <Plane className="h-6 w-6" />
               </div>
               <p className="mt-4 text-sm font-semibold text-slate-900">
-                Aucun avion trouvé
+                Aucun aircraft trouvé
               </p>
               <p className="mt-1 text-sm text-slate-500">
                 Ajustez la recherche ou les filtres.
@@ -1224,19 +1224,19 @@ export function AircraftManagement() {
               <div className="space-y-3 bg-slate-50/50 p-4 lg:hidden">
                 {paginatedAircrafts.map(aircraft => {
                   const ratio = maintenanceRatio(aircraft);
-                  const busy = actionAircraftId === aircraft.id;
-                  const isRetired = aircraft.statut === AircraftStatus.RETIRED;
+                  const busy = actionAircraftId === aircraft.refAircraft;
+                  const isRetired = aircraft.status === AircraftStatus.RETIRED;
 
                   return (
                     <article
-                      key={aircraft.id}
+                      key={aircraft.refAircraft}
                       className={`overflow-hidden rounded-xl border bg-white shadow-sm transition ${
                         isRetired
                           ? 'border-slate-200 opacity-80'
                           : 'border-slate-200 hover:shadow-md'
                       }`}
                     >
-                      {/* Header card : immat + statut */}
+                      {/* Header card : immat + status */}
                       <div className="flex items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
                         <div className="flex min-w-0 items-center gap-3">
                           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
@@ -1244,15 +1244,15 @@ export function AircraftManagement() {
                           </div>
                           <div className="min-w-0">
                             <p className="truncate font-mono text-sm font-bold text-slate-900">
-                              {aircraft.immatriculation}
+                              {aircraft.registration}
                             </p>
                             <p className="mt-0.5 truncate text-[11px] text-slate-500">
-                              {aircraft.type?.nomModele ?? aircraft.modele}
+                              {aircraft.aircraftType?.modelName ?? aircraft.model}
                             </p>
                           </div>
                         </div>
                         <div className="shrink-0">
-                          {renderStatusBadge(aircraft.statut)}
+                          {renderStatusBadge(aircraft.status)}
                         </div>
                       </div>
 
@@ -1260,9 +1260,9 @@ export function AircraftManagement() {
                       <div className="grid grid-cols-2 gap-x-4 gap-y-3 px-4 py-3">
                         <div>
                           <p className="text-[10px] font-medium text-slate-400">Base</p>
-                          {aircraft.baseAttache ? (
+                          {aircraft.homeBase ? (
                             <p className="mt-0.5 font-mono text-xs font-semibold text-slate-700">
-                              {aircraft.baseAttache}
+                              {aircraft.homeBase}
                             </p>
                           ) : (
                             <p className="mt-0.5 text-xs text-slate-300">—</p>
@@ -1272,21 +1272,21 @@ export function AircraftManagement() {
                         <div>
                           <p className="text-[10px] font-medium text-slate-400">Capacité</p>
                           <p className="mt-0.5 font-mono text-xs font-semibold text-slate-700">
-                            {aircraft.capacite} <span className="text-[10px] font-medium text-slate-400">sièges</span>
+                            {aircraft.capacity} <span className="text-[10px] font-medium text-slate-400">sièges</span>
                           </p>
                         </div>
 
                         <div>
                           <p className="text-[10px] font-medium text-slate-400">Heures totales</p>
                           <p className="mt-0.5 font-mono text-xs font-semibold text-slate-700">
-                            {formatNumber(aircraft.heuresDeVolTotales)} <span className="text-[10px] font-medium text-slate-400">h</span>
+                            {formatNumber(aircraft.totalFlightHours)} <span className="text-[10px] font-medium text-slate-400">h</span>
                           </p>
                         </div>
 
                         <div>
                           <p className="text-[10px] font-medium text-slate-400">Dernière maint.</p>
                           <p className="mt-0.5 font-mono text-xs font-semibold text-slate-600">
-                            {formatDate(aircraft.dateDerniereMaintenance)}
+                            {formatDate(aircraft.lastMaintenanceAt)}
                           </p>
                         </div>
                       </div>
@@ -1306,8 +1306,8 @@ export function AircraftManagement() {
                           />
                         </div>
                         <div className="mt-1.5 flex items-center justify-between text-[10px] font-medium text-slate-500">
-                          <span>{formatNumber(aircraft.heuresDepuisDerniereMaintenance)} h</span>
-                          <span>/ {formatNumber(aircraft.limiteHeuresMaintenance)} h</span>
+                          <span>{formatNumber(aircraft.hoursSinceMaintenance)} h</span>
+                          <span>/ {formatNumber(aircraft.maintenanceHoursLimit)} h</span>
                         </div>
                       </div>
 
@@ -1383,12 +1383,12 @@ export function AircraftManagement() {
                   <tbody className="divide-y divide-slate-100">
                     {paginatedAircrafts.map(aircraft => {
                       const ratio = maintenanceRatio(aircraft);
-                      const busy = actionAircraftId === aircraft.id;
-                      const isRetired = aircraft.statut === AircraftStatus.RETIRED;
+                      const busy = actionAircraftId === aircraft.refAircraft;
+                      const isRetired = aircraft.status === AircraftStatus.RETIRED;
 
                       return (
                         <tr
-                          key={aircraft.id}
+                          key={aircraft.refAircraft}
                           className="group transition hover:bg-emerald-50/30"
                         >
                           <td className="px-4 py-4 align-middle">
@@ -1398,7 +1398,7 @@ export function AircraftManagement() {
                               </div>
                               <div className="min-w-0">
                                 <p className="truncate font-mono text-sm font-bold text-slate-900">
-                                  {aircraft.immatriculation}
+                                  {aircraft.registration}
                                 </p>
                               </div>
                             </div>
@@ -1406,23 +1406,23 @@ export function AircraftManagement() {
 
                           <td className="px-4 py-4 align-middle">
                             <p className="truncate text-xs font-semibold text-slate-700">
-                              {aircraft.type?.nomModele ?? aircraft.modele}
+                              {aircraft.aircraftType?.modelName ?? aircraft.model}
                             </p>
                             <p className="truncate text-[10px] text-slate-400">
-                              {aircraft.type?.fabricant ?? aircraft.modele}
+                              {aircraft.aircraftType?.manufacturer ?? aircraft.model}
                             </p>
                           </td>
 
                           <td className="px-4 py-4 align-middle">
                             <span className="truncate font-mono text-xs font-semibold text-slate-600">
-                              {aircraft.capacite} <span className="text-[10px] font-medium text-slate-400">sièges</span>
+                              {aircraft.capacity} <span className="text-[10px] font-medium text-slate-400">sièges</span>
                             </span>
                           </td>
 
                           <td className="px-4 py-4 align-middle">
-                            {aircraft.baseAttache ? (
+                            {aircraft.homeBase ? (
                               <span className="inline-block truncate rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 font-mono text-[11px] font-bold text-slate-700">
-                                {aircraft.baseAttache}
+                                {aircraft.homeBase}
                               </span>
                             ) : (
                               <span className="text-slate-300">—</span>
@@ -1431,7 +1431,7 @@ export function AircraftManagement() {
 
                           <td className="px-4 py-4 align-middle">
                             <span className="truncate font-mono text-xs font-semibold text-slate-700">
-                              {formatNumber(aircraft.heuresDeVolTotales)} <span className="text-[10px] font-medium text-slate-400">h</span>
+                              {formatNumber(aircraft.totalFlightHours)} <span className="text-[10px] font-medium text-slate-400">h</span>
                             </span>
                           </td>
 
@@ -1439,7 +1439,7 @@ export function AircraftManagement() {
                             <div className="min-w-0">
                               <div className="flex items-center justify-between gap-2">
                                 <span className="truncate font-mono text-xs font-bold text-slate-700">
-                                  {formatNumber(aircraft.heuresDepuisDerniereMaintenance)} <span className="text-[10px] font-medium text-slate-400">/ {formatNumber(aircraft.limiteHeuresMaintenance)} h</span>
+                                  {formatNumber(aircraft.hoursSinceMaintenance)} <span className="text-[10px] font-medium text-slate-400">/ {formatNumber(aircraft.maintenanceHoursLimit)} h</span>
                                 </span>
                                 <span className={`font-mono text-[11px] font-bold ${ratio >= 90 ? 'text-rose-600' : ratio >= 75 ? 'text-amber-600' : 'text-emerald-600'}`}>
                                   {ratio}%
@@ -1455,7 +1455,7 @@ export function AircraftManagement() {
                           </td>
 
                           <td className="px-4 py-4 align-middle">
-                            {renderStatusBadge(aircraft.statut)}
+                            {renderStatusBadge(aircraft.status)}
                           </td>
 
                           <td className="px-4 py-4 align-middle">
@@ -1464,7 +1464,7 @@ export function AircraftManagement() {
                                 type="button"
                                 onClick={() => { setHoursAircraft(aircraft); setFlightHours(''); setNotice(null); }}
                                 disabled={busy || isRetired}
-                                title="Ajouter des heures de vol"
+                                title="Ajouter des heures de flight"
                                 className={`flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:border-sky-300 hover:bg-sky-50 hover:text-sky-700 disabled:opacity-35 ${FOCUS_RING}`}
                               >
                                 <Gauge className="h-3.5 w-3.5" />
@@ -1494,7 +1494,7 @@ export function AircraftManagement() {
                                 type="button"
                                 onClick={() => void retireAircraft(aircraft)}
                                 disabled={busy || isRetired}
-                                title={isRetired ? 'Avion déjà retiré' : "Retirer l'avion"}
+                                title={isRetired ? 'Avion déjà retiré' : "Retirer l'aircraft"}
                                 className={`flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-35 ${FOCUS_RING}`}
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
@@ -1576,12 +1576,12 @@ export function AircraftManagement() {
                 <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4">
                   <InfoMetric
                     label="Heures flotte"
-                    value={`${formatNumber(statistics.heuresDeVolTotales)} h`}
+                    value={`${formatNumber(statistics.totalFlightHours)} h`}
                   />
                 </div>
                 <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4">
                   <InfoMetric
-                    label="Moyenne / avion"
+                    label="Moyenne / aircraft"
                     value={`${formatNumber(statistics.moyenneHeuresDeVol)} h`}
                   />
                 </div>
@@ -1620,7 +1620,7 @@ export function AircraftManagement() {
                 </div>
                 <div className="min-w-0">
                   <h2 className="text-base font-bold text-slate-900">
-                    {editingAircraft ? `Modifier ${editingAircraft.immatriculation}` : 'Ajouter un avion'}
+                    {editingAircraft ? `Modifier ${editingAircraft.registration}` : 'Ajouter un aircraft'}
                   </h2>
                   <p className="mt-0.5 text-xs text-slate-500">
                     Champs alignés sur le backend Fleet
@@ -1647,8 +1647,8 @@ export function AircraftManagement() {
               <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                 <Field label="Immatriculation" required>
                   <input
-                    name="immatriculation"
-                    value={formData.immatriculation}
+                    name="registration"
+                    value={formData.registration}
                     onChange={handleChange}
                     maxLength={20}
                     required
@@ -1657,26 +1657,26 @@ export function AircraftManagement() {
                   />
                 </Field>
 
-                <Field label="Type d'avion">
+                <Field label="Type d'aircraft">
                   <select
-                    name="typeId"
-                    value={formData.typeId}
+                    name="refAircraftType"
+                    value={formData.refAircraftType}
                     onChange={handleChange}
                     className={inputClass}
                   >
                     <option value="">— Aucun type —</option>
                     {types.map(type => (
-                      <option key={type.id} value={type.id}>
-                        {type.nomModele}
-                        {type.fabricant ? ` — ${type.fabricant}` : ''}
+                      <option key={type.refAircraftType} value={type.refAircraftType}>
+                        {type.modelName}
+                        {type.manufacturer ? ` — ${type.manufacturer}` : ''}
                       </option>
                     ))}
                   </select>
                   {selectedType && (
                     <p className="mt-1.5 text-[10px] text-slate-400">
-                      Max. {selectedType.capaciteMax ?? '—'} sièges
-                      {selectedType.intervalleMaintenanceHeures
-                        ? ` · Maintenance ${formatNumber(selectedType.intervalleMaintenanceHeures)} h`
+                      Max. {selectedType.maxCapacity ?? '—'} sièges
+                      {selectedType.maintenanceIntervalHours
+                        ? ` · Maintenance ${formatNumber(selectedType.maintenanceIntervalHours)} h`
                         : ''}
                     </p>
                   )}
@@ -1688,8 +1688,8 @@ export function AircraftManagement() {
                   hint={selectedType ? 'Synchronisé avec le type choisi.' : undefined}
                 >
                   <input
-                    name="modele"
-                    value={formData.modele}
+                    name="model"
+                    value={formData.model}
                     onChange={handleChange}
                     maxLength={100}
                     required
@@ -1702,11 +1702,11 @@ export function AircraftManagement() {
                 <Field label="Capacité" required>
                   <input
                     type="number"
-                    name="capacite"
+                    name="capacity"
                     min={1}
-                    max={selectedType?.capaciteMax}
+                    max={selectedType?.maxCapacity}
                     step={1}
-                    value={formData.capacite}
+                    value={formData.capacity}
                     onChange={handleChange}
                     required
                     className={inputClass}
@@ -1716,23 +1716,23 @@ export function AircraftManagement() {
                 <Field label="Limite maintenance (h)" required>
                   <input
                     type="number"
-                    name="limiteHeuresMaintenance"
+                    name="maintenanceHoursLimit"
                     min={0.1}
                     step={0.1}
-                    value={formData.limiteHeuresMaintenance}
+                    value={formData.maintenanceHoursLimit}
                     onChange={handleChange}
                     required
                     className={inputClass}
                   />
                 </Field>
 
-                <Field label="Heures de vol totales">
+                <Field label="Heures de flight totales">
                   <input
                     type="number"
-                    name="heuresDeVolTotales"
+                    name="totalFlightHours"
                     min={0}
                     step={0.1}
-                    value={formData.heuresDeVolTotales}
+                    value={formData.totalFlightHours}
                     onChange={handleChange}
                     className={inputClass}
                   />
@@ -1740,8 +1740,8 @@ export function AircraftManagement() {
 
                 <Field label="Statut" required>
                   <select
-                    name="statut"
-                    value={formData.statut}
+                    name="status"
+                    value={formData.status}
                     onChange={handleChange}
                     className={inputClass}
                   >
@@ -1755,8 +1755,8 @@ export function AircraftManagement() {
 
                 <Field label="Base d'attache IATA">
                   <input
-                    name="baseAttache"
-                    value={formData.baseAttache}
+                    name="homeBase"
+                    value={formData.homeBase}
                     onChange={handleChange}
                     maxLength={3}
                     placeholder="TNR"
@@ -1798,7 +1798,7 @@ export function AircraftManagement() {
                 ) : (
                   <Plus className="h-4 w-4" />
                 )}
-                {editingAircraft ? 'Enregistrer' : "Créer l'avion"}
+                {editingAircraft ? 'Enregistrer' : "Créer l'aircraft"}
               </button>
             </footer>
           </div>
@@ -1813,7 +1813,7 @@ export function AircraftManagement() {
           aria-modal="true"
           aria-labelledby="maintenance-reset-title"
           onMouseDown={event => {
-            if (event.currentTarget === event.target && actionAircraftId !== maintenanceAircraft.id) {
+            if (event.currentTarget === event.target && actionAircraftId !== maintenanceAircraft.refAircraft) {
               closeMaintenanceResetModal();
             }
           }}
@@ -1832,7 +1832,7 @@ export function AircraftManagement() {
                     Réinitialiser la maintenance
                   </h2>
                   <p className="mt-0.5 text-xs text-slate-500">
-                    {maintenanceAircraft.immatriculation} · {maintenanceAircraft.type?.nomModele ?? maintenanceAircraft.modele}
+                    {maintenanceAircraft.registration} · {maintenanceAircraft.aircraftType?.modelName ?? maintenanceAircraft.model}
                   </p>
                 </div>
               </div>
@@ -1840,7 +1840,7 @@ export function AircraftManagement() {
               <button
                 type="button"
                 onClick={closeMaintenanceResetModal}
-                disabled={actionAircraftId === maintenanceAircraft.id}
+                disabled={actionAircraftId === maintenanceAircraft.refAircraft}
                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700 disabled:opacity-40"
                 aria-label="Fermer"
               >
@@ -1858,7 +1858,7 @@ export function AircraftManagement() {
                     Confirmer la fin de maintenance ?
                   </p>
                   <p className="mt-1 text-xs leading-5 text-amber-700">
-                    Le compteur, la date de maintenance et le statut seront recalculés automatiquement.
+                    Le compteur, la date de maintenance et le status seront recalculés automatiquement.
                   </p>
                 </div>
               </div>
@@ -1868,13 +1868,13 @@ export function AircraftManagement() {
                 <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-3.5">
                   <span className={LABEL_UPPER}>Compteur actuel</span>
                   <p className="mt-1 font-mono text-base font-bold text-slate-800">
-                    {formatNumber(maintenanceAircraft.heuresDepuisDerniereMaintenance)} h
+                    {formatNumber(maintenanceAircraft.hoursSinceMaintenance)} h
                   </p>
                 </div>
                 <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-3.5">
                   <span className={LABEL_UPPER}>Limite</span>
                   <p className="mt-1 font-mono text-base font-bold text-slate-800">
-                    {formatNumber(maintenanceAircraft.limiteHeuresMaintenance)} h
+                    {formatNumber(maintenanceAircraft.maintenanceHoursLimit)} h
                   </p>
                 </div>
                 <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-3.5">
@@ -1886,7 +1886,7 @@ export function AircraftManagement() {
                 <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-3.5">
                   <span className={LABEL_UPPER}>Dernière maint.</span>
                   <p className="mt-1 text-xs font-semibold text-slate-800">
-                    {formatDate(maintenanceAircraft.dateDerniereMaintenance)}
+                    {formatDate(maintenanceAircraft.lastMaintenanceAt)}
                   </p>
                 </div>
               </div>
@@ -1905,7 +1905,7 @@ export function AircraftManagement() {
               <button
                 type="button"
                 onClick={closeMaintenanceResetModal}
-                disabled={actionAircraftId === maintenanceAircraft.id}
+                disabled={actionAircraftId === maintenanceAircraft.refAircraft}
                 className={`h-10 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-50 sm:min-w-[110px] ${FOCUS_RING}`}
               >
                 Annuler
@@ -1913,10 +1913,10 @@ export function AircraftManagement() {
               <button
                 type="button"
                 onClick={() => void resetMaintenance()}
-                disabled={actionAircraftId === maintenanceAircraft.id}
+                disabled={actionAircraftId === maintenanceAircraft.refAircraft}
                 className={`inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 text-sm font-medium text-white shadow-sm transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50 sm:min-w-[160px] ${FOCUS_RING}`}
               >
-                {actionAircraftId === maintenanceAircraft.id ? (
+                {actionAircraftId === maintenanceAircraft.refAircraft ? (
                   <>
                     <LoaderCircle className="h-4 w-4 animate-spin" />
                     Traitement...
@@ -1958,7 +1958,7 @@ export function AircraftManagement() {
                     Ajouter des heures
                   </h2>
                   <p className="mt-0.5 text-xs text-slate-500">
-                    {hoursAircraft.immatriculation} · {hoursAircraft.modele}
+                    {hoursAircraft.registration} · {hoursAircraft.model}
                   </p>
                 </div>
               </div>
@@ -1975,7 +1975,7 @@ export function AircraftManagement() {
             </header>
 
             <form onSubmit={submitFlightHours} className="space-y-4 p-6">
-              <Field label="Heures volées" required>
+              <Field label="Heures flightées" required>
                 <input
                   type="number"
                   min={0.1}
@@ -1991,7 +1991,7 @@ export function AircraftManagement() {
               <div className="flex items-start gap-2.5 rounded-lg border border-slate-100 bg-slate-50/50 p-3">
                 <Info className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
                 <p className="text-xs leading-5 text-slate-600">
-                  Cette action augmente les heures totales et le compteur depuis maintenance. Le backend bascule automatiquement l'avion en maintenance si la limite est atteinte.
+                  Cette action augmente les heures totales et le compteur depuis maintenance. Le backend bascule automatiquement l'aircraft en maintenance si la limite est atteinte.
                 </p>
               </div>
 

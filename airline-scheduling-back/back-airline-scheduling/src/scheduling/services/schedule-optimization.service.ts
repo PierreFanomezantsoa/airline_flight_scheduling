@@ -21,7 +21,7 @@ export class ScheduleOptimizationService {
 
   /**
    * Optimisation conservatrice de type greedy.
-   * Elle ne déplace pas les heures et n'annule jamais un vol automatiquement.
+   * Elle ne déplace pas les heures et n'annule jamais un flight automatiquement.
    * Elle tente seulement de réaffecter un appareil quand cela suffit à résoudre
    * un conflit dur.
    */
@@ -43,49 +43,49 @@ export class ScheduleOptimizationService {
     for (const conflict of before) {
       if (!reassignableTypes.has(conflict.type)) continue;
 
-      const targetId = conflict.relatedFlightId ?? conflict.flightId;
+      const targetId = conflict.relatedRefFlight ?? conflict.refFlight;
       if (!targetId || processed.has(targetId)) continue;
 
       const flight = await this.flightRepository.findOne({
-        where: { id: targetId },
-        relations: ['avion'],
+        where: { refFlight: targetId },
+        relations: ['aircraft'],
       });
 
-      if (!flight || flight.statut === FlightStatus.CANCELLED) continue;
+      if (!flight || flight.status === FlightStatus.CANCELLED) continue;
 
       const alternatives = await this.availabilityService.findAvailable(
-        flight.heureDepart,
-        flight.heureArrivee,
-        flight.aeroportDepart,
-        flight.aeroportArrivee,
-        flight.id,
+        flight.departureTime,
+        flight.arrivalTime,
+        flight.departureAirportCode,
+        flight.arrivalAirportCode,
+        flight.refFlight,
       );
 
       const replacement = alternatives.find(
-        (aircraft) => aircraft.id !== flight.avionId,
+        (aircraft) => aircraft.refAircraft !== flight.refAircraft,
       );
 
       if (!replacement) {
         details.push({
-          flightNumber: flight.numeroVol,
+          flightNumber: flight.flightNumber,
           status: 'UNRESOLVED',
-          from: flight.avion?.immatriculation ?? 'NON ASSIGNÉ',
+          from: flight.aircraft?.registration ?? 'NON ASSIGNÉ',
           reason: conflict.reason,
         });
         processed.add(targetId);
         continue;
       }
 
-      const from = flight.avion?.immatriculation ?? 'NON ASSIGNÉ';
-      flight.avionId = replacement.id;
-      flight.avion = replacement;
+      const from = flight.aircraft?.registration ?? 'NON ASSIGNÉ';
+      flight.refAircraft = replacement.refAircraft;
+      flight.aircraft = replacement;
       await this.flightRepository.save(flight);
 
       details.push({
-        flightNumber: flight.numeroVol,
+        flightNumber: flight.flightNumber,
         status: 'REASSIGNED',
         from,
-        to: replacement.immatriculation,
+        to: replacement.registration ?? 'NON RENSEIGNÉ',
         reason: conflict.reason,
       });
       processed.add(targetId);

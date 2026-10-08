@@ -108,7 +108,7 @@ interface WeatherAI {
 }
 
 export interface Flight {
-  id: string;
+  refFlight: string;
   flightNumber?: string;
   origin?: string;
   destination?: string;
@@ -141,7 +141,7 @@ export interface Flight {
 }
 
 interface NormalizedFlight {
-  id: string;
+  refFlight: string;
   flightNumber: string;
   origin: string;
   destination: string;
@@ -152,7 +152,7 @@ interface NormalizedFlight {
   localArrival: string | null;
   durationMinutes: number | null;
   status: FlightStatus;
-  aircraftId: string;
+  refAircraft: string;
   aircraftRegistration: string;
   stopover: string | null;
   stopoverDurationMinutes: number | null;
@@ -176,14 +176,14 @@ const normalizeStatus = (status?: string): FlightStatus => {
   if (['completed', 'effectué', 'effectue', 'done'].includes(value)) return 'Completed';
   if (['delayed', 'retardé', 'retarde'].includes(value)) return 'Delayed';
   if (['cancelled', 'canceled', 'annulé', 'annule'].includes(value)) return 'Cancelled';
-  if (['in-flight', 'in flight', 'en vol'].includes(value)) return 'In-Flight';
+  if (['in-flight', 'in flight', 'en flight'].includes(value)) return 'In-Flight';
   if (['scheduled', 'planifié', 'planifie', 'programmé', 'programme'].includes(value)) return 'Scheduled';
   return status || 'Unknown';
 };
 
 const normalizeFlight = (flight: Flight): NormalizedFlight => ({
-  id: String(flight.id),
-  flightNumber: flight.flightNumber || `VOL-${String(flight.id).slice(0, 8)}`,
+  refFlight: String(flight.refFlight),
+  flightNumber: flight.flightNumber || `VOL-${String(flight.refFlight).slice(0, 8)}`,
   origin: flight.origin || '—',
   destination: flight.destination || '—',
   route: flight.route || `${flight.origin || '—'} → ${flight.destination || '—'}`,
@@ -193,8 +193,8 @@ const normalizeFlight = (flight: Flight): NormalizedFlight => ({
   localArrival: flight.localArrival ?? null,
   durationMinutes: flight.durationMinutes ?? null,
   status: normalizeStatus(flight.status),
-  aircraftId: flight.aircraft || 'NON ASSIGNÉ',
-  aircraftRegistration: flight.aircraftModel || 'Sans immatriculation',
+  refAircraft: flight.aircraft || 'NON ASSIGNÉ',
+  aircraftRegistration: flight.aircraftModel || 'Sans registration',
   stopover: flight.stopover ?? null,
   stopoverDurationMinutes: flight.stopoverDurationMinutes ?? null,
   weatherAI: flight.weatherAI,
@@ -283,7 +283,7 @@ const StatusBadge: FC<{ status: FlightStatus }> = ({ status }) => {
       className: 'border-rose-200 bg-rose-50 text-rose-700',
     },
     'In-Flight': {
-      label: 'En vol',
+      label: 'En flight',
       icon: <Plane size={13} />,
       className: 'border-blue-200 bg-blue-50 text-blue-700',
     },
@@ -857,10 +857,10 @@ const FlightHistory: FC<FlightHistoryProps> = ({
               <Plane size={22} />
             </div>
             <h3 className="mt-4 text-sm font-semibold text-slate-900">
-              Aucun vol historique
+              Aucun flight historique
             </h3>
             <p className="mt-1 max-w-sm text-sm text-slate-500">
-              Aucun vol ne correspond aux critères actuellement sélectionnés.
+              Aucun flight ne correspond aux critères actuellement sélectionnés.
             </p>
           </div>
         ) : (
@@ -869,7 +869,7 @@ const FlightHistory: FC<FlightHistoryProps> = ({
             <div className="space-y-3 bg-slate-50/50 p-4 md:hidden">
               {paginatedFlights.map((flight) => (
                 <MobileHistoryCard
-                  key={flight.id}
+                  key={flight.refFlight}
                   flight={flight}
                   onOpen={setSelectedFlight}
                 />
@@ -903,9 +903,9 @@ const FlightHistory: FC<FlightHistoryProps> = ({
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {paginatedFlights.map((flight) => {
-                    const isExpanded = expandedId === flight.id;
+                    const isExpanded = expandedId === flight.refFlight;
                     return (
-                      <Fragment key={flight.id}>
+                      <Fragment key={flight.refFlight}>
                         <tr
                           className={`transition-colors ${
                             isExpanded ? 'bg-emerald-50/30' : 'hover:bg-slate-50/80'
@@ -982,7 +982,7 @@ const FlightHistory: FC<FlightHistoryProps> = ({
                             <button
                               type="button"
                               onClick={() =>
-                                setExpandedId(isExpanded ? null : flight.id)
+                                setExpandedId(isExpanded ? null : flight.refFlight)
                               }
                               className={`inline-flex h-8 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border px-2.5 text-xs font-medium shadow-sm transition ${
                                 isExpanded
@@ -1065,7 +1065,7 @@ const FlightHistory: FC<FlightHistoryProps> = ({
                                     </span>
                                   </div>
                                   <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
-                                    Temps de vol
+                                    Temps de flight
                                   </p>
                                   <p className="mt-1 font-mono text-lg font-bold text-slate-900">
                                     {formatDuration(flight.durationMinutes)}
@@ -1123,7 +1123,7 @@ const FlightHistory: FC<FlightHistoryProps> = ({
                                       />
                                     )}
                                     <DetailItem
-                                      label="Numéro de vol"
+                                      label="Numéro de flight"
                                       value={flight.flightNumber}
                                     />
                                   </div>
@@ -1212,7 +1212,7 @@ const FlightHistory: FC<FlightHistoryProps> = ({
                 <p className="text-xs font-medium text-slate-500">
                   Page <span className="font-semibold text-slate-700">{currentPage}</span>{' '}
                   sur <span className="font-semibold text-slate-700">{totalPages}</span>{' '}
-                  — {filteredFlights.length} vol
+                  — {filteredFlights.length} flight
                   {filteredFlights.length > 1 ? 's' : ''}
                 </p>
 
@@ -1281,7 +1281,7 @@ const FlightHistory: FC<FlightHistoryProps> = ({
         <div
           role="dialog"
           aria-modal="true"
-          aria-label={`Historique du vol ${selectedFlight.flightNumber}`}
+          aria-label={`Historique du flight ${selectedFlight.flightNumber}`}
           onMouseDown={(event) => {
             if (event.currentTarget === event.target) setSelectedFlight(null);
           }}
@@ -1341,7 +1341,7 @@ const FlightHistory: FC<FlightHistoryProps> = ({
               </section>
 
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                <DetailItem label="Numéro de vol" value={selectedFlight.flightNumber} />
+                <DetailItem label="Numéro de flight" value={selectedFlight.flightNumber} />
                 <DetailItem
                   label="Immatriculation"
                   value={selectedFlight.aircraftRegistration}

@@ -108,7 +108,7 @@ async function getErrorMessage(
 }
 
 /**
- * Transforme une erreur quelconque en message utilisateur lisible.
+ * Transforme une erreur quelconque en message user lisible.
  * Adapté aux deux environnements dev / prod (via ApiError).
  */
 function getFriendlyError(error: unknown, fallback: string): string {
@@ -216,7 +216,7 @@ const STATUS_STYLES: Record<FlightStatus, StatusStyle> = {
     card: 'hover:border-rose-200',
   },
   'In-Flight': {
-    label: 'En vol',
+    label: 'En flight',
     dot: 'bg-emerald-600',
     badge: 'border-emerald-600 bg-emerald-600 text-white',
     border: 'border-l-emerald-600',
@@ -544,7 +544,7 @@ export const DashboardGantt: React.FC = () => {
           loading={isFetching && flights.length === 0}
         />
         <KpiCard
-          label="En vol"
+          label="En flight"
           value={metrics.inFlightCount}
           sub="Opérations actives"
           icon={<Activity className="h-[18px] w-[18px]" />}

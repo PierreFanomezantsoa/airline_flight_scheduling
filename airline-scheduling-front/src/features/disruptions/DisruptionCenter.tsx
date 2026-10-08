@@ -55,13 +55,13 @@ export type ScheduleConflictType =
 
 export interface ConflictFlight {
   id: string;
-  numeroVol?: string | null;
-  aeroportDepart?: string | null;
-  aeroportArrivee?: string | null;
-  heureDepart?: string | null;
-  heureArrivee?: string | null;
-  statut?: string | null;
-  avionId?: string | null;
+  flightNumber?: string | null;
+  departureAirportCode?: string | null;
+  arrivalAirportCode?: string | null;
+  departureTime?: string | null;
+  arrivalTime?: string | null;
+  status?: string | null;
+  refAircraft?: string | null;
   aircraftRegistration?: string | null;
 }
 
@@ -71,7 +71,7 @@ export interface MLConflict {
   severity: ConflictSeverity;
   probability: number;
   detector: ConflictDetector;
-  aircraftId?: string | null;
+  refAircraft?: string | null;
   aircraftRegistration?: string | null;
   flightA: ConflictFlight;
   flightB?: ConflictFlight | null;
@@ -513,12 +513,12 @@ export const DisruptionCenter: React.FC = () => {
         conflict.reason,
         conflict.recommendation,
         conflict.aircraftRegistration,
-        conflict.flightA?.numeroVol,
-        conflict.flightA?.aeroportDepart,
-        conflict.flightA?.aeroportArrivee,
-        conflict.flightB?.numeroVol,
-        conflict.flightB?.aeroportDepart,
-        conflict.flightB?.aeroportArrivee,
+        conflict.flightA?.flightNumber,
+        conflict.flightA?.departureAirportCode,
+        conflict.flightA?.arrivalAirportCode,
+        conflict.flightB?.flightNumber,
+        conflict.flightB?.departureAirportCode,
+        conflict.flightB?.arrivalAirportCode,
       ]
         .filter(Boolean)
         .join(' ')
@@ -855,7 +855,7 @@ export const DisruptionCenter: React.FC = () => {
                 type="search"
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder="Rechercher : vol, appareil, route, motif..."
+                placeholder="Rechercher : flight, appareil, route, motif..."
                 className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm font-medium text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-emerald-600 focus:bg-white focus:ring-4 focus:ring-emerald-600/10"
               />
             </div>
@@ -961,12 +961,12 @@ export const DisruptionCenter: React.FC = () => {
                           <div className="flex items-center gap-2">
                             <div>
                               <p className="font-mono text-sm font-black text-slate-900">
-                                {conflict.flightA?.numeroVol || '--'}
+                                {conflict.flightA?.flightNumber || '--'}
                               </p>
                               <p className="mt-0.5 font-mono text-[10px] font-semibold text-slate-500">
-                                {conflict.flightA?.aeroportDepart || '--'}
+                                {conflict.flightA?.departureAirportCode || '--'}
                                 <span className="mx-1 text-slate-300">→</span>
-                                {conflict.flightA?.aeroportArrivee || '--'}
+                                {conflict.flightA?.arrivalAirportCode || '--'}
                               </p>
                             </div>
                             {conflict.flightB && (
@@ -974,12 +974,12 @@ export const DisruptionCenter: React.FC = () => {
                                 <ArrowRight className="h-4 w-4 shrink-0 text-slate-400" />
                                 <div>
                                   <p className="font-mono text-sm font-black text-slate-900">
-                                    {conflict.flightB.numeroVol || '--'}
+                                    {conflict.flightB.flightNumber || '--'}
                                   </p>
                                   <p className="mt-0.5 font-mono text-[10px] font-semibold text-slate-500">
-                                    {conflict.flightB.aeroportDepart || '--'}
+                                    {conflict.flightB.departureAirportCode || '--'}
                                     <span className="mx-1 text-slate-300">→</span>
-                                    {conflict.flightB.aeroportArrivee || '--'}
+                                    {conflict.flightB.arrivalAirportCode || '--'}
                                   </p>
                                 </div>
                               </>

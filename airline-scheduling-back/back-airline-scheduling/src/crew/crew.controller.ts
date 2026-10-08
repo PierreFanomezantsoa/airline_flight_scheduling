@@ -28,9 +28,9 @@ export class CrewController {
   @Get()
   findAll() { return this.crewService.findAll(); }
 
-  @Get('flight/:flightId')
-  findByFlight(@Param('flightId', ParseUUIDPipe) flightId: string) {
-    return this.crewService.findByFlight(flightId);
+  @Get('flight/:refFlight')
+  findByFlight(@Param('refFlight', ParseUUIDPipe) refFlight: string) {
+    return this.crewService.findByFlight(refFlight);
   }
 
   @Get('user/:userId')

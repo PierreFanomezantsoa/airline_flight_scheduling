@@ -12,34 +12,34 @@ import { Flight } from '../../flights/entities/flight.entity';
 import { User } from '../../users/entities/user.entity';
 
 @Entity('crew_assignments')
-@Unique(['volId', 'utilisateurId'])
-@Index(['volId'])
-@Index(['utilisateurId'])
+@Unique(['refFlight', 'refUser'])
+@Index(['refFlight'])
+@Index(['refUser'])
 export class CrewAssignment {
-  @PrimaryGeneratedColumn('uuid')
-  id!: string;
+  @PrimaryGeneratedColumn('uuid', { name: 'ref_crew_assignment' })
+  refCrewAssignment!: string;
 
-  @Column({ type: 'uuid' })
-  volId!: string;
+  @Column({ name: 'ref_flight', type: 'uuid' })
+  refFlight!: string;
 
-  @ManyToOne(() => Flight, (flight) => flight.affectationsEquipage, {
+  @ManyToOne(() => Flight, (flight) => flight.crewAssignments, {
     onDelete: 'CASCADE',
   })
-  @JoinColumn({ name: 'volId' })
-  vol!: Flight;
+  @JoinColumn({ name: 'ref_flight' })
+  flight!: Flight;
 
-  @Column({ type: 'uuid' })
-  utilisateurId!: string;
+  @Column({ name: 'ref_user', type: 'uuid' })
+  refUser!: string;
 
-  @ManyToOne(() => User, (user) => user.affectationsEquipage, {
+  @ManyToOne(() => User, (user) => user.crewAssignments, {
     onDelete: 'RESTRICT',
   })
-  @JoinColumn({ name: 'utilisateurId' })
-  utilisateur!: User;
+  @JoinColumn({ name: 'ref_user' })
+  user!: User;
 
   @Column({ type: 'enum', enum: CrewRole, default: CrewRole.OTHER })
-  fonction!: CrewRole;
+  crewRole!: CrewRole;
 
   @Column({ type: 'double precision', nullable: true })
-  heuresReposAvant!: number | null;
+  priorRestHours!: number | null;
 }

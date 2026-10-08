@@ -7,7 +7,7 @@ import { authFetch } from '../Api/apiService';
  * ========================================================================== */
 
 export interface Aircraft {
-  id: string;
+  refAircraft: string;
   registration: string;
   model: string;
   capacity: number;
@@ -15,6 +15,10 @@ export interface Aircraft {
   totalFlightHours: number;
   status: 'Active' | 'Maintenance' | 'Out of Service' | 'Retired';
   homeBase?: string;
+  aircraftType?: {
+    modelName?: string;
+    manufacturer?: string;
+  } | null;
 }
 
 export interface CreateAircraftDto {
@@ -39,14 +43,14 @@ export interface FleetStatistics {
 }
 
 interface BackendAircraft {
-  id: string;
-  immatriculation: string;
-  modele: string;
-  capacite: number;
-  limiteHeuresMaintenance: number;
-  heuresDeVolTotales: number;
-  statut: 'Active' | 'Maintenance' | 'Out of Service' | 'Retired';
-  baseAttache?: string | null;
+  refAircraft: string;
+  registration: string;
+  model: string;
+  capacity: number;
+  maintenanceHoursLimit: number;
+  totalFlightHours: number;
+  status: 'Active' | 'Maintenance' | 'Out of Service' | 'Retired';
+  homeBase?: string | null;
 }
 
 interface BackendFleetStatistics {
@@ -105,14 +109,14 @@ async function ensureOk(response: Response, fallback: string): Promise<void> {
 class FleetService {
   private mapToFrontend(data: BackendAircraft): Aircraft {
     return {
-      id: data.id,
-      registration: data.immatriculation,
-      model: data.modele,
-      capacity: data.capacite,
-      maintenanceHoursLimit: data.limiteHeuresMaintenance,
-      totalFlightHours: data.heuresDeVolTotales,
-      status: data.statut,
-      homeBase: data.baseAttache || undefined,
+      refAircraft: data.refAircraft,
+      registration: data.registration,
+      model: data.model,
+      capacity: data.capacity,
+      maintenanceHoursLimit: data.maintenanceHoursLimit,
+      totalFlightHours: data.totalFlightHours,
+      status: data.status,
+      homeBase: data.homeBase || undefined,
     };
   }
 
@@ -150,7 +154,7 @@ class FleetService {
       inMaintenanceAircrafts: Number(payload.avionsEnMaintenance ?? 0),
       outOfServiceAircrafts: Number(payload.avionsHorsService ?? 0),
       retiredAircrafts: Number(payload.avionsRetires ?? 0),
-      totalFlightHours: Number(payload.heuresDeVolTotales ?? 0),
+      totalFlightHours: Number(payload.totalFlightHours ?? 0),
       averageFlightHours: Number(payload.moyenneHeuresDeVol ?? 0),
       averageCapacity: Number(payload.capaciteMoyenne ?? 0),
     });
@@ -160,16 +164,16 @@ class FleetService {
     const response = await authFetch('/fleet/aircrafts', {
       method: 'POST',
       body: JSON.stringify({
-        immatriculation: dto.registration,
-        modele: dto.model,
-        capacite: dto.capacity,
-        limiteHeuresMaintenance: dto.maintenanceHoursLimit,
-        heuresDeVolTotales: dto.totalFlightHours,
-        statut: dto.status,
-        baseAttache: dto.homeBase,
+        registration: dto.registration,
+        model: dto.model,
+        capacity: dto.capacity,
+        maintenanceHoursLimit: dto.maintenanceHoursLimit,
+        totalFlightHours: dto.totalFlightHours,
+        status: dto.status,
+        homeBase: dto.homeBase,
       }),
     });
-    await ensureOk(response, "Impossible de créer l'avion.");
+    await ensureOk(response, "Impossible de créer l'aircraft.");
     const data = (await readJsonSafe<BackendAircraft>(response))!;
     return this.mapToFrontend(data);
   }
@@ -178,7 +182,7 @@ class FleetService {
     const response = await authFetch(`/fleet/aircrafts/${id}`, {
       method: 'DELETE',
     });
-    await ensureOk(response, "Impossible de supprimer l'avion.");
+    await ensureOk(response, "Impossible de supprimer l'aircraft.");
   }
 
   async resetMaintenanceCounter(id: string): Promise<Aircraft> {

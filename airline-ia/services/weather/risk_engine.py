@@ -34,7 +34,7 @@ from config.weather import (
 
 def get_forecast_phase(minutes_to_departure: float) -> dict:
     """
-    Retourne le niveau de décision météo selon l'horizon du vol.
+    Retourne le niveau de décision météo selon l'horizon du flight.
 
     STRATEGIC:
         J-30 à J-7. Aucune décision de retard/annulation automatique.
@@ -295,7 +295,7 @@ class WeatherRiskEngine:
         stopovers=None,
     ) -> list[tuple[str, str, datetime]]:
         """
-        Prépare les points météo à lire pour un vol, sans lancer d'appel réseau.
+        Prépare les points météo à lire pour un flight, sans lancer d'appel réseau.
         """
         dep_time = ensure_utc(dep_time) or datetime.now(timezone.utc)
         arr_time = ensure_utc(arr_time) or (dep_time + timedelta(hours=2))
@@ -380,10 +380,10 @@ class WeatherRiskEngine:
             "recommendedAction": "LONG_RANGE_MONITOR",
             "recommendedActionLabel": "Surveillance stratégique",
             "explanation": (
-                "Le vol est encore au-delà de l'horizon de prévision détaillée "
+                "Le flight est encore au-delà de l'horizon de prévision détaillée "
                 f"du fournisseur ({WEATHER_PROVIDER_MAX_FORECAST_HOURS} h). "
                 "Aucune décision opérationnelle ne doit être prise à partir "
-                "d'une fausse précision. Le vol sera automatiquement "
+                "d'une fausse précision. Le flight sera automatiquement "
                 "réévalué à l'approche de J-7, puis J-1 et H-2."
             ),
             "departure": {
@@ -507,9 +507,9 @@ class WeatherRiskEngine:
                 confidence - 0.25,
             )
 
-        # Provenance agrégée : si une seule étape vient du ML/cache, le vol
+        # Provenance agrégée : si une seule étape vient du ML/cache, le flight
         # est considéré en mode dégradé et ne peut pas changer automatiquement
-        # de statut sur la seule base de cette estimation.
+        # de status sur la seule base de cette estimation.
         sample_values = list(samples.values())
         source_set = {
             sample.get("source", "UNAVAILABLE")
@@ -570,7 +570,7 @@ class WeatherRiskEngine:
             )
 
         # H-2 → départ : seul horizon autorisé à influencer automatiquement
-        # le statut via determine_operational_status().
+        # le status via determine_operational_status().
         elif phase_name == "OPERATIONAL":
             if (
                 overall_risk >= WEATHER_EXTREME_THRESHOLD
@@ -607,7 +607,7 @@ class WeatherRiskEngine:
                     "Aucune contrainte météo majeure détectée."
                 )
 
-        # J-1 → H-2 : pas de statut automatique ; recommandation tactique.
+        # J-1 → H-2 : pas de status automatique ; recommandation tactique.
         elif phase_name == "TACTICAL":
             if overall_risk >= WEATHER_SEVERE_THRESHOLD:
                 action = "TACTICAL_REVIEW"
@@ -615,7 +615,7 @@ class WeatherRiskEngine:
                 explanation = (
                     "Risque météo sévère avant la fenêtre H-2. "
                     "Préparer un nouveau créneau, un reroutage ou une "
-                    "réaffectation sans modifier automatiquement le statut."
+                    "réaffectation sans modifier automatiquement le status."
                 )
             elif overall_risk >= WEATHER_MONITOR_THRESHOLD:
                 action = "MONITOR"
@@ -753,13 +753,13 @@ class WeatherRiskEngine:
         unique_requests = {}
 
         for flight in flights:
-            flight_id = str(flight.id)
+            flight_id = str(flight.refFlight)
 
-            dep_utc = ensure_utc(flight.heureDepart)
-            arr_utc = ensure_utc(flight.heureArrivee)
+            dep_utc = ensure_utc(flight.departureTime)
+            arr_utc = ensure_utc(flight.arrivalTime)
             current_status = getattr(
                 flight,
-                "statut",
+                "status",
                 None,
             )
 
@@ -804,13 +804,13 @@ class WeatherRiskEngine:
                 ):
                     flight_specs[flight_id] = {
                         "skip": self.build_long_range_assessment(
-                            dep_airport=flight.aeroportDepart,
-                            arr_airport=flight.aeroportArrivee,
+                            dep_airport=flight.departureAirportCode,
+                            arr_airport=flight.arrivalAirportCode,
                             dep_time=dep_utc,
                             arr_time=arr_utc,
                             stopovers=getattr(
                                 flight,
-                                "aeroportEscale",
+                                "stopoverAirportCodes",
                                 None,
                             ),
                         )
@@ -818,19 +818,19 @@ class WeatherRiskEngine:
                     continue
 
             specs = self._build_request_specs(
-                flight.aeroportDepart,
-                flight.aeroportArrivee,
+                flight.departureAirportCode,
+                flight.arrivalAirportCode,
                 dep_utc,
                 arr_utc,
                 getattr(
                     flight,
-                    "aeroportEscale",
+                    "stopoverAirportCodes",
                     None,
                 ),
             )
 
             flight_specs[flight_id] = {
-                "dep_airport": flight.aeroportDepart,
+                "dep_airport": flight.departureAirportCode,
                 "dep_time": dep_utc,
                 "specs": specs,
             }
@@ -943,7 +943,7 @@ class WeatherRiskEngine:
         """
         Évaluation unitaire utilisée par POST / PUT.
 
-        Pour un seul vol, les 2 à 4 appels météo sont exécutés séquentiellement :
+        Pour un seul flight, les 2 à 4 appels météo sont exécutés séquentiellement :
         cela évite de créer un nouveau pool de threads pour chaque requête Flask.
         Le cache 180 s maintient généralement ces lectures très rapides.
         """
@@ -1009,7 +1009,7 @@ def determine_operational_status(
     weather_assessment: dict,
 ) -> str:
     """
-    Détermine un statut opérationnel conservateur.
+    Détermine un status opérationnel conservateur.
 
     Changements automatiques autorisés :
     - arrivée passée -> Effectué
@@ -1057,14 +1057,14 @@ def determine_operational_status(
 
 
 def build_flight_weather_assessment(flight, force_refresh=False) -> dict:
-    dep_utc = ensure_utc(flight.heureDepart)
-    arr_utc = ensure_utc(flight.heureArrivee)
+    dep_utc = ensure_utc(flight.departureTime)
+    arr_utc = ensure_utc(flight.arrivalTime)
 
-    stopovers = getattr(flight, "aeroportEscale", None)
+    stopovers = getattr(flight, "stopoverAirportCodes", None)
 
     return weather_engine.assess_flight(
-        dep_airport=flight.aeroportDepart,
-        arr_airport=flight.aeroportArrivee,
+        dep_airport=flight.departureAirportCode,
+        arr_airport=flight.arrivalAirportCode,
         dep_time=dep_utc,
         arr_time=arr_utc,
         stopovers=stopovers,

@@ -134,7 +134,7 @@ function UserAvatar({ user, size = 'md' }: { user: PublicUser; size?: 'md' | 'lg
         size === 'lg' ? 'h-11 w-11 text-sm' : 'h-9 w-9 text-xs'
       }`}
     >
-      {getInitials(user.nom)}
+      {getInitials(user.name)}
     </div>
   );
 }
@@ -273,7 +273,7 @@ export function UsersManagementPage() {
       if (activeTab === 'requests' && user.accountStatus !== 'PENDING') return false;
       if (statusFilter !== 'ALL' && user.accountStatus !== statusFilter) return false;
       if (!query) return true;
-      return `${user.nom} ${user.email} ${user.role} ${ROLE_LABELS[user.role] ?? ''}`
+      return `${user.name} ${user.email} ${user.role} ${ROLE_LABELS[user.role] ?? ''}`
         .toLowerCase()
         .includes(query);
     });
@@ -325,7 +325,7 @@ export function UsersManagementPage() {
     successMessage: string,
     errorMessage: string,
   ): Promise<boolean> => {
-    setActionLoadingId(user.id);
+    setActionLoadingId(user.refUser);
     setError('');
     setSuccess('');
     try {
@@ -344,16 +344,16 @@ export function UsersManagementPage() {
   const handleApprove = (user: PublicUser) =>
     runAction(
       user,
-      () => approveUserAccount(user.id),
-      `Le compte de ${user.nom} a été validé.`,
+      () => approveUserAccount(user.refUser),
+      `Le compte de ${user.name} a été validé.`,
       'Impossible de valider le compte.',
     );
 
   const handleSetPending = (user: PublicUser) =>
     runAction(
       user,
-      () => setUserAccountPending(user.id),
-      `Le compte de ${user.nom} a été remis en attente.`,
+      () => setUserAccountPending(user.refUser),
+      `Le compte de ${user.name} a été remis en attente.`,
       'Impossible de remettre le compte en attente.',
     );
 
@@ -373,8 +373,8 @@ export function UsersManagementPage() {
     if (!user) return;
     const ok = await runAction(
       user,
-      () => rejectUserAccount(user.id, rejectModal.reason.trim()),
-      `Le compte de ${user.nom} a été refusé.`,
+      () => rejectUserAccount(user.refUser, rejectModal.reason.trim()),
+      `Le compte de ${user.name} a été refusé.`,
       'Impossible de refuser le compte.',
     );
     if (ok) setRejectModal({ open: false, user: null, reason: '' });
@@ -392,8 +392,8 @@ export function UsersManagementPage() {
     if (!user) return;
     const ok = await runAction(
       user,
-      () => deleteUserAccount(user.id),
-      `Le compte de ${user.nom} a été supprimé.`,
+      () => deleteUserAccount(user.refUser),
+      `Le compte de ${user.name} a été supprimé.`,
       'Impossible de supprimer le compte.',
     );
     if (ok) setDeleteTarget(null);
@@ -420,7 +420,7 @@ export function UsersManagementPage() {
 
   const actionProps = (user: PublicUser) => ({
     user,
-    isCurrentAction: actionLoadingId === user.id,
+    isCurrentAction: actionLoadingId === user.refUser,
     isBusy: actionLoadingId !== null,
     onApprove: () => void handleApprove(user),
     onReject: () => openRejectModal(user),
@@ -527,8 +527,8 @@ export function UsersManagementPage() {
               type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Rechercher un nom, e-mail ou rôle…"
-              aria-label="Rechercher un utilisateur"
+              placeholder="Rechercher un name, e-mail ou rôle…"
+              aria-label="Rechercher un user"
               className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-3 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
             />
           </div>
@@ -539,7 +539,7 @@ export function UsersManagementPage() {
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value as FilterStatus)}
-                aria-label="Filtrer par statut"
+                aria-label="Filtrer par status"
                 className="h-10 w-full cursor-pointer appearance-none rounded-xl border border-slate-200 bg-white pl-10 pr-9 text-sm font-medium text-slate-700 outline-none transition hover:border-slate-300 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 sm:w-auto"
               >
                 <option value="ALL">Tous les statuts</option>
@@ -583,7 +583,7 @@ export function UsersManagementPage() {
             {/* MOBILE : CARTES */}
             <div className="space-y-3 bg-slate-50/60 p-3 md:hidden">
               {paginatedUsers.map((user) => (
-                <UserMobileCard key={user.id} {...actionProps(user)} />
+                <UserMobileCard key={user.refUser} {...actionProps(user)} />
               ))}
             </div>
 
@@ -605,16 +605,16 @@ export function UsersManagementPage() {
                 <tbody className="divide-y divide-slate-100">
                   {paginatedUsers.map((user) => (
                     <tr
-                      key={user.id}
+                      key={user.refUser}
                       className={`group transition-colors hover:bg-slate-50/70 ${
-                        actionLoadingId === user.id ? 'opacity-60' : ''
+                        actionLoadingId === user.refUser ? 'opacity-60' : ''
                       }`}
                     >
                       <td className="py-3 pl-5 pr-4">
                         <div className="flex items-center gap-3">
                           <UserAvatar user={user} />
                           <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold text-slate-900">{user.nom}</p>
+                            <p className="truncate text-sm font-semibold text-slate-900">{user.name}</p>
                             <p className="truncate text-xs text-slate-500">{user.email}</p>
                           </div>
                         </div>
@@ -626,7 +626,7 @@ export function UsersManagementPage() {
                         <StatusBadge status={user.accountStatus} />
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 text-[13px] text-slate-600">
-                        {formatDate(user.creeA ?? user.createdAt)}
+                        {formatDate(user.createdAt ?? user.createdAt)}
                       </td>
                       <td className="px-4 py-3">
                         <DecisionCell user={user} />
@@ -737,7 +737,7 @@ export function UsersManagementPage() {
             <div className="mt-5 flex items-center gap-3 rounded-2xl border border-slate-200/80 bg-slate-50/70 p-3">
               <UserAvatar user={rejectModal.user} />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold text-slate-900">{rejectModal.user.nom}</p>
+                <p className="truncate text-sm font-semibold text-slate-900">{rejectModal.user.name}</p>
                 <p className="truncate text-xs text-slate-500">{rejectModal.user.email}</p>
               </div>
               <RoleBadge role={rejectModal.user.role} />
@@ -800,7 +800,7 @@ export function UsersManagementPage() {
               Supprimer ce compte ?
             </h2>
             <p className="mt-1.5 text-sm leading-6 text-slate-500">
-              Le compte de <span className="font-semibold text-slate-700">{deleteTarget.nom}</span> sera
+              Le compte de <span className="font-semibold text-slate-700">{deleteTarget.name}</span> sera
               supprimé définitivement. Cette action est irréversible.
             </p>
           </div>
@@ -955,7 +955,7 @@ function UserActions({
       type="button"
       disabled={isBusy}
       onClick={onDelete}
-      aria-label={`Supprimer le compte de ${user.nom}`}
+      aria-label={`Supprimer le compte de ${user.name}`}
       title="Supprimer le compte"
       className={`${base} w-9 shrink-0 px-0 border border-rose-200 bg-white text-rose-600 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-700 focus-visible:ring-rose-500/30`}
     >
@@ -1019,7 +1019,7 @@ function UserMobileCard(props: UserActionsProps) {
         <div className="flex min-w-0 items-center gap-3">
           <UserAvatar user={user} size="lg" />
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-slate-900">{user.nom}</p>
+            <p className="truncate text-sm font-semibold text-slate-900">{user.name}</p>
             <p className="truncate text-xs text-slate-500">{user.email}</p>
           </div>
         </div>
@@ -1036,7 +1036,7 @@ function UserMobileCard(props: UserActionsProps) {
         <div>
           <dt className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Création</dt>
           <dd className="mt-1.5 text-[13px] font-medium text-slate-700">
-            {formatDate(user.creeA ?? user.createdAt)}
+            {formatDate(user.createdAt ?? user.createdAt)}
           </dd>
         </div>
         {user.accountStatus !== 'PENDING' && (
@@ -1185,7 +1185,7 @@ function EmptyState({
     ? 'Aucun résultat'
     : isRequests
       ? 'Aucune demande en attente'
-      : 'Aucun utilisateur';
+      : 'Aucun user';
   const text = hasFilters
     ? 'Aucun compte ne correspond à votre recherche ou au filtre choisi.'
     : isRequests

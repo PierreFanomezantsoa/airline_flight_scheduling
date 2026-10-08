@@ -15,41 +15,41 @@ export class UpdateFlightDto {
   @IsOptional()
   @IsString()
   @Length(2, 20)
-  numeroVol?: string;
+  flightNumber?: string;
 
   @IsOptional()
   @IsString()
   @Matches(/^[A-Za-z]{3}$/)
-  aeroportDepart?: string;
+  departureAirportCode?: string;
 
   @IsOptional()
   @IsString()
   @Length(3, 100)
-  aeroportEscale?: string | null;
+  stopoverAirportCodes?: string | null;
 
   @IsOptional()
   @IsInt()
   @Min(0)
-  dureeEscale?: number | null;
+  stopoverDurationMinutes?: number | null;
 
   @IsOptional()
   @IsString()
   @Matches(/^[A-Za-z]{3}$/)
-  aeroportArrivee?: string;
+  arrivalAirportCode?: string;
 
   @IsOptional()
   @IsDateString()
-  heureDepart?: string;
+  departureTime?: string;
 
   @IsOptional()
   @IsDateString()
-  heureArrivee?: string;
+  arrivalTime?: string;
 
   @IsOptional()
   @IsEnum(FlightStatus)
-  statut?: FlightStatus;
+  status?: FlightStatus;
 
   @IsOptional()
   @IsUUID()
-  avionId?: string | null;
+  refAircraft?: string | null;
 }

@@ -2,8 +2,8 @@ import { IsOptional, IsString, Length, Matches } from 'class-validator';
 
 export class CreateAirportDto {
   @IsString()
-  @Matches(/^[A-Za-z]{3}$/, { message: 'iata doit contenir exactement 3 lettres.' })
-  iata!: string;
+  @Matches(/^[A-Za-z]{3}$/, { message: 'refAirport doit contenir exactement 3 lettres.' })
+  refAirport!: string;
 
   @IsString()
   @Length(2, 120)

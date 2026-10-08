@@ -7,7 +7,7 @@ analytics_bp = Blueprint('analytics', __name__)
 @analytics_bp.route('/flights/analytics', methods=['GET'])
 def get_analytics():
     try:
-        query = db.session.query(Flight.statut).all()
+        query = db.session.query(Flight.status).all()
         if not query:
             return jsonify({
                 "metrics": {
@@ -16,14 +16,14 @@ def get_analytics():
                 }
             }), 200
 
-        df = pd.DataFrame(query, columns=['statut'])
+        df = pd.DataFrame(query, columns=['status'])
         total = len(df)
 
-        scheduled = len(df[df['statut'] == 'Scheduled'])
-        delayed = len(df[df['statut'] == 'Delayed'])
-        in_flight = len(df[df['statut'] == 'In-Flight'])
-        cancelled = len(df[df['statut'] == 'Cancelled'])
-        completed = len(df[df['statut'] == 'Effectué'])
+        scheduled = len(df[df['status'] == 'Scheduled'])
+        delayed = len(df[df['status'] == 'Delayed'])
+        in_flight = len(df[df['status'] == 'In-Flight'])
+        cancelled = len(df[df['status'] == 'Cancelled'])
+        completed = len(df[df['status'] == 'Effectué'])
 
         otp_rate = round((scheduled / total) * 100) if total > 0 else 100
 

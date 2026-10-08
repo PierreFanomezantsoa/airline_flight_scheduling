@@ -16,37 +16,37 @@ export class CreateFlightDto {
   @IsString()
   @IsNotEmpty()
   @Length(2, 20)
-  numeroVol!: string;
+  flightNumber!: string;
 
   @IsString()
   @Matches(/^[A-Za-z]{3}$/)
-  aeroportDepart!: string;
+  departureAirportCode!: string;
 
   @IsOptional()
   @IsString()
   @Length(3, 100)
-  aeroportEscale?: string;
+  stopoverAirportCodes?: string;
 
   @IsOptional()
   @IsInt()
   @Min(0)
-  dureeEscale?: number;
+  stopoverDurationMinutes?: number;
 
   @IsString()
   @Matches(/^[A-Za-z]{3}$/)
-  aeroportArrivee!: string;
+  arrivalAirportCode!: string;
 
   @IsDateString()
-  heureDepart!: string;
+  departureTime!: string;
 
   @IsDateString()
-  heureArrivee!: string;
+  arrivalTime!: string;
 
   @IsOptional()
   @IsEnum(FlightStatus)
-  statut?: FlightStatus;
+  status?: FlightStatus;
 
   @IsOptional()
   @IsUUID()
-  avionId?: string;
+  refAircraft?: string;
 }

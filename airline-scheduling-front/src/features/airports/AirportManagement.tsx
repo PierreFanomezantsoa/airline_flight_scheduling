@@ -22,7 +22,7 @@ import {
 import { ApiError, authFetch } from '../Api/apiService';
 
 interface Airport {
-  iata: string;
+  refAirport: string;
   name: string;
   timezone: string;
   city: string | null;
@@ -31,7 +31,7 @@ interface Airport {
 }
 
 interface AirportForm {
-  iata: string;
+  refAirport: string;
   name: string;
   timezone: string;
   city: string;
@@ -48,7 +48,7 @@ interface ConfirmDialogState {
 }
 
 const EMPTY_FORM: AirportForm = {
-  iata: '',
+  refAirport: '',
   name: '',
   timezone: '',
   city: '',
@@ -127,7 +127,7 @@ export function AirportManagement() {
     return airports.filter((airport) => {
       const matchesSearch =
         !query ||
-        [airport.iata, airport.name, airport.city, airport.country, airport.timezone]
+        [airport.refAirport, airport.name, airport.city, airport.country, airport.timezone]
           .filter(Boolean)
           .some((value) => value!.toLocaleLowerCase('fr').includes(query));
 
@@ -195,7 +195,7 @@ export function AirportManagement() {
   const openEditForm = (airport: Airport) => {
     setEditingAirport(airport);
     setForm({
-      iata: airport.iata,
+      refAirport: airport.refAirport,
       name: airport.name,
       timezone: airport.timezone,
       city: airport.city ?? '',
@@ -219,14 +219,14 @@ export function AirportManagement() {
 
     try {
       if (editingAirport) {
-        await requestAirport<Airport>(`/airports/${editingAirport.iata}`, {
+        await requestAirport<Airport>(`/airports/${editingAirport.refAirport}`, {
           method: 'PATCH',
           body: JSON.stringify(payload),
         });
       } else {
         await requestAirport<Airport>('/airports', {
           method: 'POST',
-          body: JSON.stringify({ iata: form.iata.trim().toUpperCase(), ...payload }),
+          body: JSON.stringify({ refAirport: form.refAirport.trim().toUpperCase(), ...payload }),
         });
       }
 
@@ -244,10 +244,10 @@ export function AirportManagement() {
   };
 
   const reactivateAirport = async (airport: Airport) => {
-    setActionIata(airport.iata);
+    setActionIata(airport.refAirport);
     setNotice(null);
     try {
-      await requestAirport<Airport>(`/airports/${airport.iata}`, {
+      await requestAirport<Airport>(`/airports/${airport.refAirport}`, {
         method: 'PATCH',
         body: JSON.stringify({ active: true }),
       });
@@ -278,11 +278,11 @@ export function AirportManagement() {
     if (!confirmDialog.airport || !confirmDialog.acknowledged) return;
 
     setConfirmDialog((prev) => ({ ...prev, isLoading: true }));
-    setActionIata(confirmDialog.airport.iata);
+    setActionIata(confirmDialog.airport.refAirport);
     setNotice(null);
 
     try {
-      await requestAirport<Airport>(`/airports/${confirmDialog.airport.iata}`, {
+      await requestAirport<Airport>(`/airports/${confirmDialog.airport.refAirport}`, {
         method: 'DELETE',
       });
       setNotice({ kind: 'success', message: 'Aéroport désactivé.' });
@@ -425,7 +425,7 @@ export function AirportManagement() {
                       event.target.value as 'all' | 'active' | 'inactive',
                     )
                   }
-                  aria-label="Filtrer par statut"
+                  aria-label="Filtrer par status"
                   className="h-11 w-full appearance-none rounded-xl border border-slate-200 bg-white pl-4 pr-10 text-sm font-semibold text-slate-700 outline-none transition hover:border-slate-300 focus:border-emerald-600 focus:ring-4 focus:ring-emerald-600/10 sm:w-auto"
                 >
                   <option value="all">Tous les statuts</option>
@@ -490,10 +490,10 @@ export function AirportManagement() {
             ) : (
               paginatedAirports.map((airport) => (
                 <article
-                  key={airport.iata}
+                  key={airport.refAirport}
                   className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md"
                 >
-                  {/* Bande de couleur statut */}
+                  {/* Bande de couleur status */}
                   <span
                     className={`block h-1 ${
                       airport.active
@@ -503,7 +503,7 @@ export function AirportManagement() {
                   />
 
                   <div className="p-3">
-                    {/* En-tête : code + statut */}
+                    {/* En-tête : code + status */}
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex min-w-0 items-center gap-2.5">
                         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
@@ -511,7 +511,7 @@ export function AirportManagement() {
                         </div>
                         <div className="min-w-0">
                           <p className="font-mono text-base font-bold leading-none text-slate-900">
-                            {airport.iata}
+                            {airport.refAirport}
                           </p>
                           <p className="mt-1 truncate text-xs font-medium text-slate-500">
                             {airport.city && airport.country
@@ -554,12 +554,12 @@ export function AirportManagement() {
                       <button
                         type="button"
                         onClick={() => void reactivateAirport(airport)}
-                        disabled={actionIata === airport.iata || airport.active}
-                        title={`Réactiver ${airport.iata}`}
-                        aria-label={`Réactiver ${airport.iata}`}
+                        disabled={actionIata === airport.refAirport || airport.active}
+                        title={`Réactiver ${airport.refAirport}`}
+                        aria-label={`Réactiver ${airport.refAirport}`}
                         className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-600 transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
                       >
-                        {actionIata === airport.iata && !airport.active ? (
+                        {actionIata === airport.refAirport && !airport.active ? (
                           <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
                         ) : (
                           <RotateCcw className="h-3.5 w-3.5" />
@@ -570,12 +570,12 @@ export function AirportManagement() {
                       <button
                         type="button"
                         onClick={() => askDeleteAirport(airport)}
-                        disabled={actionIata === airport.iata || !airport.active}
-                        title={`Désactiver ${airport.iata}`}
-                        aria-label={`Désactiver ${airport.iata}`}
+                        disabled={actionIata === airport.refAirport || !airport.active}
+                        title={`Désactiver ${airport.refAirport}`}
+                        aria-label={`Désactiver ${airport.refAirport}`}
                         className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-600 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-40"
                       >
-                        {actionIata === airport.iata && airport.active ? (
+                        {actionIata === airport.refAirport && airport.active ? (
                           <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
                         ) : (
                           <Trash2 className="h-3.5 w-3.5" />
@@ -586,8 +586,8 @@ export function AirportManagement() {
                       <button
                         type="button"
                         onClick={() => openEditForm(airport)}
-                        title={`Modifier ${airport.iata}`}
-                        aria-label={`Modifier ${airport.iata}`}
+                        title={`Modifier ${airport.refAirport}`}
+                        aria-label={`Modifier ${airport.refAirport}`}
                         className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
                       >
                         <Pencil className="h-3.5 w-3.5" />
@@ -643,7 +643,7 @@ export function AirportManagement() {
                 ) : (
                   paginatedAirports.map((airport) => (
                     <tr
-                      key={airport.iata}
+                      key={airport.refAirport}
                       className="group transition hover:bg-slate-50/70"
                     >
                       <td className="px-5 py-4">
@@ -652,7 +652,7 @@ export function AirportManagement() {
                             <Plane className="h-4 w-4 rotate-45" />
                           </div>
                           <span className="font-mono text-sm font-bold text-slate-900">
-                            {airport.iata}
+                            {airport.refAirport}
                           </span>
                         </div>
                       </td>
@@ -701,12 +701,12 @@ export function AirportManagement() {
                           <button
                             type="button"
                             onClick={() => void reactivateAirport(airport)}
-                            disabled={actionIata === airport.iata || airport.active}
-                            title={`Réactiver ${airport.iata}`}
-                            aria-label={`Réactiver ${airport.iata}`}
+                            disabled={actionIata === airport.refAirport || airport.active}
+                            title={`Réactiver ${airport.refAirport}`}
+                            aria-label={`Réactiver ${airport.refAirport}`}
                             className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
                           >
-                            {actionIata === airport.iata && !airport.active ? (
+                            {actionIata === airport.refAirport && !airport.active ? (
                               <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
                             ) : (
                               <RotateCcw className="h-3.5 w-3.5" />
@@ -716,12 +716,12 @@ export function AirportManagement() {
                           <button
                             type="button"
                             onClick={() => askDeleteAirport(airport)}
-                            disabled={actionIata === airport.iata || !airport.active}
-                            title={`Désactiver ${airport.iata}`}
-                            aria-label={`Désactiver ${airport.iata}`}
+                            disabled={actionIata === airport.refAirport || !airport.active}
+                            title={`Désactiver ${airport.refAirport}`}
+                            aria-label={`Désactiver ${airport.refAirport}`}
                             className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-40"
                           >
-                            {actionIata === airport.iata && airport.active ? (
+                            {actionIata === airport.refAirport && airport.active ? (
                               <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
                             ) : (
                               <Trash2 className="h-3.5 w-3.5" />
@@ -731,8 +731,8 @@ export function AirportManagement() {
                           <button
                             type="button"
                             onClick={() => openEditForm(airport)}
-                            title={`Modifier ${airport.iata}`}
-                            aria-label={`Modifier ${airport.iata}`}
+                            title={`Modifier ${airport.refAirport}`}
+                            aria-label={`Modifier ${airport.refAirport}`}
                             className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
                           >
                             <Pencil className="h-3.5 w-3.5" />
@@ -878,7 +878,7 @@ export function AirportManagement() {
                       className="text-base font-bold text-slate-900"
                     >
                       {editingAirport
-                        ? `Modifier ${editingAirport.iata}`
+                        ? `Modifier ${editingAirport.refAirport}`
                         : 'Nouvel aéroport'}
                     </h2>
                     <p className="mt-0.5 text-[11px] text-slate-500">
@@ -905,11 +905,11 @@ export function AirportManagement() {
                       minLength={3}
                       maxLength={3}
                       pattern="[A-Za-z]{3}"
-                      value={form.iata}
+                      value={form.refAirport}
                       onChange={(event) =>
                         setForm((current) => ({
                           ...current,
-                          iata: event.target.value.toUpperCase(),
+                          refAirport: event.target.value.toUpperCase(),
                         }))
                       }
                       placeholder="CDG"
@@ -1031,7 +1031,7 @@ export function AirportManagement() {
                   id="confirm-dialog-title"
                   className="text-lg font-bold text-slate-900"
                 >
-                  Supprimer l'aéroport {confirmDialog.airport.iata}
+                  Supprimer l'aéroport {confirmDialog.airport.refAirport}
                 </h2>
 
                 <p className="mt-1.5 text-sm leading-6 text-slate-500">
@@ -1044,7 +1044,7 @@ export function AirportManagement() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="font-mono text-sm font-bold text-slate-900">
-                      {confirmDialog.airport.iata}
+                      {confirmDialog.airport.refAirport}
                     </div>
                     <p className="mt-0.5 truncate text-xs font-medium text-slate-600">
                       {confirmDialog.airport.name}

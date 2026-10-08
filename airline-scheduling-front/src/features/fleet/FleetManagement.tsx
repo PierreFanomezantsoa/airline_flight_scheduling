@@ -75,7 +75,7 @@ interface ToastState {
 interface ModalState {
   isOpen: boolean;
   type: 'delete' | 'reset' | null;
-  aircraftId: string | null;
+  refAircraft: string | null;
   aircraftRegistration: string | null;
 }
 
@@ -135,7 +135,7 @@ export const FleetManagement: React.FC = () => {
   const [modal, setModal] = useState<ModalState>({
     isOpen: false,
     type: null,
-    aircraftId: null,
+    refAircraft: null,
     aircraftRegistration: null,
   });
 
@@ -194,7 +194,7 @@ export const FleetManagement: React.FC = () => {
     e.preventDefault();
 
     if (!form.registration?.trim()) {
-      showToast("L'immatriculation est requise", 'error');
+      showToast("L'registration est requise", 'error');
       return;
     }
 
@@ -225,7 +225,7 @@ export const FleetManagement: React.FC = () => {
     setModal({
       isOpen: true,
       type,
-      aircraftId: aircraft.id,
+      refAircraft: aircraft.refAircraft,
       aircraftRegistration: aircraft.registration,
     });
   };
@@ -234,20 +234,20 @@ export const FleetManagement: React.FC = () => {
     setModal({
       isOpen: false,
       type: null,
-      aircraftId: null,
+      refAircraft: null,
       aircraftRegistration: null,
     });
   }, []);
 
   const handleConfirmAction = async () => {
-    if (!modal.aircraftId || !modal.type) return;
+    if (!modal.refAircraft || !modal.type) return;
 
     try {
       if (modal.type === 'delete') {
-        await fleetService.deleteAircraft(modal.aircraftId);
+        await fleetService.deleteAircraft(modal.refAircraft);
         showToast('Aéronef supprimé avec succès', 'success');
       } else if (modal.type === 'reset') {
-        await fleetService.resetMaintenanceCounter(modal.aircraftId);
+        await fleetService.resetMaintenanceCounter(modal.refAircraft);
         showToast('Compteur de maintenance réinitialisé avec succès', 'success');
       }
       await fetchFleetData();
@@ -541,7 +541,7 @@ export const FleetManagement: React.FC = () => {
 
                 return (
                   <div
-                    key={aircraft.id}
+                    key={aircraft.refAircraft}
                     className={`rounded-xl border p-4 transition duration-150 hover:border-slate-300 ${
                       isMaintenanceCritical
                         ? 'border-amber-200 bg-amber-50/10'

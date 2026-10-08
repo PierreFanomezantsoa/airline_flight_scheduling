@@ -8,8 +8,8 @@ import {
 
 @Entity('network_configuration')
 export class NetworkConfiguration {
-  @PrimaryColumn({ type: 'varchar', length: 40 })
-  id!: string;
+  @PrimaryColumn({ name: 'ref_network_configuration', type: 'varchar', length: 40 })
+  refNetworkConfiguration!: string;
 
   @Column({ type: 'integer', default: 45 })
   mediumHaulTurnaroundMinutes!: number;

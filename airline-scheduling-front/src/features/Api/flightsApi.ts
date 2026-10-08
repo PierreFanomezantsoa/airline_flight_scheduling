@@ -1,20 +1,20 @@
 // src/types/flight.ts
 export interface Aircraft {
-  id: string;
-  immatriculation: string;
-  modele?: string;
+  refAircraft: string;
+  registration: string;
+  model?: string;
 }
 
 export interface Flight {
-  id: string;
-  numeroVol: string;
-  aeroportDepart: string;
-  aeroportArrivee: string;
-  heureDepart: string;
-  heureArrivee: string;
-  statut: 'Scheduled' | 'Delayed' | 'Cancelled' | 'Completed';
-  avion?: Aircraft;
-  avionId?: string;
+  refFlight: string;
+  flightNumber: string;
+  departureAirportCode: string;
+  arrivalAirportCode: string;
+  departureTime: string;
+  arrivalTime: string;
+  status: 'Scheduled' | 'Delayed' | 'Cancelled' | 'Completed';
+  aircraft?: Aircraft;
+  refAircraft?: string;
 }
 
 export interface OptimizationResult {
@@ -106,7 +106,7 @@ export const flightsApi = {
   },
 
   /**
-   * Récupère un vol par son ID.
+   * Récupère un flight par son ID.
    * GET /flights/:id
    */
   getOne: async (id: string): Promise<Flight> => {
@@ -116,7 +116,7 @@ export const flightsApi = {
   },
 
   /**
-   * Crée un nouveau vol.
+   * Crée un nouveau flight.
    * POST /flights
    */
   create: async (flight: Partial<Flight>): Promise<Flight> => {
@@ -131,7 +131,7 @@ export const flightsApi = {
   },
 
   /**
-   * Met à jour un vol existant.
+   * Met à jour un flight existant.
    * PATCH /flights/:id
    */
   update: async (id: string, flight: Partial<Flight>): Promise<Flight> => {
@@ -146,7 +146,7 @@ export const flightsApi = {
   },
 
   /**
-   * Supprime un vol.
+   * Supprime un flight.
    * DELETE /flights/:id
    */
   delete: async (id: string): Promise<void> => {

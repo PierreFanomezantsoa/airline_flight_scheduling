@@ -76,7 +76,7 @@ export class RolesGuard implements CanActivate {
 
     if (!user.role) {
       throw new ForbiddenException(
-        "Le rôle de l'utilisateur est introuvable dans la session.",
+        "Le rôle de l'user est introuvable dans la session.",
       );
     }
 

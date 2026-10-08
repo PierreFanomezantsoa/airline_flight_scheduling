@@ -52,8 +52,8 @@ const FOCUS_RING =
   'outline-none transition focus:ring-4 focus:ring-emerald-500/10';
 
 /**
- * Bande d'accent colorée en haut de la modale selon le statut.
- * Le fallback `slate-300` évite `undefined` si un nouveau statut apparaît.
+ * Bande d'accent colorée en haut de la modale selon le status.
+ * Le fallback `slate-300` évite `undefined` si un nouveau status apparaît.
  */
 const STATUS_BAR_CLASSES: Record<FlightStatus, string> = {
   Scheduled: 'bg-emerald-500',
@@ -458,7 +458,7 @@ export const FlightDetailsModal: FC<FlightDetailsModalProps> = ({
             <section className={`${SURFACE_INNER} mt-3 p-3.5`}>
               <SectionTitle
                 icon={<Sparkles className="h-4 w-4" />}
-                title="Tronçons du vol"
+                title="Tronçons du flight"
                 tone="emerald"
                 rightSlot={
                   <span className="rounded-lg border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-600">
@@ -475,7 +475,7 @@ export const FlightDetailsModal: FC<FlightDetailsModalProps> = ({
 
                 {legs.map((leg, index) => (
                   <li
-                    key={`${leg.aeroportDepart}-${leg.aeroportArrivee}-${index}`}
+                    key={`${leg.departureAirportCode}-${leg.arrivalAirportCode}-${index}`}
                     className="relative"
                   >
                     <span
@@ -488,7 +488,7 @@ export const FlightDetailsModal: FC<FlightDetailsModalProps> = ({
                     <div className={`${SURFACE_INNER} px-2.5 py-2`}>
                       <div className="flex items-center justify-between gap-2">
                         <span className="rounded border border-emerald-200 bg-white px-1.5 py-0.5 font-mono text-[10px] font-bold text-emerald-700">
-                          {leg.aeroportDepart}
+                          {leg.departureAirportCode}
                         </span>
 
                         <div className="flex flex-1 items-center gap-1 px-2">
@@ -498,21 +498,21 @@ export const FlightDetailsModal: FC<FlightDetailsModalProps> = ({
                         </div>
 
                         <span className="rounded border border-sky-200 bg-white px-1.5 py-0.5 font-mono text-[10px] font-bold text-sky-700">
-                          {leg.aeroportArrivee}
+                          {leg.arrivalAirportCode}
                         </span>
                       </div>
 
                       <div className="mt-1.5 flex items-center justify-between border-t border-slate-200/70 pt-1.5 text-[10px]">
                         <span className="inline-flex items-center gap-1 font-mono text-slate-500">
                           <Clock className="h-2.5 w-2.5" />
-                          {formatDateTime(leg.heureDepart)}
+                          {formatDateTime(leg.departureTime)}
                         </span>
 
                         <ArrowRight className="h-2.5 w-2.5 text-slate-300" />
 
                         <span className="inline-flex items-center gap-1 font-mono text-slate-500">
                           <Clock className="h-2.5 w-2.5" />
-                          {formatDateTime(leg.heureArrivee)}
+                          {formatDateTime(leg.arrivalTime)}
                         </span>
                       </div>
                     </div>

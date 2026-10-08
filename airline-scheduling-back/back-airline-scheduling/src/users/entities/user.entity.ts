@@ -16,37 +16,37 @@ import { UserRole } from '../enums/user-role.enum';
 @Index(['accountStatus'])
 @Index(['role'])
 export class User {
-  @PrimaryGeneratedColumn('uuid')
-  id!: string;
+  @PrimaryGeneratedColumn('uuid', { name: 'ref_user' })
+  refUser!: string;
 
   @Column({ type: 'varchar', length: 180, unique: true })
   email!: string;
 
   @Column({ type: 'varchar', length: 255, select: false })
-  motDePasse!: string;
+  passwordHash!: string;
 
   @Column({ type: 'varchar', length: 150 })
-  nom!: string;
+  name!: string;
 
   @Column({ type: 'enum', enum: UserRole, default: UserRole.CREW_MEMBER })
   role!: UserRole;
 
   @Column({ type: 'varchar', length: 50, default: 'Intermediate' })
-  niveauTechnique!: string;
+  technicalLevel!: string;
 
   @Column({ type: 'varchar', length: 50, default: 'Intermediate' })
-  niveauMetier!: string;
+  professionalLevel!: string;
 
   /**
-   * Suspension administrative indépendante de la validation initiale.
-   * Un compte APPROVED mais actif=false reste bloqué.
+   * Administrative suspension is independent of initial approval.
+   * An APPROVED account with isActive=false remains blocked.
    */
   @Column({ type: 'boolean', default: true })
-  actif!: boolean;
+  isActive!: boolean;
 
   /**
-   * Cycle de validation : PENDING -> APPROVED ou REJECTED.
-   * Les inscriptions publiques sont toujours créées en PENDING.
+   * Approval lifecycle: PENDING -> APPROVED or REJECTED.
+   * Public sign-ups always start in PENDING.
    */
   @Column({
     type: 'enum',
@@ -58,24 +58,24 @@ export class User {
   @Column({ type: 'timestamptz', nullable: true })
   approvedAt!: Date | null;
 
-  @Column({ type: 'uuid', nullable: true })
-  approvedBy!: string | null;
+  @Column({ name: 'ref_user_approver', type: 'uuid', nullable: true })
+  refUserApprover!: string | null;
 
   @Column({ type: 'timestamptz', nullable: true })
   rejectedAt!: Date | null;
 
-  @Column({ type: 'uuid', nullable: true })
-  rejectedBy!: string | null;
+  @Column({ name: 'ref_user_rejector', type: 'uuid', nullable: true })
+  refUserRejector!: string | null;
 
   @Column({ type: 'text', nullable: true })
   rejectionReason!: string | null;
 
   @CreateDateColumn({ type: 'timestamptz' })
-  creeA!: Date;
+  createdAt!: Date;
 
   @UpdateDateColumn({ type: 'timestamptz' })
-  misAJourA!: Date;
+  updatedAt!: Date;
 
-  @OneToMany(() => CrewAssignment, (assignment) => assignment.utilisateur)
-  affectationsEquipage!: CrewAssignment[];
+  @OneToMany(() => CrewAssignment, (assignment) => assignment.user)
+  crewAssignments!: CrewAssignment[];
 }

@@ -15,35 +15,35 @@ import { AircraftStatus } from '../../common/enums/airline.enums';
 export class CreateAircraftDto {
   @IsString()
   @Length(2, 20)
-  immatriculation!: string;
+  registration!: string;
 
   @IsString()
   @Length(1, 100)
-  modele!: string;
+  model!: string;
 
   @IsInt()
   @Min(1)
-  capacite!: number;
+  capacity!: number;
 
   @IsNumber()
   @IsPositive()
-  limiteHeuresMaintenance!: number;
+  maintenanceHoursLimit!: number;
 
   @IsOptional()
   @IsNumber()
   @Min(0)
-  heuresDeVolTotales?: number;
+  totalFlightHours?: number;
 
   @IsOptional()
   @IsEnum(AircraftStatus)
-  statut?: AircraftStatus;
+  status?: AircraftStatus;
 
   @IsOptional()
   @IsString()
   @Matches(/^[A-Za-z]{3}$/)
-  baseAttache?: string;
+  homeBase?: string;
 
   @IsOptional()
   @IsUUID()
-  typeId?: string;
+  refAircraftType?: string;
 }

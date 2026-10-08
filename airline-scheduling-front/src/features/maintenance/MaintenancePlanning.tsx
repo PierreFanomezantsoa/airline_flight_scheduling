@@ -57,17 +57,17 @@ interface DeleteModalState {
 }
 
 type AircraftLike = Aircraft & {
-  immatriculation?: string;
-  modele?: string;
-  statut?: string;
-  baseAttache?: string | null;
-  heuresDeVolTotales?: number;
-  heuresDepuisDerniereMaintenance?: number;
-  limiteHeuresMaintenance?: number;
-  dateDerniereMaintenance?: string | null;
-  type?: {
-    nomModele?: string;
-    fabricant?: string;
+  registration?: string;
+  model?: string;
+  status?: string;
+  homeBase?: string | null;
+  totalFlightHours?: number;
+  hoursSinceMaintenance?: number;
+  maintenanceHoursLimit?: number;
+  lastMaintenanceAt?: string | null;
+  aircraftType?: {
+    modelName?: string;
+    manufacturer?: string;
   } | null;
 };
 
@@ -99,16 +99,16 @@ const BADGE =
  * ========================================================================== */
 
 const getAircraftRegistration = (aircraft?: AircraftLike | null): string =>
-  aircraft?.registration || aircraft?.immatriculation || 'Appareil inconnu';
+  aircraft?.registration || aircraft?.registration || 'Appareil inconnu';
 
 const getAircraftModel = (aircraft?: AircraftLike | null): string =>
   aircraft?.model ||
-  aircraft?.modele ||
-  aircraft?.type?.nomModele ||
+  aircraft?.model ||
+  aircraft?.aircraftType?.modelName ||
   'Modèle inconnu';
 
 const getAircraftStatus = (aircraft?: AircraftLike | null): string =>
-  (aircraft?.status || aircraft?.statut || '').trim().toLowerCase();
+  (aircraft?.status || aircraft?.status || '').trim().toLowerCase();
 
 const isMaintenanceAircraft = (aircraft: AircraftLike): boolean => {
   const status = getAircraftStatus(aircraft);
@@ -225,8 +225,8 @@ const formatNumber = (value?: number, digits = 1): string =>
   }).format(Number.isFinite(value) ? Number(value) : 0);
 
 const maintenanceRatio = (aircraft: AircraftLike): number => {
-  const used = Number(aircraft.heuresDepuisDerniereMaintenance ?? 0);
-  const limit = Number(aircraft.limiteHeuresMaintenance ?? 0);
+  const used = Number(aircraft.hoursSinceMaintenance ?? 0);
+  const limit = Number(aircraft.maintenanceHoursLimit ?? 0);
   if (!Number.isFinite(limit) || limit <= 0) return 0;
   return Math.min(100, Math.max(0, Math.round((used / limit) * 100)));
 };
@@ -356,7 +356,7 @@ export const MaintenancePlanning: React.FC = () => {
           current &&
           fleet.some(
             (aircraft) =>
-              aircraft.id === current && !isRetiredAircraft(aircraft),
+              aircraft.refAircraft === current && !isRetiredAircraft(aircraft),
           )
         ) {
           return current;
@@ -365,7 +365,7 @@ export const MaintenancePlanning: React.FC = () => {
         const availableAircraft = fleet.find(
           (aircraft) => !isRetiredAircraft(aircraft),
         );
-        return maintenanceAircraft?.id || availableAircraft?.id || '';
+        return maintenanceAircraft?.refAircraft || availableAircraft?.refAircraft || '';
       });
     } catch (error: unknown) {
       showToast(
@@ -460,7 +460,7 @@ export const MaintenancePlanning: React.FC = () => {
     if (!interval || !selectedAircraftId) return null;
     return (
       slots.find((slot) => {
-        if (slot.aircraftId !== selectedAircraftId) return false;
+        if (slot.refAircraft !== selectedAircraftId) return false;
         const existingStart = new Date(slot.startTime);
         const existingEnd = new Date(slot.endTime);
         if (
@@ -488,7 +488,7 @@ export const MaintenancePlanning: React.FC = () => {
             return false;
           return new Date(slot.endTime).getTime() >= now;
         })
-        .map((slot) => slot.aircraftId),
+        .map((slot) => slot.refAircraft),
     );
   }, [slots]);
 
@@ -574,7 +574,7 @@ export const MaintenancePlanning: React.FC = () => {
    * --------------------------------------------------------------------- */
 
   const selectAircraftForPlanning = (aircraft: AircraftLike) => {
-    setSelectedAircraftId(aircraft.id);
+    setSelectedAircraftId(aircraft.refAircraft);
     if (!startDate) {
       const today = new Date();
       setStartDate(
@@ -641,10 +641,10 @@ export const MaintenancePlanning: React.FC = () => {
         if (availability.flightConflict) {
           const conflict = availability.flightConflict;
           showToast(
-            `Impossible de planifier : le vol ${conflict.numeroVol} occupe déjà cet avion du ${new Date(
-              conflict.heureDepart,
+            `Impossible de planifier : le flight ${conflict.flightNumber} occupe déjà cet aircraft du ${new Date(
+              conflict.departureTime,
             ).toLocaleString('fr-FR')} au ${new Date(
-              conflict.heureArrivee,
+              conflict.arrivalTime,
             ).toLocaleString('fr-FR')}.`,
             'error',
           );
@@ -658,7 +658,7 @@ export const MaintenancePlanning: React.FC = () => {
       }
 
       await maintenanceService.create({
-        aircraftId: selectedAircraftId,
+        refAircraft: selectedAircraftId,
         maintenanceType,
         startTime: interval.start.toISOString(),
         endTime: interval.end.toISOString(),
@@ -738,7 +738,7 @@ export const MaintenancePlanning: React.FC = () => {
     setDeleteConfirmed(false);
     setDeleteModal({
       isOpen: true,
-      slotId: slot.id,
+      slotId: slot.refMaintenanceSlot,
       aircraftRegistration: getAircraftRegistration(targetAircraft),
       daysCount: calculateDurationInDays(slot.startTime, slot.endTime),
     });
@@ -925,7 +925,7 @@ export const MaintenancePlanning: React.FC = () => {
                 </span>
               </div>
               <p className="mt-1 text-xs text-slate-500">
-                Liste alimentée automatiquement par le statut technique de la
+                Liste alimentée automatiquement par le status technique de la
                 flotte.
               </p>
             </div>
@@ -959,9 +959,9 @@ export const MaintenancePlanning: React.FC = () => {
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {sortedMaintenanceAircrafts.map((aircraft) => (
                   <AircraftRow
-                    key={aircraft.id}
+                    key={aircraft.refAircraft}
                     aircraft={aircraft}
-                    hasSlot={activeSlotAircraftIds.has(aircraft.id)}
+                    hasSlot={activeSlotAircraftIds.has(aircraft.refAircraft)}
                     onPlan={() => selectAircraftForPlanning(aircraft)}
                   />
                 ))}
@@ -975,7 +975,7 @@ export const MaintenancePlanning: React.FC = () => {
           <TabButton
             active={activeTab === 'active'}
             onClick={() => setActiveTab('active')}
-            label="Planning actif"
+            label="Planning isActive"
             count={filteredSlots.length}
           />
           <TabButton
@@ -1041,7 +1041,7 @@ export const MaintenancePlanning: React.FC = () => {
                 ? 'Aucun historique'
                 : activeTab === 'pending'
                   ? 'Aucune décision en attente'
-                  : 'Aucun créneau actif'
+                  : 'Aucun créneau isActive'
             }
             description={
               searchQuery
@@ -1054,7 +1054,7 @@ export const MaintenancePlanning: React.FC = () => {
             <div className="space-y-3 p-3 md:hidden">
               {paginatedSlots.map((slot) => (
                 <SlotMobileCard
-                  key={slot.id}
+                  key={slot.refMaintenanceSlot}
                   slot={slot}
                   onDelete={openDeleteModal}
                   onExtend={handleExtend}
@@ -1088,7 +1088,7 @@ export const MaintenancePlanning: React.FC = () => {
                 <tbody>
                   {paginatedSlots.map((slot) => (
                     <SlotTableRow
-                      key={slot.id}
+                      key={slot.refMaintenanceSlot}
                       slot={slot}
                       onDelete={openDeleteModal}
                       onExtend={handleExtend}
@@ -1206,7 +1206,7 @@ export const MaintenancePlanning: React.FC = () => {
                   {maintenanceAircrafts.length > 0 && (
                     <optgroup label="Maintenance requise">
                       {maintenanceAircrafts.map((aircraft) => (
-                        <option key={aircraft.id} value={aircraft.id}>
+                        <option key={aircraft.refAircraft} value={aircraft.refAircraft}>
                           {getAircraftRegistration(aircraft)} —{' '}
                           {getAircraftModel(aircraft)}
                         </option>
@@ -1216,7 +1216,7 @@ export const MaintenancePlanning: React.FC = () => {
                   {otherAircrafts.length > 0 && (
                     <optgroup label="Autres appareils">
                       {otherAircrafts.map((aircraft) => (
-                        <option key={aircraft.id} value={aircraft.id}>
+                        <option key={aircraft.refAircraft} value={aircraft.refAircraft}>
                           {getAircraftRegistration(aircraft)} —{' '}
                           {getAircraftModel(aircraft)}
                         </option>
@@ -1746,7 +1746,7 @@ function SlotActions({
   const handleExtend = async () => {
     setExtending(true);
     try {
-      await onExtend(slot.id, 1);
+      await onExtend(slot.refMaintenanceSlot, 1);
     } finally {
       setExtending(false);
     }
@@ -1755,7 +1755,7 @@ function SlotActions({
   const handleClose = async () => {
     setClosing(true);
     try {
-      await onClose(slot.id);
+      await onClose(slot.refMaintenanceSlot);
     } finally {
       setClosing(false);
     }
@@ -1821,8 +1821,8 @@ interface AircraftRowProps {
 
 function AircraftRow({ aircraft, hasSlot, onPlan }: AircraftRowProps) {
   const ratio = maintenanceRatio(aircraft);
-  const used = Number(aircraft.heuresDepuisDerniereMaintenance ?? 0);
-  const limit = Number(aircraft.limiteHeuresMaintenance ?? 0);
+  const used = Number(aircraft.hoursSinceMaintenance ?? 0);
+  const limit = Number(aircraft.maintenanceHoursLimit ?? 0);
 
   const tier: 'critical' | 'warning' | 'normal' =
     ratio >= 90 ? 'critical' : ratio >= 75 ? 'warning' : 'normal';

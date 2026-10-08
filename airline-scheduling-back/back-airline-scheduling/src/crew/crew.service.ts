@@ -36,71 +36,71 @@ export class CrewService {
   }
 
   async create(dto: CreateCrewAssignmentDto): Promise<CrewAssignment> {
-    const flight = await this.getFlight(dto.volId);
-    const user = await this.getUser(dto.utilisateurId);
+    const flight = await this.getFlight(dto.refFlight);
+    const user = await this.getUser(dto.refUser);
 
-    await this.assertNotDuplicate(flight.id, user.id);
-    const restHours = await this.assertAvailability(user.id, flight);
+    await this.assertNotDuplicate(flight.refFlight, user.refUser);
+    const restHours = await this.assertAvailability(user.refUser, flight);
 
     return this.assignmentRepository.save(
       this.assignmentRepository.create({
-        volId: flight.id,
-        vol: flight,
-        utilisateurId: user.id,
-        utilisateur: user,
-        fonction: dto.fonction,
-        heuresReposAvant: restHours,
+        refFlight: flight.refFlight,
+        flight: flight,
+        refUser: user.refUser,
+        user: user,
+        crewRole: dto.crewRole,
+        priorRestHours: restHours,
       }),
     );
   }
 
   findAll(): Promise<CrewAssignment[]> {
     return this.assignmentRepository.find({
-      relations: ['vol', 'utilisateur'],
-      order: { volId: 'ASC' },
+      relations: ['flight', 'user'],
+      order: { refFlight: 'ASC' },
     });
   }
 
   async findOne(id: string): Promise<CrewAssignment> {
     const assignment = await this.assignmentRepository.findOne({
-      where: { id },
-      relations: ['vol', 'utilisateur'],
+      where: { refCrewAssignment: id },
+      relations: ['flight', 'user'],
     });
     if (!assignment) throw new NotFoundException(`Affectation "${id}" introuvable.`);
     return assignment;
   }
 
-  findByFlight(volId: string): Promise<CrewAssignment[]> {
+  findByFlight(refFlight: string): Promise<CrewAssignment[]> {
     return this.assignmentRepository.find({
-      where: { volId },
-      relations: ['utilisateur'],
+      where: { refFlight },
+      relations: ['user'],
     });
   }
 
-  findByUser(utilisateurId: string): Promise<CrewAssignment[]> {
+  findByUser(refUser: string): Promise<CrewAssignment[]> {
     return this.assignmentRepository.find({
-      where: { utilisateurId },
-      relations: ['vol'],
+      where: { refUser },
+      relations: ['flight'],
     });
   }
 
   async update(id: string, dto: UpdateCrewAssignmentDto): Promise<CrewAssignment> {
     const assignment = await this.findOne(id);
-    const flight = dto.volId ? await this.getFlight(dto.volId) : assignment.vol;
-    const user = dto.utilisateurId ? await this.getUser(dto.utilisateurId) : assignment.utilisateur;
+    const flight = dto.refFlight ? await this.getFlight(dto.refFlight) : assignment.flight;
+    const user = dto.refUser ? await this.getUser(dto.refUser) : assignment.user;
 
-    if (flight.id !== assignment.volId || user.id !== assignment.utilisateurId) {
-      await this.assertNotDuplicate(flight.id, user.id, id);
+    if (flight.refFlight !== assignment.refFlight || user.refUser !== assignment.refUser) {
+      await this.assertNotDuplicate(flight.refFlight, user.refUser, id);
     }
 
-    const restHours = await this.assertAvailability(user.id, flight, id);
+    const restHours = await this.assertAvailability(user.refUser, flight, id);
 
-    assignment.volId = flight.id;
-    assignment.vol = flight;
-    assignment.utilisateurId = user.id;
-    assignment.utilisateur = user;
-    assignment.heuresReposAvant = restHours;
-    if (dto.fonction !== undefined) assignment.fonction = dto.fonction;
+    assignment.refFlight = flight.refFlight;
+    assignment.flight = flight;
+    assignment.refUser = user.refUser;
+    assignment.user = user;
+    assignment.priorRestHours = restHours;
+    if (dto.crewRole !== undefined) assignment.crewRole = dto.crewRole;
 
     return this.assignmentRepository.save(assignment);
   }
@@ -112,72 +112,72 @@ export class CrewService {
   }
 
   private async getFlight(id: string): Promise<Flight> {
-    const flight = await this.flightRepository.findOne({ where: { id } });
+    const flight = await this.flightRepository.findOne({ where: { refFlight: id } });
     if (!flight) throw new NotFoundException(`Vol "${id}" introuvable.`);
-    if (flight.statut === FlightStatus.CANCELLED) {
-      throw new ConflictException('Impossible d’affecter un équipage à un vol annulé.');
+    if (flight.status === FlightStatus.CANCELLED) {
+      throw new ConflictException('Impossible d’affecter un équipage à un flight annulé.');
     }
     return flight;
   }
 
   private async getUser(id: string): Promise<User> {
-    const user = await this.userRepository.findOne({ where: { id } });
-    if (!user || !user.actif) throw new NotFoundException(`Utilisateur "${id}" introuvable ou inactif.`);
+    const user = await this.userRepository.findOne({ where: { refUser: id } });
+    if (!user || !user.isActive) throw new NotFoundException(`Utilisateur "${id}" introuvable ou inactif.`);
     return user;
   }
 
-  private async assertNotDuplicate(volId: string, utilisateurId: string, excludeId?: string): Promise<void> {
+  private async assertNotDuplicate(refFlight: string, refUser: string, excludeId?: string): Promise<void> {
     const qb = this.assignmentRepository
       .createQueryBuilder('assignment')
-      .where('assignment.volId = :volId', { volId })
-      .andWhere('assignment.utilisateurId = :utilisateurId', { utilisateurId });
-    if (excludeId) qb.andWhere('assignment.id != :excludeId', { excludeId });
+      .where('assignment.refFlight = :refFlight', { refFlight })
+      .andWhere('assignment.refUser = :refUser', { refUser });
+    if (excludeId) qb.andWhere('assignment.refCrewAssignment != :excludeId', { excludeId });
     if (await qb.getExists()) {
-      throw new ConflictException('Ce membre d’équipage est déjà affecté à ce vol.');
+      throw new ConflictException('Ce membre d’équipage est déjà affecté à ce flight.');
     }
   }
 
   private async assertAvailability(
-    utilisateurId: string,
+    refUser: string,
     target: Flight,
     excludeAssignmentId?: string,
   ): Promise<number | null> {
     const qb = this.assignmentRepository
       .createQueryBuilder('assignment')
-      .innerJoinAndSelect('assignment.vol', 'flight')
-      .where('assignment.utilisateurId = :utilisateurId', { utilisateurId })
-      .andWhere('flight.statut != :cancelled', { cancelled: FlightStatus.CANCELLED });
+      .innerJoinAndSelect('assignment.flight', 'flight')
+      .where('assignment.refUser = :refUser', { refUser })
+      .andWhere('flight.status != :cancelled', { cancelled: FlightStatus.CANCELLED });
 
     if (excludeAssignmentId) {
-      qb.andWhere('assignment.id != :excludeAssignmentId', { excludeAssignmentId });
+      qb.andWhere('assignment.refCrewAssignment != :excludeAssignmentId', { excludeAssignmentId });
     }
 
     const assignments = await qb.getMany();
 
     for (const assignment of assignments) {
-      const other = assignment.vol;
-      const overlap = target.heureDepart < other.heureArrivee && target.heureArrivee > other.heureDepart;
+      const other = assignment.flight;
+      const overlap = target.departureTime < other.arrivalTime && target.arrivalTime > other.departureTime;
       if (overlap) {
         throw new ConflictException({
           code: 'CREW_OVERLAP',
-          message: `Conflit équipage avec le vol ${other.numeroVol}.`,
-          conflictingFlightId: other.id,
+          message: `Conflit équipage avec le flight ${other.flightNumber}.`,
+          conflictingFlightId: other.refFlight,
         });
       }
     }
 
     const previous = assignments
-      .filter((a) => a.vol.heureArrivee <= target.heureDepart)
-      .sort((a, b) => b.vol.heureArrivee.getTime() - a.vol.heureArrivee.getTime())[0];
+      .filter((a) => a.flight.arrivalTime <= target.departureTime)
+      .sort((a, b) => b.flight.arrivalTime.getTime() - a.flight.arrivalTime.getTime())[0];
 
     if (!previous) return null;
 
-    const restHours = (target.heureDepart.getTime() - previous.vol.heureArrivee.getTime()) / 3_600_000;
+    const restHours = (target.departureTime.getTime() - previous.flight.arrivalTime.getTime()) / 3_600_000;
     if (restHours < this.minimumCrewRestHours) {
       throw new ConflictException({
         code: 'CREW_REST',
         message: `Repos de ${restHours.toFixed(1)} h seulement; politique configurée: ${this.minimumCrewRestHours} h.`,
-        previousFlightId: previous.vol.id,
+        previousFlightId: previous.flight.refFlight,
       });
     }
 

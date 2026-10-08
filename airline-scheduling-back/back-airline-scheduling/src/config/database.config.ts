@@ -31,12 +31,14 @@ export const buildDatabaseConfig = (
     database: config.get<string>('DB_NAME', 'airline_ops_db'),
 
     autoLoadEntities: true,
+    migrations: [__dirname + '/../migrations/*{.ts,.js}'],
+    migrationsRun: synchronize,
 
     /**
      * À utiliser seulement en développement.
      *
-     * Pour une base contenant déjà des données, préférer les migrations.
-     * Le défaut reste volontairement false.
+     * Les migrations en attente sont appliquées avant la synchronisation afin
+     * de préserver et renommer les colonnes existantes.
      */
     synchronize,
 

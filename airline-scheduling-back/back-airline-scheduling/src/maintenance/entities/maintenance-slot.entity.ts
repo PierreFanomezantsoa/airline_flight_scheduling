@@ -15,19 +15,19 @@ import {
 import { Aircraft } from '../../fleet/entities/aircraft.entity';
 
 @Entity('maintenance_slots')
-@Index(['aircraftId', 'startTime', 'endTime'])
+@Index(['refAircraft', 'startTime', 'endTime'])
 @Index(['status', 'startTime'])
-// ⭐ NOUVEAU : index pour le cron qui cherche les créneaux à clôturer
+// Index used by the scheduled job that closes maintenance slots.
 @Index(['status', 'autoCloseAt'])
 export class MaintenanceSlot {
-  @PrimaryGeneratedColumn('uuid')
-  id!: string;
+  @PrimaryGeneratedColumn('uuid', { name: 'ref_maintenance_slot' })
+  refMaintenanceSlot!: string;
 
-  @Column({ type: 'uuid' })
-  aircraftId!: string;
+  @Column({ name: 'ref_aircraft', type: 'uuid' })
+  refAircraft!: string;
 
   @ManyToOne(() => Aircraft, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'aircraftId' })
+  @JoinColumn({ name: 'ref_aircraft' })
   aircraft!: Aircraft;
 
   @Column({ type: 'enum', enum: MaintenanceType })
@@ -68,7 +68,7 @@ export class MaintenanceSlot {
    * Calculée automatiquement = pendingReviewSince + 12 h.
    * Quand le cron détecte que autoCloseAt <= now :
    *   - le créneau passe en COMPLETED ;
-   *   - l'avion repasse en ACTIVE.
+   *   - l'aircraft repasse en ACTIVE.
    */
   @Column({ type: 'timestamptz', nullable: true })
   autoCloseAt!: Date | null;
@@ -83,8 +83,8 @@ export class MaintenanceSlot {
   // ─────────────────────────────────────────────────────────────
 
   @CreateDateColumn({ type: 'timestamptz' })
-  creeA!: Date;
+  createdAt!: Date;
 
   @UpdateDateColumn({ type: 'timestamptz' })
-  misAJourA!: Date;
+  updatedAt!: Date;
 }

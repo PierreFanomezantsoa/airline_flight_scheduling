@@ -111,9 +111,9 @@ interface ConflictCardProps {
 
 interface FlightBadgeProps {
   flight?: {
-    numeroVol?: string | null;
-    aeroportDepart?: string | null;
-    aeroportArrivee?: string | null;
+    flightNumber?: string | null;
+    departureAirportCode?: string | null;
+    arrivalAirportCode?: string | null;
   } | null;
 }
 
@@ -130,12 +130,12 @@ interface MetricBoxProps {
 const FlightBadge: FC<FlightBadgeProps> = ({ flight }) => (
   <div className="flex flex-col">
     <p className="font-mono text-sm font-black tracking-tight text-slate-900">
-      {flight?.numeroVol || '--'}
+      {flight?.flightNumber || '--'}
     </p>
     <p className="mt-0.5 font-mono text-[10px] font-semibold text-slate-500">
-      {flight?.aeroportDepart || '--'}
+      {flight?.departureAirportCode || '--'}
       <span className="mx-1 text-slate-300">→</span>
-      {flight?.aeroportArrivee || '--'}
+      {flight?.arrivalAirportCode || '--'}
     </p>
   </div>
 );

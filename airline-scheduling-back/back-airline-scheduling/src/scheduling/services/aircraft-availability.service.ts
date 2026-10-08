@@ -22,9 +22,9 @@ export class AircraftAvailabilityService {
     excludeFlightId?: string,
   ): Promise<Aircraft[]> {
     const aircrafts = await this.aircraftRepository.find({
-      where: { statut: AircraftStatus.ACTIVE },
+      where: { status: AircraftStatus.ACTIVE },
       relations: ['type'],
-      order: { immatriculation: 'ASC' },
+      order: { registration: 'ASC' },
     });
 
     const available: Aircraft[] = [];
@@ -32,19 +32,19 @@ export class AircraftAvailabilityService {
     for (const aircraft of aircrafts) {
       const departure = origin
         ? normalizeIata(origin)
-        : aircraft.baseAttache ?? 'XXX';
+        : aircraft.homeBase ?? 'XXX';
       const arrival = destination
         ? normalizeIata(destination)
         : departure;
 
       const validation = await this.conflictService.validateCandidate(
         {
-          numeroVol: 'AVAILABILITY-CHECK',
-          aeroportDepart: departure,
-          aeroportArrivee: arrival,
-          heureDepart: start,
-          heureArrivee: end,
-          avionId: aircraft.id,
+          flightNumber: 'AVAILABILITY-CHECK',
+          departureAirportCode: departure,
+          arrivalAirportCode: arrival,
+          departureTime: start,
+          arrivalTime: end,
+          refAircraft: aircraft.refAircraft,
         },
         excludeFlightId,
       );

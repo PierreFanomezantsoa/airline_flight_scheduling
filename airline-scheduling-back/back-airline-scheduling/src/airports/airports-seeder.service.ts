@@ -30,12 +30,12 @@ export class AirportsSeederService implements OnModuleInit {
 
       await this.dataSource.transaction(async (manager) => {
         const rows = parsed
-          .filter((row): row is Partial<Airport> & { iata: string; name: string; timezone: string } =>
-            Boolean(row.iata && row.name && row.timezone),
+          .filter((row): row is Partial<Airport> & { refAirport: string; name: string; timezone: string } =>
+            Boolean(row.refAirport && row.name && row.timezone),
           )
           .map((row) =>
             manager.create(Airport, {
-              iata: normalizeIata(row.iata),
+              refAirport: normalizeIata(row.refAirport),
               name: row.name,
               timezone: row.timezone,
               city: row.city ?? null,

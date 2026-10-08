@@ -3,12 +3,12 @@ import { CrewRole } from '../../common/enums/airline.enums';
 
 export class CreateCrewAssignmentDto {
   @IsUUID()
-  volId!: string;
+  refFlight!: string;
 
   @IsUUID()
-  utilisateurId!: string;
+  refUser!: string;
 
   @IsOptional()
   @IsEnum(CrewRole)
-  fonction?: CrewRole;
+  crewRole?: CrewRole;
 }

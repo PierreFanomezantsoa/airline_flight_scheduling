@@ -70,7 +70,7 @@ describe('FlightsController (e2e)', () => {
 
   it('GET /flights retourne les vols', async () => {
     flightsService.findAll.mockResolvedValue([
-      { id: 'f1', numeroVol: 'AFK412', aeroportDepart: 'TNR', aeroportArrivee: 'CDG' },
+      { id: 'f1', flightNumber: 'AFK412', departureAirportCode: 'TNR', arrivalAirportCode: 'CDG' },
     ]);
 
     const response = await request(app.getHttpServer())
@@ -79,7 +79,7 @@ describe('FlightsController (e2e)', () => {
       .expect(200);
 
     expect(response.body).toHaveLength(1);
-    expect(response.body[0].numeroVol).toBe('AFK412');
+    expect(response.body[0].flightNumber).toBe('AFK412');
   });
 
   it('GET /flights refuse une requête sans session', async () => {
@@ -90,12 +90,12 @@ describe('FlightsController (e2e)', () => {
 
   it('POST /flights accepte un DTO valide', async () => {
     const payload = {
-      numeroVol: 'AFK412',
-      aeroportDepart: 'TNR',
-      aeroportArrivee: 'CDG',
-      heureDepart: '2026-08-20T14:05:00+03:00',
-      heureArrivee: '2026-08-20T20:30:00+03:00',
-      avionId: '11111111-1111-4111-8111-111111111111',
+      flightNumber: 'AFK412',
+      departureAirportCode: 'TNR',
+      arrivalAirportCode: 'CDG',
+      departureTime: '2026-08-20T14:05:00+03:00',
+      arrivalTime: '2026-08-20T20:30:00+03:00',
+      refAircraft: '11111111-1111-4111-8111-111111111111',
     };
     flightsService.create.mockResolvedValue({ id: 'f1', ...payload });
 
@@ -105,17 +105,17 @@ describe('FlightsController (e2e)', () => {
       .send(payload)
       .expect(201);
 
-    expect(response.body.numeroVol).toBe('AFK412');
+    expect(response.body.flightNumber).toBe('AFK412');
     expect(flightsService.create).toHaveBeenCalledWith(expect.objectContaining(payload));
   });
 
   it('POST /flights rejette un code IATA invalide avant le service', async () => {
     const payload = {
-      numeroVol: 'AFK412',
-      aeroportDepart: 'TN',
-      aeroportArrivee: 'CDG',
-      heureDepart: '2026-08-20T14:05:00+03:00',
-      heureArrivee: '2026-08-20T20:30:00+03:00',
+      flightNumber: 'AFK412',
+      departureAirportCode: 'TN',
+      arrivalAirportCode: 'CDG',
+      departureTime: '2026-08-20T14:05:00+03:00',
+      arrivalTime: '2026-08-20T20:30:00+03:00',
     };
 
     await request(app.getHttpServer())

@@ -74,30 +74,30 @@ type FlightStatus =
   | string;
 
 interface Flight {
-  id: string;
-  numeroVol?: string;
-  aeroportDepart?: string;
-  aeroportArrivee?: string;
-  heureDepart?: string;
-  heureArrivee?: string;
-  statut?: FlightStatus;
-  avionId?: string | null;
+  refFlight: string;
+  flightNumber?: string;
+  departureAirportCode?: string;
+  arrivalAirportCode?: string;
+  departureTime?: string;
+  arrivalTime?: string;
+  status?: FlightStatus;
+  refAircraft?: string | null;
 }
 
 interface CrewAssignment {
-  id: string;
-  volId?: string;
-  vol?: Flight;
-  utilisateurId?: string;
-  utilisateur?: PublicUser;
-  fonction?: CrewRole;
-  heuresReposAvant?: number | null;
+  refCrewAssignment: string;
+  refFlight?: string;
+  flight?: Flight;
+  refUser?: string;
+  user?: PublicUser;
+  crewRole?: CrewRole;
+  priorRestHours?: number | null;
 }
 
 interface CrewForm {
-  volId: string;
-  utilisateurId: string;
-  fonction: CrewRole;
+  refFlight: string;
+  refUser: string;
+  crewRole: CrewRole;
 }
 
 interface MessageState {
@@ -169,16 +169,16 @@ function normalizeStatus(value?: string | null): string {
 }
 
 function isAssignableFlight(flight: Flight): boolean {
-  const status = normalizeStatus(flight.statut);
+  const status = normalizeStatus(flight.status);
   return ['scheduled', 'planifie', 'delayed', 'retarde'].includes(status);
 }
 
 function getAssignmentFlightId(assignment: CrewAssignment): string {
-  return assignment.volId || assignment.vol?.id || '';
+  return assignment.refFlight || assignment.flight?.refFlight || '';
 }
 
 function getAssignmentUserId(assignment: CrewAssignment): string {
-  return assignment.utilisateurId || assignment.utilisateur?.id || '';
+  return assignment.refUser || assignment.user?.refUser || '';
 }
 
 function getFlightStatusStyle(status?: string): string {
@@ -189,7 +189,7 @@ function getFlightStatusStyle(status?: string): string {
     return 'bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-200/70';
   if (normalized === 'effectue')
     return 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200/70';
-  if (['in-flight', 'en vol'].includes(normalized))
+  if (['in-flight', 'en flight'].includes(normalized))
     return 'bg-sky-50 text-sky-700 ring-1 ring-inset ring-sky-200/70';
   return 'bg-slate-100 text-slate-600 ring-1 ring-inset ring-slate-200';
 }
@@ -216,7 +216,7 @@ function extractApiError(payload: unknown, fallback: string): string {
   if (data.code === 'CREW_OVERLAP') {
     return typeof data.message === 'string'
       ? data.message
-      : 'Ce membre est déjà affecté à un autre vol pendant cette période.';
+      : 'Ce membre est déjà affecté à un autre flight pendant cette période.';
   }
   if (data.code === 'CREW_REST') {
     return typeof data.message === 'string'
@@ -226,7 +226,7 @@ function extractApiError(payload: unknown, fallback: string): string {
 
   if (typeof data.message === 'object' && data.message !== null) {
     if (data.message.code === 'CREW_OVERLAP') {
-      return data.message.message || 'Ce membre est déjà affecté à un autre vol pendant cette période.';
+      return data.message.message || 'Ce membre est déjà affecté à un autre flight pendant cette période.';
     }
     if (data.message.code === 'CREW_REST') {
       return data.message.message || 'Le temps minimal de repos équipage n’est pas respecté.';
@@ -432,9 +432,9 @@ export const CrewAssignmentsPage: React.FC = () => {
   const [selectedUserId, setSelectedUserId] = useState('TOUS');
   const [message, setMessage] = useState<MessageState | null>(null);
   const [form, setForm] = useState<CrewForm>({
-    volId: '',
-    utilisateurId: '',
-    fonction: 'Other',
+    refFlight: '',
+    refUser: '',
+    crewRole: 'Other',
   });
 
   // AbortController pour éviter les race conditions sur le polling
@@ -447,13 +447,13 @@ export const CrewAssignmentsPage: React.FC = () => {
       const result = await getCrewMembers();
       const members = normalizeArray<PublicUser>(result);
       const filtered = members.filter(
-        user => user.role === 'Crew_Member' && user.actif !== false && user.accountStatus === 'APPROVED',
+        user => user.role === 'Crew_Member' && user.isActive !== false && user.accountStatus === 'APPROVED',
       );
       setUsers(filtered);
       if (filtered.length === 0) {
         setMessage({
           type: 'info',
-          text: 'Aucun membre d’équipage actif et approuvé n’est actuellement disponible.',
+          text: 'Aucun membre d’équipage isActive et approuvé n’est actuellement disponible.',
         });
       }
     } catch (error: unknown) {
@@ -543,31 +543,31 @@ export const CrewAssignmentsPage: React.FC = () => {
 
   /* DERIVED */
   const assignableFlights = useMemo(() => {
-    const currentFlightId = editingId ? form.volId : null;
-    return flights.filter(flight => isAssignableFlight(flight) || flight.id === currentFlightId);
-  }, [flights, editingId, form.volId]);
+    const currentFlightId = editingId ? form.refFlight : null;
+    return flights.filter(flight => isAssignableFlight(flight) || flight.refFlight === currentFlightId);
+  }, [flights, editingId, form.refFlight]);
 
   const filteredAssignments = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
     return assignments.filter(assignment => {
-      const flight = assignment.vol;
-      const user = assignment.utilisateur;
-      const flightId = getAssignmentFlightId(assignment);
+      const flight = assignment.flight;
+      const user = assignment.user;
+      const refFlight = getAssignmentFlightId(assignment);
       const userId = getAssignmentUserId(assignment);
       const text = [
-        flight?.numeroVol,
-        flight?.aeroportDepart,
-        flight?.aeroportArrivee,
-        user?.nom,
+        flight?.flightNumber,
+        flight?.departureAirportCode,
+        flight?.arrivalAirportCode,
+        user?.name,
         user?.email,
-        assignment.fonction,
+        assignment.crewRole,
       ]
         .filter(Boolean)
         .join(' ')
         .toLowerCase();
       return (
         (!term || text.includes(term)) &&
-        (selectedFlightId === 'TOUS' || flightId === selectedFlightId) &&
+        (selectedFlightId === 'TOUS' || refFlight === selectedFlightId) &&
         (selectedUserId === 'TOUS' || userId === selectedUserId)
       );
     });
@@ -584,20 +584,20 @@ export const CrewAssignmentsPage: React.FC = () => {
   );
 
   const withRestInfo = useMemo(
-    () => assignments.filter(item => item.heuresReposAvant !== null && item.heuresReposAvant !== undefined).length,
+    () => assignments.filter(item => item.priorRestHours !== null && item.priorRestHours !== undefined).length,
     [assignments],
   );
 
   const selectedFlight = useMemo(
-    () => flights.find(flight => flight.id === form.volId) ?? null,
-    [flights, form.volId],
+    () => flights.find(flight => flight.refFlight === form.refFlight) ?? null,
+    [flights, form.refFlight],
   );
 
   const modalUsers = useMemo(() => {
     if (!editingId) return users;
-    const assignment = assignments.find(item => item.id === editingId);
-    const currentUser = assignment?.utilisateur;
-    if (!currentUser || users.some(user => user.id === currentUser.id)) return users;
+    const assignment = assignments.find(item => item.refCrewAssignment === editingId);
+    const currentUser = assignment?.user;
+    if (!currentUser || users.some(user => user.refUser === currentUser.refUser)) return users;
     return [currentUser, ...users];
   }, [users, assignments, editingId]);
 
@@ -615,18 +615,18 @@ export const CrewAssignmentsPage: React.FC = () => {
   /* MODAL */
   const openCreateModal = () => {
     setEditingId(null);
-    setForm({ volId: '', utilisateurId: '', fonction: 'Other' });
+    setForm({ refFlight: '', refUser: '', crewRole: 'Other' });
     setMessage(null);
     void loadCrewMembers();
     setModalOpen(true);
   };
 
   const openEditModal = (assignment: CrewAssignment) => {
-    setEditingId(assignment.id);
+    setEditingId(assignment.refCrewAssignment);
     setForm({
-      volId: getAssignmentFlightId(assignment),
-      utilisateurId: getAssignmentUserId(assignment),
-      fonction: assignment.fonction ?? 'Other',
+      refFlight: getAssignmentFlightId(assignment),
+      refUser: getAssignmentUserId(assignment),
+      crewRole: assignment.crewRole ?? 'Other',
     });
     setMessage(null);
     void loadCrewMembers();
@@ -644,10 +644,10 @@ export const CrewAssignmentsPage: React.FC = () => {
     event.preventDefault();
     if (saving) return;
 
-    if (!form.volId || !form.utilisateurId || !form.fonction) {
+    if (!form.refFlight || !form.refUser || !form.crewRole) {
       setMessage({
         type: 'error',
-        text: 'Veuillez sélectionner un vol, un membre d’équipage et sa fonction.',
+        text: 'Veuillez sélectionner un flight, un membre d’équipage et sa crewRole.',
       });
       return;
     }
@@ -655,12 +655,12 @@ export const CrewAssignmentsPage: React.FC = () => {
     if (selectedFlight && !isAssignableFlight(selectedFlight) && !editingId) {
       setMessage({
         type: 'error',
-        text: 'Ce vol ne peut plus recevoir une nouvelle affectation équipage.',
+        text: 'Ce flight ne peut plus recevoir une nouvelle affectation équipage.',
       });
       return;
     }
 
-    const selectedUser = modalUsers.find(user => user.id === form.utilisateurId);
+    const selectedUser = modalUsers.find(user => user.refUser === form.refUser);
     if (!selectedUser) {
       setMessage({ type: 'error', text: 'Le membre d’équipage sélectionné est introuvable.' });
       return;
@@ -676,9 +676,9 @@ export const CrewAssignmentsPage: React.FC = () => {
         {
           method: isEdit ? 'PATCH' : 'POST',
           body: JSON.stringify({
-            volId: form.volId,
-            utilisateurId: form.utilisateurId,
-            fonction: form.fonction,
+            refFlight: form.refFlight,
+            refUser: form.refUser,
+            crewRole: form.crewRole,
           }),
         },
       );
@@ -714,10 +714,10 @@ export const CrewAssignmentsPage: React.FC = () => {
   const confirmDelete = async () => {
     if (!assignmentToDelete || deletingId) return;
     const assignment = assignmentToDelete;
-    setDeletingId(assignment.id);
+    setDeletingId(assignment.refCrewAssignment);
     setMessage(null);
     try {
-      await requestJson(`${CREW_ASSIGNMENTS_ENDPOINT}/${assignment.id}`, { method: 'DELETE' });
+      await requestJson(`${CREW_ASSIGNMENTS_ENDPOINT}/${assignment.refCrewAssignment}`, { method: 'DELETE' });
       setAssignmentToDelete(null);
       setMessage({ type: 'success', text: 'Affectation supprimée avec succès.' });
       await loadData(true);
@@ -806,7 +806,7 @@ export const CrewAssignmentsPage: React.FC = () => {
                   type="search"
                   value={searchTerm}
                   onChange={event => setSearchTerm(event.target.value)}
-                  placeholder="Rechercher un vol, membre ou fonction..."
+                  placeholder="Rechercher un flight, membre ou crewRole..."
                   className={`h-10 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-3 text-sm text-slate-700 placeholder:text-slate-400 ${FOCUS_RING}`}
                 />
               </div>
@@ -819,8 +819,8 @@ export const CrewAssignmentsPage: React.FC = () => {
                 >
                   <option value="TOUS">Tous les vols</option>
                   {flights.map(flight => (
-                    <option key={flight.id} value={flight.id}>
-                      {flight.numeroVol ?? flight.id} — {flight.aeroportDepart ?? '?'} → {flight.aeroportArrivee ?? '?'}
+                    <option key={flight.refFlight} value={flight.refFlight}>
+                      {flight.flightNumber ?? flight.refFlight} — {flight.departureAirportCode ?? '?'} → {flight.arrivalAirportCode ?? '?'}
                     </option>
                   ))}
                 </select>
@@ -835,8 +835,8 @@ export const CrewAssignmentsPage: React.FC = () => {
                     {loadingUsers ? 'Chargement...' : 'Tous les membres'}
                   </option>
                   {users.map(user => (
-                    <option key={user.id} value={user.id}>
-                      {user.nom} — {user.email}
+                    <option key={user.refUser} value={user.refUser}>
+                      {user.name} — {user.email}
                     </option>
                   ))}
                 </select>
@@ -864,7 +864,7 @@ export const CrewAssignmentsPage: React.FC = () => {
               </span>
             </div>
             <p className="text-xs text-slate-500">
-              Vol, membre, fonction et repos avant rotation
+              Vol, membre, crewRole et repos avant rotation
             </p>
           </header>
 
@@ -899,12 +899,12 @@ export const CrewAssignmentsPage: React.FC = () => {
               </div>
             ) : (
               filteredAssignments.map(assignment => {
-                const flight = assignment.vol;
-                const user = assignment.utilisateur;
-                const initials = (user?.nom ?? 'U').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+                const flight = assignment.flight;
+                const user = assignment.user;
+                const initials = (user?.name ?? 'U').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
 
                 return (
-                  <article key={assignment.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md">
+                  <article key={assignment.refCrewAssignment} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md">
                     <div className="flex items-center justify-between gap-2 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white px-4 py-3">
                       <div className="flex min-w-0 items-center gap-2.5">
                         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 ring-1 ring-inset ring-emerald-100">
@@ -912,15 +912,15 @@ export const CrewAssignmentsPage: React.FC = () => {
                         </div>
                         <div className="min-w-0">
                           <p className="truncate font-mono text-sm font-bold text-slate-900">
-                            {flight?.numeroVol ?? getAssignmentFlightId(assignment)}
+                            {flight?.flightNumber ?? getAssignmentFlightId(assignment)}
                           </p>
                           <p className="truncate font-mono text-[10px] text-slate-500">
-                            {flight?.aeroportDepart ?? '--'} → {flight?.aeroportArrivee ?? '--'}
+                            {flight?.departureAirportCode ?? '--'} → {flight?.arrivalAirportCode ?? '--'}
                           </p>
                         </div>
                       </div>
-                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${getFlightStatusStyle(flight?.statut)}`}>
-                        {flight?.statut ?? 'Inconnu'}
+                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${getFlightStatusStyle(flight?.status)}`}>
+                        {flight?.status ?? 'Inconnu'}
                       </span>
                     </div>
 
@@ -931,8 +931,8 @@ export const CrewAssignmentsPage: React.FC = () => {
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-1.5">
-                            <p className="truncate text-sm font-semibold text-slate-900">{user?.nom ?? 'Utilisateur'}</p>
-                            <RoleBadge role={assignment.fonction} size="sm" />
+                            <p className="truncate text-sm font-semibold text-slate-900">{user?.name ?? 'Utilisateur'}</p>
+                            <RoleBadge role={assignment.crewRole} size="sm" />
                           </div>
                           <p className="mt-1 flex items-center gap-1 truncate text-[11px] text-slate-500">
                             <Mail className="h-3 w-3 shrink-0" />
@@ -945,17 +945,17 @@ export const CrewAssignmentsPage: React.FC = () => {
                         <div className="rounded-xl bg-slate-50 p-3 ring-1 ring-inset ring-slate-100">
                           <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Départ</p>
                           <p className="mt-1 font-mono text-[11px] font-semibold text-slate-700">
-                            {formatDateTime(flight?.heureDepart)}
+                            {formatDateTime(flight?.departureTime)}
                           </p>
                         </div>
                         <div className="rounded-xl bg-slate-50 p-3 ring-1 ring-inset ring-slate-100">
                           <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Repos avant</p>
-                          {assignment.heuresReposAvant === null || assignment.heuresReposAvant === undefined ? (
+                          {assignment.priorRestHours === null || assignment.priorRestHours === undefined ? (
                             <p className="mt-1 text-[11px] font-medium text-slate-400">Non calculé</p>
                           ) : (
                             <p className="mt-1 inline-flex items-center gap-1 font-mono text-[11px] font-bold text-emerald-600">
                               <Clock3 className="h-3 w-3" />
-                              {assignment.heuresReposAvant.toFixed(1)} h
+                              {assignment.priorRestHours.toFixed(1)} h
                             </p>
                           )}
                         </div>
@@ -1025,12 +1025,12 @@ export const CrewAssignmentsPage: React.FC = () => {
                   </tr>
                 ) : (
                   filteredAssignments.map(assignment => {
-                    const flight = assignment.vol;
-                    const user = assignment.utilisateur;
-                    const initials = (user?.nom ?? 'U').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+                    const flight = assignment.flight;
+                    const user = assignment.user;
+                    const initials = (user?.name ?? 'U').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
 
                     return (
-                      <tr key={assignment.id} className="group transition hover:bg-slate-50/70">
+                      <tr key={assignment.refCrewAssignment} className="group transition hover:bg-slate-50/70">
                         <td className="px-5 py-4">
                           <div className="flex items-center gap-3">
                             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 ring-1 ring-inset ring-emerald-100 transition group-hover:scale-105">
@@ -1038,10 +1038,10 @@ export const CrewAssignmentsPage: React.FC = () => {
                             </div>
                             <div className="min-w-0">
                               <p className="truncate font-mono text-sm font-bold text-slate-900">
-                                {flight?.numeroVol ?? getAssignmentFlightId(assignment)}
+                                {flight?.flightNumber ?? getAssignmentFlightId(assignment)}
                               </p>
-                              <span className={`mt-0.5 inline-flex rounded-full px-2 py-0.5 text-[9px] font-medium ${getFlightStatusStyle(flight?.statut)}`}>
-                                {flight?.statut ?? 'Inconnu'}
+                              <span className={`mt-0.5 inline-flex rounded-full px-2 py-0.5 text-[9px] font-medium ${getFlightStatusStyle(flight?.status)}`}>
+                                {flight?.status ?? 'Inconnu'}
                               </span>
                             </div>
                           </div>
@@ -1049,9 +1049,9 @@ export const CrewAssignmentsPage: React.FC = () => {
 
                         <td className="px-4 py-4">
                           <span className="font-mono text-xs font-medium text-slate-700">
-                            {flight?.aeroportDepart ?? '--'}{' '}
+                            {flight?.departureAirportCode ?? '--'}{' '}
                             <span className="text-slate-300">→</span>{' '}
-                            {flight?.aeroportArrivee ?? '--'}
+                            {flight?.arrivalAirportCode ?? '--'}
                           </span>
                         </td>
 
@@ -1061,29 +1061,29 @@ export const CrewAssignmentsPage: React.FC = () => {
                               {initials}
                             </div>
                             <div className="min-w-0">
-                              <p className="truncate text-sm font-semibold text-slate-800">{user?.nom ?? 'Utilisateur'}</p>
+                              <p className="truncate text-sm font-semibold text-slate-800">{user?.name ?? 'Utilisateur'}</p>
                               <p className="mt-0.5 truncate text-[11px] text-slate-500">{user?.email ?? getAssignmentUserId(assignment)}</p>
                             </div>
                           </div>
                         </td>
 
                         <td className="px-4 py-4">
-                          <RoleBadge role={assignment.fonction} />
+                          <RoleBadge role={assignment.crewRole} />
                         </td>
 
                         <td className="px-4 py-4">
                           <span className="font-mono text-xs font-medium text-slate-600">
-                            {formatDateTime(flight?.heureDepart)}
+                            {formatDateTime(flight?.departureTime)}
                           </span>
                         </td>
 
                         <td className="px-4 py-4">
-                          {assignment.heuresReposAvant === null || assignment.heuresReposAvant === undefined ? (
+                          {assignment.priorRestHours === null || assignment.priorRestHours === undefined ? (
                             <span className="text-[11px] font-medium text-slate-400">Non calculé</span>
                           ) : (
                             <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 font-mono text-[11px] font-bold text-emerald-700 ring-1 ring-inset ring-emerald-200/70">
                               <Clock3 className="h-3 w-3" />
-                              {assignment.heuresReposAvant.toFixed(1)} h
+                              {assignment.priorRestHours.toFixed(1)} h
                             </span>
                           )}
                         </td>
@@ -1146,7 +1146,7 @@ export const CrewAssignmentsPage: React.FC = () => {
                   <h2 className="text-base font-bold text-slate-900">
                     {editingId ? 'Modifier l’affectation' : 'Nouvelle affectation'}
                   </h2>
-                  <p className="mt-0.5 text-xs text-slate-500">Vol, membre et fonction à bord</p>
+                  <p className="mt-0.5 text-xs text-slate-500">Vol, membre et crewRole à bord</p>
                 </div>
               </div>
               <button
@@ -1168,14 +1168,14 @@ export const CrewAssignmentsPage: React.FC = () => {
                 </span>
                 <select
                   required
-                  value={form.volId}
-                  onChange={event => setForm(current => ({ ...current, volId: event.target.value }))}
+                  value={form.refFlight}
+                  onChange={event => setForm(current => ({ ...current, refFlight: event.target.value }))}
                   className={`h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 ${FOCUS_RING}`}
                 >
-                  <option value="">Sélectionner un vol</option>
+                  <option value="">Sélectionner un flight</option>
                   {assignableFlights.map(flight => (
-                    <option key={flight.id} value={flight.id}>
-                      {flight.numeroVol ?? flight.id} — {flight.aeroportDepart ?? '?'} → {flight.aeroportArrivee ?? '?'}
+                    <option key={flight.refFlight} value={flight.refFlight}>
+                      {flight.flightNumber ?? flight.refFlight} — {flight.departureAirportCode ?? '?'} → {flight.arrivalAirportCode ?? '?'}
                     </option>
                   ))}
                 </select>
@@ -1198,17 +1198,17 @@ export const CrewAssignmentsPage: React.FC = () => {
                   <Users className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                   <select
                     required
-                    value={form.utilisateurId}
+                    value={form.refUser}
                     disabled={loadingUsers || modalUsers.length === 0}
-                    onChange={event => setForm(current => ({ ...current, utilisateurId: event.target.value }))}
+                    onChange={event => setForm(current => ({ ...current, refUser: event.target.value }))}
                     className={`h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-3 text-sm font-medium text-slate-700 disabled:bg-slate-50 disabled:opacity-60 ${FOCUS_RING}`}
                   >
                     <option value="">
                       {loadingUsers ? 'Chargement...' : modalUsers.length === 0 ? 'Aucun membre disponible' : 'Sélectionner un membre'}
                     </option>
                     {modalUsers.map(user => (
-                      <option key={user.id} value={user.id}>
-                        {user.nom} — {user.email}
+                      <option key={user.refUser} value={user.refUser}>
+                        {user.name} — {user.email}
                       </option>
                     ))}
                   </select>
@@ -1221,7 +1221,7 @@ export const CrewAssignmentsPage: React.FC = () => {
                       <div>
                         <p className="text-xs font-semibold text-amber-900">Aucun membre disponible</p>
                         <p className="mt-0.5 text-[11px] leading-4 text-amber-700">
-                          Vérifiez le rôle Crew_Member, le statut APPROVED et l’activation du compte.
+                          Vérifiez le rôle Crew_Member, le status APPROVED et l’activation du compte.
                         </p>
                       </div>
                     </div>
@@ -1244,8 +1244,8 @@ export const CrewAssignmentsPage: React.FC = () => {
                 </span>
                 <select
                   required
-                  value={form.fonction}
-                  onChange={event => setForm(current => ({ ...current, fonction: event.target.value as CrewRole }))}
+                  value={form.crewRole}
+                  onChange={event => setForm(current => ({ ...current, crewRole: event.target.value as CrewRole }))}
                   className={`h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 ${FOCUS_RING}`}
                 >
                   {CREW_ROLES.map(role => (
@@ -1338,10 +1338,10 @@ export const CrewAssignmentsPage: React.FC = () => {
                   <div className="min-w-0 flex-1">
                     <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Membre</p>
                     <p className="mt-0.5 truncate text-sm font-semibold text-slate-900">
-                      {assignmentToDelete.utilisateur?.nom ?? 'Utilisateur'}
+                      {assignmentToDelete.user?.name ?? 'Utilisateur'}
                     </p>
                   </div>
-                  <RoleBadge role={assignmentToDelete.fonction} />
+                  <RoleBadge role={assignmentToDelete.crewRole} />
                 </div>
 
                 <div className="my-3 border-t border-slate-200" />
@@ -1351,24 +1351,24 @@ export const CrewAssignmentsPage: React.FC = () => {
                     <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Vol</p>
                     <p className="mt-1 flex items-center gap-1.5 font-mono text-sm font-bold text-slate-900">
                       <Plane className="h-3.5 w-3.5 text-emerald-600" />
-                      {assignmentToDelete.vol?.numeroVol ?? getAssignmentFlightId(assignmentToDelete)}
+                      {assignmentToDelete.flight?.flightNumber ?? getAssignmentFlightId(assignmentToDelete)}
                     </p>
                   </div>
                   <div>
                     <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Itinéraire</p>
                     <p className="mt-1 flex items-center gap-1.5 font-mono text-xs font-medium text-slate-700">
-                      <span>{assignmentToDelete.vol?.aeroportDepart ?? '--'}</span>
+                      <span>{assignmentToDelete.flight?.departureAirportCode ?? '--'}</span>
                       <ArrowRight className="h-3 w-3 text-slate-300" />
-                      <span>{assignmentToDelete.vol?.aeroportArrivee ?? '--'}</span>
+                      <span>{assignmentToDelete.flight?.arrivalAirportCode ?? '--'}</span>
                     </p>
                   </div>
                 </div>
 
                 <div className="mt-3 border-t border-slate-200 pt-3">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Départ du vol</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Départ du flight</p>
                   <p className="mt-1 flex items-center gap-1.5 font-mono text-xs font-medium text-slate-700">
                     <Clock3 className="h-3.5 w-3.5 text-slate-400" />
-                    {formatDateTime(assignmentToDelete.vol?.heureDepart)}
+                    {formatDateTime(assignmentToDelete.flight?.departureTime)}
                   </p>
                 </div>
               </div>
@@ -1376,7 +1376,7 @@ export const CrewAssignmentsPage: React.FC = () => {
               <div className="mt-4 flex items-start gap-2.5 rounded-2xl border border-rose-200 bg-rose-50/60 p-3.5">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" />
                 <p className="text-xs leading-5 text-rose-700">
-                  L’affectation sera retirée du vol. Ni le membre d’équipage ni le vol ne seront supprimés.
+                  L’affectation sera retirée du flight. Ni le membre d’équipage ni le flight ne seront supprimés.
                 </p>
               </div>
             </div>

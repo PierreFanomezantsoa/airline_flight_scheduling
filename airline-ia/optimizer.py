@@ -63,11 +63,11 @@ class AirlineOptimizer:
         for i in range(len(resolved_flights) - 1):
             current_flight = resolved_flights[i]
             
-            # Balayage des vols suivants pour trouver le prochain vol du MÊME avion
+            # Balayage des vols suivants pour trouver le prochain flight du MÊME aircraft
             for j in range(i + 1, len(resolved_flights)):
                 next_flight = resolved_flights[j]
                 
-                if current_flight['aircraft_id'] == next_flight['aircraft_id']:
+                if current_flight['refAircraft'] == next_flight['refAircraft']:
                     # Conversion des chaînes ISO en objets datetime
                     arr_time = datetime.fromisoformat(current_flight['arrival_time'].replace("Z", "+00:00"))
                     dep_time = datetime.fromisoformat(next_flight['departure_time'].replace("Z", "+00:00"))
@@ -78,27 +78,27 @@ class AirlineOptimizer:
                     # Règle de gestion : Si le temps au sol est insuffisant à cause du retard prédit par l'IA
                     if ground_time < turnaround_min:
                         conflict_desc = (
-                            f"Conflit IA sur l'appareil {current_flight['aircraft_id']}. "
+                            f"Conflit IA sur l'appareil {current_flight['refAircraft']}. "
                             f"Le retard initial estimé par le Réseau de Neurones ({current_flight['predicted_delay_minutes']} min) "
                             f"réduit le temps au sol à {int(ground_time)} min (Minimum requis : {turnaround_min} min)."
                         )
                         
                         conflicts.append({
                             "type": "AI_TURNAROUND_VIOLATION",
-                            "flight_id": next_flight['id'],
-                            "aircraft_id": next_flight['aircraft_id'],
+                            "refFlight": next_flight['refFlight'],
+                            "refAircraft": next_flight['refAircraft'],
                             "description": conflict_desc
                         })
                         
                         # Résolution : Calcul du décalage requis pour absorber la contrainte au sol
                         new_dep = arr_time + timedelta(minutes=turnaround_min)
                         
-                        # Conservation de la durée initiale du vol suivant
+                        # Conservation de la durée initiale du flight suivant
                         next_arr_time = datetime.fromisoformat(next_flight['arrival_time'].replace("Z", "+00:00"))
                         flight_duration = next_arr_time - dep_time
                         new_arr = new_dep + flight_duration
                         
-                        # Mise à jour des données du vol affecté
+                        # Mise à jour des données du flight affecté
                         next_flight['departure_time'] = new_dep.isoformat()
                         next_flight['arrival_time'] = new_arr.isoformat()
                         next_flight['status'] = 'Delayed'
@@ -122,8 +122,8 @@ if __name__ == "__main__":
     # Simulation d'un cas où le VOL-101 subit une météo désastreuse à l'arrivée (ex: Orage violent)
     test_flights = [
         {
-            "id": "VOL-101",
-            "aircraft_id": "AIR-A320",
+            "refFlight": "VOL-101",
+            "refAircraft": "AIR-A320",
             "departure_time": "2026-07-02T08:00:00",
             "arrival_time": "2026-07-02T10:00:00",
             "status": "Scheduled",
@@ -134,8 +134,8 @@ if __name__ == "__main__":
             }
         },
         {
-            "id": "VOL-102",
-            "aircraft_id": "AIR-A320",
+            "refFlight": "VOL-102",
+            "refAircraft": "AIR-A320",
             "departure_time": "2026-07-02T10:50:00",  # Théoriquement 50 min au sol (ok par rapport aux 45 min requises)
             "arrival_time": "2026-07-02T12:00:00",
             "status": "Scheduled",
@@ -151,4 +151,4 @@ if __name__ == "__main__":
         
     print("\n--- Horaires recalculés après filtrage par le Réseau de Neurones ---")
     for flight in result['optimized_flights']:
-        print(f"✈️ {flight['id']} (Retard Prédit: {flight['predicted_delay_minutes']} min) -> DEP: {flight['departure_time']} | ARR: {flight['arrival_time']} | {flight['status']}")
+        print(f"✈️ {flight['refFlight']} (Retard Prédit: {flight['predicted_delay_minutes']} min) -> DEP: {flight['departure_time']} | ARR: {flight['arrival_time']} | {flight['status']}")

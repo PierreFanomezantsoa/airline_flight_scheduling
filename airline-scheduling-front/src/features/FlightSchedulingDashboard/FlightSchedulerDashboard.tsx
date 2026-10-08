@@ -71,13 +71,13 @@ interface AutoScheduleOptions {
 }
 
 interface EligibleFlight {
-  id: string;
+  refFlight: string;
   flightNumber: string;
   origin: string;
   destination: string;
   departure: string;
   arrival: string;
-  aircraftId?: string | null;
+  refAircraft?: string | null;
 }
 
 interface MessageState {
@@ -86,7 +86,6 @@ interface MessageState {
 }
 
 interface RawGanttRow extends GanttRow {
-  baseAttache?: string | null;
   homeBase?: string | null;
   baseAirport?: string | null;
   positionActuelle?: string | null;
@@ -169,18 +168,18 @@ const safeDate = (value?: string | null): Date | null => {
 };
 
 const flightBelongsToAircraft = (flight: Flight, row: GanttRow): boolean => {
-  const aircraftId = String(flight.aircraft ?? '').trim().toUpperCase();
+  const refAircraft = String(flight.aircraft ?? '').trim().toUpperCase();
   const registration = String(flight.aircraftModel ?? '').trim().toUpperCase();
-  const rowId = String(row.aircraftId ?? '').trim().toUpperCase();
+  const aircraftRef = String(row.refAircraft ?? '').trim().toUpperCase();
   const rowRegistration = String(row.aircraftRegistration ?? '').trim().toUpperCase();
   return Boolean(
-    (aircraftId && rowId && aircraftId === rowId) ||
+    (refAircraft && aircraftRef && refAircraft === aircraftRef) ||
       (registration && rowRegistration && registration === rowRegistration),
   );
 };
 
 const inferAircraftPosition = (row: GanttRow, flights: Flight[]): string | null => {
-  if (row.aircraftId === 'UNASSIGNED') return null;
+  if (row.refAircraft === 'UNASSIGNED') return null;
   const aircraftFlights = flights.filter((flight) => flightBelongsToAircraft(flight, row));
   const now = Date.now();
 
@@ -222,13 +221,13 @@ const normalizeGanttPayload = (payload: unknown, flights: Flight[]): GanttPayloa
   };
   const gantt = raw.gantt ?? raw;
   const rows: RawGanttRow[] = Array.isArray(gantt.rows) ? gantt.rows : [];
-  const flightById = new Map(flights.map((flight) => [flight.id, flight]));
+  const flightById = new Map(flights.map((flight) => [flight.refFlight, flight]));
   const items = Array.isArray(gantt.items) ? (gantt.items as GanttPayload['items']) : [];
 
   return {
     timezone: gantt.timezone ?? 'UTC',
     items: items.map((item) => {
-      const flight = flightById.get(item.flightId ?? item.id);
+      const flight = flightById.get(item.refFlight);
       const rawStops = item.stopovers ?? flight?.stops ?? flight?.stopover;
       const stopovers = (Array.isArray(rawStops) ? rawStops : [rawStops])
         .map((stop) => String(stop ?? '').trim().toUpperCase())
@@ -249,12 +248,12 @@ const normalizeGanttPayload = (payload: unknown, flights: Flight[]): GanttPayloa
       };
     }),
     rows: rows.map((row) => {
-      const base = row.base || row.baseAttache || row.homeBase || row.baseAirport || null;
+      const base = row.base || row.homeBase || row.homeBase || row.baseAirport || null;
       const currentPosition =
         row.currentPosition || row.positionActuelle || row.currentAirport || null;
 
       const normalized: GanttRow = {
-        aircraftId: row.aircraftId,
+        refAircraft: row.refAircraft,
         aircraftRegistration: row.aircraftRegistration,
         capacity: row.capacity ?? null,
         base,
@@ -313,7 +312,7 @@ const getErrorMessage = async (
 export const FlightSchedulerDashboard: FC = () => {
   const [flights, setFlights] = useState<Flight[]>([]);
   const [eligibleFlights, setEligibleFlights] = useState<EligibleFlight[]>([]);
-  const [selectedFlightIds, setSelectedFlightIds] = useState<string[]>([]);
+  const [selectedFlightRefs, setSelectedFlightRefs] = useState<string[]>([]);
   const [analytics, setAnalytics] = useState<AnalyticsMetrics | null>(null);
   const [currentGantt, setCurrentGantt] = useState<GanttPayload>({
     rows: [],
@@ -369,7 +368,7 @@ export const FlightSchedulerDashboard: FC = () => {
         ? eligiblePayload.flights
         : [];
       setEligibleFlights(eligibleList);
-      setSelectedFlightIds(eligibleList.map((flight) => flight.id));
+      setSelectedFlightRefs(eligibleList.map((flight) => flight.refFlight));
       setPreviewScenario(null);
 
       if (analyticsResponse.ok) {
@@ -396,8 +395,8 @@ export const FlightSchedulerDashboard: FC = () => {
         setCurrentMetrics(
           payload?.metrics ?? {
             totalFlights: gantt.items.length,
-            assignedFlights: gantt.items.filter((item) => item.rowId !== 'UNASSIGNED').length,
-            unassignedFlights: gantt.items.filter((item) => item.rowId === 'UNASSIGNED').length,
+            assignedFlights: gantt.items.filter((item) => item.refAircraft !== 'UNASSIGNED').length,
+            unassignedFlights: gantt.items.filter((item) => item.refAircraft === 'UNASSIGNED').length,
           },
         );
       }
@@ -421,8 +420,8 @@ export const FlightSchedulerDashboard: FC = () => {
 
   const runAutomaticGeneration = async (apply: boolean) => {
     if (generating || applying) return;
-    if (!apply && selectedFlightIds.length === 0) {
-      setMessage({ type: 'info', text: 'Sélectionnez au moins un vol éligible.' });
+    if (!apply && selectedFlightRefs.length === 0) {
+      setMessage({ type: 'info', text: 'Sélectionnez au moins un flight éligible.' });
       return;
     }
 
@@ -437,7 +436,7 @@ export const FlightSchedulerDashboard: FC = () => {
         body: JSON.stringify({
           ...OPTIONS,
           apply,
-          selectedFlightIds,
+          selectedFlightRefs,
           ...(apply
             ? { scenarioSignature: previewScenario?.scenarioSignature }
             : {}),
@@ -531,11 +530,11 @@ export const FlightSchedulerDashboard: FC = () => {
     );
   }, [eligibleFlights, searchTerm]);
 
-  const toggleEligibleFlight = (flightId: string) => {
-    setSelectedFlightIds((current) =>
-      current.includes(flightId)
-        ? current.filter((id) => id !== flightId)
-        : [...current, flightId],
+  const toggleEligibleFlight = (refFlight: string) => {
+    setSelectedFlightRefs((current) =>
+      current.includes(refFlight)
+        ? current.filter((id) => id !== refFlight)
+        : [...current, refFlight],
     );
     setPreviewScenario(null);
   };
@@ -556,7 +555,7 @@ export const FlightSchedulerDashboard: FC = () => {
     const assignments = previewScenario?.assignments as
       | AutoScheduleAssignment[]
       | undefined;
-    assignments?.forEach((assignment) => map.set(assignment.flightId, assignment));
+    assignments?.forEach((assignment) => map.set(assignment.refFlight, assignment));
     return map;
   }, [previewScenario]);
 
@@ -658,7 +657,7 @@ export const FlightSchedulerDashboard: FC = () => {
             label="Appareils actifs"
             value={
               previewScenario?.metrics.operationalAircraft ??
-              activeSchedule.rows.filter((row) => row.aircraftId !== 'UNASSIGNED').length
+              activeSchedule.rows.filter((row) => row.refAircraft !== 'UNASSIGNED').length
             }
             hint="En opération"
             icon={<Plane className="h-4 w-4" />}
@@ -676,14 +675,14 @@ export const FlightSchedulerDashboard: FC = () => {
             <div>
               <h2 className="text-sm font-semibold text-slate-900">Vols éligibles</h2>
               <p className="mt-0.5 text-xs text-slate-500">
-                {selectedFlightIds.length} sélectionné{selectedFlightIds.length > 1 ? 's' : ''} sur {eligibleFlights.length} dans les {OPTIONS.horizonDays} prochains jours
+                {selectedFlightRefs.length} sélectionné{selectedFlightRefs.length > 1 ? 's' : ''} sur {eligibleFlights.length} dans les {OPTIONS.horizonDays} prochains jours
               </p>
             </div>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => {
-                  setSelectedFlightIds(eligibleFlights.map((flight) => flight.id));
+                  setSelectedFlightRefs(eligibleFlights.map((flight) => flight.refFlight));
                   setPreviewScenario(null);
                 }}
                 className="h-8 rounded-md border border-slate-200 px-3 text-xs font-medium text-slate-700 hover:bg-slate-50"
@@ -693,7 +692,7 @@ export const FlightSchedulerDashboard: FC = () => {
               <button
                 type="button"
                 onClick={() => {
-                  setSelectedFlightIds([]);
+                  setSelectedFlightRefs([]);
                   setPreviewScenario(null);
                 }}
                 className="h-8 rounded-md border border-slate-200 px-3 text-xs font-medium text-slate-700 hover:bg-slate-50"
@@ -704,21 +703,21 @@ export const FlightSchedulerDashboard: FC = () => {
           </header>
           {eligibleFlights.length === 0 ? (
             <p className="px-4 py-6 text-center text-sm text-slate-500">
-              Aucun vol futur valide à planifier dans cet horizon.
+              Aucun flight futur valide à planifier dans cet horizon.
             </p>
           ) : (
             <div className="max-h-64 divide-y divide-slate-100 overflow-y-auto">
               {visibleEligibleFlights.map((flight) => (
                 <label
-                  key={flight.id}
+                  key={flight.refFlight}
                   className="grid cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-4 py-2.5 hover:bg-slate-50"
                 >
                   <input
                     type="checkbox"
-                    checked={selectedFlightIds.includes(flight.id)}
-                    onChange={() => toggleEligibleFlight(flight.id)}
+                    checked={selectedFlightRefs.includes(flight.refFlight)}
+                    onChange={() => toggleEligibleFlight(flight.refFlight)}
                     className="h-4 w-4 accent-emerald-600"
-                    aria-label={`Inclure le vol ${flight.flightNumber}`}
+                    aria-label={`Inclure le flight ${flight.flightNumber}`}
                   />
                   <span className="min-w-0 truncate text-sm font-medium text-slate-800">
                     {flight.flightNumber} <span className="font-normal text-slate-500">· {flight.origin} → {flight.destination}</span>
@@ -729,7 +728,7 @@ export const FlightSchedulerDashboard: FC = () => {
                 </label>
               ))}
               {visibleEligibleFlights.length === 0 && (
-                <p className="px-4 py-5 text-center text-sm text-slate-500">Aucun vol ne correspond à la recherche.</p>
+                <p className="px-4 py-5 text-center text-sm text-slate-500">Aucun flight ne correspond à la recherche.</p>
               )}
             </div>
           )}
@@ -741,10 +740,10 @@ export const FlightSchedulerDashboard: FC = () => {
               <AlertCircle className="h-5 w-5 text-amber-600" />
             </div>
             <p className="mt-3 text-sm font-medium text-amber-900">
-              Aucun vol ne correspond à vos filtres
+              Aucun flight ne correspond à vos filtres
             </p>
             <p className="mt-1 text-xs text-amber-700">
-              Ajustez la recherche ou le statut pour élargir les résultats.
+              Ajustez la recherche ou le status pour élargir les résultats.
             </p>
             <button
               type="button"
@@ -769,7 +768,7 @@ export const FlightSchedulerDashboard: FC = () => {
                 <input
                   value={searchTerm}
                   onChange={(event) => setSearchTerm(event.target.value)}
-                  placeholder="Rechercher un vol, appareil..."
+                  placeholder="Rechercher un flight, appareil..."
                   className={`h-10 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-9 text-sm text-slate-700 placeholder:text-slate-400 ${FOCUS_RING}`}
                 />
                 {searchTerm && (

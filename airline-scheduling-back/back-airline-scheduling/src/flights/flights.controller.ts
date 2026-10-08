@@ -83,7 +83,7 @@ export class FlightsController {
   // ==========================================================================
 
   /**
-   * Termine explicitement un vol déjà arrivé.
+   * Termine explicitement un flight déjà arrivé.
    * L'opération est idempotente : les heures ne sont créditées qu'une fois.
    */
   @Patch(':id/complete')

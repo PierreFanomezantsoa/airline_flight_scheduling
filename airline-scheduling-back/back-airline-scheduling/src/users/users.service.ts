@@ -39,7 +39,7 @@ import {
 export type PublicUser =
   Omit<
     User,
-    'motDePasse'
+    'passwordHash'
   >;
 
 @Injectable()
@@ -61,7 +61,7 @@ export class UsersService {
     const users =
       await this.usersRepository.find({
         order: {
-          creeA:
+          createdAt:
             'DESC',
         },
       });
@@ -88,7 +88,7 @@ export class UsersService {
           role:
             UserRole.CREW_MEMBER,
 
-          actif:
+          isActive:
             true,
 
           accountStatus:
@@ -96,7 +96,7 @@ export class UsersService {
         },
 
         order: {
-          nom:
+          name:
             'ASC',
         },
       });
@@ -125,7 +125,7 @@ export class UsersService {
         },
 
         order: {
-          creeA:
+          createdAt:
             'ASC',
         },
       });
@@ -154,7 +154,7 @@ export class UsersService {
         },
 
         order: {
-          creeA:
+          createdAt:
             'DESC',
         },
       });
@@ -183,7 +183,7 @@ export class UsersService {
         },
 
         order: {
-          creeA:
+          createdAt:
             'DESC',
         },
       });
@@ -208,7 +208,7 @@ export class UsersService {
     const user =
       await this.usersRepository.findOne({
         where: {
-          id,
+          refUser: id,
         },
       });
 
@@ -252,7 +252,7 @@ export class UsersService {
         'user',
       )
       .addSelect(
-        'user.motDePasse',
+        'user.passwordHash',
       )
       .where(
         'LOWER(user.email) = :email',
@@ -302,29 +302,29 @@ export class UsersService {
       this.usersRepository.create({
         email,
 
-        motDePasse:
+        passwordHash:
           await bcrypt.hash(
             dto.password,
             12,
           ),
 
-        nom:
-          dto.nom.trim(),
+        name:
+          dto.name.trim(),
 
         role:
           dto.role,
 
-        niveauTechnique:
-          dto.niveauTechnique
+        technicalLevel:
+          dto.technicalLevel
             ?.trim() ??
           'Intermediate',
 
-        niveauMetier:
-          dto.niveauMetier
+        professionalLevel:
+          dto.professionalLevel
             ?.trim() ??
           'Intermediate',
 
-        actif:
+        isActive:
           true,
 
         accountStatus:
@@ -333,13 +333,13 @@ export class UsersService {
         approvedAt:
           null,
 
-        approvedBy:
+        refUserApprover:
           null,
 
         rejectedAt:
           null,
 
-        rejectedBy:
+        refUserRejector:
           null,
 
         rejectionReason:
@@ -393,19 +393,19 @@ export class UsersService {
     user.accountStatus =
       UserAccountStatus.APPROVED;
 
-    user.actif =
+    user.isActive =
       true;
 
     user.approvedAt =
       new Date();
 
-    user.approvedBy =
+    user.refUserApprover =
       adminId;
 
     user.rejectedAt =
       null;
 
-    user.rejectedBy =
+    user.refUserRejector =
       null;
 
     user.rejectionReason =
@@ -418,7 +418,7 @@ export class UsersService {
 
     return {
       message:
-        'Compte utilisateur validé avec succès.',
+        'Compte user validé avec succès.',
 
       user:
         this.toPublicUser(
@@ -461,13 +461,13 @@ export class UsersService {
     user.approvedAt =
       null;
 
-    user.approvedBy =
+    user.refUserApprover =
       null;
 
     user.rejectedAt =
       new Date();
 
-    user.rejectedBy =
+    user.refUserRejector =
       adminId;
 
     user.rejectionReason =
@@ -518,13 +518,13 @@ export class UsersService {
     user.approvedAt =
       null;
 
-    user.approvedBy =
+    user.refUserApprover =
       null;
 
     user.rejectedAt =
       null;
 
-    user.rejectedBy =
+    user.refUserRejector =
       null;
 
     user.rejectionReason =
@@ -584,11 +584,11 @@ export class UsersService {
     }
 
     if (
-      dto.nom !==
+      dto.name !==
       undefined
     ) {
-      user.nom =
-        dto.nom.trim();
+      user.name =
+        dto.name.trim();
     }
 
     if (
@@ -600,33 +600,33 @@ export class UsersService {
     }
 
     if (
-      dto.niveauTechnique !==
+      dto.technicalLevel !==
       undefined
     ) {
-      user.niveauTechnique =
-        dto.niveauTechnique.trim();
+      user.technicalLevel =
+        dto.technicalLevel.trim();
     }
 
     if (
-      dto.niveauMetier !==
+      dto.professionalLevel !==
       undefined
     ) {
-      user.niveauMetier =
-        dto.niveauMetier.trim();
+      user.professionalLevel =
+        dto.professionalLevel.trim();
     }
 
     if (
-      dto.actif !==
+      dto.isActive !==
       undefined
     ) {
-      user.actif =
-        dto.actif;
+      user.isActive =
+        dto.isActive;
     }
 
     if (
       dto.password
     ) {
-      user.motDePasse =
+      user.passwordHash =
         await bcrypt.hash(
           dto.password,
           12,
@@ -675,7 +675,7 @@ export class UsersService {
       );
     }
 
-    user.actif =
+    user.isActive =
       false;
 
     await this.usersRepository.save(
@@ -699,7 +699,7 @@ export class UsersService {
       User,
   ): PublicUser {
     const {
-      motDePasse:
+      passwordHash:
         _password,
 
       ...publicUser
@@ -736,7 +736,7 @@ export class UsersService {
       excludeId
     ) {
       qb.andWhere(
-        'user.id != :excludeId',
+        'user.refUser != :excludeId',
         {
           excludeId,
         },

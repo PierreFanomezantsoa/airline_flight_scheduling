@@ -89,56 +89,56 @@ describe('Règles métier OCC - planification des vols', () => {
   ): Aircraft =>
     ({
       id: 'aircraft-1',
-      immatriculation: 'AFK-412',
-      statut: AircraftStatus.ACTIVE,
-      baseAttache: 'TNR',
-      heuresDepuisDerniereMaintenance: 20,
-      limiteHeuresMaintenance: 100,
+      registration: 'AFK-412',
+      status: AircraftStatus.ACTIVE,
+      homeBase: 'TNR',
+      hoursSinceMaintenance: 20,
+      maintenanceHoursLimit: 100,
       ...overrides,
     }) as Aircraft;
 
   const makeFlight = (
     id: string,
-    numeroVol: string,
+    flightNumber: string,
     depart: string,
     arrivee: string,
-    aeroportDepart = 'TNR',
-    aeroportArrivee = 'TNR',
+    departureAirportCode = 'TNR',
+    arrivalAirportCode = 'TNR',
     aircraft = makeAircraft(),
   ): Flight =>
     ({
       id,
-      numeroVol,
-      aeroportDepart,
-      aeroportArrivee,
+      flightNumber,
+      departureAirportCode,
+      arrivalAirportCode,
 
-      aeroportEscale: null,
-      dureeEscale: null,
+      stopoverAirportCodes: null,
+      stopoverDurationMinutes: null,
 
-      heureDepart: new Date(depart),
-      heureArrivee: new Date(arrivee),
+      departureTime: new Date(depart),
+      arrivalTime: new Date(arrivee),
 
-      statut: FlightStatus.SCHEDULED,
+      status: FlightStatus.SCHEDULED,
 
-      avionId: aircraft.id,
-      avion: aircraft,
+      refAircraft: aircraft.refAircraft,
+      aircraft: aircraft,
 
-      affectationsEquipage: [],
+      crewAssignments: [],
 
       /*
        * Nouveaux champs de Flight.
        *
        * Ils doivent être présents dans les objets de test maintenant
-       * que la comptabilisation réelle des heures de vol existe.
+       * que la comptabilisation réelle des heures de flight existe.
        */
-      heuresComptabilisees: false,
-      heuresCreditees: null,
-      heuresComptabiliseesAt: null,
+      flightHoursRecorded: false,
+      creditedFlightHours: null,
+      flightHoursRecordedAt: null,
 
       version: 0,
-      creeA: new Date(),
-      misAJourA: new Date(),
-      supprimeA: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      deletedAt: null,
     }) as Flight;
 
   beforeEach(async () => {
@@ -221,7 +221,7 @@ describe('Règles métier OCC - planification des vols', () => {
   });
 
   it(
-    'RG01 - interdit deux vols qui se chevauchent avec le même avion',
+    'RG01 - interdit deux vols qui se chevauchent avec le même aircraft',
     async () => {
       const aircraft = makeAircraft();
 
@@ -258,7 +258,7 @@ describe('Règles métier OCC - planification des vols', () => {
           expect.objectContaining({
             type: ScheduleConflictType.AIRCRAFT_OVERLAP,
             blocking: true,
-            aircraftId: aircraft.id,
+            refAircraft: aircraft.refAircraft,
           }),
         ]),
       );
@@ -266,7 +266,7 @@ describe('Règles métier OCC - planification des vols', () => {
   );
 
   it(
-    'RG02 - impose le turnaround minimal entre deux rotations du même avion',
+    'RG02 - impose le turnaround minimal entre deux rotations du même aircraft',
     async () => {
       const aircraft = makeAircraft();
 
@@ -311,7 +311,7 @@ describe('Règles métier OCC - planification des vols', () => {
   );
 
   it(
-    'RG03 - détecte un problème de positionnement si l’avion repart ' +
+    'RG03 - détecte un problème de positionnement si l’aircraft repart ' +
       'd’un autre aéroport trop tôt',
     async () => {
       const aircraft = makeAircraft();
@@ -357,10 +357,10 @@ describe('Règles métier OCC - planification des vols', () => {
   );
 
   it(
-    'RG04 - bloque un avion déjà indisponible ou en maintenance',
+    'RG04 - bloque un aircraft déjà indisponible ou en maintenance',
     async () => {
       const aircraft = makeAircraft({
-        statut: AircraftStatus.MAINTENANCE,
+        status: AircraftStatus.MAINTENANCE,
       });
 
       (flightRepository.find as jest.Mock).mockResolvedValue([
@@ -389,11 +389,11 @@ describe('Règles métier OCC - planification des vols', () => {
   );
 
   it(
-    'RG05 - bloque un vol qui ferait dépasser la limite horaire avant maintenance',
+    'RG05 - bloque un flight qui ferait dépasser la limite horaire avant maintenance',
     async () => {
       const aircraft = makeAircraft({
-        heuresDepuisDerniereMaintenance: 99,
-        limiteHeuresMaintenance: 100,
+        hoursSinceMaintenance: 99,
+        maintenanceHoursLimit: 100,
       });
 
       (flightRepository.find as jest.Mock).mockResolvedValue([
@@ -422,11 +422,11 @@ describe('Règles métier OCC - planification des vols', () => {
   );
 
   it(
-    'RG05a - compte toute la durée d’un vol sans escale même si une durée d’escale est renseignée',
+    'RG05a - compte toute la durée d’un flight sans escale même si une durée d’escale est renseignée',
     async () => {
       const aircraft = makeAircraft({
-        heuresDepuisDerniereMaintenance: 97,
-        limiteHeuresMaintenance: 100,
+        hoursSinceMaintenance: 97,
+        maintenanceHoursLimit: 100,
       });
       const flight = makeFlight(
         'f-direct',
@@ -437,7 +437,7 @@ describe('Règles métier OCC - planification des vols', () => {
         'CDG',
         aircraft,
       );
-      flight.dureeEscale = 120;
+      flight.stopoverDurationMinutes = 120;
 
       (flightRepository.find as jest.Mock).mockResolvedValue([flight]);
 
@@ -456,11 +456,11 @@ describe('Règles métier OCC - planification des vols', () => {
   );
 
   it(
-    'RG05c - bloque un vol qui atteint exactement la limite de maintenance',
+    'RG05c - bloque un flight qui atteint exactement la limite de maintenance',
     async () => {
       const aircraft = makeAircraft({
-        heuresDepuisDerniereMaintenance: 99,
-        limiteHeuresMaintenance: 100,
+        hoursSinceMaintenance: 99,
+        maintenanceHoursLimit: 100,
       });
       const flight = makeFlight(
         'f-exact-limit',
@@ -492,11 +492,11 @@ describe('Règles métier OCC - planification des vols', () => {
   );
 
   it(
-    'RG05b - retire le temps au sol uniquement pour un vol avec escale',
+    'RG05b - retire le temps au sol uniquement pour un flight avec escale',
     async () => {
       const aircraft = makeAircraft({
-        heuresDepuisDerniereMaintenance: 97,
-        limiteHeuresMaintenance: 100,
+        hoursSinceMaintenance: 97,
+        maintenanceHoursLimit: 100,
       });
       const flight = makeFlight(
         'f-stopover',
@@ -507,8 +507,8 @@ describe('Règles métier OCC - planification des vols', () => {
         'CDG',
         aircraft,
       );
-      flight.aeroportEscale = 'RUN';
-      flight.dureeEscale = 120;
+      flight.stopoverAirportCodes = 'RUN';
+      flight.stopoverDurationMinutes = 120;
 
       (flightRepository.find as jest.Mock).mockResolvedValue([flight]);
 
@@ -535,13 +535,13 @@ describe('Règles métier OCC - planification des vols', () => {
   );
 
   it(
-    'RG06 - interdit un vol pendant un créneau de maintenance planifié',
+    'RG06 - interdit un flight pendant un créneau de maintenance planifié',
     async () => {
       const aircraft = makeAircraft();
 
       const slot = {
         id: 'maintenance-1',
-        aircraftId: aircraft.id,
+        refAircraft: aircraft.refAircraft,
         maintenanceType: MaintenanceType.TYPE_A,
         status: MaintenanceStatus.PLANNED,
         startTime: new Date(
@@ -566,7 +566,7 @@ describe('Règles métier OCC - planification des vols', () => {
 
       /*
        * Pour RG06, on remplace seulement le QueryBuilder du repository
-       * maintenance afin de retourner le créneau qui chevauche le vol.
+       * maintenance afin de retourner le créneau qui chevauche le flight.
        */
       (
         maintenanceRepository.createQueryBuilder as jest.Mock
@@ -592,12 +592,12 @@ describe('Règles métier OCC - planification des vols', () => {
     async () => {
       const aircraft1 = makeAircraft({
         id: 'aircraft-1',
-        immatriculation: 'AFK-411',
+        registration: 'AFK-411',
       });
 
       const aircraft2 = makeAircraft({
         id: 'aircraft-2',
-        immatriculation: 'AFK-412',
+        registration: 'AFK-412',
       });
 
       const f1 = makeFlight(
@@ -628,18 +628,18 @@ describe('Règles métier OCC - planification des vols', () => {
       (crewRepository.find as jest.Mock).mockResolvedValue([
         {
           id: 'ca1',
-          utilisateurId: 'user-1',
-          vol: f1,
-          utilisateur: {
-            nom: 'Rakoto',
+          refUser: 'user-1',
+          flight: f1,
+          user: {
+            name: 'Rakoto',
           },
         },
         {
           id: 'ca2',
-          utilisateurId: 'user-1',
-          vol: f2,
-          utilisateur: {
-            nom: 'Rakoto',
+          refUser: 'user-1',
+          flight: f2,
+          user: {
+            name: 'Rakoto',
           },
         },
       ] as CrewAssignment[]);
@@ -662,12 +662,12 @@ describe('Règles métier OCC - planification des vols', () => {
     async () => {
       const aircraft1 = makeAircraft({
         id: 'aircraft-1',
-        immatriculation: 'AFK-411',
+        registration: 'AFK-411',
       });
 
       const aircraft2 = makeAircraft({
         id: 'aircraft-2',
-        immatriculation: 'AFK-412',
+        registration: 'AFK-412',
       });
 
       const f1 = makeFlight(
@@ -698,18 +698,18 @@ describe('Règles métier OCC - planification des vols', () => {
       (crewRepository.find as jest.Mock).mockResolvedValue([
         {
           id: 'ca1',
-          utilisateurId: 'user-1',
-          vol: f1,
-          utilisateur: {
-            nom: 'Rakoto',
+          refUser: 'user-1',
+          flight: f1,
+          user: {
+            name: 'Rakoto',
           },
         },
         {
           id: 'ca2',
-          utilisateurId: 'user-1',
-          vol: f2,
-          utilisateur: {
-            nom: 'Rakoto',
+          refUser: 'user-1',
+          flight: f2,
+          user: {
+            name: 'Rakoto',
           },
         },
       ] as CrewAssignment[]);

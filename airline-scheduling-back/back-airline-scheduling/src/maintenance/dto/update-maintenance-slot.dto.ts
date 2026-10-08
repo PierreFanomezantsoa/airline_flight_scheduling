@@ -13,7 +13,7 @@ import {
 export class UpdateMaintenanceSlotDto {
   @IsOptional()
   @IsUUID()
-  aircraftId?: string;
+  refAircraft?: string;
 
   @IsOptional()
   @IsEnum(MaintenanceType)

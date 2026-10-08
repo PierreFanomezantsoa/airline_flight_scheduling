@@ -1,10 +1,10 @@
 /**
- * Erreur rencontrée pendant la synchronisation d'un vol terminé.
+ * Erreur rencontrée pendant la synchronisation d'un flight terminé.
  * Ce type est exporté afin que NestJS/TypeScript puisse générer proprement
  * les déclarations .d.ts du contrôleur public.
  */
 export interface CompletedFlightSyncError {
-  flightId: string;
+  refFlight: string;
   flightNumber?: string;
   message: string;
 }
@@ -16,7 +16,7 @@ export interface CompletedFlightsSyncResult {
   /** Nombre de vols candidats examinés. */
   scanned: number;
 
-  /** Nombre de vols confirmés au statut Effectué. */
+  /** Nombre de vols confirmés au status Effectué. */
   completed: number;
 
   /** Nombre de vols dont les heures ont été créditées pendant cet appel. */

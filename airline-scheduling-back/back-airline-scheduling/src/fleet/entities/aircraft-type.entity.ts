@@ -10,39 +10,39 @@ import { Aircraft } from './aircraft.entity';
 
 @Entity('aircraft_types')
 export class AircraftType {
-  @PrimaryGeneratedColumn('uuid')
-  id!: string;
+  @PrimaryGeneratedColumn('uuid', { name: 'ref_aircraft_type' })
+  refAircraftType!: string;
 
   @Column({ type: 'varchar', length: 100, unique: true })
-  nomModele!: string;
+  modelName!: string;
 
   @Column({ type: 'varchar', length: 80 })
-  fabricant!: string;
+  manufacturer!: string;
 
   @Column({ type: 'int' })
-  capaciteMax!: number;
+  maxCapacity!: number;
 
   /** km/h */
   @Column({ type: 'double precision' })
-  vitesseCroisiere!: number;
+  cruiseSpeed!: number;
 
   /** km */
   @Column({ type: 'double precision' })
-  autonomieMax!: number;
+  maxRange!: number;
 
   /** Unité à définir dans votre référentiel métier, ex. kg/h ou L/h. */
   @Column({ type: 'double precision' })
-  consommationCarburant!: number;
+  fuelConsumption!: number;
 
   @Column({ type: 'double precision' })
-  intervalleMaintenanceHeures!: number;
+  maintenanceIntervalHours!: number;
 
   @CreateDateColumn({ type: 'timestamptz' })
-  creeA!: Date;
+  createdAt!: Date;
 
   @UpdateDateColumn({ type: 'timestamptz' })
-  misAJourA!: Date;
+  updatedAt!: Date;
 
-  @OneToMany(() => Aircraft, (aircraft) => aircraft.type)
-  avions!: Aircraft[];
+  @OneToMany(() => Aircraft, (aircraft) => aircraft.aircraftType)
+  aircraft!: Aircraft[];
 }

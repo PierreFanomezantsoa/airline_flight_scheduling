@@ -24,21 +24,19 @@ export type AccountStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 // =============================================================================
 
 export interface PublicUser {
-  id: string;
+  refUser: string;
   email: string;
-  nom: string;
+  name: string;
   role: UserRole;
-  niveauTechnique?: string;
-  niveauMetier?: string;
-  actif?: boolean;
+  technicalLevel?: string;
+  professionalLevel?: string;
+  isActive?: boolean;
   accountStatus: AccountStatus;
   approvedAt?: string | null;
-  approvedBy?: string | null;
+  refUserApprover?: string | null;
   rejectedAt?: string | null;
-  rejectedBy?: string | null;
+  refUserRejector?: string | null;
   rejectionReason?: string | null;
-  creeA?: string;
-  misAJourA?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -55,10 +53,10 @@ export interface LoginPayload {
 export interface SignUpPayload {
   email: string;
   password: string;
-  nom: string;
+  name: string;
   role: UserRole;
-  niveauTechnique?: string;
-  niveauMetier?: string;
+  technicalLevel?: string;
+  professionalLevel?: string;
 }
 
 // =============================================================================
@@ -576,7 +574,7 @@ export async function signUp(payload: SignUpPayload): Promise<PublicUser> {
     body: JSON.stringify({
       ...payload,
       email: payload.email.trim().toLowerCase(),
-      nom: payload.nom.trim(),
+      name: payload.name.trim(),
     }),
   });
 }
@@ -633,9 +631,9 @@ export function getAuthSession(): AuthSession | null {
     const user = session.user as Partial<PublicUser>;
 
     if (
-      typeof user.id !== 'string' ||
+      typeof user.refUser !== 'string' ||
       typeof user.email !== 'string' ||
-      typeof user.nom !== 'string' ||
+      typeof user.name !== 'string' ||
       typeof user.role !== 'string'
     ) {
       clearAuthSession();

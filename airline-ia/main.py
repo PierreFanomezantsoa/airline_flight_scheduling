@@ -22,8 +22,8 @@ class AIFeatures(BaseModel):
     is_weekend: float
 
 class FlightItem(BaseModel):
-    id: str
-    aircraft_id: str
+    refFlight: str
+    refAircraft: str
     departure_time: str
     arrival_time: str
     status: str
@@ -43,7 +43,7 @@ async def predict_and_optimize_flights(payload: OptimizeRequest):
         optimized_flights = []
         
         for flight in payload.flights:
-            # Récupération de l'heure réelle du vol pour extraire des caractéristiques temporelles
+            # Récupération de l'heure réelle du flight pour extraire des caractéristiques temporelles
             dt_dept = datetime.fromisoformat(flight.departure_time.replace('Z', '+00:00'))
             hour_of_day = dt_dept.hour
             day_of_week = dt_dept.weekday()  # 0 = Lundi, 6 = Dimanche
@@ -63,11 +63,11 @@ async def predict_and_optimize_flights(payload: OptimizeRequest):
                 # Aléa technique résiduel imprévu (5% de chance de retard de maintenance)
                 predicted_status = "Delayed"
             else:
-                # Le vol reste nominal et à l'heure
+                # Le flight reste nominal et à l'heure
                 predicted_status = "Scheduled"
                 
             optimized_flights.append({
-                "id": flight.id,
+                "refFlight": flight.refFlight,
                 "departure_time": flight.departure_time,
                 "arrival_time": flight.arrival_time,
                 "status": predicted_status

@@ -22,9 +22,9 @@ import { MaintenanceSlot } from './entities/maintenance-slot.entity';
 
 /**
  * ⭐ Fenêtre de décision après la fin prévue d'un créneau.
- * L'avion reste en MAINTENANCE pendant cette durée.
+ * L'aircraft reste en MAINTENANCE pendant cette durée.
  * Passé ce délai sans action, le créneau est clôturé et
- * l'avion redevient ACTIVE.
+ * l'aircraft redevient ACTIVE.
  */
 export const PENDING_REVIEW_WINDOW_MS = 12 * 60 * 60 * 1000; // 12 h
 
@@ -49,7 +49,7 @@ export class MaintenanceService {
    *
    * L'IHM voit donc toujours un état cohérent :
    *   - slot PENDING_REVIEW avec un compte à rebours à afficher ;
-   *   - slot COMPLETED avec avion ACTIVE.
+   *   - slot COMPLETED avec aircraft ACTIVE.
    */
   async findAll(): Promise<MaintenanceSlot[]> {
     await this.syncExpiredMaintenances();
@@ -64,7 +64,7 @@ export class MaintenanceService {
     await this.syncExpiredMaintenances();
 
     const slot = await this.maintenanceRepository.findOne({
-      where: { id },
+      where: { refMaintenanceSlot: id },
       relations: ['aircraft'],
     });
 
@@ -80,18 +80,18 @@ export class MaintenanceService {
   async create(dto: CreateMaintenanceSlotDto): Promise<MaintenanceSlot> {
     await this.syncExpiredMaintenances();
 
-    const aircraft = await this.getAircraft(dto.aircraftId);
+    const aircraft = await this.getAircraft(dto.refAircraft);
     const start = new Date(dto.startTime);
     const end = new Date(dto.endTime);
 
     this.assertWindow(start, end);
 
-    await this.assertNoMaintenanceOverlap(aircraft.id, start, end);
-    await this.assertNoFlightOverlap(aircraft.id, start, end);
+    await this.assertNoMaintenanceOverlap(aircraft.refAircraft, start, end);
+    await this.assertNoFlightOverlap(aircraft.refAircraft, start, end);
 
     const saved = await this.maintenanceRepository.save(
       this.maintenanceRepository.create({
-        aircraftId: aircraft.id,
+        refAircraft: aircraft.refAircraft,
         aircraft,
         maintenanceType: dto.maintenanceType,
         status: dto.status ?? MaintenanceStatus.PLANNED,
@@ -101,9 +101,9 @@ export class MaintenanceService {
       }),
     );
 
-    await this.syncAircraftStatus(aircraft.id);
+    await this.syncAircraftStatus(aircraft.refAircraft);
 
-    return this.findOne(saved.id);
+    return this.findOne(saved.refMaintenanceSlot);
   }
 
   async update(
@@ -113,10 +113,10 @@ export class MaintenanceService {
     await this.syncExpiredMaintenances();
 
     const slot = await this.findOne(id);
-    const previousAircraftId = slot.aircraftId;
+    const previousAircraftId = slot.refAircraft;
 
-    const aircraftId = dto.aircraftId ?? slot.aircraftId;
-    const aircraft = await this.getAircraft(aircraftId);
+    const refAircraft = dto.refAircraft ?? slot.refAircraft;
+    const aircraft = await this.getAircraft(refAircraft);
 
     const start = dto.startTime ? new Date(dto.startTime) : slot.startTime;
     const end = dto.endTime ? new Date(dto.endTime) : slot.endTime;
@@ -128,11 +128,11 @@ export class MaintenanceService {
       status !== MaintenanceStatus.CANCELLED &&
       status !== MaintenanceStatus.COMPLETED
     ) {
-      await this.assertNoMaintenanceOverlap(aircraftId, start, end, id);
-      await this.assertNoFlightOverlap(aircraftId, start, end);
+      await this.assertNoMaintenanceOverlap(refAircraft, start, end, id);
+      await this.assertNoFlightOverlap(refAircraft, start, end);
     }
 
-    slot.aircraftId = aircraftId;
+    slot.refAircraft = refAircraft;
     slot.aircraft = aircraft;
     slot.startTime = start;
     slot.endTime = end;
@@ -149,12 +149,12 @@ export class MaintenanceService {
     await this.maintenanceRepository.save(slot);
 
     if (status === MaintenanceStatus.COMPLETED) {
-      await this.completeAircraftMaintenance(aircraftId, end);
+      await this.completeAircraftMaintenance(refAircraft, end);
     } else {
-      await this.syncAircraftStatus(aircraftId);
+      await this.syncAircraftStatus(refAircraft);
     }
 
-    if (previousAircraftId !== aircraftId) {
+    if (previousAircraftId !== refAircraft) {
       await this.syncAircraftStatus(previousAircraftId);
     }
 
@@ -169,7 +169,7 @@ export class MaintenanceService {
     slot.autoCloseAt = null;
 
     await this.maintenanceRepository.save(slot);
-    await this.syncAircraftStatus(slot.aircraftId);
+    await this.syncAircraftStatus(slot.refAircraft);
 
     return { cancelled: true, id };
   }
@@ -190,7 +190,7 @@ export class MaintenanceService {
    *   - status = IN_PROGRESS
    *   - pendingReviewSince / autoCloseAt = null
    *   - extensionCount += 1
-   *   - avion repasse en MAINTENANCE (au cas où)
+   *   - aircraft repasse en MAINTENANCE (au cas où)
    */
   async extendSlot(
     id: string,
@@ -212,7 +212,7 @@ export class MaintenanceService {
       slot.status !== MaintenanceStatus.PLANNED
     ) {
       throw new ConflictException(
-        `Impossible de prolonger un créneau au statut ${slot.status}.`,
+        `Impossible de prolonger un créneau au status ${slot.status}.`,
       );
     }
 
@@ -227,16 +227,16 @@ export class MaintenanceService {
 
     await this.maintenanceRepository.save(slot);
 
-    // Remettre l'avion en maintenance (au cas où il aurait été libéré)
-    await this.aircraftRepository.update(slot.aircraftId, {
-      statut: AircraftStatus.MAINTENANCE,
+    // Remettre l'aircraft en maintenance (au cas où il aurait été libéré)
+    await this.aircraftRepository.update(slot.refAircraft, {
+      status: AircraftStatus.MAINTENANCE,
     });
 
     return this.findOne(id);
   }
 
   /**
-   * ⭐ CLÔTURER MANUELLEMENT : termine le créneau et remet l'avion en ACTIVE.
+   * ⭐ CLÔTURER MANUELLEMENT : termine le créneau et remet l'aircraft en ACTIVE.
    *
    * Utilisable si le créneau est IN_PROGRESS ou PENDING_REVIEW.
    * Idempotent si déjà COMPLETED.
@@ -261,7 +261,7 @@ export class MaintenanceService {
     slot.autoCloseAt = null;
 
     await this.maintenanceRepository.save(slot);
-    await this.completeAircraftMaintenance(slot.aircraftId, slot.endTime);
+    await this.completeAircraftMaintenance(slot.refAircraft, slot.endTime);
 
     return this.findOne(id);
   }
@@ -271,27 +271,27 @@ export class MaintenanceService {
   // ─────────────────────────────────────────────────────────────
 
   async checkAvailability(
-    aircraftId: string,
+    refAircraft: string,
     startTime: string,
     endTime: string,
   ): Promise<{
     available: boolean;
     maintenanceConflict: {
-      id: string;
+      refMaintenanceSlot: string;
       maintenanceType: string;
       status: MaintenanceStatus;
       startTime: Date;
       endTime: Date;
     } | null;
     flightConflict: {
-      id: string;
-      numeroVol: string;
-      heureDepart: Date;
-      heureArrivee: Date;
+      refFlight: string;
+      flightNumber: string;
+      departureTime: Date;
+      arrivalTime: Date;
     } | null;
   }> {
     await this.syncExpiredMaintenances();
-    await this.getAircraft(aircraftId);
+    await this.getAircraft(refAircraft);
 
     const start = new Date(startTime);
     const end = new Date(endTime);
@@ -300,7 +300,7 @@ export class MaintenanceService {
 
     const maintenanceConflict = await this.maintenanceRepository
       .createQueryBuilder('slot')
-      .where('slot.aircraftId = :aircraftId', { aircraftId })
+      .where('slot.refAircraft = :refAircraft', { refAircraft })
       .andWhere('slot.status NOT IN (:...ignored)', {
         ignored: [
           MaintenanceStatus.CANCELLED,
@@ -314,13 +314,13 @@ export class MaintenanceService {
 
     const flightConflict = await this.flightRepository
       .createQueryBuilder('flight')
-      .where('flight.avionId = :aircraftId', { aircraftId })
-      .andWhere('flight.statut != :cancelled', {
+      .where('flight.refAircraft = :refAircraft', { refAircraft })
+      .andWhere('flight.status != :cancelled', {
         cancelled: FlightStatus.CANCELLED,
       })
-      .andWhere('flight.heureDepart < :end', { end })
-      .andWhere('flight.heureArrivee > :start', { start })
-      .orderBy('flight.heureDepart', 'ASC')
+      .andWhere('flight.departureTime < :end', { end })
+      .andWhere('flight.arrivalTime > :start', { start })
+      .orderBy('flight.departureTime', 'ASC')
       .getOne();
 
     return {
@@ -328,7 +328,7 @@ export class MaintenanceService {
 
       maintenanceConflict: maintenanceConflict
         ? {
-            id: maintenanceConflict.id,
+            refMaintenanceSlot: maintenanceConflict.refMaintenanceSlot,
             maintenanceType: maintenanceConflict.maintenanceType,
             status: maintenanceConflict.status,
             startTime: maintenanceConflict.startTime,
@@ -338,10 +338,10 @@ export class MaintenanceService {
 
       flightConflict: flightConflict
         ? {
-            id: String(flightConflict.id),
-            numeroVol: flightConflict.numeroVol,
-            heureDepart: flightConflict.heureDepart,
-            heureArrivee: flightConflict.heureArrivee,
+            refFlight: String(flightConflict.refFlight),
+            flightNumber: flightConflict.flightNumber,
+            departureTime: flightConflict.departureTime,
+            arrivalTime: flightConflict.arrivalTime,
           }
         : null,
     };
@@ -358,11 +358,11 @@ export class MaintenanceService {
    *        ──► PENDING_REVIEW
    *        pendingReviewSince = now
    *        autoCloseAt = now + 12 h
-   *        ⚠️ L'avion RESTE en MAINTENANCE
+   *        ⚠️ L'aircraft RESTE en MAINTENANCE
    *
    *   2. PENDING_REVIEW dont autoCloseAt <= now
    *        ──► COMPLETED
-   *        ✅ L'avion repasse ACTIVE (via completeAircraftMaintenance)
+   *        ✅ L'aircraft repasse ACTIVE (via completeAircraftMaintenance)
    *
    * Idempotent.
    */
@@ -420,12 +420,12 @@ export class MaintenanceService {
       await this.maintenanceRepository.save(slot);
 
       const reset = await this.completeAircraftMaintenance(
-        slot.aircraftId,
+        slot.refAircraft,
         slot.endTime,
       );
 
       if (reset) {
-        closedAircraftIds.push(slot.aircraftId);
+        closedAircraftIds.push(slot.refAircraft);
       }
     }
 
@@ -441,21 +441,21 @@ export class MaintenanceService {
   // ─────────────────────────────────────────────────────────────
 
   private async completeAircraftMaintenance(
-    aircraftId: string,
+    refAircraft: string,
     maintenanceEnd: Date,
   ): Promise<boolean> {
-    const aircraft = await this.getAircraft(aircraftId);
+    const aircraft = await this.getAircraft(refAircraft);
 
     if (
-      aircraft.statut === AircraftStatus.RETIRED ||
-      aircraft.statut === AircraftStatus.OUT_OF_SERVICE
+      aircraft.status === AircraftStatus.RETIRED ||
+      aircraft.status === AircraftStatus.OUT_OF_SERVICE
     ) {
       return false;
     }
 
     /**
      * ⚠️ Vérification importante : une AUTRE maintenance est-elle encore
-     * active sur cet avion ?
+     * active sur cet aircraft ?
      *
      * On considère comme active toute maintenance non terminée dont la
      * fenêtre PENDING_REVIEW n'est pas expirée, OU dont la période
@@ -466,7 +466,7 @@ export class MaintenanceService {
     const anotherCurrentMaintenance =
       await this.maintenanceRepository
         .createQueryBuilder('slot')
-        .where('slot.aircraftId = :aircraftId', { aircraftId })
+        .where('slot.refAircraft = :refAircraft', { refAircraft })
         .andWhere('slot.status NOT IN (:...ignored)', {
           ignored: [
             MaintenanceStatus.CANCELLED,
@@ -482,10 +482,10 @@ export class MaintenanceService {
         )
         .getOne();
 
-    aircraft.heuresDepuisDerniereMaintenance = 0;
-    aircraft.dateDerniereMaintenance = maintenanceEnd;
+    aircraft.hoursSinceMaintenance = 0;
+    aircraft.lastMaintenanceAt = maintenanceEnd;
 
-    aircraft.statut = anotherCurrentMaintenance
+    aircraft.status = anotherCurrentMaintenance
       ? AircraftStatus.MAINTENANCE
       : AircraftStatus.ACTIVE;
 
@@ -494,12 +494,12 @@ export class MaintenanceService {
     return true;
   }
 
-  async syncAircraftStatus(aircraftId: string): Promise<void> {
-    const aircraft = await this.getAircraft(aircraftId);
+  async syncAircraftStatus(refAircraft: string): Promise<void> {
+    const aircraft = await this.getAircraft(refAircraft);
 
     if (
       [AircraftStatus.OUT_OF_SERVICE, AircraftStatus.RETIRED].includes(
-        aircraft.statut,
+        aircraft.status,
       )
     ) {
       return;
@@ -508,7 +508,7 @@ export class MaintenanceService {
     const now = new Date();
 
     /**
-     * ⚠️ Un avion reste en MAINTENANCE tant qu'il a :
+     * ⚠️ Un aircraft reste en MAINTENANCE tant qu'il a :
      *   - un créneau IN_PROGRESS couvrant maintenant, OU
      *   - un créneau PENDING_REVIEW (fenêtre 12 h en cours), OU
      *   - un créneau PLANNED futur (à venir).
@@ -518,7 +518,7 @@ export class MaintenanceService {
      */
     const activeMaintenance = await this.maintenanceRepository
       .createQueryBuilder('slot')
-      .where('slot.aircraftId = :aircraftId', { aircraftId })
+      .where('slot.refAircraft = :refAircraft', { refAircraft })
       .andWhere('slot.status NOT IN (:...ignored)', {
         ignored: [
           MaintenanceStatus.CANCELLED,
@@ -538,14 +538,14 @@ export class MaintenanceService {
       .getOne();
 
     if (activeMaintenance) {
-      aircraft.statut = AircraftStatus.MAINTENANCE;
+      aircraft.status = AircraftStatus.MAINTENANCE;
       await this.aircraftRepository.save(aircraft);
     }
   }
 
   private async getAircraft(id: string): Promise<Aircraft> {
     const aircraft = await this.aircraftRepository.findOne({
-      where: { id },
+      where: { refAircraft: id },
     });
 
     if (!aircraft) {
@@ -568,14 +568,14 @@ export class MaintenanceService {
   }
 
   private async assertNoMaintenanceOverlap(
-    aircraftId: string,
+    refAircraft: string,
     start: Date,
     end: Date,
     excludeId?: string,
   ): Promise<void> {
     const qb = this.maintenanceRepository
       .createQueryBuilder('slot')
-      .where('slot.aircraftId = :aircraftId', { aircraftId })
+      .where('slot.refAircraft = :refAircraft', { refAircraft })
       .andWhere('slot.status NOT IN (:...ignored)', {
         ignored: [
           MaintenanceStatus.CANCELLED,
@@ -586,7 +586,7 @@ export class MaintenanceService {
       .andWhere('slot.endTime > :start', { start });
 
     if (excludeId) {
-      qb.andWhere('slot.id != :excludeId', { excludeId });
+      qb.andWhere('slot.refMaintenanceSlot != :excludeId', { excludeId });
     }
 
     const conflict = await qb.getOne();
@@ -596,31 +596,31 @@ export class MaintenanceService {
         code: 'MAINTENANCE_OVERLAP',
         message:
           'Un autre créneau de maintenance chevauche cette période.',
-        conflictingMaintenanceId: conflict.id,
+        refMaintenanceSlot: conflict.refMaintenanceSlot,
       });
     }
   }
 
   private async assertNoFlightOverlap(
-    aircraftId: string,
+    refAircraft: string,
     start: Date,
     end: Date,
   ): Promise<void> {
     const flight = await this.flightRepository
       .createQueryBuilder('flight')
-      .where('flight.avionId = :aircraftId', { aircraftId })
-      .andWhere('flight.statut != :cancelled', {
+      .where('flight.refAircraft = :refAircraft', { refAircraft })
+      .andWhere('flight.status != :cancelled', {
         cancelled: FlightStatus.CANCELLED,
       })
-      .andWhere('flight.heureDepart < :end', { end })
-      .andWhere('flight.heureArrivee > :start', { start })
+      .andWhere('flight.departureTime < :end', { end })
+      .andWhere('flight.arrivalTime > :start', { start })
       .getOne();
 
     if (flight) {
       throw new ConflictException({
         code: 'MAINTENANCE_FLIGHT_CONFLICT',
-        message: `La maintenance chevauche le vol ${flight.numeroVol}.`,
-        conflictingFlightId: flight.id,
+        message: `La maintenance chevauche le flight ${flight.flightNumber}.`,
+        conflictingFlightId: flight.refFlight,
       });
     }
   }

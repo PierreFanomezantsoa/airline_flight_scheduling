@@ -2,8 +2,8 @@ import { Column, Entity, PrimaryColumn } from 'typeorm';
 
 @Entity('airports')
 export class Airport {
-  @PrimaryColumn({ type: 'varchar', length: 3 })
-  iata!: string;
+  @PrimaryColumn({ name: 'ref_airport', type: 'varchar', length: 3 })
+  refAirport!: string;
 
   @Column({ type: 'varchar', length: 120 })
   name!: string;

@@ -55,22 +55,22 @@ export class NetworkConfigurationService implements OnModuleInit {
 
     const airports = hubCodes.length
       ? await this.airportRepository.find({
-          where: { iata: In(hubCodes) },
+          where: { refAirport: In(hubCodes) },
         })
       : [];
 
     const airportByIata = new Map(
-      airports.map((airport) => [airport.iata.toUpperCase(), airport]),
+      airports.map((airport) => [airport.refAirport.toUpperCase(), airport]),
     );
 
     return {
       ...config,
       hubIataCodes: hubCodes,
-      hubs: hubCodes.map((iata) => {
-        const airport = airportByIata.get(iata);
+      hubs: hubCodes.map((refAirport) => {
+        const airport = airportByIata.get(refAirport);
         return airport
           ? {
-              iata: airport.iata,
+              refAirport: airport.refAirport,
               name: airport.name,
               city: airport.city,
               country: airport.country,
@@ -78,7 +78,7 @@ export class NetworkConfigurationService implements OnModuleInit {
               active: airport.active,
             }
           : {
-              iata,
+              refAirport,
               name: null,
               city: null,
               country: null,
@@ -126,12 +126,12 @@ export class NetworkConfigurationService implements OnModuleInit {
 
   private async ensureConfiguration(): Promise<NetworkConfiguration> {
     let config = await this.configRepository.findOne({
-      where: { id: DEFAULT_ID },
+      where: { refNetworkConfiguration: DEFAULT_ID },
     });
 
     if (!config) {
       config = this.configRepository.create({
-        id: DEFAULT_ID,
+        refNetworkConfiguration: DEFAULT_ID,
         mediumHaulTurnaroundMinutes: SchedulingPolicy.minimumTurnaroundMinutes,
         longHaulTurnaroundMinutes: Number(process.env.LONG_HAUL_TURNAROUND_MINUTES ?? 90),
         positioningBufferMinutes: SchedulingPolicy.positioningBufferMinutes,
@@ -167,10 +167,10 @@ export class NetworkConfigurationService implements OnModuleInit {
     if (iataCodes.length === 0) return;
 
     const airports = await this.airportRepository.find({
-      where: { iata: In(iataCodes) },
+      where: { refAirport: In(iataCodes) },
     });
-    const found = new Set(airports.map((airport) => airport.iata.toUpperCase()));
-    const missing = iataCodes.filter((iata) => !found.has(iata));
+    const found = new Set(airports.map((airport) => airport.refAirport.toUpperCase()));
+    const missing = iataCodes.filter((refAirport) => !found.has(refAirport));
 
     if (missing.length > 0) {
       throw new NotFoundException(

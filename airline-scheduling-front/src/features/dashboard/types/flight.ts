@@ -1,22 +1,22 @@
 // src/features/dashboard/types/flight.ts
 
 export interface FlightLegData {
-  numeroVol: string;
-  aeroportDepart: string;
-  aeroportArrivee: string;
-  heureDepart: string;
-  heureArrivee: string;
+  flightNumber: string;
+  departureAirportCode: string;
+  arrivalAirportCode: string;
+  departureTime: string;
+  arrivalTime: string;
 }
 
 export interface FlightFormData {
-  numeroVol: string;
-  aeroportDepart: string;
-  aeroportEscale?: string | string[];
-  dureeEscale?: number;
-  aeroportArrivee: string;
-  heureDepart: string;
-  heureArrivee: string;
-  avionId: string;
+  flightNumber: string;
+  departureAirportCode: string;
+  stopoverAirportCodes?: string | string[];
+  stopoverDurationMinutes?: number;
+  arrivalAirportCode: string;
+  departureTime: string;
+  arrivalTime: string;
+  refAircraft: string;
   status?: 'Planifié' | 'Retardé' | 'En Vol' | 'Annulé' | 'Effectué';
   motifAnnulation?: string;
   legs?: FlightLegData[];

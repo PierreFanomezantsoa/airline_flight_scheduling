@@ -3,7 +3,7 @@ import { FlightStatus } from '../../src/common/enums/airline.enums';
 import { FlightsService } from '../../src/flights/flights.service';
 
 describe('Flights + Scheduling (integration)', () => {
-  const aircraftId = '11111111-1111-4111-8111-111111111111';
+  const refAircraft = '11111111-1111-4111-8111-111111111111';
 
   function makeRepository() {
     const qb = {
@@ -36,7 +36,7 @@ describe('Flights + Scheduling (integration)', () => {
         /*
          * FlightsService.create() appelle this.findOne(savedFlightId)
          * après la transaction. On prépare donc le repository pour
-         * qu'il retrouve le vol qui vient d'être sauvegardé.
+         * qu'il retrouve le flight qui vient d'être sauvegardé.
          */
         repository.findOne.mockResolvedValue(savedFlight);
 
@@ -60,8 +60,8 @@ describe('Flights + Scheduling (integration)', () => {
   }
 
   it(
-    'crée un vol après validation coordonnée des aéroports, ' +
-      'de l’avion et du planning',
+    'crée un flight après validation coordonnée des aéroports, ' +
+      'de l’aircraft et du planning',
     async () => {
       const repository = makeRepository();
 
@@ -70,8 +70,8 @@ describe('Flights + Scheduling (integration)', () => {
       };
 
       const aircraft = {
-        id: aircraftId,
-        immatriculation: '5R-MAD',
+        id: refAircraft,
+        registration: '5R-MAD',
       };
 
       const fleetService = {
@@ -98,13 +98,13 @@ describe('Flights + Scheduling (integration)', () => {
       );
 
       const created = await service.create({
-        numeroVol: ' afk-412 ',
-        aeroportDepart: 'tnr',
-        aeroportArrivee: 'cdg',
-        heureDepart: '2026-08-20T14:05:00+03:00',
-        heureArrivee: '2026-08-20T20:30:00+03:00',
-        avionId: aircraftId,
-        statut: FlightStatus.SCHEDULED,
+        flightNumber: ' afk-412 ',
+        departureAirportCode: 'tnr',
+        arrivalAirportCode: 'cdg',
+        departureTime: '2026-08-20T14:05:00+03:00',
+        arrivalTime: '2026-08-20T20:30:00+03:00',
+        refAircraft: refAircraft,
+        status: FlightStatus.SCHEDULED,
       });
 
       expect(airportsService.assertExists).toHaveBeenCalledWith('TNR');
@@ -112,25 +112,25 @@ describe('Flights + Scheduling (integration)', () => {
 
       expect(schedulingService.validateCandidate).toHaveBeenCalledWith(
         expect.objectContaining({
-          numeroVol: 'AFK-412',
-          aeroportDepart: 'TNR',
-          aeroportArrivee: 'CDG',
-          avionId: aircraftId,
+          flightNumber: 'AFK-412',
+          departureAirportCode: 'TNR',
+          arrivalAirportCode: 'CDG',
+          refAircraft: refAircraft,
         }),
       );
 
-      expect(fleetService.findOne).toHaveBeenCalledWith(aircraftId);
+      expect(fleetService.findOne).toHaveBeenCalledWith(refAircraft);
 
       expect(dataSource.transaction).toHaveBeenCalledTimes(1);
 
       expect(manager.create).toHaveBeenCalledWith(
         expect.anything(),
         expect.objectContaining({
-          numeroVol: 'AFK-412',
-          aeroportDepart: 'TNR',
-          aeroportArrivee: 'CDG',
-          avionId: aircraftId,
-          statut: FlightStatus.SCHEDULED,
+          flightNumber: 'AFK-412',
+          departureAirportCode: 'TNR',
+          arrivalAirportCode: 'CDG',
+          refAircraft: refAircraft,
+          status: FlightStatus.SCHEDULED,
         }),
       );
 
@@ -146,13 +146,13 @@ describe('Flights + Scheduling (integration)', () => {
 
       expect(created).toBeDefined();
       expect(created.id).toBe('flight-1');
-      expect(created.numeroVol).toBe('AFK-412');
-      expect(created.aeroportDepart).toBe('TNR');
-      expect(created.aeroportArrivee).toBe('CDG');
-      expect(created.avionId).toBe(aircraftId);
+      expect(created.flightNumber).toBe('AFK-412');
+      expect(created.departureAirportCode).toBe('TNR');
+      expect(created.arrivalAirportCode).toBe('CDG');
+      expect(created.refAircraft).toBe(refAircraft);
 
       /*
-       * Le vol est seulement SCHEDULED.
+       * Le flight est seulement SCHEDULED.
        * Il ne doit donc pas encore créditer les heures de l'appareil.
        */
       expect(fleetService.addFlightHours).not.toHaveBeenCalled();
@@ -161,7 +161,7 @@ describe('Flights + Scheduling (integration)', () => {
 
   it(
     'empêche l’enregistrement quand le moteur de planning ' +
-      'détecte un chevauchement avion',
+      'détecte un chevauchement aircraft',
     async () => {
       const repository = makeRepository();
 
@@ -200,12 +200,12 @@ describe('Flights + Scheduling (integration)', () => {
 
       await expect(
         service.create({
-          numeroVol: 'AFK-413',
-          aeroportDepart: 'TNR',
-          aeroportArrivee: 'CDG',
-          heureDepart: '2026-08-20T17:05:00+03:00',
-          heureArrivee: '2026-08-21T07:30:00+03:00',
-          avionId: aircraftId,
+          flightNumber: 'AFK-413',
+          departureAirportCode: 'TNR',
+          arrivalAirportCode: 'CDG',
+          departureTime: '2026-08-20T17:05:00+03:00',
+          arrivalTime: '2026-08-21T07:30:00+03:00',
+          refAircraft: refAircraft,
         }),
       ).rejects.toBeInstanceOf(ConflictException);
 
@@ -222,20 +222,20 @@ describe('Flights + Scheduling (integration)', () => {
   );
 
   it(
-    'crédite les compteurs avion pour un vol effectué, en retirant le temps d’escale',
+    'crédite les compteurs aircraft pour un flight effectué, en retirant le temps d’escale',
     async () => {
       const repository = makeRepository();
       const arrival = new Date('2026-08-20T12:00:00.000Z');
       const flight = {
         id: 'flight-completed',
-        statut: FlightStatus.EFFECTUE,
-        avionId: aircraftId,
-        heureDepart: new Date('2026-08-20T10:00:00.000Z'),
-        heureArrivee: arrival,
-        dureeEscale: 30,
-        heuresComptabilisees: false,
-        heuresCreditees: null,
-        heuresComptabiliseesAt: null,
+        status: FlightStatus.EFFECTUE,
+        refAircraft: refAircraft,
+        departureTime: new Date('2026-08-20T10:00:00.000Z'),
+        arrivalTime: arrival,
+        stopoverDurationMinutes: 30,
+        flightHoursRecorded: false,
+        creditedFlightHours: null,
+        flightHoursRecordedAt: null,
       };
 
       const queryBuilder = {
@@ -256,14 +256,14 @@ describe('Flights + Scheduling (integration)', () => {
         transaction: jest.fn(async (callback) => callback(manager)),
       };
       const aircraft = {
-        heuresDeVolTotales: 10,
-        heuresDepuisDerniereMaintenance: 20,
+        totalFlightHours: 10,
+        hoursSinceMaintenance: 20,
       };
       const fleetService = {
         addFlightHours: jest.fn().mockImplementation(
           async (_aircraftId, flightHours) => {
-            aircraft.heuresDeVolTotales += flightHours;
-            aircraft.heuresDepuisDerniereMaintenance += flightHours;
+            aircraft.totalFlightHours += flightHours;
+            aircraft.hoursSinceMaintenance += flightHours;
             return aircraft;
           },
         ),
@@ -289,14 +289,14 @@ describe('Flights + Scheduling (integration)', () => {
         errors: [],
       });
       expect(fleetService.addFlightHours).toHaveBeenCalledWith(
-        aircraftId,
+        refAircraft,
         1.5,
         manager,
       );
-      expect(flight.heuresComptabilisees).toBe(true);
-      expect(flight.heuresCreditees).toBe(1.5);
-      expect(aircraft.heuresDeVolTotales).toBe(11.5);
-      expect(aircraft.heuresDepuisDerniereMaintenance).toBe(21.5);
+      expect(flight.flightHoursRecorded).toBe(true);
+      expect(flight.creditedFlightHours).toBe(1.5);
+      expect(aircraft.totalFlightHours).toBe(11.5);
+      expect(aircraft.hoursSinceMaintenance).toBe(21.5);
       expect(manager.save).toHaveBeenCalledWith(expect.anything(), flight);
     },
   );

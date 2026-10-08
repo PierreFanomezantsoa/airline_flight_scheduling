@@ -49,7 +49,7 @@ if (import.meta.env.DEV) {
 
 export interface Avion {
   id: number;
-  nom: string;
+  name: string;
   code: string;
   capacitePassagers: number;
   estActif: boolean;
@@ -61,7 +61,7 @@ export interface Vol {
   nomProduit: string;
   quantiteAProduire: number;
   dureeEstimeeHeures: number;
-  statut: 'EN_ATTENTE' | 'PLANIFIE';
+  status: 'EN_ATTENTE' | 'PLANIFIE';
 }
 
 export interface VolPlanifie {
@@ -220,11 +220,11 @@ export const SchedulingDashboard: React.FC = () => {
 
   const recalculerDateFin = (tacheId: string, dateDebut: string) => {
     if (!tacheId || !dateDebut) return '';
-    const vol = tachesEnAttente.find((t) => t.id === Number(tacheId));
-    if (!vol) return '';
+    const flight = tachesEnAttente.find((t) => t.id === Number(tacheId));
+    if (!flight) return '';
 
     const debutDate = new Date(dateDebut);
-    const finDate = new Date(debutDate.getTime() + vol.dureeEstimeeHeures * 3600000);
+    const finDate = new Date(debutDate.getTime() + flight.dureeEstimeeHeures * 3600000);
     return toLocalISOString(finDate);
   };
 
@@ -252,7 +252,7 @@ export const SchedulingDashboard: React.FC = () => {
     const tacheIdNum = Number(assignForm.tacheId);
 
     if (!ligneIdNum || !tacheIdNum) {
-      const msg = 'Veuillez sélectionner un vol et un appareil valides.';
+      const msg = 'Veuillez sélectionner un flight et un appareil valides.';
       setError(msg);
       showToast(msg, 'error');
       return;
@@ -376,7 +376,7 @@ export const SchedulingDashboard: React.FC = () => {
       await chargerDonneesOrdonnancement();
       showToast('Vol remis en attente.', 'success');
     } catch (err: unknown) {
-      const message = getFriendlyError(err, 'Erreur lors du retrait du vol.');
+      const message = getFriendlyError(err, 'Erreur lors du retrait du flight.');
       setError(message);
       showToast(message, 'error');
     } finally {
@@ -434,10 +434,10 @@ export const SchedulingDashboard: React.FC = () => {
                 </div>
                 <div>
                   <h3 className="text-base font-black text-slate-900 tracking-tight">
-                    Désordonnancer ce vol ?
+                    Désordonnancer ce flight ?
                   </h3>
                   <p className="text-xs text-slate-500 font-medium">
-                    Le vol repassera dans le carnet d'attente.
+                    Le flight repassera dans le carnet d'attente.
                   </p>
                 </div>
               </div>
@@ -462,7 +462,7 @@ export const SchedulingDashboard: React.FC = () => {
               <p className="text-xs text-slate-600">
                 Appareil :{' '}
                 <span className="font-bold text-slate-800">
-                  {creneauToDelete.ligne?.nom} ({creneauToDelete.ligne?.code})
+                  {creneauToDelete.ligne?.name} ({creneauToDelete.ligne?.code})
                 </span>
               </p>
             </div>
@@ -538,7 +538,7 @@ export const SchedulingDashboard: React.FC = () => {
               Planning & Rotation Flotte
             </h1>
             <p className="text-xs text-slate-500 font-medium max-w-xl">
-              Supervision en temps réel des créneaux de vol, affectation des avions et gestion anti-chevauchement.
+              Supervision en temps réel des créneaux de flight, affectation des aircraft et gestion anti-chevauchement.
             </p>
           </div>
 
@@ -600,7 +600,7 @@ export const SchedulingDashboard: React.FC = () => {
                 <Move className="w-4 h-4 text-indigo-300" />
               </div>
               <h4 className="text-sm font-extrabold tracking-wide">
-                Reprogrammer le vol :{' '}
+                Reprogrammer le flight :{' '}
                 <span className="text-indigo-300">
                   {creneauEnModification.tache?.referenceCommande}
                 </span>
@@ -629,7 +629,7 @@ export const SchedulingDashboard: React.FC = () => {
               >
                 {lignes.map((l) => (
                   <option key={l.id} value={l.id} disabled={!l.estActif}>
-                    {l.nom} ({l.code}) {!l.estActif ? ' - Maintenance' : ''}
+                    {l.name} ({l.code}) {!l.estActif ? ' - Maintenance' : ''}
                   </option>
                 ))}
               </select>
@@ -676,17 +676,17 @@ export const SchedulingDashboard: React.FC = () => {
             <Clock className="w-4 h-4 text-emerald-700" /> Planning des Rotations par Appareil
           </h2>
           <span className="text-xs font-semibold text-slate-400">
-            Total : {lignes.length} avions
+            Total : {lignes.length} aircraft
           </span>
         </div>
 
         <div className="grid grid-cols-1 gap-4">
-          {lignes.map((avion) => {
-            const volsAppareil = creneaux.filter((c) => c.ligne?.id === avion.id);
+          {lignes.map((aircraft) => {
+            const volsAppareil = creneaux.filter((c) => c.ligne?.id === aircraft.id);
 
             return (
               <div
-                key={avion.id}
+                key={aircraft.id}
                 className="border border-slate-200/80 rounded-2xl bg-white overflow-hidden shadow-xs hover:border-slate-300 transition-all"
               >
                 {/* Header Avion */}
@@ -694,7 +694,7 @@ export const SchedulingDashboard: React.FC = () => {
                   <div className="flex items-center gap-3">
                     <div
                       className={`p-2 rounded-xl ${
-                        avion.estActif
+                        aircraft.estActif
                           ? 'bg-slate-900 text-emerald-400'
                           : 'bg-amber-100 text-amber-800'
                       }`}
@@ -703,35 +703,35 @@ export const SchedulingDashboard: React.FC = () => {
                     </div>
                     <div>
                       <span className="text-xs font-extrabold text-slate-900">
-                        {avion.nom}
+                        {aircraft.name}
                       </span>
                       <p className="text-[10px] text-slate-400 font-medium">
-                        Capacité : {avion.capacitePassagers} passagers
+                        Capacité : {aircraft.capacitePassagers} passagers
                       </p>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-2">
-                    {!avion.estActif ? (
+                    {!aircraft.estActif ? (
                       <span className="text-[10px] bg-amber-100 text-amber-800 border border-amber-200/80 px-2.5 py-1 rounded-lg font-extrabold">
                         En Maintenance
                       </span>
                     ) : (
                       <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200/60 px-2.5 py-1 rounded-lg font-extrabold">
-                        {volsAppareil.length} vol(s) programmé(s)
+                        {volsAppareil.length} flight(s) programmé(s)
                       </span>
                     )}
                     <span className="text-[10px] font-mono font-black text-slate-600 bg-white border border-slate-200 px-2 py-1 rounded-md">
-                      {avion.code}
+                      {aircraft.code}
                     </span>
                   </div>
                 </div>
 
-                {/* Liste des créneaux du vol */}
+                {/* Liste des créneaux du flight */}
                 <div className="p-4 divide-y divide-slate-100">
                   {volsAppareil.length === 0 ? (
                     <div className="py-2 text-center sm:text-left text-xs text-slate-400 italic">
-                      Aucun vol assigné — Appareil disponible pour programmation.
+                      Aucun flight assigné — Appareil disponible pour programmation.
                     </div>
                   ) : (
                     volsAppareil.map((creneau) => (
@@ -772,7 +772,7 @@ export const SchedulingDashboard: React.FC = () => {
                                 })}
                               </span>
                               <span className="text-[10px] font-extrabold text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-md ml-1">
-                                {creneau.tache?.dureeEstimeeHeures}h de vol
+                                {creneau.tache?.dureeEstimeeHeures}h de flight
                               </span>
                             </div>
                           </div>
@@ -789,7 +789,7 @@ export const SchedulingDashboard: React.FC = () => {
                             onClick={() => setCreneauToDelete(creneau)}
                             disabled={actionIdLoading === creneau.id}
                             className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition cursor-pointer disabled:opacity-50"
-                            title="Annuler ce vol"
+                            title="Annuler ce flight"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -813,14 +813,14 @@ export const SchedulingDashboard: React.FC = () => {
               <Plus className="w-4 h-4 text-emerald-600" /> Nouvelle Affectation
             </h3>
             <p className="text-xs text-slate-400 font-medium">
-              Planifier un vol du carnet vers la flotte.
+              Planifier un flight du carnet vers la flotte.
             </p>
           </div>
 
           <form onSubmit={handleAssignerTache} className="space-y-4">
             <div>
               <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1.5">
-                1. Sélectionner le vol
+                1. Sélectionner le flight
               </label>
               <select
                 value={assignForm.tacheId}
@@ -847,10 +847,10 @@ export const SchedulingDashboard: React.FC = () => {
                 className="w-full px-3.5 py-2.5 border border-slate-200 rounded-2xl text-xs font-semibold bg-slate-50/50 text-slate-800 focus:bg-white focus:ring-2 focus:ring-emerald-500 outline-none transition cursor-pointer"
                 required
               >
-                <option value="">Attribuer à un avion disponible...</option>
+                <option value="">Attribuer à un aircraft disponible...</option>
                 {lignes.filter((l) => l.estActif).map((l) => (
                   <option key={l.id} value={l.id}>
-                    {l.nom} ({l.code})
+                    {l.name} ({l.code})
                   </option>
                 ))}
               </select>
@@ -895,7 +895,7 @@ export const SchedulingDashboard: React.FC = () => {
               ) : (
                 <>
                   <Plane className="w-4 h-4" />
-                  <span>Planifier le vol</span>
+                  <span>Planifier le flight</span>
                 </>
               )}
             </button>

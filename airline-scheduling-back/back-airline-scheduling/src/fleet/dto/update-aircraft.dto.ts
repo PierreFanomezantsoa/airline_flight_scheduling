@@ -16,38 +16,38 @@ export class UpdateAircraftDto {
   @IsOptional()
   @IsString()
   @Length(2, 20)
-  immatriculation?: string;
+  registration?: string;
 
   @IsOptional()
   @IsString()
   @Length(1, 100)
-  modele?: string;
+  model?: string;
 
   @IsOptional()
   @IsInt()
   @Min(1)
-  capacite?: number;
+  capacity?: number;
 
   @IsOptional()
   @IsNumber()
   @IsPositive()
-  limiteHeuresMaintenance?: number;
+  maintenanceHoursLimit?: number;
 
   @IsOptional()
   @IsNumber()
   @Min(0)
-  heuresDeVolTotales?: number;
+  totalFlightHours?: number;
 
   @IsOptional()
   @IsEnum(AircraftStatus)
-  statut?: AircraftStatus;
+  status?: AircraftStatus;
 
   @IsOptional()
   @IsString()
   @Matches(/^[A-Za-z]{3}$/)
-  baseAttache?: string | null;
+  homeBase?: string | null;
 
   @IsOptional()
   @IsUUID()
-  typeId?: string | null;
+  refAircraftType?: string | null;
 }

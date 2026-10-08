@@ -27,64 +27,64 @@ export class FleetService {
 
   findAll(): Promise<Aircraft[]> {
     return this.aircraftRepository.find({
-      relations: ['type'],
-      order: { immatriculation: 'ASC' },
+      relations: ['aircraftType'],
+      order: { registration: 'ASC' },
     });
   }
 
   async findOne(id: string): Promise<Aircraft> {
     const aircraft = await this.aircraftRepository.findOne({
-      where: { id },
-      relations: ['type'],
+      where: { refAircraft: id },
+      relations: ['aircraftType'],
     });
     if (!aircraft) throw new NotFoundException(`Avion "${id}" introuvable.`);
     return aircraft;
   }
 
-  async findByRegistration(immatriculation: string): Promise<Aircraft> {
-    const registration = normalizeRegistration(immatriculation);
+  async findByRegistration(value: string): Promise<Aircraft> {
+    const registration = normalizeRegistration(value);
     const aircraft = await this.aircraftRepository.findOne({
-      where: { immatriculation: registration },
-      relations: ['type'],
+      where: { registration: registration },
+      relations: ['aircraftType'],
     });
     if (!aircraft) throw new NotFoundException(`Avion "${registration}" introuvable.`);
     return aircraft;
   }
 
-  findByStatus(statut: AircraftStatus): Promise<Aircraft[]> {
+  findByStatus(status: AircraftStatus): Promise<Aircraft[]> {
     return this.aircraftRepository.find({
-      where: { statut },
-      relations: ['type'],
-      order: { immatriculation: 'ASC' },
+      where: { status },
+      relations: ['aircraftType'],
+      order: { registration: 'ASC' },
     });
   }
 
-  findByHomeBase(baseAttache: string): Promise<Aircraft[]> {
+  findByHomeBase(homeBase: string): Promise<Aircraft[]> {
     return this.aircraftRepository.find({
-      where: { baseAttache: normalizeIata(baseAttache) },
+      where: { homeBase: normalizeIata(homeBase) },
       relations: ['type'],
-      order: { immatriculation: 'ASC' },
+      order: { registration: 'ASC' },
     });
   }
 
   async create(dto: CreateAircraftDto): Promise<Aircraft> {
-    const registration = normalizeRegistration(dto.immatriculation);
+    const registration = normalizeRegistration(dto.registration);
     await this.assertRegistrationAvailable(registration);
 
-    const type = dto.typeId ? await this.getType(dto.typeId) : null;
-    this.assertCapacity(dto.capacite, type);
+    const type = dto.refAircraftType ? await this.getType(dto.refAircraftType) : null;
+    this.assertCapacity(dto.capacity, type);
 
     const aircraft = this.aircraftRepository.create({
-      immatriculation: registration,
-      modele: type?.nomModele ?? dto.modele.trim(),
-      capacite: dto.capacite,
-      heuresDeVolTotales: dto.heuresDeVolTotales ?? 0,
-      limiteHeuresMaintenance: dto.limiteHeuresMaintenance,
-      heuresDepuisDerniereMaintenance: 0,
-      statut: dto.statut ?? AircraftStatus.ACTIVE,
-      baseAttache: dto.baseAttache ? normalizeIata(dto.baseAttache) : null,
-      typeId: type?.id ?? null,
-      type,
+      registration: registration,
+      model: type?.modelName ?? dto.model.trim(),
+      capacity: dto.capacity,
+      totalFlightHours: dto.totalFlightHours ?? 0,
+      maintenanceHoursLimit: dto.maintenanceHoursLimit,
+      hoursSinceMaintenance: 0,
+      status: dto.status ?? AircraftStatus.ACTIVE,
+      homeBase: dto.homeBase ? normalizeIata(dto.homeBase) : null,
+      refAircraftType: type?.refAircraftType ?? null,
+      aircraftType: type,
     });
 
     return this.aircraftRepository.save(aircraft);
@@ -93,55 +93,55 @@ export class FleetService {
   async update(id: string, dto: UpdateAircraftDto): Promise<Aircraft> {
     const aircraft = await this.findOne(id);
 
-    if (dto.immatriculation) {
-      const registration = normalizeRegistration(dto.immatriculation);
-      if (registration !== aircraft.immatriculation) {
+    if (dto.registration) {
+      const registration = normalizeRegistration(dto.registration);
+      if (registration !== aircraft.registration) {
         await this.assertRegistrationAvailable(registration, id);
-        aircraft.immatriculation = registration;
+        aircraft.registration = registration;
       }
     }
 
-    let type = aircraft.type;
-    if (dto.typeId === null) {
+    let type = aircraft.aircraftType;
+    if (dto.refAircraftType === null) {
       type = null;
-    } else if (dto.typeId) {
-      type = await this.getType(dto.typeId);
+    } else if (dto.refAircraftType) {
+      type = await this.getType(dto.refAircraftType);
     }
 
-    const capacity = dto.capacite ?? aircraft.capacite;
+    const capacity = dto.capacity ?? aircraft.capacity;
     this.assertCapacity(capacity, type);
 
-    if (dto.modele !== undefined) aircraft.modele = dto.modele.trim();
-    if (dto.capacite !== undefined) aircraft.capacite = dto.capacite;
-    if (dto.limiteHeuresMaintenance !== undefined) aircraft.limiteHeuresMaintenance = dto.limiteHeuresMaintenance;
-    if (dto.heuresDeVolTotales !== undefined) aircraft.heuresDeVolTotales = dto.heuresDeVolTotales;
-    if (dto.statut !== undefined) aircraft.statut = dto.statut;
-    if (dto.baseAttache !== undefined) aircraft.baseAttache = dto.baseAttache ? normalizeIata(dto.baseAttache) : null;
+    if (dto.model !== undefined) aircraft.model = dto.model.trim();
+    if (dto.capacity !== undefined) aircraft.capacity = dto.capacity;
+    if (dto.maintenanceHoursLimit !== undefined) aircraft.maintenanceHoursLimit = dto.maintenanceHoursLimit;
+    if (dto.totalFlightHours !== undefined) aircraft.totalFlightHours = dto.totalFlightHours;
+    if (dto.status !== undefined) aircraft.status = dto.status;
+    if (dto.homeBase !== undefined) aircraft.homeBase = dto.homeBase ? normalizeIata(dto.homeBase) : null;
 
-    if (dto.typeId !== undefined) {
-      aircraft.typeId = type?.id ?? null;
-      aircraft.type = type ?? null;
-      if (type) aircraft.modele = type.nomModele;
+    if (dto.refAircraftType !== undefined) {
+      aircraft.refAircraftType = type?.refAircraftType ?? null;
+      aircraft.aircraftType = type ?? null;
+      if (type) aircraft.model = type.modelName;
     }
 
     return this.aircraftRepository.save(aircraft);
   }
 
-  async retire(id: string): Promise<{ retired: true; id: string }> {
+  async retire(id: string): Promise<{ retired: true; refAircraft: string }> {
     const aircraft = await this.findOne(id);
-    aircraft.statut = AircraftStatus.RETIRED;
+    aircraft.status = AircraftStatus.RETIRED;
     await this.aircraftRepository.save(aircraft);
-    return { retired: true, id };
+    return { retired: true, refAircraft: id };
   }
 
   /**
    * Ajoute des heures réellement effectuées à un appareil.
    *
    * Le verrou pessimiste évite de perdre des heures lorsque deux vols
-   * terminés tentent de mettre à jour le même avion au même moment.
+   * terminés tentent de mettre à jour le même aircraft au même moment.
    *
    * Le paramètre manager permet à FlightsService d'effectuer la mise à jour
-   * de l'avion et le marquage du vol dans UNE SEULE transaction.
+   * de l'aircraft et le marquage du flight dans UNE SEULE transaction.
    */
   async addFlightHours(
     id: string,
@@ -174,7 +174,7 @@ export class FleetService {
     const aircraft = await manager
       .createQueryBuilder(Aircraft, 'aircraft')
       .setLock('pessimistic_write')
-      .where('aircraft.id = :id', { id })
+      .where('aircraft.refAircraft = :id', { id })
       .getOne();
 
     if (!aircraft) {
@@ -182,22 +182,22 @@ export class FleetService {
     }
 
     // Chargement de la relation hors verrou (lecture seule)
-    aircraft.type = aircraft.typeId
-      ? await manager.findOne(AircraftType, { where: { id: aircraft.typeId } })
+    aircraft.aircraftType = aircraft.refAircraftType
+      ? await manager.findOne(AircraftType, { where: { refAircraftType: aircraft.refAircraftType } })
       : null;
 
     // Mise à jour des compteurs
-    aircraft.heuresDeVolTotales =
-      Number(aircraft.heuresDeVolTotales || 0) + heuresVolees;
+    aircraft.totalFlightHours =
+      Number(aircraft.totalFlightHours || 0) + heuresVolees;
 
-    aircraft.heuresDepuisDerniereMaintenance =
-      Number(aircraft.heuresDepuisDerniereMaintenance || 0) + heuresVolees;
+    aircraft.hoursSinceMaintenance =
+      Number(aircraft.hoursSinceMaintenance || 0) + heuresVolees;
 
     if (
-      aircraft.heuresDepuisDerniereMaintenance >=
-      aircraft.limiteHeuresMaintenance
+      aircraft.hoursSinceMaintenance >=
+      aircraft.maintenanceHoursLimit
     ) {
-      aircraft.statut = AircraftStatus.MAINTENANCE;
+      aircraft.status = AircraftStatus.MAINTENANCE;
     }
 
     return manager.save(Aircraft, aircraft);
@@ -213,32 +213,32 @@ export class FleetService {
 
   async resetMaintenanceCounter(id: string): Promise<Aircraft> {
     const aircraft = await this.findOne(id);
-    aircraft.dateDerniereMaintenance = new Date();
-    aircraft.heuresDepuisDerniereMaintenance = 0;
-    aircraft.statut = AircraftStatus.ACTIVE;
+    aircraft.lastMaintenanceAt = new Date();
+    aircraft.hoursSinceMaintenance = 0;
+    aircraft.status = AircraftStatus.ACTIVE;
     return this.aircraftRepository.save(aircraft);
   }
 
   async statistics() {
     const aircrafts = await this.findAll();
-    const totalHours = aircrafts.reduce((sum, a) => sum + a.heuresDeVolTotales, 0);
+    const totalHours = aircrafts.reduce((sum, a) => sum + a.totalFlightHours, 0);
 
     return {
       totalAvions: aircrafts.length,
-      avionsActifs: aircrafts.filter((a) => a.statut === AircraftStatus.ACTIVE).length,
-      avionsEnMaintenance: aircrafts.filter((a) => a.statut === AircraftStatus.MAINTENANCE).length,
-      avionsHorsService: aircrafts.filter((a) => a.statut === AircraftStatus.OUT_OF_SERVICE).length,
-      avionsRetires: aircrafts.filter((a) => a.statut === AircraftStatus.RETIRED).length,
-      heuresDeVolTotales: totalHours,
+      avionsActifs: aircrafts.filter((a) => a.status === AircraftStatus.ACTIVE).length,
+      avionsEnMaintenance: aircrafts.filter((a) => a.status === AircraftStatus.MAINTENANCE).length,
+      avionsHorsService: aircrafts.filter((a) => a.status === AircraftStatus.OUT_OF_SERVICE).length,
+      avionsRetires: aircrafts.filter((a) => a.status === AircraftStatus.RETIRED).length,
+      totalFlightHours: totalHours,
       moyenneHeuresDeVol: aircrafts.length ? totalHours / aircrafts.length : 0,
       capaciteMoyenne: aircrafts.length
-        ? aircrafts.reduce((sum, a) => sum + a.capacite, 0) / aircrafts.length
+        ? aircrafts.reduce((sum, a) => sum + a.capacity, 0) / aircrafts.length
         : 0,
     };
   }
 
   findAllTypes(): Promise<AircraftType[]> {
-    return this.aircraftTypeRepository.find({ order: { nomModele: 'ASC' } });
+    return this.aircraftTypeRepository.find({ order: { modelName: 'ASC' } });
   }
 
   findType(id: string): Promise<AircraftType> {
@@ -246,16 +246,16 @@ export class FleetService {
   }
 
   async createType(dto: CreateAircraftTypeDto): Promise<AircraftType> {
-    const name = dto.nomModele.trim();
-    if (await this.aircraftTypeRepository.exists({ where: { nomModele: name } })) {
+    const name = dto.modelName.trim();
+    if (await this.aircraftTypeRepository.exists({ where: { modelName: name } })) {
       throw new ConflictException(`Le modèle "${name}" existe déjà.`);
     }
 
     return this.aircraftTypeRepository.save(
       this.aircraftTypeRepository.create({
         ...dto,
-        nomModele: name,
-        fabricant: dto.fabricant.trim(),
+        modelName: name,
+        manufacturer: dto.manufacturer.trim(),
       }),
     );
   }
@@ -263,41 +263,41 @@ export class FleetService {
   async updateType(id: string, dto: UpdateAircraftTypeDto): Promise<AircraftType> {
     const type = await this.getType(id);
 
-    if (dto.nomModele && dto.nomModele.trim() !== type.nomModele) {
-      if (await this.aircraftTypeRepository.exists({ where: { nomModele: dto.nomModele.trim() } })) {
-        throw new ConflictException(`Le modèle "${dto.nomModele}" existe déjà.`);
+    if (dto.modelName && dto.modelName.trim() !== type.modelName) {
+      if (await this.aircraftTypeRepository.exists({ where: { modelName: dto.modelName.trim() } })) {
+        throw new ConflictException(`Le modèle "${dto.modelName}" existe déjà.`);
       }
     }
 
     Object.assign(type, dto);
-    if (dto.nomModele) type.nomModele = dto.nomModele.trim();
-    if (dto.fabricant) type.fabricant = dto.fabricant.trim();
+    if (dto.modelName) type.modelName = dto.modelName.trim();
+    if (dto.manufacturer) type.manufacturer = dto.manufacturer.trim();
     return this.aircraftTypeRepository.save(type);
   }
 
   async deleteType(id: string): Promise<{ deleted: true; id: string }> {
     const type = await this.aircraftTypeRepository.findOne({
-      where: { id },
-      relations: ['avions'],
+      where: { refAircraftType: id },
+      relations: ['aircraft'],
     });
-    if (!type) throw new NotFoundException(`Type d'avion "${id}" introuvable.`);
-    if (type.avions.length) {
-      throw new ConflictException(`Impossible de supprimer: ${type.avions.length} avion(s) utilisent ce type.`);
+    if (!type) throw new NotFoundException(`Type d'aircraft "${id}" introuvable.`);
+    if (type.aircraft.length) {
+      throw new ConflictException(`Impossible de supprimer: ${type.aircraft.length} aircraft(s) utilisent ce type.`);
     }
     await this.aircraftTypeRepository.remove(type);
     return { deleted: true, id };
   }
 
   private async getType(id: string): Promise<AircraftType> {
-    const type = await this.aircraftTypeRepository.findOne({ where: { id } });
-    if (!type) throw new NotFoundException(`Type d'avion "${id}" introuvable.`);
+    const type = await this.aircraftTypeRepository.findOne({ where: { refAircraftType: id } });
+    if (!type) throw new NotFoundException(`Type d'aircraft "${id}" introuvable.`);
     return type;
   }
 
   private assertCapacity(capacity: number, type: AircraftType | null): void {
-    if (type && capacity > type.capaciteMax) {
+    if (type && capacity > type.maxCapacity) {
       throw new BadRequestException(
-        `Capacité ${capacity} supérieure à la capacité maximale ${type.capaciteMax} du ${type.nomModele}.`,
+        `Capacité ${capacity} supérieure à la capacité maximale ${type.maxCapacity} du ${type.modelName}.`,
       );
     }
   }
@@ -305,10 +305,10 @@ export class FleetService {
   private async assertRegistrationAvailable(registration: string, excludeId?: string): Promise<void> {
     const qb = this.aircraftRepository
       .createQueryBuilder('aircraft')
-      .where('aircraft.immatriculation = :registration', { registration });
-    if (excludeId) qb.andWhere('aircraft.id != :excludeId', { excludeId });
+      .where('aircraft.registration = :registration', { registration });
+    if (excludeId) qb.andWhere('aircraft.refAircraft != :excludeId', { excludeId });
     if (await qb.getExists()) {
-      throw new ConflictException(`L'immatriculation "${registration}" existe déjà.`);
+      throw new ConflictException(`L'registration "${registration}" existe déjà.`);
     }
   }
 }

@@ -9,13 +9,13 @@ def get_fleet_aircrafts():
         aircrafts = Aircraft.query.all()
         return jsonify([
             {
-                "id": str(ac.id),
-                "immatriculation": ac.immatriculation or "Sans Immat",
-                "model": ac.immatriculation or "Sans Immat",
-                "capacite": getattr(ac, 'capacite', 180),
-                "statut": getattr(ac, 'statut', 'Active'),
-                "limiteHeuresMaintenance": getattr(ac, 'limiteHeuresMaintenance', 500),
-                "heuresDepuisDerniereMaintenance": getattr(ac, 'heuresDepuisDerniereMaintenance', 0)
+                "refAircraft": str(ac.refAircraft),
+                "registration": ac.registration or "Sans Immat",
+                "model": ac.registration or "Sans Immat",
+                "capacity": getattr(ac, 'capacity', 180),
+                "status": getattr(ac, 'status', 'Active'),
+                "maintenanceHoursLimit": getattr(ac, 'maintenanceHoursLimit', 500),
+                "hoursSinceMaintenance": getattr(ac, 'hoursSinceMaintenance', 0)
             }
             for ac in aircrafts
         ]), 200

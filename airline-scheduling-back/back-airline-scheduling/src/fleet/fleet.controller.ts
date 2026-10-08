@@ -34,7 +34,7 @@ export class FleetController {
   @Get('aircrafts/status/:status')
   findByStatus(@Param('status') status: string) {
     if (!Object.values(AircraftStatus).includes(status as AircraftStatus)) {
-      throw new BadRequestException(`Statut d'avion invalide: ${status}`);
+      throw new BadRequestException(`Statut d'aircraft invalide: ${status}`);
     }
     return this.fleetService.findByStatus(status as AircraftStatus);
   }

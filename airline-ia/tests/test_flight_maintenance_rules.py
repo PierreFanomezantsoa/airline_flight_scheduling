@@ -16,10 +16,10 @@ from routes.automatic_schedule_routes import (
 class FlightMaintenanceRulesTest(unittest.TestCase):
     def make_flight(self, stopover=None, stopover_minutes=120):
         return SimpleNamespace(
-            heureDepart=datetime(2026, 1, 1, 8, tzinfo=timezone.utc),
-            heureArrivee=datetime(2026, 1, 1, 12, tzinfo=timezone.utc),
-            aeroportEscale=stopover,
-            dureeEscale=stopover_minutes,
+            departureTime=datetime(2026, 1, 1, 8, tzinfo=timezone.utc),
+            arrivalTime=datetime(2026, 1, 1, 12, tzinfo=timezone.utc),
+            stopoverAirportCodes=stopover,
+            stopoverDurationMinutes=stopover_minutes,
         )
 
     def test_direct_flight_does_not_subtract_default_stopover_duration(self):
@@ -70,7 +70,7 @@ class FlightMaintenanceRulesTest(unittest.TestCase):
                 raise RuntimeError("database unavailable")
 
         class MaintenanceModel:
-            aircraftId = Column()
+            refAircraft = Column()
             startTime = Column()
             endTime = Column()
             query = Query()
@@ -89,22 +89,22 @@ class FlightMaintenanceRulesTest(unittest.TestCase):
     def test_schedule_cannot_use_aircraft_at_exact_maintenance_limit(self):
         departure = datetime(2026, 1, 1, 8, tzinfo=timezone.utc)
         aircraft = SimpleNamespace(
-            id="aircraft-1",
-            immatriculation="5R-ABC",
-            statut="Active",
-            limiteHeuresMaintenance=100,
-            heuresDepuisDerniereMaintenance=99,
+            refAircraft="aircraft-1",
+            registration="5R-ABC",
+            status="Active",
+            maintenanceHoursLimit=100,
+            hoursSinceMaintenance=99,
         )
         flight = SimpleNamespace(
-            id="flight-1",
-            numeroVol="MD001",
-            aeroportDepart="TNR",
-            aeroportEscale=None,
-            dureeEscale=120,
-            aeroportArrivee="RUN",
-            heureDepart=departure,
-            heureArrivee=departure + timedelta(hours=1),
-            statut="Scheduled",
+            refFlight="flight-1",
+            flightNumber="MD001",
+            departureAirportCode="TNR",
+            stopoverAirportCodes=None,
+            stopoverDurationMinutes=120,
+            arrivalAirportCode="RUN",
+            departureTime=departure,
+            arrivalTime=departure + timedelta(hours=1),
+            status="Scheduled",
         )
 
         with patch(
@@ -132,16 +132,16 @@ class FlightMaintenanceRulesTest(unittest.TestCase):
             db.create_all()
             try:
                 aircraft = Aircraft(
-                    id="aircraft-1",
+                    refAircraft="aircraft-1",
                     model="A320",
-                    immatriculation="5R-ABC",
-                    statut="Active",
+                    registration="5R-ABC",
+                    status="Active",
                 )
                 db.session.add(aircraft)
                 db.session.add(
                     MaintenanceSlot(
-                        id="maintenance-1",
-                        aircraftId=aircraft.id,
+                        refMaintenanceSlot="maintenance-1",
+                        refAircraft=aircraft.refAircraft,
                         startTime=datetime(2026, 1, 1, 9, tzinfo=timezone.utc),
                         endTime=datetime(2026, 1, 1, 10, tzinfo=timezone.utc),
                         status="Planned",
@@ -150,7 +150,7 @@ class FlightMaintenanceRulesTest(unittest.TestCase):
                 db.session.commit()
 
                 issue = validate_aircraft_maintenance(
-                    aircraft.id,
+                    aircraft.refAircraft,
                     datetime(2026, 1, 1, 8, tzinfo=timezone.utc),
                     datetime(2026, 1, 1, 12, tzinfo=timezone.utc),
                 )
@@ -175,18 +175,18 @@ class FlightMaintenanceRulesTest(unittest.TestCase):
             db.create_all()
             try:
                 aircraft = Aircraft(
-                    id="aircraft-1",
+                    refAircraft="aircraft-1",
                     model="A320",
-                    immatriculation="5R-ABC",
-                    statut="Active",
-                    heuresDepuisDerniereMaintenance=99,
-                    limiteHeuresMaintenance=100,
+                    registration="5R-ABC",
+                    status="Active",
+                    hoursSinceMaintenance=99,
+                    maintenanceHoursLimit=100,
                 )
                 db.session.add(aircraft)
                 db.session.commit()
 
                 issue = validate_aircraft_maintenance(
-                    aircraft.id,
+                    aircraft.refAircraft,
                     datetime(2026, 1, 1, 8, tzinfo=timezone.utc),
                     datetime(2026, 1, 1, 9, tzinfo=timezone.utc),
                 )

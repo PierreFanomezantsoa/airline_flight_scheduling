@@ -12,35 +12,35 @@ export class UpdateAircraftTypeDto {
   @IsOptional()
   @IsString()
   @Length(1, 100)
-  nomModele?: string;
+  modelName?: string;
 
   @IsOptional()
   @IsString()
   @Length(1, 80)
-  fabricant?: string;
+  manufacturer?: string;
 
   @IsOptional()
   @IsInt()
   @Min(1)
-  capaciteMax?: number;
+  maxCapacity?: number;
 
   @IsOptional()
   @IsNumber()
   @IsPositive()
-  vitesseCroisiere?: number;
+  cruiseSpeed?: number;
 
   @IsOptional()
   @IsNumber()
   @IsPositive()
-  autonomieMax?: number;
+  maxRange?: number;
 
   @IsOptional()
   @IsNumber()
   @Min(0)
-  consommationCarburant?: number;
+  fuelConsumption?: number;
 
   @IsOptional()
   @IsNumber()
   @IsPositive()
-  intervalleMaintenanceHeures?: number;
+  maintenanceIntervalHours?: number;
 }

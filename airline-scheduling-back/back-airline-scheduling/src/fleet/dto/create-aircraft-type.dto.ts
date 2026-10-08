@@ -3,29 +3,29 @@ import { IsInt, IsNumber, IsPositive, IsString, Length, Min } from 'class-valida
 export class CreateAircraftTypeDto {
   @IsString()
   @Length(1, 100)
-  nomModele!: string;
+  modelName!: string;
 
   @IsString()
   @Length(1, 80)
-  fabricant!: string;
+  manufacturer!: string;
 
   @IsInt()
   @Min(1)
-  capaciteMax!: number;
+  maxCapacity!: number;
 
   @IsNumber()
   @IsPositive()
-  vitesseCroisiere!: number;
+  cruiseSpeed!: number;
 
   @IsNumber()
   @IsPositive()
-  autonomieMax!: number;
+  maxRange!: number;
 
   @IsNumber()
   @Min(0)
-  consommationCarburant!: number;
+  fuelConsumption!: number;
 
   @IsNumber()
   @IsPositive()
-  intervalleMaintenanceHeures!: number;
+  maintenanceIntervalHours!: number;
 }

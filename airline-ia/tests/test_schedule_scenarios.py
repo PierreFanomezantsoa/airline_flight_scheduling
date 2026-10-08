@@ -12,12 +12,12 @@ class AutomaticScheduleScenarioTests(unittest.TestCase):
 
     def make_aircraft(self, aircraft_id="aircraft-1", hours=0):
         return SimpleNamespace(
-            id=aircraft_id,
-            immatriculation=aircraft_id,
-            statut="Active",
-            baseAttache="TNR",
-            heuresDepuisDerniereMaintenance=hours,
-            limiteHeuresMaintenance=100,
+            refAircraft=aircraft_id,
+            registration=aircraft_id,
+            status="Active",
+            homeBase="TNR",
+            hoursSinceMaintenance=hours,
+            maintenanceHoursLimit=100,
         )
 
     def make_flight(
@@ -31,19 +31,19 @@ class AutomaticScheduleScenarioTests(unittest.TestCase):
         stopover_minutes=None,
     ):
         return SimpleNamespace(
-            id=flight_id,
-            numeroVol=flight_id.upper(),
-            aeroportDepart=origin,
-            aeroportEscale=stopover,
-            dureeEscale=stopover_minutes,
-            aeroportArrivee=destination,
-            heureDepart=departure,
-            heureArrivee=arrival,
-            statut="Scheduled",
+            refFlight=flight_id,
+            flightNumber=flight_id.upper(),
+            departureAirportCode=origin,
+            stopoverAirportCodes=stopover,
+            stopoverDurationMinutes=stopover_minutes,
+            arrivalAirportCode=destination,
+            departureTime=departure,
+            arrivalTime=arrival,
+            status="Scheduled",
         )
 
     def run_scenario(self, flights, aircrafts, **options):
-        maintenance = {str(aircraft.id): [] for aircraft in aircrafts}
+        maintenance = {str(aircraft.refAircraft): [] for aircraft in aircrafts}
         with patch(
             "routes.automatic_schedule_routes.maintenance_slots_for_aircrafts_bulk",
             return_value=maintenance,
@@ -140,7 +140,7 @@ class AutomaticScheduleScenarioTests(unittest.TestCase):
             self.departure + timedelta(hours=2),
             destination="NOS",
         )
-        fixed.avionId = aircraft.id
+        fixed.refAircraft = aircraft.refAircraft
         candidate_departure = self.departure + timedelta(hours=3)
         candidate = self.make_flight(
             "new-flight",
@@ -177,7 +177,7 @@ class AutomaticScheduleScenarioTests(unittest.TestCase):
 
     def test_no_operational_aircraft_returns_no_valid_scenario(self):
         aircraft = self.make_aircraft()
-        aircraft.statut = "Maintenance"
+        aircraft.status = "Maintenance"
         flight = self.make_flight(
             "flight-1", self.departure, self.departure + timedelta(hours=2)
         )
@@ -209,8 +209,8 @@ class AutomaticScheduleScenarioTests(unittest.TestCase):
         )
 
         self.assertNotEqual(
-            balanced["assignments"][0]["aircraftId"],
-            maintenance_safe["assignments"][0]["aircraftId"],
+            balanced["assignments"][0]["refAircraft"],
+            maintenance_safe["assignments"][0]["refAircraft"],
         )
         self.assertGreater(maintenance_safe["score"], balanced["score"])
         self.assertIn("maintenanceWarnings", balanced["scoreBreakdown"])

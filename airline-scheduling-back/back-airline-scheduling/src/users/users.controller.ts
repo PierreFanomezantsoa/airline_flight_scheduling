@@ -48,7 +48,7 @@ export class UsersController {
    * Liste des membres d'équipage.
    *
    * Accessible aux profils OCC qui doivent affecter
-   * un équipage à un vol.
+   * un équipage à un flight.
    *
    * IMPORTANT :
    * cette route doit être placée avant @Get(':id').
@@ -129,7 +129,7 @@ export class UsersController {
   }
 
   /**
-   * Approuver un utilisateur.
+   * Approuver un user.
    */
   @Patch(':id/approve')
   @UseGuards(
@@ -151,12 +151,12 @@ export class UsersController {
   ) {
     return this.usersService.approveUser(
       id,
-      request.user.id,
+      request.user.refUser,
     );
   }
 
   /**
-   * Rejeter un utilisateur.
+   * Rejeter un user.
    */
   @Patch(':id/reject')
   @UseGuards(
@@ -181,7 +181,7 @@ export class UsersController {
   ) {
     return this.usersService.rejectUser(
       id,
-      request.user.id,
+      request.user.refUser,
       dto.reason,
     );
   }
@@ -208,7 +208,7 @@ export class UsersController {
   }
 
   /**
-   * Récupérer un utilisateur par ID.
+   * Récupérer un user par ID.
    *
    * IMPORTANT :
    * laisser cette route après /crew-members,
@@ -235,7 +235,7 @@ export class UsersController {
   }
 
   /**
-   * Supprimer un utilisateur.
+   * Supprimer un user.
    */
   @Delete(':id')
   @UseGuards(
