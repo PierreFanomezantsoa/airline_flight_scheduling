@@ -88,7 +88,7 @@ describe('Règles métier OCC - planification des vols', () => {
     overrides: Partial<Aircraft> = {},
   ): Aircraft =>
     ({
-      id: 'aircraft-1',
+      refAircraft: 'aircraft-1',
       registration: 'AFK-412',
       status: AircraftStatus.ACTIVE,
       homeBase: 'TNR',
@@ -98,7 +98,7 @@ describe('Règles métier OCC - planification des vols', () => {
     }) as Aircraft;
 
   const makeFlight = (
-    id: string,
+    refFlight: string,
     flightNumber: string,
     depart: string,
     arrivee: string,
@@ -107,7 +107,7 @@ describe('Règles métier OCC - planification des vols', () => {
     aircraft = makeAircraft(),
   ): Flight =>
     ({
-      id,
+      refFlight,
       flightNumber,
       departureAirportCode,
       arrivalAirportCode,
@@ -540,7 +540,7 @@ describe('Règles métier OCC - planification des vols', () => {
       const aircraft = makeAircraft();
 
       const slot = {
-        id: 'maintenance-1',
+        refMaintenanceSlot: 'maintenance-1',
         refAircraft: aircraft.refAircraft,
         maintenanceType: MaintenanceType.TYPE_A,
         status: MaintenanceStatus.PLANNED,
@@ -591,12 +591,12 @@ describe('Règles métier OCC - planification des vols', () => {
     'RG07 - interdit qu’un membre d’équipage soit sur deux vols simultanément',
     async () => {
       const aircraft1 = makeAircraft({
-        id: 'aircraft-1',
+        refAircraft: 'aircraft-1',
         registration: 'AFK-411',
       });
 
       const aircraft2 = makeAircraft({
-        id: 'aircraft-2',
+        refAircraft: 'aircraft-2',
         registration: 'AFK-412',
       });
 
@@ -627,7 +627,7 @@ describe('Règles métier OCC - planification des vols', () => {
 
       (crewRepository.find as jest.Mock).mockResolvedValue([
         {
-          id: 'ca1',
+          refCrewAssignment: 'ca1',
           refUser: 'user-1',
           flight: f1,
           user: {
@@ -635,7 +635,7 @@ describe('Règles métier OCC - planification des vols', () => {
           },
         },
         {
-          id: 'ca2',
+          refCrewAssignment: 'ca2',
           refUser: 'user-1',
           flight: f2,
           user: {
@@ -661,12 +661,12 @@ describe('Règles métier OCC - planification des vols', () => {
     'RG08 - impose le repos minimal d’un membre d’équipage entre deux vols',
     async () => {
       const aircraft1 = makeAircraft({
-        id: 'aircraft-1',
+        refAircraft: 'aircraft-1',
         registration: 'AFK-411',
       });
 
       const aircraft2 = makeAircraft({
-        id: 'aircraft-2',
+        refAircraft: 'aircraft-2',
         registration: 'AFK-412',
       });
 
@@ -697,7 +697,7 @@ describe('Règles métier OCC - planification des vols', () => {
 
       (crewRepository.find as jest.Mock).mockResolvedValue([
         {
-          id: 'ca1',
+          refCrewAssignment: 'ca1',
           refUser: 'user-1',
           flight: f1,
           user: {
@@ -705,7 +705,7 @@ describe('Règles métier OCC - planification des vols', () => {
           },
         },
         {
-          id: 'ca2',
+          refCrewAssignment: 'ca2',
           refUser: 'user-1',
           flight: f2,
           user: {
