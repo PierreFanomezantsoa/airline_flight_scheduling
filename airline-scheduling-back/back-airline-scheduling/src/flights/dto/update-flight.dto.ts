@@ -20,22 +20,22 @@ export class UpdateFlightDto {
   @IsOptional()
   @IsString()
   @Matches(/^[A-Za-z]{3}$/)
-  departureAirportCode?: string;
+  depAirportCode?: string;
 
   @IsOptional()
   @IsString()
   @Length(3, 100)
-  stopoverAirportCodes?: string | null;
+  stopoverCodes?: string | null;
 
   @IsOptional()
   @IsInt()
   @Min(0)
-  stopoverDurationMinutes?: number | null;
+  stopoverMins?: number | null;
 
   @IsOptional()
   @IsString()
   @Matches(/^[A-Za-z]{3}$/)
-  arrivalAirportCode?: string;
+  arrAirportCode?: string;
 
   @IsOptional()
   @IsDateString()

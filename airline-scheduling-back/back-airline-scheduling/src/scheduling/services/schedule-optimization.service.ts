@@ -56,8 +56,8 @@ export class ScheduleOptimizationService {
       const alternatives = await this.availabilityService.findAvailable(
         flight.departureTime,
         flight.arrivalTime,
-        flight.departureAirportCode,
-        flight.arrivalAirportCode,
+        flight.depAirportCode,
+        flight.arrAirportCode,
         flight.refFlight,
       );
 

@@ -146,7 +146,7 @@ def get_local_iso(
 
 
 def aircraft_maintenance_limit(aircraft: Aircraft) -> Optional[float]:
-    value = getattr(aircraft, "maintenanceHoursLimit", None)
+    value = getattr(aircraft, "maintLimitHrs", None)
     try:
         return float(value) if value is not None and float(value) > 0 else None
     except (TypeError, ValueError):
@@ -157,7 +157,7 @@ def aircraft_maintenance_hours(aircraft: Aircraft) -> float:
     try:
         return max(
             0.0,
-            float(getattr(aircraft, "hoursSinceMaintenance", 0) or 0),
+            float(getattr(aircraft, "hrsSinceMaint", 0) or 0),
         )
     except (TypeError, ValueError):
         return 0.0
@@ -259,7 +259,7 @@ def maintenance_slots_for_aircrafts_bulk(
         }
 
         for slot in slots:
-            if normalize_status(getattr(slot, "maintenanceStatus", None)) in {
+            if normalize_status(getattr(slot, "maintStatus", None)) in {
                 "CANCELLED",
                 "CANCELED",
                 "CANCELLE",
@@ -354,7 +354,7 @@ def _candidate_is_feasible(
                 return False, "TURNAROUND_TOO_SHORT"
 
             prev_destination = str(
-                getattr(leg.flight, "arrivalAirportCode", "") or ""
+                getattr(leg.flight, "arrAirportCode", "") or ""
             ).strip().upper()
             if prev_destination and origin and prev_destination != origin:
                 return False, "AIRCRAFT_POSITIONING"
@@ -366,10 +366,10 @@ def _candidate_is_feasible(
                 return False, "TURNAROUND_TOO_SHORT"
 
             next_origin = str(
-                getattr(leg.flight, "departureAirportCode", "") or ""
+                getattr(leg.flight, "depAirportCode", "") or ""
             ).strip().upper()
             destination = str(
-                getattr(leg.flight, "arrivalAirportCode", "") or ""
+                getattr(leg.flight, "arrAirportCode", "") or ""
             ).strip().upper()
             # L'aircraft arrive à destination de ce flight, il doit pouvoir
             # repartir depuis cette destination pour le leg suivant.
@@ -452,7 +452,7 @@ def generate_schedule_scenario(
         base_dep = ensure_utc(flight.departureTime)
         base_arr = ensure_utc(flight.arrivalTime)
         duration = base_arr - base_dep
-        origin = str(getattr(flight, "departureAirportCode", "") or "").strip().upper()
+        origin = str(getattr(flight, "depAirportCode", "") or "").strip().upper()
 
         chosen: Optional[PlannedLeg] = None
         failure_reasons: dict[str, int] = {}  # compteur par raison
@@ -489,7 +489,7 @@ def generate_schedule_scenario(
                 if previous:
                     last = max(previous, key=lambda item: item.arrival)
                     last_destination = str(
-                        getattr(last.flight, "arrivalAirportCode", "") or ""
+                        getattr(last.flight, "arrAirportCode", "") or ""
                     ).strip().upper()
                     continuity_bonus = 10 if last_destination == origin else 0
 
@@ -531,8 +531,8 @@ def generate_schedule_scenario(
                 {
                     "refFlight": str(flight.refFlight),
                     "flightNumber": getattr(flight, "flightNumber", None),
-                    "origin": getattr(flight, "departureAirportCode", None),
-                    "destination": getattr(flight, "arrivalAirportCode", None),
+                    "origin": getattr(flight, "depAirportCode", None),
+                    "destination": getattr(flight, "arrAirportCode", None),
                     "departure": base_dep.isoformat(),
                     "arrival": base_arr.isoformat(),
                     "reason": dominant_reason,
@@ -552,19 +552,19 @@ def generate_schedule_scenario(
                 "flightNumber": getattr(flight, "flightNumber", None),
                 "refAircraft": chosen.aircraft_id,
                 "aircraftRegistration": chosen.aircraft_registration,
-                "origin": getattr(flight, "departureAirportCode", None),
-                "destination": getattr(flight, "arrivalAirportCode", None),
+                "origin": getattr(flight, "depAirportCode", None),
+                "destination": getattr(flight, "arrAirportCode", None),
                 "originalDeparture": base_dep.isoformat(),
                 "originalArrival": base_arr.isoformat(),
                 "departure": chosen.departure.isoformat(),
                 "arrival": chosen.arrival.isoformat(),
                 "localDeparture": get_local_iso(
                     chosen.departure,
-                    getattr(flight, "departureAirportCode", None),
+                    getattr(flight, "depAirportCode", None),
                 ),
                 "localArrival": get_local_iso(
                     chosen.arrival,
-                    getattr(flight, "arrivalAirportCode", None),
+                    getattr(flight, "arrAirportCode", None),
                 ),
                 "durationMinutes": int(round(duration.total_seconds() / 60)),
                 "flightHours": round(flight_hours, 2),
@@ -705,8 +705,8 @@ def get_eligible_schedule_flights():
             {
                 "refFlight": str(flight.refFlight),
                 "flightNumber": flight.flightNumber,
-                "origin": flight.departureAirportCode,
-                "destination": flight.arrivalAirportCode,
+                "origin": flight.depAirportCode,
+                "destination": flight.arrAirportCode,
                 "departure": ensure_utc(flight.departureTime).isoformat(),
                 "arrival": ensure_utc(flight.arrivalTime).isoformat(),
                 "refAircraft": flight.refAircraft,
@@ -948,7 +948,7 @@ def get_current_schedule_gantt():
             )
             if completed:
                 current_position_by_aircraft[str(aircraft.refAircraft)] = getattr(
-                    completed[0], "arrivalAirportCode", None
+                    completed[0], "arrAirportCode", None
                 )
                 continue
 
@@ -963,7 +963,7 @@ def get_current_schedule_gantt():
             )
             if upcoming:
                 current_position_by_aircraft[str(aircraft.refAircraft)] = getattr(
-                    upcoming[0], "departureAirportCode", None
+                    upcoming[0], "depAirportCode", None
                 )
 
         rows = []
@@ -1010,8 +1010,8 @@ def get_current_schedule_gantt():
                 else "NON ASSIGNÉ"
             )
 
-            origin = getattr(flight, "departureAirportCode", None)
-            destination = getattr(flight, "arrivalAirportCode", None)
+            origin = getattr(flight, "depAirportCode", None)
+            destination = getattr(flight, "arrAirportCode", None)
             flight_number = getattr(flight, "flightNumber", None)
 
             items.append(

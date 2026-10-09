@@ -18,8 +18,8 @@ class FlightMaintenanceRulesTest(unittest.TestCase):
         return SimpleNamespace(
             departureTime=datetime(2026, 1, 1, 8, tzinfo=timezone.utc),
             arrivalTime=datetime(2026, 1, 1, 12, tzinfo=timezone.utc),
-            stopoverAirportCodes=stopover,
-            stopoverDurationMinutes=stopover_minutes,
+            stopoverCodes=stopover,
+            stopoverMins=stopover_minutes,
         )
 
     def test_direct_flight_does_not_subtract_default_stopover_duration(self):
@@ -92,16 +92,16 @@ class FlightMaintenanceRulesTest(unittest.TestCase):
             refAircraft="aircraft-1",
             registration="5R-ABC",
             aircraftStatus="Active",
-            maintenanceHoursLimit=100,
-            hoursSinceMaintenance=99,
+            maintLimitHrs=100,
+            hrsSinceMaint=99,
         )
         flight = SimpleNamespace(
             refFlight="flight-1",
             flightNumber="MD001",
-            departureAirportCode="TNR",
-            stopoverAirportCodes=None,
-            stopoverDurationMinutes=120,
-            arrivalAirportCode="RUN",
+            depAirportCode="TNR",
+            stopoverCodes=None,
+            stopoverMins=120,
+            arrAirportCode="RUN",
             departureTime=departure,
             arrivalTime=departure + timedelta(hours=1),
             flightStatus="Scheduled",
@@ -140,11 +140,11 @@ class FlightMaintenanceRulesTest(unittest.TestCase):
                 db.session.add(aircraft)
                 db.session.add(
                     MaintenanceSlot(
-                        refMaintenanceSlot="maintenance-1",
+                        refMaintSlot="maintenance-1",
                         refAircraft=aircraft.refAircraft,
                         startTime=datetime(2026, 1, 1, 9, tzinfo=timezone.utc),
                         endTime=datetime(2026, 1, 1, 10, tzinfo=timezone.utc),
-                        maintenanceStatus="Planned",
+                        maintStatus="Planned",
                     )
                 )
                 db.session.commit()
@@ -179,8 +179,8 @@ class FlightMaintenanceRulesTest(unittest.TestCase):
                     model="A320",
                     registration="5R-ABC",
                     aircraftStatus="Active",
-                    hoursSinceMaintenance=99,
-                    maintenanceHoursLimit=100,
+                    hrsSinceMaint=99,
+                    maintLimitHrs=100,
                 )
                 db.session.add(aircraft)
                 db.session.commit()

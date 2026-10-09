@@ -9,25 +9,25 @@ import {
 @Entity('network_configuration')
 export class NetworkConfiguration {
   @PrimaryColumn({ name: 'ref_network_configuration', type: 'varchar', length: 40 })
-  refNetworkConfiguration!: string;
+  refNetworkConfig!: string;
 
-  @Column({ type: 'integer', default: 45 })
-  mediumHaulTurnaroundMinutes!: number;
+  @Column({ name: 'mediumHaulTurnaroundMinutes', type: 'integer', default: 45 })
+  mediumTurnMins!: number;
 
-  @Column({ type: 'integer', default: 90 })
-  longHaulTurnaroundMinutes!: number;
+  @Column({ name: 'longHaulTurnaroundMinutes', type: 'integer', default: 90 })
+  longTurnMins!: number;
 
-  @Column({ type: 'integer', default: 180 })
-  positioningBufferMinutes!: number;
+  @Column({ name: 'positioningBufferMinutes', type: 'integer', default: 180 })
+  posBufferMins!: number;
 
-  @Column({ type: 'integer', default: 10 })
-  minimumCrewRestHours!: number;
+  @Column({ name: 'minimumCrewRestHours', type: 'integer', default: 10 })
+  minCrewRestHrs!: number;
 
-  @Column({ type: 'integer', default: 8 })
-  maximumContinuousFlightHours!: number;
+  @Column({ name: 'maximumContinuousFlightHours', type: 'integer', default: 8 })
+  maxContFlightHrs!: number;
 
-  @Column({ type: 'integer', default: 10 })
-  maintenanceWarningHours!: number;
+  @Column({ name: 'maintenanceWarningHours', type: 'integer', default: 10 })
+  maintWarnHrs!: number;
 
   /** Codes IATA des plateformes affichées comme hubs dans l'IHM. */
   @Column({ type: 'simple-json', nullable: false })

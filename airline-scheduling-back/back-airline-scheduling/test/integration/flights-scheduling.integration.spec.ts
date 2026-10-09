@@ -99,8 +99,8 @@ describe('Flights + Scheduling (integration)', () => {
 
       const created = await service.create({
         flightNumber: ' afk-412 ',
-        departureAirportCode: 'tnr',
-        arrivalAirportCode: 'cdg',
+        depAirportCode: 'tnr',
+        arrAirportCode: 'cdg',
         departureTime: '2026-08-20T14:05:00+03:00',
         arrivalTime: '2026-08-20T20:30:00+03:00',
         refAircraft: refAircraft,
@@ -113,8 +113,8 @@ describe('Flights + Scheduling (integration)', () => {
       expect(schedulingService.validateCandidate).toHaveBeenCalledWith(
         expect.objectContaining({
           flightNumber: 'AFK-412',
-          departureAirportCode: 'TNR',
-          arrivalAirportCode: 'CDG',
+          depAirportCode: 'TNR',
+          arrAirportCode: 'CDG',
           refAircraft: refAircraft,
         }),
       );
@@ -127,8 +127,8 @@ describe('Flights + Scheduling (integration)', () => {
         expect.anything(),
         expect.objectContaining({
           flightNumber: 'AFK-412',
-          departureAirportCode: 'TNR',
-          arrivalAirportCode: 'CDG',
+          depAirportCode: 'TNR',
+          arrAirportCode: 'CDG',
           refAircraft: refAircraft,
           flightStatus: FlightStatus.SCHEDULED,
         }),
@@ -147,8 +147,8 @@ describe('Flights + Scheduling (integration)', () => {
       expect(created).toBeDefined();
       expect(created.refFlight).toBe('flight-1');
       expect(created.flightNumber).toBe('AFK-412');
-      expect(created.departureAirportCode).toBe('TNR');
-      expect(created.arrivalAirportCode).toBe('CDG');
+      expect(created.depAirportCode).toBe('TNR');
+      expect(created.arrAirportCode).toBe('CDG');
       expect(created.refAircraft).toBe(refAircraft);
 
       /*
@@ -201,8 +201,8 @@ describe('Flights + Scheduling (integration)', () => {
       await expect(
         service.create({
           flightNumber: 'AFK-413',
-          departureAirportCode: 'TNR',
-          arrivalAirportCode: 'CDG',
+          depAirportCode: 'TNR',
+          arrAirportCode: 'CDG',
           departureTime: '2026-08-20T17:05:00+03:00',
           arrivalTime: '2026-08-21T07:30:00+03:00',
           refAircraft: refAircraft,
@@ -232,10 +232,10 @@ describe('Flights + Scheduling (integration)', () => {
         refAircraft: refAircraft,
         departureTime: new Date('2026-08-20T10:00:00.000Z'),
         arrivalTime: arrival,
-        stopoverDurationMinutes: 30,
-        flightHoursRecorded: false,
-        creditedFlightHours: null,
-        flightHoursRecordedAt: null,
+        stopoverMins: 30,
+        hoursRecorded: false,
+        creditedHours: null,
+        hoursRecordedAt: null,
       };
 
       const queryBuilder = {
@@ -256,14 +256,14 @@ describe('Flights + Scheduling (integration)', () => {
         transaction: jest.fn(async (callback) => callback(manager)),
       };
       const aircraft = {
-        totalFlightHours: 10,
-        hoursSinceMaintenance: 20,
+        totalFlightHrs: 10,
+        hrsSinceMaint: 20,
       };
       const fleetService = {
         addFlightHours: jest.fn().mockImplementation(
           async (_aircraftId, flightHours) => {
-            aircraft.totalFlightHours += flightHours;
-            aircraft.hoursSinceMaintenance += flightHours;
+            aircraft.totalFlightHrs += flightHours;
+            aircraft.hrsSinceMaint += flightHours;
             return aircraft;
           },
         ),
@@ -293,10 +293,10 @@ describe('Flights + Scheduling (integration)', () => {
         1.5,
         manager,
       );
-      expect(flight.flightHoursRecorded).toBe(true);
-      expect(flight.creditedFlightHours).toBe(1.5);
-      expect(aircraft.totalFlightHours).toBe(11.5);
-      expect(aircraft.hoursSinceMaintenance).toBe(21.5);
+      expect(flight.hoursRecorded).toBe(true);
+      expect(flight.creditedHours).toBe(1.5);
+      expect(aircraft.totalFlightHrs).toBe(11.5);
+      expect(aircraft.hrsSinceMaint).toBe(21.5);
       expect(manager.save).toHaveBeenCalledWith(expect.anything(), flight);
     },
   );

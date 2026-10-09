@@ -62,7 +62,7 @@ export class FleetService {
   findByHomeBase(homeBase: string): Promise<Aircraft[]> {
     return this.aircraftRepository.find({
       where: { homeBase: normalizeIata(homeBase) },
-      relations: ['type'],
+      relations: ['aircraftType'],
       order: { registration: 'ASC' },
     });
   }
@@ -78,9 +78,9 @@ export class FleetService {
       registration: registration,
       model: type?.modelName ?? dto.model.trim(),
       capacity: dto.capacity,
-      totalFlightHours: dto.totalFlightHours ?? 0,
-      maintenanceHoursLimit: dto.maintenanceHoursLimit,
-      hoursSinceMaintenance: 0,
+      totalFlightHrs: dto.totalFlightHrs ?? 0,
+      maintLimitHrs: dto.maintLimitHrs,
+      hrsSinceMaint: 0,
       aircraftStatus: dto.aircraftStatus ?? AircraftStatus.ACTIVE,
       homeBase: dto.homeBase ? normalizeIata(dto.homeBase) : null,
       refAircraftType: type?.refAircraftType ?? null,
@@ -113,8 +113,8 @@ export class FleetService {
 
     if (dto.model !== undefined) aircraft.model = dto.model.trim();
     if (dto.capacity !== undefined) aircraft.capacity = dto.capacity;
-    if (dto.maintenanceHoursLimit !== undefined) aircraft.maintenanceHoursLimit = dto.maintenanceHoursLimit;
-    if (dto.totalFlightHours !== undefined) aircraft.totalFlightHours = dto.totalFlightHours;
+    if (dto.maintLimitHrs !== undefined) aircraft.maintLimitHrs = dto.maintLimitHrs;
+    if (dto.totalFlightHrs !== undefined) aircraft.totalFlightHrs = dto.totalFlightHrs;
     if (dto.aircraftStatus !== undefined) {
       aircraft.aircraftStatus = dto.aircraftStatus;
     }
@@ -189,15 +189,15 @@ export class FleetService {
       : null;
 
     // Mise à jour des compteurs
-    aircraft.totalFlightHours =
-      Number(aircraft.totalFlightHours || 0) + heuresVolees;
+    aircraft.totalFlightHrs =
+      Number(aircraft.totalFlightHrs || 0) + heuresVolees;
 
-    aircraft.hoursSinceMaintenance =
-      Number(aircraft.hoursSinceMaintenance || 0) + heuresVolees;
+    aircraft.hrsSinceMaint =
+      Number(aircraft.hrsSinceMaint || 0) + heuresVolees;
 
     if (
-      aircraft.hoursSinceMaintenance >=
-      aircraft.maintenanceHoursLimit
+      aircraft.hrsSinceMaint >=
+      aircraft.maintLimitHrs
     ) {
       aircraft.aircraftStatus = AircraftStatus.MAINTENANCE;
     }
@@ -215,15 +215,15 @@ export class FleetService {
 
   async resetMaintenanceCounter(id: string): Promise<Aircraft> {
     const aircraft = await this.findOne(id);
-    aircraft.lastMaintenanceAt = new Date();
-    aircraft.hoursSinceMaintenance = 0;
+    aircraft.lastMaintAt = new Date();
+    aircraft.hrsSinceMaint = 0;
     aircraft.aircraftStatus = AircraftStatus.ACTIVE;
     return this.aircraftRepository.save(aircraft);
   }
 
   async statistics() {
     const aircrafts = await this.findAll();
-    const totalHours = aircrafts.reduce((sum, a) => sum + a.totalFlightHours, 0);
+    const totalHours = aircrafts.reduce((sum, a) => sum + a.totalFlightHrs, 0);
 
     return {
       totalAvions: aircrafts.length,
@@ -231,7 +231,7 @@ export class FleetService {
       avionsEnMaintenance: aircrafts.filter((a) => a.aircraftStatus === AircraftStatus.MAINTENANCE).length,
       avionsHorsService: aircrafts.filter((a) => a.aircraftStatus === AircraftStatus.OUT_OF_SERVICE).length,
       avionsRetires: aircrafts.filter((a) => a.aircraftStatus === AircraftStatus.RETIRED).length,
-      totalFlightHours: totalHours,
+      totalFlightHrs: totalHours,
       moyenneHeuresDeVol: aircrafts.length ? totalHours / aircrafts.length : 0,
       capaciteMoyenne: aircrafts.length
         ? aircrafts.reduce((sum, a) => sum + a.capacity, 0) / aircrafts.length

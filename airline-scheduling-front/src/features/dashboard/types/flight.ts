@@ -2,18 +2,18 @@
 
 export interface FlightLegData {
   flightNumber: string;
-  departureAirportCode: string;
-  arrivalAirportCode: string;
+  depAirportCode: string;
+  arrAirportCode: string;
   departureTime: string;
   arrivalTime: string;
 }
 
 export interface FlightFormData {
   flightNumber: string;
-  departureAirportCode: string;
-  stopoverAirportCodes?: string | string[];
-  stopoverDurationMinutes?: number;
-  arrivalAirportCode: string;
+  depAirportCode: string;
+  stopoverCodes?: string | string[];
+  stopoverMins?: number;
+  arrAirportCode: string;
   departureTime: string;
   arrivalTime: string;
   refAircraft: string;

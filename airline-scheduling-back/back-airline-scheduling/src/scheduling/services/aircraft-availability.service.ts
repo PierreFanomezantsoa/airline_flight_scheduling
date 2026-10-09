@@ -23,7 +23,7 @@ export class AircraftAvailabilityService {
   ): Promise<Aircraft[]> {
     const aircrafts = await this.aircraftRepository.find({
       where: { aircraftStatus: AircraftStatus.ACTIVE },
-      relations: ['type'],
+      relations: ['aircraftType'],
       order: { registration: 'ASC' },
     });
 
@@ -40,8 +40,8 @@ export class AircraftAvailabilityService {
       const validation = await this.conflictService.validateCandidate(
         {
           flightNumber: 'AVAILABILITY-CHECK',
-          departureAirportCode: departure,
-          arrivalAirportCode: arrival,
+          depAirportCode: departure,
+          arrAirportCode: arrival,
           departureTime: start,
           arrivalTime: end,
           refAircraft: aircraft.refAircraft,

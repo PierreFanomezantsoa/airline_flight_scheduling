@@ -38,8 +38,8 @@ export type StatusFilter = 'ALL' | FlightStatus | 'UNASSIGNED';
 
 export interface FlightLeg {
   flightNumber?: string;
-  departureAirportCode: string;
-  arrivalAirportCode: string;
+  depAirportCode: string;
+  arrAirportCode: string;
   departureTime?: string | null;
   arrivalTime?: string | null;
 }
@@ -51,7 +51,7 @@ export interface Flight {
   aircraftModel: string;
   origin: string;
   stopover?: string | string[] | null;
-  stopoverDurationMinutes?: number | null;
+  stopoverMins?: number | null;
   destination: string;
   route?: string;
   departure: string;
@@ -381,10 +381,10 @@ const FlightCard: FC<FlightCardProps> = ({
           {weather.label}
         </span>
 
-        {hasStopover && flight.stopoverDurationMinutes ? (
+        {hasStopover && flight.stopoverMins ? (
           <span className="inline-flex h-5 items-center gap-1 rounded-full bg-slate-50 px-2 text-[10.5px] font-medium text-slate-600">
             <Timer className="h-3 w-3 text-slate-400" />
-            Escale {formatDuration(flight.stopoverDurationMinutes)}
+            Escale {formatDuration(flight.stopoverMins)}
           </span>
         ) : null}
 

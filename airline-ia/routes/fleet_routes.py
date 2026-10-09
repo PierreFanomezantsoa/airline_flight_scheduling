@@ -14,8 +14,8 @@ def get_fleet_aircrafts():
                 "model": ac.registration or "Sans Immat",
                 "capacity": getattr(ac, 'capacity', 180),
                 "aircraftStatus": getattr(ac, 'aircraftStatus', 'Active'),
-                "maintenanceHoursLimit": getattr(ac, 'maintenanceHoursLimit', 500),
-                "hoursSinceMaintenance": getattr(ac, 'hoursSinceMaintenance', 0)
+                "maintLimitHrs": getattr(ac, 'maintLimitHrs', 500),
+                "hrsSinceMaint": getattr(ac, 'hrsSinceMaint', 0)
             }
             for ac in aircrafts
         ]), 200

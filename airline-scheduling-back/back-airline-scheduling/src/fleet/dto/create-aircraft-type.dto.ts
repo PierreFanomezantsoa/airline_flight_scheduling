@@ -27,5 +27,5 @@ export class CreateAircraftTypeDto {
 
   @IsNumber()
   @IsPositive()
-  maintenanceIntervalHours!: number;
+  maintIntervalHrs!: number;
 }

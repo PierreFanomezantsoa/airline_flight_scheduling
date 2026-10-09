@@ -30,17 +30,17 @@ export class Aircraft {
   @Column({ type: 'int' })
   capacity!: number;
 
-  @Column({ type: 'double precision', default: 0 })
-  totalFlightHours!: number;
+  @Column({ name: 'totalFlightHours', type: 'double precision', default: 0 })
+  totalFlightHrs!: number;
 
-  @Column({ type: 'double precision' })
-  maintenanceHoursLimit!: number;
+  @Column({ name: 'maintenanceHoursLimit', type: 'double precision' })
+  maintLimitHrs!: number;
 
-  @Column({ type: 'double precision', default: 0 })
-  hoursSinceMaintenance!: number;
+  @Column({ name: 'hoursSinceMaintenance', type: 'double precision', default: 0 })
+  hrsSinceMaint!: number;
 
-  @Column({ type: 'timestamptz', nullable: true })
-  lastMaintenanceAt!: Date | null;
+  @Column({ name: 'lastMaintenanceAt', type: 'timestamptz', nullable: true })
+  lastMaintAt!: Date | null;
 
   @Column({
     name: 'aircraft_status',

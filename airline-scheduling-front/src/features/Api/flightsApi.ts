@@ -8,8 +8,8 @@ export interface Aircraft {
 export interface Flight {
   refFlight: string;
   flightNumber: string;
-  departureAirportCode: string;
-  arrivalAirportCode: string;
+  depAirportCode: string;
+  arrAirportCode: string;
   departureTime: string;
   arrivalTime: string;
   flightStatus: 'Scheduled' | 'Delayed' | 'Cancelled' | 'Completed';

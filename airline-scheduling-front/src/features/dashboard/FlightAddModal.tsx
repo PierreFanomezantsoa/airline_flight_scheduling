@@ -50,18 +50,18 @@ import { authFetch, pythonFetch } from '../Api/apiService';
 
 export interface FlightLegData {
   flightNumber: string;
-  departureAirportCode: string;
-  arrivalAirportCode: string;
+  depAirportCode: string;
+  arrAirportCode: string;
   departureTime: string;
   arrivalTime: string;
 }
 
 export interface FlightFormData {
   flightNumber: string;
-  departureAirportCode: string;
-  stopoverAirportCodes?: string | string[];
-  stopoverDurationMinutes?: number;
-  arrivalAirportCode: string;
+  depAirportCode: string;
+  stopoverCodes?: string | string[];
+  stopoverMins?: number;
+  arrAirportCode: string;
   departureTime: string;
   arrivalTime: string;
   refAircraft: string;
@@ -71,7 +71,7 @@ export interface FlightFormData {
 }
 
 export interface MaintenanceSlot {
-  refMaintenanceSlot?: string;
+  refMaintSlot?: string;
   refAircraft?: string;
   registration?: string;
   aircraft?: {
@@ -81,7 +81,7 @@ export interface MaintenanceSlot {
   };
   startTime: string;
   endTime: string;
-  maintenanceType?: string;
+  maintType?: string;
 }
 
 export interface AircraftData {
@@ -94,9 +94,9 @@ export interface AircraftData {
 export interface ExistingFlightData {
   refFlight: string;
   flightNumber?: string;
-  departureAirportCode?: string;
+  depAirportCode?: string;
   origin?: string;
-  arrivalAirportCode?: string;
+  arrAirportCode?: string;
   destination?: string;
   departureTime?: string;
   departure?: string;
@@ -229,10 +229,10 @@ const DIRECT_ROUTES_AND_STOPS: Record<string, Record<string, number>> = {
 
 const INITIAL_FORM_STATE: FlightFormData = {
   flightNumber: '',
-  departureAirportCode: '',
-  stopoverAirportCodes: '',
-  stopoverDurationMinutes: DEFAULT_STOPOVER_DURATION_MINUTES,
-  arrivalAirportCode: '',
+  depAirportCode: '',
+  stopoverCodes: '',
+  stopoverMins: DEFAULT_STOPOVER_DURATION_MINUTES,
+  arrAirportCode: '',
   departureTime: '',
   arrivalTime: '',
   refAircraft: '',
@@ -806,12 +806,12 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
   const isEdition = Boolean(initialData);
 
   const originAirport = useMemo(
-    () => airports.find((airport) => airport.refAirport === newFlight.departureAirportCode),
-    [airports, newFlight.departureAirportCode],
+    () => airports.find((airport) => airport.refAirport === newFlight.depAirportCode),
+    [airports, newFlight.depAirportCode],
   );
   const destinationAirport = useMemo(
-    () => airports.find((airport) => airport.refAirport === newFlight.arrivalAirportCode),
-    [airports, newFlight.arrivalAirportCode],
+    () => airports.find((airport) => airport.refAirport === newFlight.arrAirportCode),
+    [airports, newFlight.arrAirportCode],
   );
 
   useEffect(() => {
@@ -864,14 +864,14 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
     if (initialData) {
       setNewFlight({ ...initialData });
 
-      const stop = Array.isArray(initialData.stopoverAirportCodes)
-        ? initialData.stopoverAirportCodes[0]
-        : initialData.stopoverAirportCodes || '';
+      const stop = Array.isArray(initialData.stopoverCodes)
+        ? initialData.stopoverCodes[0]
+        : initialData.stopoverCodes || '';
       setSelectedStop(stop);
 
-      if (initialData.stopoverDurationMinutes) {
+      if (initialData.stopoverMins) {
         setLayoverMinutes(
-          Math.max(MIN_STOPOVER_DURATION_MINUTES, initialData.stopoverDurationMinutes),
+          Math.max(MIN_STOPOVER_DURATION_MINUTES, initialData.stopoverMins),
         );
       } else {
         setLayoverMinutes(DEFAULT_STOPOVER_DURATION_MINUTES);
@@ -961,12 +961,12 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
    * ======================================================================= */
 
   const directDurationHours = useMemo(() => {
-    if (!newFlight.departureAirportCode || !newFlight.arrivalAirportCode) return null;
+    if (!newFlight.depAirportCode || !newFlight.arrAirportCode) return null;
     return (
-      DIRECT_ROUTES_AND_STOPS[newFlight.departureAirportCode]?.[newFlight.arrivalAirportCode] ??
+      DIRECT_ROUTES_AND_STOPS[newFlight.depAirportCode]?.[newFlight.arrAirportCode] ??
       null
     );
-  }, [newFlight.departureAirportCode, newFlight.arrivalAirportCode]);
+  }, [newFlight.depAirportCode, newFlight.arrAirportCode]);
 
   const isDirectRoute = directDurationHours !== null;
 
@@ -975,10 +975,10 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
    * ======================================================================= */
 
   const suggestedStops = useMemo(() => {
-    if (!newFlight.departureAirportCode || !newFlight.arrivalAirportCode) return [];
+    if (!newFlight.depAirportCode || !newFlight.arrAirportCode) return [];
 
-    const origin = newFlight.departureAirportCode;
-    const destination = newFlight.arrivalAirportCode;
+    const origin = newFlight.depAirportCode;
+    const destination = newFlight.arrAirportCode;
 
     return airports
       .map((airport) => airport.refAirport)
@@ -998,14 +998,14 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
           right.secondLegDuration,
       )
       .map((candidate) => candidate.hub);
-  }, [airports, newFlight.departureAirportCode, newFlight.arrivalAirportCode]);
+  }, [airports, newFlight.depAirportCode, newFlight.arrAirportCode]);
 
   /* =========================================================================
    * ROUTE CALCULATION
    * ======================================================================= */
 
   const routeCalculation = useMemo(() => {
-    const { departureAirportCode, arrivalAirportCode, departureTime, flightNumber } = newFlight;
+    const { depAirportCode, arrAirportCode, departureTime, flightNumber } = newFlight;
     const emptyRoute = {
       calculatedArrival: '',
       generatedLegs: [] as FlightLegData[],
@@ -1017,19 +1017,19 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
       error: '',
     };
 
-    if (!departureAirportCode || !arrivalAirportCode || !departureTime) {
+    if (!depAirportCode || !arrAirportCode || !departureTime) {
       return emptyRoute;
     }
 
     if (!selectedStop) {
       if (isDirectRoute) {
         const directDurationMinutes = getRouteDurationMinutes(
-          departureAirportCode,
-          arrivalAirportCode,
+          depAirportCode,
+          arrAirportCode,
         );
         const calculatedArrival = calculateArrival(
-          departureAirportCode,
-          arrivalAirportCode,
+          depAirportCode,
+          arrAirportCode,
           departureTime,
           airports,
         );
@@ -1072,15 +1072,15 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
     }
 
     const firstLegDurationMinutes = getRouteDurationMinutes(
-      departureAirportCode,
+      depAirportCode,
       selectedStop,
     );
     const secondLegDurationMinutes = getRouteDurationMinutes(
       selectedStop,
-      arrivalAirportCode,
+      arrAirportCode,
     );
     const firstLegArrival = calculateArrival(
-      departureAirportCode,
+      depAirportCode,
       selectedStop,
       departureTime,
       airports,
@@ -1102,7 +1102,7 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
     ).toISOString();
     const secondLegArrival = calculateArrival(
       selectedStop,
-      arrivalAirportCode,
+      arrAirportCode,
       secondLegDeparture,
       airports,
     );
@@ -1124,15 +1124,15 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
     const generatedLegs: FlightLegData[] = [
       {
         flightNumber: `${baseFlightNumber}-A`,
-        departureAirportCode,
-        arrivalAirportCode: selectedStop,
+        depAirportCode,
+        arrAirportCode: selectedStop,
         departureTime,
         arrivalTime: firstLegArrival,
       },
       {
         flightNumber: `${baseFlightNumber}-B`,
-        departureAirportCode: selectedStop,
-        arrivalAirportCode,
+        depAirportCode: selectedStop,
+        arrAirportCode,
         departureTime: secondLegDeparture,
         arrivalTime: secondLegArrival,
       },
@@ -1158,13 +1158,13 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
       const areLegsSame =
         JSON.stringify(previous.legs) === JSON.stringify(routeCalculation.generatedLegs);
 
-      const previousStop = Array.isArray(previous.stopoverAirportCodes)
-        ? previous.stopoverAirportCodes[0] || ''
-        : previous.stopoverAirportCodes || '';
+      const previousStop = Array.isArray(previous.stopoverCodes)
+        ? previous.stopoverCodes[0] || ''
+        : previous.stopoverCodes || '';
       const isStopSame = previousStop === selectedStop;
 
       const expectedDuration = selectedStop ? layoverMinutes : undefined;
-      const isDurationSame = previous.stopoverDurationMinutes === expectedDuration;
+      const isDurationSame = previous.stopoverMins === expectedDuration;
 
       if (isArrivalSame && areLegsSame && isStopSame && isDurationSame) {
         return previous;
@@ -1172,8 +1172,8 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
 
       return {
         ...previous,
-        stopoverAirportCodes: selectedStop || undefined,
-        stopoverDurationMinutes: expectedDuration,
+        stopoverCodes: selectedStop || undefined,
+        stopoverMins: expectedDuration,
         arrivalTime: routeCalculation.calculatedArrival,
         legs: routeCalculation.generatedLegs,
       };
@@ -1197,8 +1197,8 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
     if (!isOpen) return;
 
     const canAssess =
-      Boolean(newFlight.departureAirportCode) &&
-      Boolean(newFlight.arrivalAirportCode) &&
+      Boolean(newFlight.depAirportCode) &&
+      Boolean(newFlight.arrAirportCode) &&
       Boolean(newFlight.departureTime) &&
       Boolean(newFlight.arrivalTime) &&
       !(!isDirectRoute && !selectedStop);
@@ -1229,9 +1229,9 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
           },
           signal: controller.signal,
           body: JSON.stringify({
-            departureAirportCode: newFlight.departureAirportCode,
-            arrivalAirportCode: newFlight.arrivalAirportCode,
-            stopoverAirportCodes: selectedStop || undefined,
+            depAirportCode: newFlight.depAirportCode,
+            arrAirportCode: newFlight.arrAirportCode,
+            stopoverCodes: selectedStop || undefined,
             departureTime: departure.toISOString(),
             arrivalTime: arrival.toISOString(),
           }),
@@ -1341,8 +1341,8 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
     };
   }, [
     isOpen,
-    newFlight.departureAirportCode,
-    newFlight.arrivalAirportCode,
+    newFlight.depAirportCode,
+    newFlight.arrAirportCode,
     newFlight.departureTime,
     newFlight.arrivalTime,
     selectedStop,
@@ -1356,8 +1356,8 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
   const handleSwapAirports = useCallback(() => {
     setNewFlight((previous) => ({
       ...previous,
-      departureAirportCode: previous.arrivalAirportCode,
-      arrivalAirportCode: previous.departureAirportCode,
+      depAirportCode: previous.arrAirportCode,
+      arrAirportCode: previous.depAirportCode,
     }));
     setSelectedStop('');
   }, []);
@@ -1464,15 +1464,15 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
   const validationError = useMemo(() => {
     if (timeZoneError) return timeZoneError;
 
-    if (newFlight.departureAirportCode && newFlight.arrivalAirportCode) {
+    if (newFlight.depAirportCode && newFlight.arrAirportCode) {
       if (!isDirectRoute && suggestedStops.length === 0) {
         return 'Aucun itinéraire avec escale disponible pour ce trajet.';
       }
       if (routeCalculation.error) return routeCalculation.error;
       if (
         selectedStop &&
-        (selectedStop === newFlight.departureAirportCode ||
-          selectedStop === newFlight.arrivalAirportCode ||
+        (selectedStop === newFlight.depAirportCode ||
+          selectedStop === newFlight.arrAirportCode ||
           !suggestedStops.includes(selectedStop))
       ) {
         return 'Sélectionnez une escale valide entre le départ et la destination.';
@@ -1511,13 +1511,13 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
 
       if (selectedAircraft.slotConflict) {
         const conflict = selectedAircraft.slotConflict;
-        const maintenanceType = conflict.maintenanceType
-          ? ` (${conflict.maintenanceType})`
+        const maintType = conflict.maintType
+          ? ` (${conflict.maintType})`
           : '';
 
         return (
           `Conflit de maintenance : l'appareil ${aircraftName} ` +
-          `est réservé pour maintenance${maintenanceType} du ` +
+          `est réservé pour maintenance${maintType} du ` +
           `${new Date(conflict.startTime).toLocaleString('fr-FR')} au ` +
           `${new Date(conflict.endTime).toLocaleString('fr-FR')}.`
         );
@@ -1541,8 +1541,8 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
 
     return null;
   }, [
-    newFlight.departureAirportCode,
-    newFlight.arrivalAirportCode,
+    newFlight.depAirportCode,
+    newFlight.arrAirportCode,
     timeZoneError,
     routeCalculation,
     suggestedStops,
@@ -1570,8 +1570,8 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
     try {
       const finalFlightData: FlightFormData = {
         ...newFlight,
-        stopoverAirportCodes: selectedStop || undefined,
-        stopoverDurationMinutes: selectedStop ? layoverMinutes : undefined,
+        stopoverCodes: selectedStop || undefined,
+        stopoverMins: selectedStop ? layoverMinutes : undefined,
         arrivalTime: routeCalculation.calculatedArrival,
         legs: routeCalculation.generatedLegs,
         flightStatus: isPastDate ? 'Annulé' : newFlight.flightStatus || 'Planifié',
@@ -1695,7 +1695,7 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
           {/* ROUTE */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              {newFlight.departureAirportCode && newFlight.arrivalAirportCode && (
+              {newFlight.depAirportCode && newFlight.arrAirportCode && (
                 <button
                   type="button"
                   onClick={handleSwapAirports}
@@ -1712,14 +1712,14 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
                 id="flight-origin-airport"
                 label="Aéroport de départ"
                                 required
-                value={newFlight.departureAirportCode}
+                value={newFlight.depAirportCode}
                 options={airportOptions}
                 placeholder="Choisir un aéroport…"
                 searchPlaceholder="Rechercher un aéroport…"
                 disabled={isLoadingAirports || Boolean(airportLoadError)}
                 icon={<MapPin className="h-4 w-4" />}
                 onChange={(value) => {
-                  setNewFlight((previous) => ({ ...previous, departureAirportCode: value }));
+                  setNewFlight((previous) => ({ ...previous, depAirportCode: value }));
                   setSelectedStop('');
                 }}
               />
@@ -1727,14 +1727,14 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
                 id="flight-destination-airport"
                 label="Aéroport d’arrivée"
                                 required
-                value={newFlight.arrivalAirportCode}
-                options={airportOptions.filter((airport) => airport.value !== newFlight.departureAirportCode)}
+                value={newFlight.arrAirportCode}
+                options={airportOptions.filter((airport) => airport.value !== newFlight.depAirportCode)}
                 placeholder="Choisir un aéroport…"
                 searchPlaceholder="Rechercher un aéroport…"
                 disabled={isLoadingAirports || Boolean(airportLoadError)}
                 icon={<MapPin className="h-4 w-4" />}
                 onChange={(value) => {
-                  setNewFlight((previous) => ({ ...previous, arrivalAirportCode: value }));
+                  setNewFlight((previous) => ({ ...previous, arrAirportCode: value }));
                   setSelectedStop('');
                 }}
               />
@@ -1782,7 +1782,7 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
 
           {/* STOPOVER */}
           {(selectedStop ||
-            (!isDirectRoute && newFlight.departureAirportCode && newFlight.arrivalAirportCode)) && (
+            (!isDirectRoute && newFlight.depAirportCode && newFlight.arrAirportCode)) && (
             <div
               className={`space-y-3 rounded-xl border p-3 ${
                 !isDirectRoute
@@ -1799,8 +1799,8 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
                     </p>
                     <p className="mt-0.5 text-[10px] leading-4 text-amber-700">
                       Aucune liaison directe entre{' '}
-                      <strong>{newFlight.departureAirportCode}</strong> et{' '}
-                      <strong>{newFlight.arrivalAirportCode}</strong>.
+                      <strong>{newFlight.depAirportCode}</strong> et{' '}
+                      <strong>{newFlight.arrAirportCode}</strong>.
                     </p>
                   </div>
                 </div>
@@ -1883,7 +1883,7 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
                 <div className="space-y-2 border-t border-slate-200 pt-2 text-[9px]">
                 <div className="rounded-lg bg-white/80 p-2">
                   <p className="font-black text-slate-800">
-                    {newFlight.departureAirportCode} → {selectedStop}
+                    {newFlight.depAirportCode} → {selectedStop}
                   </p>
                   <p className="mt-1 text-slate-600">
                     Départ{' '}
@@ -1907,7 +1907,7 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
                 </div>
                 <div className="rounded-lg bg-white/80 p-2">
                   <p className="font-black text-slate-800">
-                    Escale {selectedStop} → {newFlight.arrivalAirportCode}
+                    Escale {selectedStop} → {newFlight.arrAirportCode}
                   </p>
                   <p className="mt-1 text-slate-600">
                     Durée au sol {formatDurationMinutes(layoverMinutes)}
@@ -1956,20 +1956,20 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
                       {leg.flightNumber}
                     </span>
                     <span className="font-mono text-[10px]">
-                      {leg.departureAirportCode} → {leg.arrivalAirportCode}
+                      {leg.depAirportCode} → {leg.arrAirportCode}
                     </span>
                   </div>
                   <div className="text-right font-mono text-[8px] text-slate-300">
                     <p>
                       {formatDateTimeInTimezone(
                         leg.departureTime,
-                        airports.find((airport) => airport.refAirport === leg.departureAirportCode)?.timezone,
+                        airports.find((airport) => airport.refAirport === leg.depAirportCode)?.timezone,
                       ).split('T')[1]}
                     </p>
                     <p>
                       {formatDateTimeInTimezone(
                         leg.arrivalTime,
-                        airports.find((airport) => airport.refAirport === leg.arrivalAirportCode)?.timezone,
+                        airports.find((airport) => airport.refAirport === leg.arrAirportCode)?.timezone,
                       ).split('T')[1]}
                     </p>
                   </div>
@@ -2142,8 +2142,8 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
           {/* WEATHER */}
           {!isPastDate &&
             !validationError &&
-            newFlight.departureAirportCode &&
-            newFlight.arrivalAirportCode &&
+            newFlight.depAirportCode &&
+            newFlight.arrAirportCode &&
             newFlight.departureTime &&
             newFlight.arrivalTime && (
               <div
@@ -2249,7 +2249,7 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
                         <div className="mt-2 grid grid-cols-2 gap-2">
                           <div className="rounded-lg border border-white/70 bg-white/60 p-2">
                             <span className="block text-[8px] font-black uppercase opacity-60">
-                              Départ {newFlight.departureAirportCode}
+                              Départ {newFlight.depAirportCode}
                             </span>
                             <span className="mt-0.5 block font-mono text-[9px] font-black">
                               {formatWeatherPercent(
@@ -2265,7 +2265,7 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
                           </div>
                           <div className="rounded-lg border border-white/70 bg-white/60 p-2 text-right">
                             <span className="block text-[8px] font-black uppercase opacity-60">
-                              Arrivée {newFlight.arrivalAirportCode}
+                              Arrivée {newFlight.arrAirportCode}
                             </span>
                             <span className="mt-0.5 block font-mono text-[9px] font-black">
                               {formatWeatherPercent(

@@ -61,10 +61,10 @@ def optimize_schedule_with_fastapi():
             is_weekend = 1.0 if f.departureTime.weekday() >= 5 else 0.0
             same_hour_slots = [
                 flight for flight in db_flights
-                if flight.departureAirportCode == f.departureAirportCode and flight.departureTime.hour == f.departureTime.hour
+                if flight.depAirportCode == f.depAirportCode and flight.departureTime.hour == f.departureTime.hour
             ]
             traffic_density = min(len(same_hour_slots) / 4.0, 1.0)
-            weather_result = resilient_weather_service.get_severity(f.departureAirportCode, f.departureTime)
+            weather_result = resilient_weather_service.get_severity(f.depAirportCode, f.departureTime)
             weather_severity = weather_result.get("severity", 0.5)
 
             formatted_flights.append({

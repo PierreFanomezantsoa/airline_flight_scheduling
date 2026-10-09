@@ -31,11 +31,11 @@ export class User {
   @Column({ type: 'enum', enum: UserRole, default: UserRole.CREW_MEMBER })
   role!: UserRole;
 
-  @Column({ type: 'varchar', length: 50, default: 'Intermediate' })
-  technicalLevel!: string;
+  @Column({ name: 'technicalLevel', type: 'varchar', length: 50, default: 'Intermediate' })
+  techLevel!: string;
 
-  @Column({ type: 'varchar', length: 50, default: 'Intermediate' })
-  professionalLevel!: string;
+  @Column({ name: 'professionalLevel', type: 'varchar', length: 50, default: 'Intermediate' })
+  businessLevel!: string;
 
   /**
    * Administrative suspension is independent of initial approval.

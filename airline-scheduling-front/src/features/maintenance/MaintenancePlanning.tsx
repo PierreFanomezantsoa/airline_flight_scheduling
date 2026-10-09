@@ -58,10 +58,10 @@ interface DeleteModalState {
 
 type AircraftLike = Aircraft & {
   homeBase?: string | null;
-  totalFlightHours?: number;
-  hoursSinceMaintenance?: number;
-  maintenanceHoursLimit?: number;
-  lastMaintenanceAt?: string | null;
+  totalFlightHrs?: number;
+  hrsSinceMaint?: number;
+  maintLimitHrs?: number;
+  lastMaintAt?: string | null;
   aircraftType?: {
     modelName?: string;
     manufacturer?: string;
@@ -117,7 +117,7 @@ const isRetiredAircraft = (aircraft: AircraftLike): boolean => {
 };
 
 const isPendingReview = (slot: MaintenanceSlot): boolean =>
-  slot.maintenanceStatus === 'Pending Review';
+  slot.maintStatus === 'Pending Review';
 
 interface StatusVisual {
   label: string;
@@ -133,14 +133,14 @@ const getStatusVisual = (slot: MaintenanceSlot): StatusVisual => {
       dot: 'bg-amber-500',
     };
   }
-  if (slot.maintenanceStatus === 'Cancelled') {
+  if (slot.maintStatus === 'Cancelled') {
     return {
       label: 'Annulé',
       className: 'bg-slate-100 text-slate-600',
       dot: 'bg-slate-400',
     };
   }
-  if (slot.maintenanceStatus === 'Completed') {
+  if (slot.maintStatus === 'Completed') {
     return {
       label: 'Terminé',
       className: 'bg-emerald-50 text-emerald-700',
@@ -152,7 +152,7 @@ const getStatusVisual = (slot: MaintenanceSlot): StatusVisual => {
   const startDateObj = new Date(slot.startTime);
   const endDateObj = new Date(slot.endTime);
 
-  if (slot.maintenanceType === 'Aircraft On Ground') {
+  if (slot.maintType === 'Aircraft On Ground') {
     return {
       label: 'AOG',
       className: 'bg-rose-50 text-rose-700',
@@ -221,8 +221,8 @@ const formatNumber = (value?: number, digits = 1): string =>
   }).format(Number.isFinite(value) ? Number(value) : 0);
 
 const maintenanceRatio = (aircraft: AircraftLike): number => {
-  const used = Number(aircraft.hoursSinceMaintenance ?? 0);
-  const limit = Number(aircraft.maintenanceHoursLimit ?? 0);
+  const used = Number(aircraft.hrsSinceMaint ?? 0);
+  const limit = Number(aircraft.maintLimitHrs ?? 0);
   if (!Number.isFinite(limit) || limit <= 0) return 0;
   return Math.min(100, Math.max(0, Math.round((used / limit) * 100)));
 };
@@ -287,7 +287,7 @@ export const MaintenancePlanning: React.FC = () => {
   const [fleetRefreshing, setFleetRefreshing] = useState(false);
 
   const [selectedAircraftId, setSelectedAircraftId] = useState<string>('');
-  const [maintenanceType, setMaintenanceType] =
+  const [maintType, setMaintenanceType] =
     useState<MaintenanceType>('Type A');
   const [startDate, setStartDate] = useState<string>('');
   const [durationDays, setDurationDays] = useState<number>(1);
@@ -480,7 +480,7 @@ export const MaintenancePlanning: React.FC = () => {
       slots
         .filter((slot) => {
           if (isPendingReview(slot)) return true;
-          if (slot.maintenanceStatus === 'Cancelled' || slot.maintenanceStatus === 'Completed')
+          if (slot.maintStatus === 'Cancelled' || slot.maintStatus === 'Completed')
             return false;
           return new Date(slot.endTime).getTime() >= now;
         })
@@ -497,8 +497,8 @@ export const MaintenancePlanning: React.FC = () => {
       const start = new Date(slot.startTime).getTime();
       const end = new Date(slot.endTime).getTime();
       if (isPendingReview(slot)) continue;
-      if (slot.maintenanceType === 'Aircraft On Ground' && end >= now) aog += 1;
-      if (slot.maintenanceStatus === 'Cancelled') continue;
+      if (slot.maintType === 'Aircraft On Ground' && end >= now) aog += 1;
+      if (slot.maintStatus === 'Cancelled') continue;
       if (now < start) planned += 1;
       else if (now <= end) active += 1;
     }
@@ -513,15 +513,15 @@ export const MaintenancePlanning: React.FC = () => {
     } else if (activeTab === 'history') {
       result = result.filter(
         (s) =>
-          s.maintenanceStatus === 'Completed' ||
-          s.maintenanceStatus === 'Cancelled',
+          s.maintStatus === 'Completed' ||
+          s.maintStatus === 'Cancelled',
       );
     } else {
       result = result.filter(
         (s) =>
           !isPendingReview(s) &&
-          s.maintenanceStatus !== 'Completed' &&
-          s.maintenanceStatus !== 'Cancelled',
+          s.maintStatus !== 'Completed' &&
+          s.maintStatus !== 'Cancelled',
       );
     }
 
@@ -534,7 +534,7 @@ export const MaintenancePlanning: React.FC = () => {
         const model = getAircraftModel(
           s.aircraft as AircraftLike | undefined,
         ).toLowerCase();
-        const type = s.maintenanceType.toLowerCase();
+        const type = s.maintType.toLowerCase();
         const desc = (s.description || '').toLowerCase();
         return (
           reg.includes(q) ||
@@ -657,7 +657,7 @@ export const MaintenancePlanning: React.FC = () => {
 
       await maintenanceService.create({
         refAircraft: selectedAircraftId,
-        maintenanceType,
+        maintType,
         startTime: interval.start.toISOString(),
         endTime: interval.end.toISOString(),
         description: description.trim() || undefined,
@@ -736,7 +736,7 @@ export const MaintenancePlanning: React.FC = () => {
     setDeleteConfirmed(false);
     setDeleteModal({
       isOpen: true,
-      slotId: slot.refMaintenanceSlot,
+      slotId: slot.refMaintSlot,
       aircraftRegistration: getAircraftRegistration(targetAircraft),
       daysCount: calculateDurationInDays(slot.startTime, slot.endTime),
     });
@@ -1052,7 +1052,7 @@ export const MaintenancePlanning: React.FC = () => {
             <div className="space-y-3 p-3 md:hidden">
               {paginatedSlots.map((slot) => (
                 <SlotMobileCard
-                  key={slot.refMaintenanceSlot}
+                  key={slot.refMaintSlot}
                   slot={slot}
                   onDelete={openDeleteModal}
                   onExtend={handleExtend}
@@ -1086,7 +1086,7 @@ export const MaintenancePlanning: React.FC = () => {
                 <tbody>
                   {paginatedSlots.map((slot) => (
                     <SlotTableRow
-                      key={slot.refMaintenanceSlot}
+                      key={slot.refMaintSlot}
                       slot={slot}
                       onDelete={openDeleteModal}
                       onExtend={handleExtend}
@@ -1241,7 +1241,7 @@ export const MaintenancePlanning: React.FC = () => {
                       },
                     ] as const
                   ).map((opt) => {
-                    const active = maintenanceType === opt.v;
+                    const active = maintType === opt.v;
                     const isAog = opt.v === 'Aircraft On Ground';
                     return (
                       <button
@@ -1572,10 +1572,10 @@ function SlotTableRow({ slot, onDelete, onExtend, onClose }: SlotTableRowProps) 
       </td>
 
       <td className="px-4 py-3.5">
-        <span className={`${BADGE} ${getTypeVisual(slot.maintenanceType)}`}>
-          {slot.maintenanceType === 'Aircraft On Ground'
+        <span className={`${BADGE} ${getTypeVisual(slot.maintType)}`}>
+          {slot.maintType === 'Aircraft On Ground'
             ? 'AOG'
-            : slot.maintenanceType}
+            : slot.maintType}
         </span>
       </td>
 
@@ -1672,10 +1672,10 @@ function SlotMobileCard({ slot, onDelete, onExtend, onClose }: SlotTableRowProps
           <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
             Type
           </p>
-          <span className={`mt-1 ${BADGE} ${getTypeVisual(slot.maintenanceType)}`}>
-            {slot.maintenanceType === 'Aircraft On Ground'
+          <span className={`mt-1 ${BADGE} ${getTypeVisual(slot.maintType)}`}>
+            {slot.maintType === 'Aircraft On Ground'
               ? 'AOG'
-              : slot.maintenanceType}
+              : slot.maintType}
           </span>
         </div>
         <div className="min-w-0 rounded-lg bg-slate-50 p-2">
@@ -1744,7 +1744,7 @@ function SlotActions({
   const handleExtend = async () => {
     setExtending(true);
     try {
-      await onExtend(slot.refMaintenanceSlot, 1);
+      await onExtend(slot.refMaintSlot, 1);
     } finally {
       setExtending(false);
     }
@@ -1753,7 +1753,7 @@ function SlotActions({
   const handleClose = async () => {
     setClosing(true);
     try {
-      await onClose(slot.refMaintenanceSlot);
+      await onClose(slot.refMaintSlot);
     } finally {
       setClosing(false);
     }
@@ -1819,8 +1819,8 @@ interface AircraftRowProps {
 
 function AircraftRow({ aircraft, hasSlot, onPlan }: AircraftRowProps) {
   const ratio = maintenanceRatio(aircraft);
-  const used = Number(aircraft.hoursSinceMaintenance ?? 0);
-  const limit = Number(aircraft.maintenanceHoursLimit ?? 0);
+  const used = Number(aircraft.hrsSinceMaint ?? 0);
+  const limit = Number(aircraft.maintLimitHrs ?? 0);
 
   const tier: 'critical' | 'warning' | 'normal' =
     ratio >= 90 ? 'critical' : ratio >= 75 ? 'warning' : 'normal';

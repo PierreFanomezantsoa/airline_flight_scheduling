@@ -34,8 +34,8 @@ export class AircraftType {
   @Column({ type: 'double precision' })
   fuelConsumption!: number;
 
-  @Column({ type: 'double precision' })
-  maintenanceIntervalHours!: number;
+  @Column({ name: 'maintenanceIntervalHours', type: 'double precision' })
+  maintIntervalHrs!: number;
 
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt!: Date;

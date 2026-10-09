@@ -144,7 +144,7 @@ interface Flight {
   destination: string;
   stopover?: string | string[] | null;
   stops?: string[];
-  stopoverDurationMinutes?: number | null;
+  stopoverMins?: number | null;
   route?: string;
   departure: string;
   arrival: string;
@@ -963,10 +963,10 @@ export const FlightsPlanning: FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           flightNumber: formData.flightNumber,
-          departureAirportCode: formData.departureAirportCode,
-          stopoverAirportCodes: formData.stopoverAirportCodes,
-          stopoverDurationMinutes: formData.stopoverDurationMinutes,
-          arrivalAirportCode: formData.arrivalAirportCode,
+          depAirportCode: formData.depAirportCode,
+          stopoverCodes: formData.stopoverCodes,
+          stopoverMins: formData.stopoverMins,
+          arrAirportCode: formData.arrAirportCode,
           departureTime: formData.departureTime,
           arrivalTime: formData.arrivalTime,
           refAircraft: formData.refAircraft || null,
@@ -1667,10 +1667,10 @@ export const FlightsPlanning: FC = () => {
           editingFlight
             ? {
                 flightNumber: editingFlight.flightNumber,
-                departureAirportCode: editingFlight.origin,
-                arrivalAirportCode: editingFlight.destination,
-                stopoverAirportCodes: normalizeStops(editingFlight)[0] || undefined,
-                stopoverDurationMinutes: editingFlight.stopoverDurationMinutes ?? undefined,
+                depAirportCode: editingFlight.origin,
+                arrAirportCode: editingFlight.destination,
+                stopoverCodes: normalizeStops(editingFlight)[0] || undefined,
+                stopoverMins: editingFlight.stopoverMins ?? undefined,
                 departureTime: editingFlight.departure || '',
                 arrivalTime: editingFlight.arrival || '',
                 refAircraft:

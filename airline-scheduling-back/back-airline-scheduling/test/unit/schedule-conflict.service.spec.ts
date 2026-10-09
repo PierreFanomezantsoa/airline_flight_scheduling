@@ -64,8 +64,8 @@ describe('ScheduleConflictService (unit)', () => {
       const result =
         await service.validateCandidate({
           flightNumber: 'AFK412',
-          departureAirportCode: 'TNR',
-          arrivalAirportCode: 'CDG',
+          depAirportCode: 'TNR',
+          arrAirportCode: 'CDG',
           departureTime:new Date(  '2026-08-19T14:05:00+03:00',),
           arrivalTime:new Date(  '2026-08-19T13:05:00+03:00',),
           refAircraft:'11111111-1111-4111-8111-111111111111',
@@ -90,8 +90,8 @@ describe('ScheduleConflictService (unit)', () => {
       const result =
         await service.validateCandidate({
           flightNumber:'MD045',
-          departureAirportCode:'TNR',
-          arrivalAirportCode:'NOS',
+          depAirportCode:'TNR',
+          arrAirportCode:'NOS',
           departureTime:  new Date('2026-08-20T08:00:00+03:00',  ),
           arrivalTime:  new Date(  '2026-08-20T09:30:00+03:00',),
           refAircraft:   null,

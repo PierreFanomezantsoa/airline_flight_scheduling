@@ -16,8 +16,8 @@ class AutomaticScheduleScenarioTests(unittest.TestCase):
             registration=aircraft_id,
             aircraftStatus="Active",
             homeBase="TNR",
-            hoursSinceMaintenance=hours,
-            maintenanceHoursLimit=100,
+            hrsSinceMaint=hours,
+            maintLimitHrs=100,
         )
 
     def make_flight(
@@ -33,10 +33,10 @@ class AutomaticScheduleScenarioTests(unittest.TestCase):
         return SimpleNamespace(
             refFlight=flight_id,
             flightNumber=flight_id.upper(),
-            departureAirportCode=origin,
-            stopoverAirportCodes=stopover,
-            stopoverDurationMinutes=stopover_minutes,
-            arrivalAirportCode=destination,
+            depAirportCode=origin,
+            stopoverCodes=stopover,
+            stopoverMins=stopover_minutes,
+            arrAirportCode=destination,
             departureTime=departure,
             arrivalTime=arrival,
             flightStatus="Scheduled",

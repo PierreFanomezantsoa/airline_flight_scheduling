@@ -122,7 +122,7 @@ export interface Flight {
   aircraft?: string | null;
   aircraftModel?: string | null;
   stopover?: string | null;
-  stopoverDurationMinutes?: number | null;
+  stopoverMins?: number | null;
   legs?: unknown[];
   weatherSeverity?: number | null;
   weatherRiskLevel?: string;
@@ -155,7 +155,7 @@ interface NormalizedFlight {
   refAircraft: string;
   aircraftRegistration: string;
   stopover: string | null;
-  stopoverDurationMinutes: number | null;
+  stopoverMins: number | null;
   weatherAI?: WeatherAI;
   raw: Flight;
 }
@@ -196,7 +196,7 @@ const normalizeFlight = (flight: Flight): NormalizedFlight => ({
   refAircraft: flight.aircraft || 'NON ASSIGNÉ',
   aircraftRegistration: flight.aircraftModel || 'Sans registration',
   stopover: flight.stopover ?? null,
-  stopoverDurationMinutes: flight.stopoverDurationMinutes ?? null,
+  stopoverMins: flight.stopoverMins ?? null,
   weatherAI: flight.weatherAI,
   raw: flight,
 });
@@ -1076,7 +1076,7 @@ const FlightHistory: FC<FlightHistoryProps> = ({
                                         Escale
                                       </p>
                                       <p className="mt-1 font-mono text-xs font-semibold text-slate-700">
-                                        {formatDuration(flight.stopoverDurationMinutes)}
+                                        {formatDuration(flight.stopoverMins)}
                                       </p>
                                     </>
                                   )}

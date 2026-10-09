@@ -14,37 +14,37 @@ export class UpdateNetworkConfigurationDto {
   @IsInt()
   @Min(15)
   @Max(240)
-  mediumHaulTurnaroundMinutes?: number;
+  mediumTurnMins?: number;
 
   @IsOptional()
   @IsInt()
   @Min(30)
   @Max(360)
-  longHaulTurnaroundMinutes?: number;
+  longTurnMins?: number;
 
   @IsOptional()
   @IsInt()
   @Min(0)
   @Max(1440)
-  positioningBufferMinutes?: number;
+  posBufferMins?: number;
 
   @IsOptional()
   @IsInt()
   @Min(0)
   @Max(72)
-  minimumCrewRestHours?: number;
+  minCrewRestHrs?: number;
 
   @IsOptional()
   @IsInt()
   @Min(1)
   @Max(24)
-  maximumContinuousFlightHours?: number;
+  maxContFlightHrs?: number;
 
   @IsOptional()
   @IsInt()
   @Min(0)
   @Max(200)
-  maintenanceWarningHours?: number;
+  maintWarnHrs?: number;
 
   @IsOptional()
   @IsArray()

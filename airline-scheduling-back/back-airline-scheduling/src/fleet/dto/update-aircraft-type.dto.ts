@@ -42,5 +42,5 @@ export class UpdateAircraftTypeDto {
   @IsOptional()
   @IsNumber()
   @IsPositive()
-  maintenanceIntervalHours?: number;
+  maintIntervalHrs?: number;
 }

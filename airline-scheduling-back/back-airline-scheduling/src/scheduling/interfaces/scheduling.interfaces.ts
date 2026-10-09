@@ -5,14 +5,14 @@ import {
 
 export interface FlightCandidate {
   flightNumber: string;
-  departureAirportCode: string;
-  stopoverAirportCodes?: string | null;
-  arrivalAirportCode: string;
+  depAirportCode: string;
+  stopoverCodes?: string | null;
+  arrAirportCode: string;
   departureTime: Date;
   arrivalTime: Date;
   refAircraft?: string | null;
   /** Total ground time during stopovers, in minutes. */
-  stopoverDurationMinutes?: number | null;
+  stopoverMins?: number | null;
 }
 
 export interface ScheduleConflict {

@@ -475,7 +475,7 @@ export const FlightDetailsModal: FC<FlightDetailsModalProps> = ({
 
                 {legs.map((leg, index) => (
                   <li
-                    key={`${leg.departureAirportCode}-${leg.arrivalAirportCode}-${index}`}
+                    key={`${leg.depAirportCode}-${leg.arrAirportCode}-${index}`}
                     className="relative"
                   >
                     <span
@@ -488,7 +488,7 @@ export const FlightDetailsModal: FC<FlightDetailsModalProps> = ({
                     <div className={`${SURFACE_INNER} px-2.5 py-2`}>
                       <div className="flex items-center justify-between gap-2">
                         <span className="rounded border border-emerald-200 bg-white px-1.5 py-0.5 font-mono text-[10px] font-bold text-emerald-700">
-                          {leg.departureAirportCode}
+                          {leg.depAirportCode}
                         </span>
 
                         <div className="flex flex-1 items-center gap-1 px-2">
@@ -498,7 +498,7 @@ export const FlightDetailsModal: FC<FlightDetailsModalProps> = ({
                         </div>
 
                         <span className="rounded border border-sky-200 bg-white px-1.5 py-0.5 font-mono text-[10px] font-bold text-sky-700">
-                          {leg.arrivalAirportCode}
+                          {leg.arrAirportCode}
                         </span>
                       </div>
 

@@ -31,7 +31,7 @@ export interface GanttItem {
   origin?: string | null;
   destination?: string | null;
   stopovers?: string[];
-  stopoverDurationMinutes?: number | null;
+  stopoverMins?: number | null;
   durationMinutes?: number | null;
   label?: string | null;
   flightStatus?: string | null;
@@ -53,7 +53,7 @@ export interface AutoScheduleAssignment {
   origin?: string | null;
   destination?: string | null;
   stopovers?: string[];
-  stopoverDurationMinutes?: number | null;
+  stopoverMins?: number | null;
   originalDeparture?: string;
   originalArrival?: string;
   departure: string;
@@ -205,7 +205,7 @@ function buildItemTooltip(
     getRoute(item) || `${item.origin ?? '?'} → ${item.destination ?? '?'}`,
     `Durée totale : ${formatDuration(item.durationMinutes)}`,
     stopoverCount > 0
-      ? `${stopoverCount} escale${stopoverCount > 1 ? 's' : ''}${item.stopoverDurationMinutes != null ? ` · ${formatDuration(item.stopoverDurationMinutes)} au sol` : ''}`
+      ? `${stopoverCount} escale${stopoverCount > 1 ? 's' : ''}${item.stopoverMins != null ? ` · ${formatDuration(item.stopoverMins)} au sol` : ''}`
       : 'Vol direct',
     `Départ UTC : ${formatDateTime(item.start)}`,
     `Arrivée UTC : ${formatDateTime(item.end)}`,

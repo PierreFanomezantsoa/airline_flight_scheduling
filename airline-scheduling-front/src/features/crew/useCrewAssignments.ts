@@ -14,8 +14,8 @@ import {
 export interface FlightOption {
   refFlight: string;
   flightNumber: string;
-  departureAirportCode: string;
-  arrivalAirportCode: string;
+  depAirportCode: string;
+  arrAirportCode: string;
   departureTime?: string;
   arrivalTime?: string;
   flightStatus?: string;
@@ -26,24 +26,24 @@ export interface CrewMember {
   userName: string;
   email: string;
   role: string;
-  technicalLevel?: string;
-  professionalLevel?: string;
-  priorRestHours: number;
+  techLevel?: string;
+  businessLevel?: string;
+  restBeforeHrs: number;
   volAssigne: FlightOption | null;
 }
 
 export interface CrewAssignmentDTO {
-  refCrewAssignment: string;
+  refCrewAssign: string;
   flight: FlightOption;
   user: {
     refUser: string;
     email: string;
     userName: string;
     role: string;
-    technicalLevel?: string;
-    professionalLevel?: string;
+    techLevel?: string;
+    businessLevel?: string;
   };
-  priorRestHours: number;
+  restBeforeHrs: number;
 }
 
 // =============================================================================
@@ -54,9 +54,9 @@ interface RawFlight {
   refFlight: string;
   flightNumber?: string;
   code?: string;
-  departureAirportCode?: string;
+  depAirportCode?: string;
   origin?: string;
-  arrivalAirportCode?: string;
+  arrAirportCode?: string;
   destination?: string;
   departureTime?: string;
   arrivalTime?: string;
@@ -70,9 +70,9 @@ interface RawUser {
   firstName?: string;
   lastName?: string;
   role?: string;
-  technicalLevel?: string;
-  professionalLevel?: string;
-  priorRestHours?: number;
+  techLevel?: string;
+  businessLevel?: string;
+  restBeforeHrs?: number;
   restTimeHours?: number;
 }
 
@@ -150,8 +150,8 @@ function normalizeFlight(raw: RawFlight): FlightOption {
   return {
     refFlight: raw.refFlight,
     flightNumber: raw.flightNumber || raw.code || 'N/A',
-    departureAirportCode: raw.departureAirportCode || raw.origin || '—',
-    arrivalAirportCode: raw.arrivalAirportCode || raw.destination || '—',
+    depAirportCode: raw.depAirportCode || raw.origin || '—',
+    arrAirportCode: raw.arrAirportCode || raw.destination || '—',
     departureTime: raw.departureTime,
     arrivalTime: raw.arrivalTime,
     flightStatus: raw.flightStatus || 'Scheduled',
@@ -173,11 +173,11 @@ function normalizeCrewMember(
     email: raw.email || '',
     userName: raw.userName || fallbackName,
     role: raw.role || "Membre d'équipage",
-    technicalLevel: raw.technicalLevel,
-    professionalLevel: raw.professionalLevel,
-    priorRestHours:
-      assignment?.priorRestHours ??
-      raw.priorRestHours ??
+    techLevel: raw.techLevel,
+    businessLevel: raw.businessLevel,
+    restBeforeHrs:
+      assignment?.restBeforeHrs ??
+      raw.restBeforeHrs ??
       raw.restTimeHours ??
       12,
     volAssigne: assignment?.flight
@@ -296,7 +296,7 @@ export const useCrewAssignments = () => {
     async (
       refFlight: string,
       refUser: string,
-      priorRestHours: number,
+      restBeforeHrs: number,
     ): Promise<void> => {
       // ✅ authFetch gère automatiquement l'URL et le token
       const response = await authFetch('/crew-assignments', {
@@ -304,7 +304,7 @@ export const useCrewAssignments = () => {
         body: JSON.stringify({
           refFlight,
           refUser,
-          priorRestHours,
+          restBeforeHrs,
         }),
       });
 

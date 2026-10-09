@@ -11,13 +11,13 @@ import { UpdateNetworkConfigurationDto } from './dto/update-network-configuratio
 import { NetworkConfiguration } from './entities/network-configuration.entity';
 
 export interface NetworkOperationalPolicy {
-  minimumTurnaroundMinutes: number;
-  mediumHaulTurnaroundMinutes: number;
-  longHaulTurnaroundMinutes: number;
-  positioningBufferMinutes: number;
-  minimumCrewRestHours: number;
-  maximumContinuousFlightHours: number;
-  maintenanceWarningHours: number;
+  minTurnMins: number;
+  mediumTurnMins: number;
+  longTurnMins: number;
+  posBufferMins: number;
+  minCrewRestHrs: number;
+  maxContFlightHrs: number;
+  maintWarnHrs: number;
 }
 
 const DEFAULT_ID = 'default';
@@ -25,13 +25,13 @@ const DEFAULT_ID = 'default';
 @Injectable()
 export class NetworkConfigurationService implements OnModuleInit {
   private currentPolicy: NetworkOperationalPolicy = {
-    minimumTurnaroundMinutes: SchedulingPolicy.minimumTurnaroundMinutes,
-    mediumHaulTurnaroundMinutes: SchedulingPolicy.minimumTurnaroundMinutes,
-    longHaulTurnaroundMinutes: Number(process.env.LONG_HAUL_TURNAROUND_MINUTES ?? 90),
-    positioningBufferMinutes: SchedulingPolicy.positioningBufferMinutes,
-    minimumCrewRestHours: SchedulingPolicy.minimumCrewRestHours,
-    maximumContinuousFlightHours: Number(process.env.MAX_CONTINUOUS_FLIGHT_HOURS ?? 8),
-    maintenanceWarningHours: SchedulingPolicy.maintenanceWarningHours,
+    minTurnMins: SchedulingPolicy.minTurnMins,
+    mediumTurnMins: SchedulingPolicy.minTurnMins,
+    longTurnMins: Number(process.env.LONG_HAUL_TURNAROUND_MINUTES ?? 90),
+    posBufferMins: SchedulingPolicy.posBufferMins,
+    minCrewRestHrs: SchedulingPolicy.minCrewRestHrs,
+    maxContFlightHrs: Number(process.env.MAX_CONTINUOUS_FLIGHT_HOURS ?? 8),
+    maintWarnHrs: SchedulingPolicy.maintWarnHrs,
   };
 
   constructor(
@@ -99,23 +99,23 @@ export class NetworkConfigurationService implements OnModuleInit {
       config.hubIataCodes = hubCodes;
     }
 
-    if (dto.mediumHaulTurnaroundMinutes !== undefined) {
-      config.mediumHaulTurnaroundMinutes = dto.mediumHaulTurnaroundMinutes;
+    if (dto.mediumTurnMins !== undefined) {
+      config.mediumTurnMins = dto.mediumTurnMins;
     }
-    if (dto.longHaulTurnaroundMinutes !== undefined) {
-      config.longHaulTurnaroundMinutes = dto.longHaulTurnaroundMinutes;
+    if (dto.longTurnMins !== undefined) {
+      config.longTurnMins = dto.longTurnMins;
     }
-    if (dto.positioningBufferMinutes !== undefined) {
-      config.positioningBufferMinutes = dto.positioningBufferMinutes;
+    if (dto.posBufferMins !== undefined) {
+      config.posBufferMins = dto.posBufferMins;
     }
-    if (dto.minimumCrewRestHours !== undefined) {
-      config.minimumCrewRestHours = dto.minimumCrewRestHours;
+    if (dto.minCrewRestHrs !== undefined) {
+      config.minCrewRestHrs = dto.minCrewRestHrs;
     }
-    if (dto.maximumContinuousFlightHours !== undefined) {
-      config.maximumContinuousFlightHours = dto.maximumContinuousFlightHours;
+    if (dto.maxContFlightHrs !== undefined) {
+      config.maxContFlightHrs = dto.maxContFlightHrs;
     }
-    if (dto.maintenanceWarningHours !== undefined) {
-      config.maintenanceWarningHours = dto.maintenanceWarningHours;
+    if (dto.maintWarnHrs !== undefined) {
+      config.maintWarnHrs = dto.maintWarnHrs;
     }
 
     const saved = await this.configRepository.save(config);
@@ -126,18 +126,18 @@ export class NetworkConfigurationService implements OnModuleInit {
 
   private async ensureConfiguration(): Promise<NetworkConfiguration> {
     let config = await this.configRepository.findOne({
-      where: { refNetworkConfiguration: DEFAULT_ID },
+      where: { refNetworkConfig: DEFAULT_ID },
     });
 
     if (!config) {
       config = this.configRepository.create({
-        refNetworkConfiguration: DEFAULT_ID,
-        mediumHaulTurnaroundMinutes: SchedulingPolicy.minimumTurnaroundMinutes,
-        longHaulTurnaroundMinutes: Number(process.env.LONG_HAUL_TURNAROUND_MINUTES ?? 90),
-        positioningBufferMinutes: SchedulingPolicy.positioningBufferMinutes,
-        minimumCrewRestHours: SchedulingPolicy.minimumCrewRestHours,
-        maximumContinuousFlightHours: Number(process.env.MAX_CONTINUOUS_FLIGHT_HOURS ?? 8),
-        maintenanceWarningHours: SchedulingPolicy.maintenanceWarningHours,
+        refNetworkConfig: DEFAULT_ID,
+        mediumTurnMins: SchedulingPolicy.minTurnMins,
+        longTurnMins: Number(process.env.LONG_HAUL_TURNAROUND_MINUTES ?? 90),
+        posBufferMins: SchedulingPolicy.posBufferMins,
+        minCrewRestHrs: SchedulingPolicy.minCrewRestHrs,
+        maxContFlightHrs: Number(process.env.MAX_CONTINUOUS_FLIGHT_HOURS ?? 8),
+        maintWarnHrs: SchedulingPolicy.maintWarnHrs,
         hubIataCodes: ['TNR', 'WFI', 'CDG'],
       });
       config = await this.configRepository.save(config);
@@ -149,13 +149,13 @@ export class NetworkConfigurationService implements OnModuleInit {
 
   private applyToCache(config: NetworkConfiguration): void {
     this.currentPolicy = {
-      minimumTurnaroundMinutes: config.mediumHaulTurnaroundMinutes,
-      mediumHaulTurnaroundMinutes: config.mediumHaulTurnaroundMinutes,
-      longHaulTurnaroundMinutes: config.longHaulTurnaroundMinutes,
-      positioningBufferMinutes: config.positioningBufferMinutes,
-      minimumCrewRestHours: config.minimumCrewRestHours,
-      maximumContinuousFlightHours: config.maximumContinuousFlightHours,
-      maintenanceWarningHours: config.maintenanceWarningHours,
+      minTurnMins: config.mediumTurnMins,
+      mediumTurnMins: config.mediumTurnMins,
+      longTurnMins: config.longTurnMins,
+      posBufferMins: config.posBufferMins,
+      minCrewRestHrs: config.minCrewRestHrs,
+      maxContFlightHrs: config.maxContFlightHrs,
+      maintWarnHrs: config.maintWarnHrs,
     };
   }
 

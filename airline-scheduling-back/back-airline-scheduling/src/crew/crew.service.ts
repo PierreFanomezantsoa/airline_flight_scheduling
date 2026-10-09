@@ -28,10 +28,10 @@ export class CrewService {
     private readonly networkConfigurationService?: NetworkConfigurationService,
   ) {}
 
-  private get minimumCrewRestHours(): number {
+  private get minCrewRestHrs(): number {
     return (
-      this.networkConfigurationService?.getPolicy().minimumCrewRestHours ??
-      SchedulingPolicy.minimumCrewRestHours
+      this.networkConfigurationService?.getPolicy().minCrewRestHrs ??
+      SchedulingPolicy.minCrewRestHrs
     );
   }
 
@@ -49,7 +49,7 @@ export class CrewService {
         refUser: user.refUser,
         user: user,
         crewRole: dto.crewRole,
-        priorRestHours: restHours,
+        restBeforeHrs: restHours,
       }),
     );
   }
@@ -63,7 +63,7 @@ export class CrewService {
 
   async findOne(id: string): Promise<CrewAssignment> {
     const assignment = await this.assignmentRepository.findOne({
-      where: { refCrewAssignment: id },
+      where: { refCrewAssign: id },
       relations: ['flight', 'user'],
     });
     if (!assignment) throw new NotFoundException(`Affectation "${id}" introuvable.`);
@@ -99,7 +99,7 @@ export class CrewService {
     assignment.flight = flight;
     assignment.refUser = user.refUser;
     assignment.user = user;
-    assignment.priorRestHours = restHours;
+    assignment.restBeforeHrs = restHours;
     if (dto.crewRole !== undefined) assignment.crewRole = dto.crewRole;
 
     return this.assignmentRepository.save(assignment);
@@ -131,7 +131,7 @@ export class CrewService {
       .createQueryBuilder('assignment')
       .where('assignment.refFlight = :refFlight', { refFlight })
       .andWhere('assignment.refUser = :refUser', { refUser });
-    if (excludeId) qb.andWhere('assignment.refCrewAssignment != :excludeId', { excludeId });
+    if (excludeId) qb.andWhere('assignment.refCrewAssign != :excludeId', { excludeId });
     if (await qb.getExists()) {
       throw new ConflictException('Ce membre d’équipage est déjà affecté à ce flight.');
     }
@@ -149,7 +149,7 @@ export class CrewService {
       .andWhere('flight.flightStatus != :cancelled', { cancelled: FlightStatus.CANCELLED });
 
     if (excludeAssignmentId) {
-      qb.andWhere('assignment.refCrewAssignment != :excludeAssignmentId', { excludeAssignmentId });
+      qb.andWhere('assignment.refCrewAssign != :excludeAssignmentId', { excludeAssignmentId });
     }
 
     const assignments = await qb.getMany();
@@ -173,10 +173,10 @@ export class CrewService {
     if (!previous) return null;
 
     const restHours = (target.departureTime.getTime() - previous.flight.arrivalTime.getTime()) / 3_600_000;
-    if (restHours < this.minimumCrewRestHours) {
+    if (restHours < this.minCrewRestHrs) {
       throw new ConflictException({
         code: 'CREW_REST',
-        message: `Repos de ${restHours.toFixed(1)} h seulement; politique configurée: ${this.minimumCrewRestHours} h.`,
+        message: `Repos de ${restHours.toFixed(1)} h seulement; politique configurée: ${this.minCrewRestHrs} h.`,
         previousFlightId: previous.flight.refFlight,
       });
     }

@@ -89,8 +89,8 @@ interface Aircraft {
   registration: string;
   model: string;
   capacity: number;
-  totalFlightHours: number;
-  maintenanceHoursLimit: number;
+  totalFlightHrs: number;
+  maintLimitHrs: number;
   status: 'Active' | 'Maintenance' | 'Out of Service' | 'Retired';
   lastMaintenanceDate: string | null;
   flightsSinceLastMaintenance: number;
@@ -109,7 +109,7 @@ interface FleetStatistics {
   inMaintenanceAircrafts: number;
   outOfServiceAircrafts: number;
   retiredAircrafts: number;
-  totalFlightHours: number;
+  totalFlightHrs: number;
   averageFlightHours: number;
   averageCapacity: number;
 }

@@ -26,7 +26,7 @@ export interface Flight {
   aircraftModel?: string | null;
   weatherSeverity?: number | null;
   stopover?: string | string[] | null;
-  stopoverDurationMinutes?: number | null;
+  stopoverMins?: number | null;
   stops?: string[];
 }
 

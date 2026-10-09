@@ -143,14 +143,14 @@ def flight_payload(
             "flightNumber",
             None,
         ),
-        "departureAirportCode": getattr(
+        "depAirportCode": getattr(
             flight,
-            "departureAirportCode",
+            "depAirportCode",
             None,
         ),
-        "arrivalAirportCode": getattr(
+        "arrAirportCode": getattr(
             flight,
-            "arrivalAirportCode",
+            "arrAirportCode",
             None,
         ),
         "departureTime": (
@@ -288,7 +288,7 @@ def build_features(
         str(
             getattr(
                 flight_a,
-                "arrivalAirportCode",
+                "arrAirportCode",
                 "",
             )
             or ""
@@ -301,7 +301,7 @@ def build_features(
         str(
             getattr(
                 flight_b,
-                "departureAirportCode",
+                "depAirportCode",
                 "",
             )
             or ""
@@ -1122,8 +1122,8 @@ def can_assign_aircraft(
             return False
 
         if (
-            prev_flight.arrivalAirportCode
-            != target_flight.departureAirportCode
+            prev_flight.arrAirportCode
+            != target_flight.depAirportCode
             and gap < POSITIONING_MINUTES
         ):
             return False
@@ -1150,8 +1150,8 @@ def can_assign_aircraft(
             return False
 
         if (
-            target_flight.arrivalAirportCode
-            != next_flight.departureAirportCode
+            target_flight.arrAirportCode
+            != next_flight.depAirportCode
             and gap < POSITIONING_MINUTES
         ):
             return False

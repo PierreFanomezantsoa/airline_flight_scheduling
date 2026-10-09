@@ -73,7 +73,7 @@ const newAircraft = await fleetService.createAircraft({
   registration: '5R-MFT',
   model: 'Boeing 737-800',
   capacity: 189,
-  maintenanceHoursLimit: 5000,
+  maintLimitHrs: 5000,
   status: 'Active',
   homeBase: 'TNR',
 });
@@ -271,7 +271,7 @@ const validateAircraft = (data: CreateAircraftDto): string[] => {
   if (!data.registration) errors.push('Immatriculation requise');
   if (!data.model) errors.push('Modèle requise');
   if (data.capacity <= 0) errors.push('Capacité doit être > 0');
-  if (data.maintenanceHoursLimit <= 0) errors.push('Butoir doit être > 0');
+  if (data.maintLimitHrs <= 0) errors.push('Butoir doit être > 0');
 
   return errors;
 };

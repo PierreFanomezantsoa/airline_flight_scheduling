@@ -28,8 +28,8 @@ export interface PublicUser {
   email: string;
   userName: string;
   role: UserRole;
-  technicalLevel?: string;
-  professionalLevel?: string;
+  techLevel?: string;
+  businessLevel?: string;
   isActive?: boolean;
   accountStatus: AccountStatus;
   approvedAt?: string | null;
@@ -55,8 +55,8 @@ export interface SignUpPayload {
   password: string;
   userName: string;
   role: UserRole;
-  technicalLevel?: string;
-  professionalLevel?: string;
+  techLevel?: string;
+  businessLevel?: string;
 }
 
 // =============================================================================

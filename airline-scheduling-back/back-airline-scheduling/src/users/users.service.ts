@@ -314,13 +314,13 @@ export class UsersService {
         role:
           dto.role,
 
-        technicalLevel:
-          dto.technicalLevel
+        techLevel:
+          dto.techLevel
             ?.trim() ??
           'Intermediate',
 
-        professionalLevel:
-          dto.professionalLevel
+        businessLevel:
+          dto.businessLevel
             ?.trim() ??
           'Intermediate',
 
@@ -600,19 +600,19 @@ export class UsersService {
     }
 
     if (
-      dto.technicalLevel !==
+      dto.techLevel !==
       undefined
     ) {
-      user.technicalLevel =
-        dto.technicalLevel.trim();
+      user.techLevel =
+        dto.techLevel.trim();
     }
 
     if (
-      dto.professionalLevel !==
+      dto.businessLevel !==
       undefined
     ) {
-      user.professionalLevel =
-        dto.professionalLevel.trim();
+      user.businessLevel =
+        dto.businessLevel.trim();
     }
 
     if (

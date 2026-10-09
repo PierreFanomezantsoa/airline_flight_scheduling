@@ -95,7 +95,7 @@ await fleetService.createAircraft({
   registration: '5R-MFT',
   model: 'Boeing 737-800',
   capacity: 189,
-  maintenanceHoursLimit: 5000,
+  maintLimitHrs: 5000,
   status: 'Active',
   homeBase: 'TNR'
 })
@@ -152,7 +152,7 @@ curl -X POST http://localhost:3000/api/fleet/aircrafts \
     "registration":"5R-MFT",
     "model":"Boeing 737-800",
     "capacity":189,
-    "maintenanceHoursLimit":5000
+    "maintLimitHrs":5000
   }'
 
 # Récupérer statistiques

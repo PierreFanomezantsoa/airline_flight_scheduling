@@ -26,12 +26,12 @@ export class UpdateUserDto {
   @IsOptional()
   @IsString()
   @Length(1, 50)
-  technicalLevel?: string;
+  techLevel?: string;
 
   @IsOptional()
   @IsString()
   @Length(1, 50)
-  professionalLevel?: string;
+  businessLevel?: string;
 
   @IsOptional()
   @IsString()

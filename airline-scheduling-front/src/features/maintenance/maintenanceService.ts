@@ -55,17 +55,17 @@ export type MaintenanceType =
   | 'Aircraft On Ground';
 
 export interface MaintenanceSlot {
-  refMaintenanceSlot: string;
+  refMaintSlot: string;
   refAircraft: string;
   aircraft: Aircraft;
-  maintenanceType: MaintenanceType;
-  maintenanceStatus: MaintenanceStatus;
+  maintType: MaintenanceType;
+  maintStatus: MaintenanceStatus;
   startTime: string;
   endTime: string;
   description?: string | null;
 
   // ⭐ Nouvelles colonnes (fenêtre 12 h)
-  pendingReviewSince: string | null;
+  reviewPendingAt: string | null;
   autoCloseAt: string | null;
   extensionCount: number;
 
@@ -75,8 +75,8 @@ export interface MaintenanceSlot {
 
 export interface CreateMaintenanceSlotDto {
   refAircraft: string;
-  maintenanceType: MaintenanceType;
-  maintenanceStatus?: MaintenanceStatus;
+  maintType: MaintenanceType;
+  maintStatus?: MaintenanceStatus;
   startTime: string;
   endTime: string;
   description?: string;
@@ -84,8 +84,8 @@ export interface CreateMaintenanceSlotDto {
 
 export interface UpdateMaintenanceSlotDto {
   refAircraft?: string;
-  maintenanceType?: MaintenanceType;
-  maintenanceStatus?: MaintenanceStatus;
+  maintType?: MaintenanceType;
+  maintStatus?: MaintenanceStatus;
   startTime?: string;
   endTime?: string;
   description?: string | null;
@@ -100,9 +100,9 @@ export interface MaintenanceAvailability {
   available: boolean;
 
   maintenanceConflict: {
-    refMaintenanceSlot: string;
-    maintenanceType: string;
-    maintenanceStatus: MaintenanceStatus;
+    refMaintSlot: string;
+    maintType: string;
+    maintStatus: MaintenanceStatus;
     startTime: string;
     endTime: string;
   } | null;
@@ -120,16 +120,16 @@ export interface MaintenanceAvailability {
  * Les noms peuvent varier (registration/model vs registration/model).
  */
 interface RawMaintenanceSlotResponse {
-  refMaintenanceSlot: string;
+  refMaintSlot: string;
   refAircraft: string;
-  maintenanceType: MaintenanceType;
-  maintenanceStatus?: MaintenanceStatus;
+  maintType: MaintenanceType;
+  maintStatus?: MaintenanceStatus;
   startTime: string;
   endTime: string;
   description?: string | null;
 
   // ⭐ Champs fenêtre 12 h
-  pendingReviewSince?: string | null;
+  reviewPendingAt?: string | null;
   autoCloseAt?: string | null;
   extensionCount?: number;
 
@@ -213,17 +213,17 @@ class MaintenanceService {
       : undefined;
 
     return {
-      refMaintenanceSlot: data.refMaintenanceSlot,
+      refMaintSlot: data.refMaintSlot,
       refAircraft: data.refAircraft,
       aircraft: mappedAircraft as Aircraft,
-      maintenanceType: data.maintenanceType,
-      maintenanceStatus: (data.maintenanceStatus ?? 'Planned') as MaintenanceStatus,
+      maintType: data.maintType,
+      maintStatus: (data.maintStatus ?? 'Planned') as MaintenanceStatus,
       startTime: data.startTime,
       endTime: data.endTime,
       description: data.description ?? null,
 
       // ⭐ Fenêtre 12 h
-      pendingReviewSince: data.pendingReviewSince ?? null,
+      reviewPendingAt: data.reviewPendingAt ?? null,
       autoCloseAt: data.autoCloseAt ?? null,
       extensionCount: data.extensionCount ?? 0,
 
@@ -319,7 +319,7 @@ class MaintenanceService {
    * Effet côté backend :
    *   - endTime += N jours
    *   - status = `In Progress`
-   *   - pendingReviewSince / autoCloseAt remis à null
+   *   - reviewPendingAt / autoCloseAt remis à null
    *   - extensionCount += 1
    *   - aircraft reste en MAINTENANCE
    */

@@ -281,10 +281,10 @@ export const CrewAssignment: React.FC = () => {
     const total = crew.length;
     const assigned = crew.filter(m => Boolean(m.volAssigne)).length;
     const available = crew.filter(
-      m => !m.volAssigne && (m.priorRestHours ?? 0) >= MIN_REST_HOURS,
+      m => !m.volAssigne && (m.restBeforeHrs ?? 0) >= MIN_REST_HOURS,
     ).length;
     const alerts = crew.filter(
-      m => (m.priorRestHours ?? 0) < MIN_REST_HOURS,
+      m => (m.restBeforeHrs ?? 0) < MIN_REST_HOURS,
     ).length;
 
     return { total, assigned, available, alerts };
@@ -313,7 +313,7 @@ export const CrewAssignment: React.FC = () => {
       return;
     }
 
-    const restHours = member.priorRestHours ?? 0;
+    const restHours = member.restBeforeHrs ?? 0;
     if (restHours < MIN_REST_HOURS) {
       setFeedback({
         type: 'error',
@@ -448,7 +448,7 @@ export const CrewAssignment: React.FC = () => {
                 </div>
               ) : (
                 crew.map(member => {
-                  const restHours = member.priorRestHours ?? 0;
+                  const restHours = member.restBeforeHrs ?? 0;
                   const isRestOk = restHours >= MIN_REST_HOURS;
                   const isAssigned = Boolean(member.volAssigne);
                   const isAvailable = isRestOk && !isAssigned;
@@ -481,14 +481,14 @@ export const CrewAssignment: React.FC = () => {
                               <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600 ring-1 ring-inset ring-slate-200/70">
                                 {member.role}
                               </span>
-                              {member.professionalLevel && (
+                              {member.businessLevel && (
                                 <span className="rounded-md bg-slate-50 px-1.5 py-0.5 text-[10px] font-medium text-slate-500 ring-1 ring-inset ring-slate-200/70">
-                                  Niv. {member.professionalLevel}
+                                  Niv. {member.businessLevel}
                                 </span>
                               )}
-                              {member.technicalLevel && (
+                              {member.techLevel && (
                                 <span className="rounded-md bg-sky-50 px-1.5 py-0.5 text-[10px] font-medium text-sky-700 ring-1 ring-inset ring-sky-200/70">
-                                  Tech {member.technicalLevel}
+                                  Tech {member.techLevel}
                                 </span>
                               )}
                             </div>
@@ -585,7 +585,7 @@ export const CrewAssignment: React.FC = () => {
                   <option value="">Sélectionner un flight</option>
                   {flights.map(f => (
                     <option key={f.refFlight} value={f.refFlight}>
-                      Vol {f.flightNumber} ({f.departureAirportCode} → {f.arrivalAirportCode})
+                      Vol {f.flightNumber} ({f.depAirportCode} → {f.arrAirportCode})
                     </option>
                   ))}
                 </select>
@@ -603,7 +603,7 @@ export const CrewAssignment: React.FC = () => {
                 >
                   <option value="">Sélectionner un agent</option>
                   {crew.map(m => {
-                    const restHours = m.priorRestHours ?? 0;
+                    const restHours = m.restBeforeHrs ?? 0;
                     const isRestOk = restHours >= MIN_REST_HOURS;
                     const isAlreadyAssigned = Boolean(m.volAssigne);
                     const isDisabled = !isRestOk || isAlreadyAssigned;
@@ -646,22 +646,22 @@ export const CrewAssignment: React.FC = () => {
                       <span className="text-slate-600">Repos cumulé</span>
                       <span
                         className={`font-mono font-bold ${
-                          (currentSelectedUser.priorRestHours ?? 0) >= MIN_REST_HOURS
+                          (currentSelectedUser.restBeforeHrs ?? 0) >= MIN_REST_HOURS
                             ? 'text-emerald-600'
                             : 'text-amber-600'
                         }`}
                       >
-                        {currentSelectedUser.priorRestHours ?? 0} h / {MIN_REST_HOURS} h
+                        {currentSelectedUser.restBeforeHrs ?? 0} h / {MIN_REST_HOURS} h
                       </span>
                     </div>
 
-                    {currentSelectedUser.professionalLevel && (
+                    {currentSelectedUser.businessLevel && (
                       <div className="flex items-center justify-between">
                         <span className="text-slate-600">Qualification</span>
                         <span className="font-medium text-slate-800">
-                          Niv. {currentSelectedUser.professionalLevel}
-                          {currentSelectedUser.technicalLevel
-                            ? ` · Tech ${currentSelectedUser.technicalLevel}`
+                          Niv. {currentSelectedUser.businessLevel}
+                          {currentSelectedUser.techLevel
+                            ? ` · Tech ${currentSelectedUser.techLevel}`
                             : ''}
                         </span>
                       </div>

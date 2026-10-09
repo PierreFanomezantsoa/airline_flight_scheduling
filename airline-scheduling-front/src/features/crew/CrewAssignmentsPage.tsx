@@ -76,8 +76,8 @@ type FlightStatus =
 interface Flight {
   refFlight: string;
   flightNumber?: string;
-  departureAirportCode?: string;
-  arrivalAirportCode?: string;
+  depAirportCode?: string;
+  arrAirportCode?: string;
   departureTime?: string;
   arrivalTime?: string;
   flightStatus?: FlightStatus;
@@ -85,13 +85,13 @@ interface Flight {
 }
 
 interface CrewAssignment {
-  refCrewAssignment: string;
+  refCrewAssign: string;
   refFlight?: string;
   flight?: Flight;
   refUser?: string;
   user?: PublicUser;
   crewRole?: CrewRole;
-  priorRestHours?: number | null;
+  restBeforeHrs?: number | null;
 }
 
 interface CrewForm {
@@ -556,8 +556,8 @@ export const CrewAssignmentsPage: React.FC = () => {
       const userId = getAssignmentUserId(assignment);
       const text = [
         flight?.flightNumber,
-        flight?.departureAirportCode,
-        flight?.arrivalAirportCode,
+        flight?.depAirportCode,
+        flight?.arrAirportCode,
         user?.userName,
         user?.email,
         assignment.crewRole,
@@ -584,7 +584,7 @@ export const CrewAssignmentsPage: React.FC = () => {
   );
 
   const withRestInfo = useMemo(
-    () => assignments.filter(item => item.priorRestHours !== null && item.priorRestHours !== undefined).length,
+    () => assignments.filter(item => item.restBeforeHrs !== null && item.restBeforeHrs !== undefined).length,
     [assignments],
   );
 
@@ -595,7 +595,7 @@ export const CrewAssignmentsPage: React.FC = () => {
 
   const modalUsers = useMemo(() => {
     if (!editingId) return users;
-    const assignment = assignments.find(item => item.refCrewAssignment === editingId);
+    const assignment = assignments.find(item => item.refCrewAssign === editingId);
     const currentUser = assignment?.user;
     if (!currentUser || users.some(user => user.refUser === currentUser.refUser)) return users;
     return [currentUser, ...users];
@@ -622,7 +622,7 @@ export const CrewAssignmentsPage: React.FC = () => {
   };
 
   const openEditModal = (assignment: CrewAssignment) => {
-    setEditingId(assignment.refCrewAssignment);
+    setEditingId(assignment.refCrewAssign);
     setForm({
       refFlight: getAssignmentFlightId(assignment),
       refUser: getAssignmentUserId(assignment),
@@ -714,10 +714,10 @@ export const CrewAssignmentsPage: React.FC = () => {
   const confirmDelete = async () => {
     if (!assignmentToDelete || deletingId) return;
     const assignment = assignmentToDelete;
-    setDeletingId(assignment.refCrewAssignment);
+    setDeletingId(assignment.refCrewAssign);
     setMessage(null);
     try {
-      await requestJson(`${CREW_ASSIGNMENTS_ENDPOINT}/${assignment.refCrewAssignment}`, { method: 'DELETE' });
+      await requestJson(`${CREW_ASSIGNMENTS_ENDPOINT}/${assignment.refCrewAssign}`, { method: 'DELETE' });
       setAssignmentToDelete(null);
       setMessage({ type: 'success', text: 'Affectation supprimée avec succès.' });
       await loadData(true);
@@ -820,7 +820,7 @@ export const CrewAssignmentsPage: React.FC = () => {
                   <option value="TOUS">Tous les vols</option>
                   {flights.map(flight => (
                     <option key={flight.refFlight} value={flight.refFlight}>
-                      {flight.flightNumber ?? flight.refFlight} — {flight.departureAirportCode ?? '?'} → {flight.arrivalAirportCode ?? '?'}
+                      {flight.flightNumber ?? flight.refFlight} — {flight.depAirportCode ?? '?'} → {flight.arrAirportCode ?? '?'}
                     </option>
                   ))}
                 </select>
@@ -904,7 +904,7 @@ export const CrewAssignmentsPage: React.FC = () => {
                 const initials = (user?.userName ?? 'U').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
 
                 return (
-                  <article key={assignment.refCrewAssignment} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md">
+                  <article key={assignment.refCrewAssign} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md">
                     <div className="flex items-center justify-between gap-2 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white px-4 py-3">
                       <div className="flex min-w-0 items-center gap-2.5">
                         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 ring-1 ring-inset ring-emerald-100">
@@ -915,7 +915,7 @@ export const CrewAssignmentsPage: React.FC = () => {
                             {flight?.flightNumber ?? getAssignmentFlightId(assignment)}
                           </p>
                           <p className="truncate font-mono text-[10px] text-slate-500">
-                            {flight?.departureAirportCode ?? '--'} → {flight?.arrivalAirportCode ?? '--'}
+                            {flight?.depAirportCode ?? '--'} → {flight?.arrAirportCode ?? '--'}
                           </p>
                         </div>
                       </div>
@@ -950,12 +950,12 @@ export const CrewAssignmentsPage: React.FC = () => {
                         </div>
                         <div className="rounded-xl bg-slate-50 p-3 ring-1 ring-inset ring-slate-100">
                           <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Repos avant</p>
-                          {assignment.priorRestHours === null || assignment.priorRestHours === undefined ? (
+                          {assignment.restBeforeHrs === null || assignment.restBeforeHrs === undefined ? (
                             <p className="mt-1 text-[11px] font-medium text-slate-400">Non calculé</p>
                           ) : (
                             <p className="mt-1 inline-flex items-center gap-1 font-mono text-[11px] font-bold text-emerald-600">
                               <Clock3 className="h-3 w-3" />
-                              {assignment.priorRestHours.toFixed(1)} h
+                              {assignment.restBeforeHrs.toFixed(1)} h
                             </p>
                           )}
                         </div>
@@ -1030,7 +1030,7 @@ export const CrewAssignmentsPage: React.FC = () => {
                     const initials = (user?.userName ?? 'U').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
 
                     return (
-                      <tr key={assignment.refCrewAssignment} className="group transition hover:bg-slate-50/70">
+                      <tr key={assignment.refCrewAssign} className="group transition hover:bg-slate-50/70">
                         <td className="px-5 py-4">
                           <div className="flex items-center gap-3">
                             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 ring-1 ring-inset ring-emerald-100 transition group-hover:scale-105">
@@ -1049,9 +1049,9 @@ export const CrewAssignmentsPage: React.FC = () => {
 
                         <td className="px-4 py-4">
                           <span className="font-mono text-xs font-medium text-slate-700">
-                            {flight?.departureAirportCode ?? '--'}{' '}
+                            {flight?.depAirportCode ?? '--'}{' '}
                             <span className="text-slate-300">→</span>{' '}
-                            {flight?.arrivalAirportCode ?? '--'}
+                            {flight?.arrAirportCode ?? '--'}
                           </span>
                         </td>
 
@@ -1078,12 +1078,12 @@ export const CrewAssignmentsPage: React.FC = () => {
                         </td>
 
                         <td className="px-4 py-4">
-                          {assignment.priorRestHours === null || assignment.priorRestHours === undefined ? (
+                          {assignment.restBeforeHrs === null || assignment.restBeforeHrs === undefined ? (
                             <span className="text-[11px] font-medium text-slate-400">Non calculé</span>
                           ) : (
                             <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 font-mono text-[11px] font-bold text-emerald-700 ring-1 ring-inset ring-emerald-200/70">
                               <Clock3 className="h-3 w-3" />
-                              {assignment.priorRestHours.toFixed(1)} h
+                              {assignment.restBeforeHrs.toFixed(1)} h
                             </span>
                           )}
                         </td>
@@ -1175,7 +1175,7 @@ export const CrewAssignmentsPage: React.FC = () => {
                   <option value="">Sélectionner un flight</option>
                   {assignableFlights.map(flight => (
                     <option key={flight.refFlight} value={flight.refFlight}>
-                      {flight.flightNumber ?? flight.refFlight} — {flight.departureAirportCode ?? '?'} → {flight.arrivalAirportCode ?? '?'}
+                      {flight.flightNumber ?? flight.refFlight} — {flight.depAirportCode ?? '?'} → {flight.arrAirportCode ?? '?'}
                     </option>
                   ))}
                 </select>
@@ -1357,9 +1357,9 @@ export const CrewAssignmentsPage: React.FC = () => {
                   <div>
                     <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Itinéraire</p>
                     <p className="mt-1 flex items-center gap-1.5 font-mono text-xs font-medium text-slate-700">
-                      <span>{assignmentToDelete.flight?.departureAirportCode ?? '--'}</span>
+                      <span>{assignmentToDelete.flight?.depAirportCode ?? '--'}</span>
                       <ArrowRight className="h-3 w-3 text-slate-300" />
-                      <span>{assignmentToDelete.flight?.arrivalAirportCode ?? '--'}</span>
+                      <span>{assignmentToDelete.flight?.arrAirportCode ?? '--'}</span>
                     </p>
                   </div>
                 </div>

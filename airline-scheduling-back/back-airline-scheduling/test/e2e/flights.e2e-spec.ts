@@ -70,7 +70,7 @@ describe('FlightsController (e2e)', () => {
 
   it('GET /flights retourne les vols', async () => {
     flightsService.findAll.mockResolvedValue([
-      { id: 'f1', flightNumber: 'AFK412', departureAirportCode: 'TNR', arrivalAirportCode: 'CDG' },
+      { refFlight: 'f1', flightNumber: 'AFK412', depAirportCode: 'TNR', arrAirportCode: 'CDG' },
     ]);
 
     const response = await request(app.getHttpServer())
@@ -91,13 +91,13 @@ describe('FlightsController (e2e)', () => {
   it('POST /flights accepte un DTO valide', async () => {
     const payload = {
       flightNumber: 'AFK412',
-      departureAirportCode: 'TNR',
-      arrivalAirportCode: 'CDG',
+      depAirportCode: 'TNR',
+      arrAirportCode: 'CDG',
       departureTime: '2026-08-20T14:05:00+03:00',
       arrivalTime: '2026-08-20T20:30:00+03:00',
       refAircraft: '11111111-1111-4111-8111-111111111111',
     };
-    flightsService.create.mockResolvedValue({ id: 'f1', ...payload });
+    flightsService.create.mockResolvedValue({ refFlight: 'f1', ...payload });
 
     const response = await request(app.getHttpServer())
       .post('/flights')
@@ -112,8 +112,8 @@ describe('FlightsController (e2e)', () => {
   it('POST /flights rejette un code IATA invalide avant le service', async () => {
     const payload = {
       flightNumber: 'AFK412',
-      departureAirportCode: 'TN',
-      arrivalAirportCode: 'CDG',
+      depAirportCode: 'TN',
+      arrAirportCode: 'CDG',
       departureTime: '2026-08-20T14:05:00+03:00',
       arrivalTime: '2026-08-20T20:30:00+03:00',
     };

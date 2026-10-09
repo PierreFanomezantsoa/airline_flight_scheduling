@@ -804,13 +804,13 @@ class WeatherRiskEngine:
                 ):
                     flight_specs[flight_id] = {
                         "skip": self.build_long_range_assessment(
-                            dep_airport=flight.departureAirportCode,
-                            arr_airport=flight.arrivalAirportCode,
+                            dep_airport=flight.depAirportCode,
+                            arr_airport=flight.arrAirportCode,
                             dep_time=dep_utc,
                             arr_time=arr_utc,
                             stopovers=getattr(
                                 flight,
-                                "stopoverAirportCodes",
+                                "stopoverCodes",
                                 None,
                             ),
                         )
@@ -818,19 +818,19 @@ class WeatherRiskEngine:
                     continue
 
             specs = self._build_request_specs(
-                flight.departureAirportCode,
-                flight.arrivalAirportCode,
+                flight.depAirportCode,
+                flight.arrAirportCode,
                 dep_utc,
                 arr_utc,
                 getattr(
                     flight,
-                    "stopoverAirportCodes",
+                    "stopoverCodes",
                     None,
                 ),
             )
 
             flight_specs[flight_id] = {
-                "dep_airport": flight.departureAirportCode,
+                "dep_airport": flight.depAirportCode,
                 "dep_time": dep_utc,
                 "specs": specs,
             }
@@ -1060,11 +1060,11 @@ def build_flight_weather_assessment(flight, force_refresh=False) -> dict:
     dep_utc = ensure_utc(flight.departureTime)
     arr_utc = ensure_utc(flight.arrivalTime)
 
-    stopovers = getattr(flight, "stopoverAirportCodes", None)
+    stopovers = getattr(flight, "stopoverCodes", None)
 
     return weather_engine.assess_flight(
-        dep_airport=flight.departureAirportCode,
-        arr_airport=flight.arrivalAirportCode,
+        dep_airport=flight.depAirportCode,
+        arr_airport=flight.arrAirportCode,
         dep_time=dep_utc,
         arr_time=arr_utc,
         stopovers=stopovers,

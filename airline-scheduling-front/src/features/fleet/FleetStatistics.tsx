@@ -92,7 +92,7 @@ export const FleetStatistics: FC<FleetStatisticsProps> = ({
         activeAircrafts: 0,
         inMaintenanceAircrafts: 0,
         outOfServiceAircrafts: 0,
-        totalFlightHours: 0,
+        totalFlightHrs: 0,
         averageFlightHours: 0,
         averageCapacity: 0,
         availabilityRate: 0,
@@ -107,7 +107,7 @@ export const FleetStatistics: FC<FleetStatisticsProps> = ({
       activeAircrafts,
       inMaintenanceAircrafts: Number(stats.inMaintenanceAircrafts) || 0,
       outOfServiceAircrafts: Number(stats.outOfServiceAircrafts) || 0,
-      totalFlightHours: Number(stats.totalFlightHours) || 0,
+      totalFlightHrs: Number(stats.totalFlightHrs) || 0,
       averageFlightHours: Number(stats.averageFlightHours) || 0,
       averageCapacity: Number(stats.averageCapacity) || 0,
       availabilityRate:
@@ -185,7 +185,7 @@ export const FleetStatistics: FC<FleetStatisticsProps> = ({
     () => [
       {
         label: 'Heures de Vol Cumulées',
-        value: `${derived.totalFlightHours.toLocaleString()} h`,
+        value: `${derived.totalFlightHrs.toLocaleString()} h`,
         icon: History,
       },
       {

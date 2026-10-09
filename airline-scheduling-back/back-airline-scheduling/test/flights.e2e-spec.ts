@@ -57,8 +57,8 @@ describe('Flights (E2E - PostgreSQL)', () => {
   it('POST /flights - Doit créer et persister un flight en BDD', async () => {
     const newFlightPayload = {
       flightNumber: 'MD050',
-      departureAirportCode: 'TNR',
-      arrivalAirportCode: 'CDG',
+      depAirportCode: 'TNR',
+      arrAirportCode: 'CDG',
       departureTime: '2026-08-01T10:00:00Z',
       arrivalTime: '2026-08-01T20:00:00Z',
       flightStatus: 'Scheduled',
@@ -69,7 +69,7 @@ describe('Flights (E2E - PostgreSQL)', () => {
       .send(newFlightPayload)
       .expect(201);
 
-    expect(response.body).toHaveProperty('id');
+    expect(response.body).toHaveProperty('refFlight');
     expect(response.body.flightNumber).toBe('MD050');
 
     // Vérification de la persistance réelle en BDD via GET

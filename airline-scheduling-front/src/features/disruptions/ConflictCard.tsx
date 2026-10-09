@@ -112,8 +112,8 @@ interface ConflictCardProps {
 interface FlightBadgeProps {
   flight?: {
     flightNumber?: string | null;
-    departureAirportCode?: string | null;
-    arrivalAirportCode?: string | null;
+    depAirportCode?: string | null;
+    arrAirportCode?: string | null;
   } | null;
 }
 
@@ -133,9 +133,9 @@ const FlightBadge: FC<FlightBadgeProps> = ({ flight }) => (
       {flight?.flightNumber || '--'}
     </p>
     <p className="mt-0.5 font-mono text-[10px] font-semibold text-slate-500">
-      {flight?.departureAirportCode || '--'}
+      {flight?.depAirportCode || '--'}
       <span className="mx-1 text-slate-300">→</span>
-      {flight?.arrivalAirportCode || '--'}
+      {flight?.arrAirportCode || '--'}
     </p>
   </div>
 );

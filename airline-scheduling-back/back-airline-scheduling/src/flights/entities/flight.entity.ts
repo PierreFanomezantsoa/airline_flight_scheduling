@@ -27,18 +27,18 @@ export class Flight {
   @Column({ type: 'varchar', length: 20 })
   flightNumber!: string;
 
-  @Column({ type: 'varchar', length: 3 })
-  departureAirportCode!: string;
+  @Column({ name: 'departureAirportCode', type: 'varchar', length: 3 })
+  depAirportCode!: string;
 
-  /** Comma-separated IATA codes for compatibility with the current UI. */
-  @Column({ type: 'varchar', length: 100, nullable: true })
-  stopoverAirportCodes!: string | null;
+  /** Codes IATA des escales, séparés par des virgules. */
+  @Column({ name: 'stopoverAirportCodes', type: 'varchar', length: 100, nullable: true })
+  stopoverCodes!: string | null;
 
-  @Column({ type: 'integer', nullable: true })
-  stopoverDurationMinutes!: number | null;
+  @Column({ name: 'stopoverDurationMinutes', type: 'integer', nullable: true })
+  stopoverMins!: number | null;
 
-  @Column({ type: 'varchar', length: 3 })
-  arrivalAirportCode!: string;
+  @Column({ name: 'arrivalAirportCode', type: 'varchar', length: 3 })
+  arrAirportCode!: string;
 
   @Column({ type: 'timestamptz' })
   departureTime!: Date;
@@ -65,16 +65,16 @@ export class Flight {
    * Empêche de créditer plusieurs fois les mêmes heures de flight.
    * La valeur passe à true uniquement lorsque le flight est réellement terminé.
    */
-  @Column({ type: 'boolean', default: false })
-  flightHoursRecorded!: boolean;
+  @Column({ name: 'flightHoursRecorded', type: 'boolean', default: false })
+  hoursRecorded!: boolean;
 
   /** Nombre d'heures effectivement créditées à l'appareil pour ce flight. */
-  @Column({ type: 'double precision', nullable: true })
-  creditedFlightHours!: number | null;
+  @Column({ name: 'creditedFlightHours', type: 'double precision', nullable: true })
+  creditedHours!: number | null;
 
   /** Date de l'écriture des heures dans le compteur de flotte. */
-  @Column({ type: 'timestamptz', nullable: true })
-  flightHoursRecordedAt!: Date | null;
+  @Column({ name: 'flightHoursRecordedAt', type: 'timestamptz', nullable: true })
+  hoursRecordedAt!: Date | null;
 
   @OneToMany(() => CrewAssignment, (assignment) => assignment.flight)
   crewAssignments!: CrewAssignment[];

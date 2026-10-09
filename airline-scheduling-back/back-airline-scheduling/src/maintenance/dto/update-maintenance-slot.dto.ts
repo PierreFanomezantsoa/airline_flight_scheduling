@@ -17,11 +17,11 @@ export class UpdateMaintenanceSlotDto {
 
   @IsOptional()
   @IsEnum(MaintenanceType)
-  maintenanceType?: MaintenanceType;
+  maintType?: MaintenanceType;
 
   @IsOptional()
   @IsEnum(MaintenanceStatus)
-  maintenanceStatus?: MaintenanceStatus;
+  maintStatus?: MaintenanceStatus;
 
   @IsOptional()
   @IsDateString()

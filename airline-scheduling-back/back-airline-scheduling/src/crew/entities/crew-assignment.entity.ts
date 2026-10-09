@@ -17,7 +17,7 @@ import { User } from '../../users/entities/user.entity';
 @Index(['refUser'])
 export class CrewAssignment {
   @PrimaryGeneratedColumn('uuid', { name: 'ref_crew_assignment' })
-  refCrewAssignment!: string;
+  refCrewAssign!: string;
 
   @Column({ name: 'ref_flight', type: 'uuid' })
   refFlight!: string;
@@ -40,6 +40,6 @@ export class CrewAssignment {
   @Column({ type: 'enum', enum: CrewRole, default: CrewRole.OTHER })
   crewRole!: CrewRole;
 
-  @Column({ type: 'double precision', nullable: true })
-  priorRestHours!: number | null;
+  @Column({ name: 'priorRestHours', type: 'double precision', nullable: true })
+  restBeforeHrs!: number | null;
 }

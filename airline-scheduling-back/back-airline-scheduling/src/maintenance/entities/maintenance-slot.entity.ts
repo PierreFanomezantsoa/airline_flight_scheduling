@@ -16,12 +16,12 @@ import { Aircraft } from '../../fleet/entities/aircraft.entity';
 
 @Entity('maintenance_slots')
 @Index(['refAircraft', 'startTime', 'endTime'])
-@Index(['maintenanceStatus', 'startTime'])
+@Index(['maintStatus', 'startTime'])
 // Index used by the scheduled job that closes maintenance slots.
-@Index(['maintenanceStatus', 'autoCloseAt'])
+@Index(['maintStatus', 'autoCloseAt'])
 export class MaintenanceSlot {
   @PrimaryGeneratedColumn('uuid', { name: 'ref_maintenance_slot' })
-  refMaintenanceSlot!: string;
+  refMaintSlot!: string;
 
   @Column({ name: 'ref_aircraft', type: 'uuid' })
   refAircraft!: string;
@@ -30,8 +30,8 @@ export class MaintenanceSlot {
   @JoinColumn({ name: 'ref_aircraft' })
   aircraft!: Aircraft;
 
-  @Column({ type: 'enum', enum: MaintenanceType })
-  maintenanceType!: MaintenanceType;
+  @Column({ name: 'maintenanceType', type: 'enum', enum: MaintenanceType })
+  maintType!: MaintenanceType;
 
   @Column({
     name: 'maintenance_status',
@@ -39,7 +39,7 @@ export class MaintenanceSlot {
     enum: MaintenanceStatus,
     default: MaintenanceStatus.PLANNED,
   })
-  maintenanceStatus!: MaintenanceStatus;
+  maintStatus!: MaintenanceStatus;
 
   @Column({ type: 'timestamptz' })
   startTime!: Date;
@@ -49,8 +49,8 @@ export class MaintenanceSlot {
 
   @Column({ type: 'text', nullable: true })
   description!: string | null;
-  @Column({ type: 'timestamptz', nullable: true })
-  pendingReviewSince!: Date | null;
+  @Column({ name: 'pendingReviewSince', type: 'timestamptz', nullable: true })
+  reviewPendingAt!: Date | null;
   @Column({ type: 'timestamptz', nullable: true })
   autoCloseAt!: Date | null;
   @Column({ type: 'int', default: 0 })

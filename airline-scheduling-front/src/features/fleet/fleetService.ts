@@ -11,8 +11,8 @@ export interface Aircraft {
   registration: string;
   model: string;
   capacity: number;
-  maintenanceHoursLimit: number;
-  totalFlightHours: number;
+  maintLimitHrs: number;
+  totalFlightHrs: number;
   aircraftStatus: 'Active' | 'Maintenance' | 'Out of Service' | 'Retired';
   homeBase?: string;
   aircraftType?: {
@@ -25,8 +25,8 @@ export interface CreateAircraftDto {
   registration: string;
   model: string;
   capacity: number;
-  maintenanceHoursLimit: number;
-  totalFlightHours: number;
+  maintLimitHrs: number;
+  totalFlightHrs: number;
   aircraftStatus: 'Active' | 'Maintenance' | 'Out of Service' | 'Retired';
   homeBase?: string;
 }
@@ -37,7 +37,7 @@ export interface FleetStatistics {
   inMaintenanceAircrafts: number;
   outOfServiceAircrafts: number;
   retiredAircrafts: number;
-  totalFlightHours: number;
+  totalFlightHrs: number;
   averageFlightHours: number;
   averageCapacity: number;
 }
@@ -47,8 +47,8 @@ interface BackendAircraft {
   registration: string;
   model: string;
   capacity: number;
-  maintenanceHoursLimit: number;
-  totalFlightHours: number;
+  maintLimitHrs: number;
+  totalFlightHrs: number;
   aircraftStatus: 'Active' | 'Maintenance' | 'Out of Service' | 'Retired';
   homeBase?: string | null;
 }
@@ -66,7 +66,7 @@ interface BackendFleetStatistics {
   horsService?: number;
   retiredAircrafts?: number;
   retires?: number;
-  totalFlightHours?: number;
+  totalFlightHrs?: number;
   heuresVolTotales?: number;
   averageFlightHours?: number;
   moyenneHeuresVol?: number;
@@ -113,8 +113,8 @@ class FleetService {
       registration: data.registration,
       model: data.model,
       capacity: data.capacity,
-      maintenanceHoursLimit: data.maintenanceHoursLimit,
-      totalFlightHours: data.totalFlightHours,
+      maintLimitHrs: data.maintLimitHrs,
+      totalFlightHrs: data.totalFlightHrs,
       aircraftStatus: data.aircraftStatus,
       homeBase: data.homeBase || undefined,
     };
@@ -127,7 +127,7 @@ class FleetService {
       inMaintenanceAircrafts: Number(data.inMaintenanceAircrafts ?? data.enMaintenance ?? 0),
       outOfServiceAircrafts: Number(data.outOfServiceAircrafts ?? data.horsService ?? 0),
       retiredAircrafts: Number(data.retiredAircrafts ?? data.retires ?? 0),
-      totalFlightHours: Number(data.totalFlightHours ?? data.heuresVolTotales ?? 0),
+      totalFlightHrs: Number(data.totalFlightHrs ?? data.heuresVolTotales ?? 0),
       averageFlightHours: Number(data.averageFlightHours ?? data.moyenneHeuresVol ?? 0),
       averageCapacity: Number(data.averageCapacity ?? data.capaciteMoyenne ?? 0),
     };
@@ -154,7 +154,7 @@ class FleetService {
       inMaintenanceAircrafts: Number(payload.avionsEnMaintenance ?? 0),
       outOfServiceAircrafts: Number(payload.avionsHorsService ?? 0),
       retiredAircrafts: Number(payload.avionsRetires ?? 0),
-      totalFlightHours: Number(payload.totalFlightHours ?? 0),
+      totalFlightHrs: Number(payload.totalFlightHrs ?? 0),
       averageFlightHours: Number(payload.moyenneHeuresDeVol ?? 0),
       averageCapacity: Number(payload.capaciteMoyenne ?? 0),
     });
@@ -167,8 +167,8 @@ class FleetService {
         registration: dto.registration,
         model: dto.model,
         capacity: dto.capacity,
-        maintenanceHoursLimit: dto.maintenanceHoursLimit,
-        totalFlightHours: dto.totalFlightHours,
+        maintLimitHrs: dto.maintLimitHrs,
+        totalFlightHrs: dto.totalFlightHrs,
         aircraftStatus: dto.aircraftStatus,
         homeBase: dto.homeBase,
       }),

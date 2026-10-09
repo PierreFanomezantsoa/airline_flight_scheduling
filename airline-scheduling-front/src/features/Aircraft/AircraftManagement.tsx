@@ -76,7 +76,7 @@ export interface AircraftType {
   cruiseSpeed?: number;
   maxRange?: number;
   fuelConsumption?: number;
-  maintenanceIntervalHours?: number;
+  maintIntervalHrs?: number;
 }
 
 export interface Aircraft {
@@ -84,10 +84,10 @@ export interface Aircraft {
   registration: string;
   model: string;
   capacity: number;
-  totalFlightHours: number;
-  maintenanceHoursLimit: number;
-  hoursSinceMaintenance: number;
-  lastMaintenanceAt: string | null;
+  totalFlightHrs: number;
+  maintLimitHrs: number;
+  hrsSinceMaint: number;
+  lastMaintAt: string | null;
   aircraftStatus: AircraftStatus;
   homeBase: string | null;
   refAircraftType: string | null;
@@ -102,7 +102,7 @@ interface FleetStatistics {
   avionsEnMaintenance: number;
   avionsHorsService: number;
   avionsRetires: number;
-  totalFlightHours: number;
+  totalFlightHrs: number;
   moyenneHeuresDeVol: number;
   capaciteMoyenne: number;
 }
@@ -111,8 +111,8 @@ interface AircraftFormData {
   registration: string;
   model: string;
   capacity: number;
-  totalFlightHours: number;
-  maintenanceHoursLimit: number;
+  totalFlightHrs: number;
+  maintLimitHrs: number;
   aircraftStatus: AircraftStatus;
   homeBase: string;
   refAircraftType: string;
@@ -136,8 +136,8 @@ const EMPTY_FORM: AircraftFormData = {
   registration: '',
   model: '',
   capacity: 100,
-  totalFlightHours: 0,
-  maintenanceHoursLimit: 500,
+  totalFlightHrs: 0,
+  maintLimitHrs: 500,
   aircraftStatus: AircraftStatus.ACTIVE,
   homeBase: '',
   refAircraftType: '',
@@ -335,8 +335,8 @@ function formatDate(value?: string | null): string {
 // =============================================================================
 
 function maintenanceRatio(aircraft: Aircraft): number {
-  const current = Number(aircraft.hoursSinceMaintenance);
-  const limit = Number(aircraft.maintenanceHoursLimit);
+  const current = Number(aircraft.hrsSinceMaint);
+  const limit = Number(aircraft.maintLimitHrs);
   if (!Number.isFinite(current) || !Number.isFinite(limit) || limit <= 0) {
     return 0;
   }
@@ -695,8 +695,8 @@ export function AircraftManagement() {
       registration: aircraft.registration,
       model: aircraft.model,
       capacity: aircraft.capacity,
-      totalFlightHours: aircraft.totalFlightHours,
-      maintenanceHoursLimit: aircraft.maintenanceHoursLimit,
+      totalFlightHrs: aircraft.totalFlightHrs,
+      maintLimitHrs: aircraft.maintLimitHrs,
       aircraftStatus: aircraft.aircraftStatus,
       homeBase: aircraft.homeBase ?? '',
       refAircraftType: aircraft.refAircraftType ?? '',
@@ -732,17 +732,17 @@ export function AircraftManagement() {
             : current.capacity;
 
         const maintenanceLimit =
-          typeof selected.maintenanceIntervalHours === 'number' &&
-          selected.maintenanceIntervalHours > 0
-            ? selected.maintenanceIntervalHours
-            : current.maintenanceHoursLimit;
+          typeof selected.maintIntervalHrs === 'number' &&
+          selected.maintIntervalHrs > 0
+            ? selected.maintIntervalHrs
+            : current.maintLimitHrs;
 
         return {
           ...current,
           refAircraftType: selected.refAircraftType,
           model: selected.modelName,
           capacity: capacity,
-          maintenanceHoursLimit: maintenanceLimit,
+          maintLimitHrs: maintenanceLimit,
         };
       }
 
@@ -752,8 +752,8 @@ export function AircraftManagement() {
 
       if (
         name === 'capacity' ||
-        name === 'totalFlightHours' ||
-        name === 'maintenanceHoursLimit'
+        name === 'totalFlightHrs' ||
+        name === 'maintLimitHrs'
       ) {
         return { ...current, [name]: value === '' ? 0 : Number(value) };
       }
@@ -777,14 +777,14 @@ export function AircraftManagement() {
       return 'La capacité doit être un entier strictement positif.';
     }
     if (
-      !Number.isFinite(formData.maintenanceHoursLimit) ||
-      formData.maintenanceHoursLimit <= 0
+      !Number.isFinite(formData.maintLimitHrs) ||
+      formData.maintLimitHrs <= 0
     ) {
       return 'La limite de maintenance doit être strictement positive.';
     }
     if (
-      !Number.isFinite(formData.totalFlightHours) ||
-      formData.totalFlightHours < 0
+      !Number.isFinite(formData.totalFlightHrs) ||
+      formData.totalFlightHrs < 0
     ) {
       return 'Les heures de flight totales ne peuvent pas être négatives.';
     }
@@ -824,8 +824,8 @@ export function AircraftManagement() {
       registration: formData.registration.trim().toUpperCase(),
       model: formData.model.trim(),
       capacity: formData.capacity,
-      totalFlightHours: formData.totalFlightHours,
-      maintenanceHoursLimit: formData.maintenanceHoursLimit,
+      totalFlightHrs: formData.totalFlightHrs,
+      maintLimitHrs: formData.maintLimitHrs,
       aircraftStatus: formData.aircraftStatus,
       homeBase: formData.homeBase.trim().toUpperCase() || undefined,
     };
@@ -1279,14 +1279,14 @@ export function AircraftManagement() {
                         <div>
                           <p className="text-[10px] font-medium text-slate-400">Heures totales</p>
                           <p className="mt-0.5 font-mono text-xs font-semibold text-slate-700">
-                            {formatNumber(aircraft.totalFlightHours)} <span className="text-[10px] font-medium text-slate-400">h</span>
+                            {formatNumber(aircraft.totalFlightHrs)} <span className="text-[10px] font-medium text-slate-400">h</span>
                           </p>
                         </div>
 
                         <div>
                           <p className="text-[10px] font-medium text-slate-400">Dernière maint.</p>
                           <p className="mt-0.5 font-mono text-xs font-semibold text-slate-600">
-                            {formatDate(aircraft.lastMaintenanceAt)}
+                            {formatDate(aircraft.lastMaintAt)}
                           </p>
                         </div>
                       </div>
@@ -1306,8 +1306,8 @@ export function AircraftManagement() {
                           />
                         </div>
                         <div className="mt-1.5 flex items-center justify-between text-[10px] font-medium text-slate-500">
-                          <span>{formatNumber(aircraft.hoursSinceMaintenance)} h</span>
-                          <span>/ {formatNumber(aircraft.maintenanceHoursLimit)} h</span>
+                          <span>{formatNumber(aircraft.hrsSinceMaint)} h</span>
+                          <span>/ {formatNumber(aircraft.maintLimitHrs)} h</span>
                         </div>
                       </div>
 
@@ -1431,7 +1431,7 @@ export function AircraftManagement() {
 
                           <td className="px-4 py-4 align-middle">
                             <span className="truncate font-mono text-xs font-semibold text-slate-700">
-                              {formatNumber(aircraft.totalFlightHours)} <span className="text-[10px] font-medium text-slate-400">h</span>
+                              {formatNumber(aircraft.totalFlightHrs)} <span className="text-[10px] font-medium text-slate-400">h</span>
                             </span>
                           </td>
 
@@ -1439,7 +1439,7 @@ export function AircraftManagement() {
                             <div className="min-w-0">
                               <div className="flex items-center justify-between gap-2">
                                 <span className="truncate font-mono text-xs font-bold text-slate-700">
-                                  {formatNumber(aircraft.hoursSinceMaintenance)} <span className="text-[10px] font-medium text-slate-400">/ {formatNumber(aircraft.maintenanceHoursLimit)} h</span>
+                                  {formatNumber(aircraft.hrsSinceMaint)} <span className="text-[10px] font-medium text-slate-400">/ {formatNumber(aircraft.maintLimitHrs)} h</span>
                                 </span>
                                 <span className={`font-mono text-[11px] font-bold ${ratio >= 90 ? 'text-rose-600' : ratio >= 75 ? 'text-amber-600' : 'text-emerald-600'}`}>
                                   {ratio}%
@@ -1576,7 +1576,7 @@ export function AircraftManagement() {
                 <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4">
                   <InfoMetric
                     label="Heures flotte"
-                    value={`${formatNumber(statistics.totalFlightHours)} h`}
+                    value={`${formatNumber(statistics.totalFlightHrs)} h`}
                   />
                 </div>
                 <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4">
@@ -1675,8 +1675,8 @@ export function AircraftManagement() {
                   {selectedType && (
                     <p className="mt-1.5 text-[10px] text-slate-400">
                       Max. {selectedType.maxCapacity ?? '—'} sièges
-                      {selectedType.maintenanceIntervalHours
-                        ? ` · Maintenance ${formatNumber(selectedType.maintenanceIntervalHours)} h`
+                      {selectedType.maintIntervalHrs
+                        ? ` · Maintenance ${formatNumber(selectedType.maintIntervalHrs)} h`
                         : ''}
                     </p>
                   )}
@@ -1716,10 +1716,10 @@ export function AircraftManagement() {
                 <Field label="Limite maintenance (h)" required>
                   <input
                     type="number"
-                    name="maintenanceHoursLimit"
+                    name="maintLimitHrs"
                     min={0.1}
                     step={0.1}
-                    value={formData.maintenanceHoursLimit}
+                    value={formData.maintLimitHrs}
                     onChange={handleChange}
                     required
                     className={inputClass}
@@ -1729,10 +1729,10 @@ export function AircraftManagement() {
                 <Field label="Heures de flight totales">
                   <input
                     type="number"
-                    name="totalFlightHours"
+                    name="totalFlightHrs"
                     min={0}
                     step={0.1}
-                    value={formData.totalFlightHours}
+                    value={formData.totalFlightHrs}
                     onChange={handleChange}
                     className={inputClass}
                   />
@@ -1868,13 +1868,13 @@ export function AircraftManagement() {
                 <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-3.5">
                   <span className={LABEL_UPPER}>Compteur actuel</span>
                   <p className="mt-1 font-mono text-base font-bold text-slate-800">
-                    {formatNumber(maintenanceAircraft.hoursSinceMaintenance)} h
+                    {formatNumber(maintenanceAircraft.hrsSinceMaint)} h
                   </p>
                 </div>
                 <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-3.5">
                   <span className={LABEL_UPPER}>Limite</span>
                   <p className="mt-1 font-mono text-base font-bold text-slate-800">
-                    {formatNumber(maintenanceAircraft.maintenanceHoursLimit)} h
+                    {formatNumber(maintenanceAircraft.maintLimitHrs)} h
                   </p>
                 </div>
                 <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-3.5">
@@ -1886,7 +1886,7 @@ export function AircraftManagement() {
                 <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-3.5">
                   <span className={LABEL_UPPER}>Dernière maint.</span>
                   <p className="mt-1 text-xs font-semibold text-slate-800">
-                    {formatDate(maintenanceAircraft.lastMaintenanceAt)}
+                    {formatDate(maintenanceAircraft.lastMaintAt)}
                   </p>
                 </div>
               </div>

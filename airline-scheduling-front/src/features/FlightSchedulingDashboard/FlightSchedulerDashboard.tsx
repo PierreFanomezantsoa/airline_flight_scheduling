@@ -242,8 +242,8 @@ const normalizeGanttPayload = (payload: unknown, flights: Flight[]): GanttPayloa
       return {
         ...item,
         stopovers,
-        stopoverDurationMinutes:
-          item.stopoverDurationMinutes ?? flight?.stopoverDurationMinutes ?? null,
+        stopoverMins:
+          item.stopoverMins ?? flight?.stopoverMins ?? null,
         durationMinutes,
       };
     }),

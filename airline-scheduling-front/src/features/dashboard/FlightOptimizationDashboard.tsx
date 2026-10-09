@@ -57,8 +57,8 @@ interface ConflictProposal {
 interface ConflictFlightRef {
   id: string;
   flightNumber: string;
-  departureAirportCode: string;
-  arrivalAirportCode: string;
+  depAirportCode: string;
+  arrAirportCode: string;
   departureTime?: string | null;
   arrivalTime?: string | null;
   status?: string;
@@ -804,9 +804,9 @@ function ConflictRow({
             )}
           </div>
           <p className="mt-1 font-mono text-[10px] text-slate-400">
-            {conflict.flightA.departureAirportCode}
+            {conflict.flightA.depAirportCode}
             <span className="mx-1">→</span>
-            {conflict.flightA.arrivalAirportCode}
+            {conflict.flightA.arrAirportCode}
           </p>
         </td>
 

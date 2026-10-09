@@ -15,7 +15,7 @@ export class CreateMaintenanceSlotDto {
   refAircraft!: string;
 
   @IsEnum(MaintenanceType)
-  maintenanceType!: MaintenanceType;
+  maintType!: MaintenanceType;
 
   @IsDateString()
   startTime!: string;
@@ -29,5 +29,5 @@ export class CreateMaintenanceSlotDto {
 
   @IsOptional()
   @IsEnum(MaintenanceStatus)
-  maintenanceStatus?: MaintenanceStatus;
+  maintStatus?: MaintenanceStatus;
 }

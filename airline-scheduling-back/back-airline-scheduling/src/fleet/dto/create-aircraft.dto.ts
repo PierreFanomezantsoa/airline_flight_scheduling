@@ -27,12 +27,12 @@ export class CreateAircraftDto {
 
   @IsNumber()
   @IsPositive()
-  maintenanceHoursLimit!: number;
+  maintLimitHrs!: number;
 
   @IsOptional()
   @IsNumber()
   @Min(0)
-  totalFlightHours?: number;
+  totalFlightHrs?: number;
 
   @IsOptional()
   @IsEnum(AircraftStatus)

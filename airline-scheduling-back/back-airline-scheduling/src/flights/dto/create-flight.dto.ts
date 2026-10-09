@@ -20,21 +20,21 @@ export class CreateFlightDto {
 
   @IsString()
   @Matches(/^[A-Za-z]{3}$/)
-  departureAirportCode!: string;
+  depAirportCode!: string;
 
   @IsOptional()
   @IsString()
   @Length(3, 100)
-  stopoverAirportCodes?: string;
+  stopoverCodes?: string;
 
   @IsOptional()
   @IsInt()
   @Min(0)
-  stopoverDurationMinutes?: number;
+  stopoverMins?: number;
 
   @IsString()
   @Matches(/^[A-Za-z]{3}$/)
-  arrivalAirportCode!: string;
+  arrAirportCode!: string;
 
   @IsDateString()
   departureTime!: string;

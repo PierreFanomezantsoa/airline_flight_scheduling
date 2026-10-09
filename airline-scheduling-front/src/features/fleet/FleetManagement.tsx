@@ -54,8 +54,8 @@ const DEFAULT_FORM_STATE: CreateAircraftDto = {
   registration: '',
   model: 'Boeing 737-800',
   capacity: 189,
-  maintenanceHoursLimit: 5000,
-  totalFlightHours: 0,
+  maintLimitHrs: 5000,
+  totalFlightHrs: 0,
   aircraftStatus: 'Active',
   homeBase: 'TNR',
 };
@@ -420,11 +420,11 @@ export const FleetManagement: React.FC = () => {
                 <input
                   type="number"
                   min="0"
-                  value={form.totalFlightHours}
+                  value={form.totalFlightHrs}
                   onChange={(e) =>
                     setForm({
                       ...form,
-                      totalFlightHours: parseInt(e.target.value) || 0,
+                      totalFlightHrs: parseInt(e.target.value) || 0,
                     })
                   }
                   className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm transition focus:border-emerald-700 focus:outline-none"
@@ -437,11 +437,11 @@ export const FleetManagement: React.FC = () => {
                 <input
                   type="number"
                   min="1"
-                  value={form.maintenanceHoursLimit}
+                  value={form.maintLimitHrs}
                   onChange={(e) =>
                     setForm({
                       ...form,
-                      maintenanceHoursLimit: parseInt(e.target.value) || 0,
+                      maintLimitHrs: parseInt(e.target.value) || 0,
                     })
                   }
                   className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm transition focus:border-emerald-700 focus:outline-none"
@@ -534,7 +534,7 @@ export const FleetManagement: React.FC = () => {
             ) : (
               aircrafts.map((aircraft) => {
                 const hoursBeforeMaintenance =
-                  aircraft.maintenanceHoursLimit - aircraft.totalFlightHours;
+                  aircraft.maintLimitHrs - aircraft.totalFlightHrs;
                 const isMaintenanceCritical =
                   hoursBeforeMaintenance <= CRITICAL_THRESHOLD_HOURS &&
                   aircraft.aircraftStatus === 'Active';
@@ -579,7 +579,7 @@ export const FleetManagement: React.FC = () => {
                             Heures totales
                           </span>
                           <span className="mt-0.5 block font-mono text-sm font-bold text-slate-700">
-                            {(aircraft.totalFlightHours || 0).toLocaleString()} h
+                            {(aircraft.totalFlightHrs || 0).toLocaleString()} h
                           </span>
                         </div>
                         <div>

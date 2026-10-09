@@ -125,7 +125,7 @@ def _credit_completed_flight_hours(flight, reference_time: datetime) -> bool:
     )
     if (
         locked_flight is None
-        or locked_flight.flightHoursRecorded
+        or locked_flight.hoursRecorded
         or not locked_flight.refAircraft
     ):
         return False
@@ -149,18 +149,18 @@ def _credit_completed_flight_hours(flight, reference_time: datetime) -> bool:
     if aircraft is None:
         return False
 
-    aircraft.totalFlightHours = (
-        _safe_float(aircraft.totalFlightHours) + flight_hours
+    aircraft.totalFlightHrs = (
+        _safe_float(aircraft.totalFlightHrs) + flight_hours
     )
-    aircraft.hoursSinceMaintenance = (
-        _safe_float(aircraft.hoursSinceMaintenance) + flight_hours
+    aircraft.hrsSinceMaint = (
+        _safe_float(aircraft.hrsSinceMaint) + flight_hours
     )
-    maintenance_limit = _safe_float(aircraft.maintenanceHoursLimit)
-    if maintenance_limit > 0 and aircraft.hoursSinceMaintenance >= maintenance_limit:
+    maintenance_limit = _safe_float(aircraft.maintLimitHrs)
+    if maintenance_limit > 0 and aircraft.hrsSinceMaint >= maintenance_limit:
         aircraft.aircraftStatus = "Maintenance"
-    locked_flight.flightHoursRecorded = True
-    locked_flight.creditedFlightHours = flight_hours
-    locked_flight.flightHoursRecordedAt = reference_time
+    locked_flight.hoursRecorded = True
+    locked_flight.creditedHours = flight_hours
+    locked_flight.hoursRecordedAt = reference_time
     return True
 
 
@@ -215,18 +215,18 @@ def get_weather_by_airport():
 
     Body JSON :
     {
-        "departureAirportCode": "LFPG",
-        "arrivalAirportCode": "KJFK",
+        "depAirportCode": "LFPG",
+        "arrAirportCode": "KJFK",
         "departureTime": "2025-01-15T10:00:00Z",
         "arrivalTime": "2025-01-15T18:00:00Z",
-        "stopoverAirportCodes": "EGLL"   // optionnel
+        "stopoverCodes": "EGLL"   // optionnel
     }
     """
     try:
         data = request.get_json(silent=True) or {}
 
-        dep_airport = (data.get("departureAirportCode") or "").strip().upper()
-        arr_airport = (data.get("arrivalAirportCode") or "").strip().upper()
+        dep_airport = (data.get("depAirportCode") or "").strip().upper()
+        arr_airport = (data.get("arrAirportCode") or "").strip().upper()
         dep_raw = data.get("departureTime")
         arr_raw = data.get("arrivalTime")
 
@@ -246,7 +246,7 @@ def get_weather_by_airport():
             }), 400
 
         stopovers = (
-            data.get("stopoverAirportCodes")
+            data.get("stopoverCodes")
             or data.get("escale")
             or data.get("stopovers")
         )
@@ -367,11 +367,11 @@ def get_flights():
             if weather_enabled:
                 assessment = _enrich_with_local_ml(
                     assessment,
-                    dep_airport=flight.departureAirportCode,
-                    arr_airport=flight.arrivalAirportCode,
+                    dep_airport=flight.depAirportCode,
+                    arr_airport=flight.arrAirportCode,
                     dep_time=dep_utc,
                     arr_time=arr_utc,
-                    stopovers=getattr(flight, "stopoverAirportCodes", None),
+                    stopovers=getattr(flight, "stopoverCodes", None),
                 )
 
             if derived_status != current_status:
@@ -389,14 +389,14 @@ def get_flights():
                 )
 
             local_dep_str = format_to_local_time(
-                dep_utc, flight.departureAirportCode
+                dep_utc, flight.depAirportCode
             )
             local_arr_str = format_to_local_time(
-                arr_utc, flight.arrivalAirportCode
+                arr_utc, flight.arrAirportCode
             )
 
-            stopover_code = getattr(flight, "stopoverAirportCodes", None)
-            stopover_duration = getattr(flight, "stopoverDurationMinutes", None)
+            stopover_code = getattr(flight, "stopoverCodes", None)
+            stopover_duration = getattr(flight, "stopoverMins", None)
 
             # weatherSeverity sécurisé : jamais None
             raw_score = assessment.get("score")
@@ -410,10 +410,10 @@ def get_flights():
                 {
                     "refFlight": str(flight.refFlight),
                     "flightNumber": flight.flightNumber,
-                    "origin": flight.departureAirportCode,
+                    "origin": flight.depAirportCode,
                     "stopover": stopover_code,
-                    "stopoverDurationMinutes": stopover_duration,
-                    "destination": flight.arrivalAirportCode,
+                    "stopoverMins": stopover_duration,
+                    "destination": flight.arrAirportCode,
                     "route": build_route_string(flight),
                     "departure": (
                         dep_utc.isoformat() if dep_utc else None
@@ -516,8 +516,8 @@ def assess_weather_before_flight():
     try:
         data = request.get_json(silent=True) or {}
 
-        dep_airport = (data.get("departureAirportCode") or "").strip().upper()
-        arr_airport = (data.get("arrivalAirportCode") or "").strip().upper()
+        dep_airport = (data.get("depAirportCode") or "").strip().upper()
+        arr_airport = (data.get("arrAirportCode") or "").strip().upper()
         dep_raw = data.get("departureTime")
         arr_raw = data.get("arrivalTime")
 
@@ -547,7 +547,7 @@ def assess_weather_before_flight():
             arr_airport=arr_airport,
             dep_time=dep_time,
             arr_time=arr_time,
-            stopovers=data.get("stopoverAirportCodes"),
+            stopovers=data.get("stopoverCodes"),
             force_refresh=False,
         )
 
@@ -557,7 +557,7 @@ def assess_weather_before_flight():
             arr_airport=arr_airport,
             dep_time=dep_time,
             arr_time=arr_time,
-            stopovers=data.get("stopoverAirportCodes"),
+            stopovers=data.get("stopoverCodes"),
         )
 
         return jsonify({
@@ -615,8 +615,8 @@ def get_flights_fast():
                 {
                     "refFlight": str(flight.refFlight),
                     "flightNumber": flight.flightNumber,
-                    "origin": flight.departureAirportCode,
-                    "destination": flight.arrivalAirportCode,
+                    "origin": flight.depAirportCode,
+                    "destination": flight.arrAirportCode,
                     "route": build_route_string(flight),
                     "departure": (
                         dep_utc.isoformat() if dep_utc else None
@@ -625,10 +625,10 @@ def get_flights_fast():
                         arr_utc.isoformat() if arr_utc else None
                     ),
                     "localDeparture": format_to_local_time(
-                        dep_utc, flight.departureAirportCode
+                        dep_utc, flight.depAirportCode
                     ),
                     "localArrival": format_to_local_time(
-                        arr_utc, flight.arrivalAirportCode
+                        arr_utc, flight.arrAirportCode
                     ),
                     "durationMinutes": duration_minutes,
                     "flightStatus": flight.flightStatus,
@@ -717,11 +717,11 @@ def get_weather_alerts():
 
             assessment = _enrich_with_local_ml(
                 assessment,
-                dep_airport=flight.departureAirportCode,
-                arr_airport=flight.arrivalAirportCode,
+                dep_airport=flight.depAirportCode,
+                arr_airport=flight.arrAirportCode,
                 dep_time=ensure_utc(flight.departureTime),
                 arr_time=ensure_utc(flight.arrivalTime),
-                stopovers=getattr(flight, "stopoverAirportCodes", None),
+                stopovers=getattr(flight, "stopoverCodes", None),
             )
 
             monitor_score = assessment.get("advisoryScore")
@@ -735,8 +735,8 @@ def get_weather_alerts():
                 alerts.append({
                     "refFlight": str(flight.refFlight),
                     "flightNumber": flight.flightNumber,
-                    "origin": flight.departureAirportCode,
-                    "destination": flight.arrivalAirportCode,
+                    "origin": flight.depAirportCode,
+                    "destination": flight.arrAirportCode,
                     "departure": (
                         ensure_utc(flight.departureTime).isoformat()
                         if flight.departureTime
@@ -823,11 +823,11 @@ def get_weather_outlook():
 
             assessment = _enrich_with_local_ml(
                 assessment,
-                dep_airport=flight.departureAirportCode,
-                arr_airport=flight.arrivalAirportCode,
+                dep_airport=flight.depAirportCode,
+                arr_airport=flight.arrAirportCode,
                 dep_time=ensure_utc(flight.departureTime),
                 arr_time=ensure_utc(flight.arrivalTime),
-                stopovers=getattr(flight, "stopoverAirportCodes", None),
+                stopovers=getattr(flight, "stopoverCodes", None),
             )
 
             phase = assessment.get("forecastPhase", "UNKNOWN")
@@ -836,8 +836,8 @@ def get_weather_outlook():
             items.append({
                 "refFlight": str(flight.refFlight),
                 "flightNumber": flight.flightNumber,
-                "origin": flight.departureAirportCode,
-                "destination": flight.arrivalAirportCode,
+                "origin": flight.depAirportCode,
+                "destination": flight.arrAirportCode,
                 "departure": (
                     ensure_utc(flight.departureTime).isoformat()
                     if flight.departureTime
@@ -900,8 +900,8 @@ def assess_weather_local_only():
     try:
         data = request.get_json(silent=True) or {}
 
-        dep_airport = (data.get("departureAirportCode") or "").strip().upper()
-        arr_airport = (data.get("arrivalAirportCode") or "").strip().upper()
+        dep_airport = (data.get("depAirportCode") or "").strip().upper()
+        arr_airport = (data.get("arrAirportCode") or "").strip().upper()
         dep_raw = data.get("departureTime")
         arr_raw = data.get("arrivalTime")
 
@@ -925,7 +925,7 @@ def assess_weather_local_only():
             arr_airport=arr_airport,
             dep_time=dep_time,
             arr_time=arr_time,
-            stopovers=data.get("stopoverAirportCodes"),
+            stopovers=data.get("stopoverCodes"),
         )
 
         return jsonify({
@@ -1007,8 +1007,8 @@ def create_flight():
         # Validation stricte
         # ---------------------------------------------------------------
         numero_vol = str(data.get("flightNumber") or "").strip().upper()
-        dep_airport = str(data.get("departureAirportCode") or "").strip().upper()
-        arr_airport = str(data.get("arrivalAirportCode") or "").strip().upper()
+        dep_airport = str(data.get("depAirportCode") or "").strip().upper()
+        arr_airport = str(data.get("arrAirportCode") or "").strip().upper()
 
         if not numero_vol:
             return jsonify({
@@ -1032,7 +1032,7 @@ def create_flight():
             }), 400
 
         stopover_input = (
-            data.get("stopoverAirportCodes")
+            data.get("stopoverCodes")
             or data.get("escale")
             or data.get("stopovers")
         )
@@ -1120,10 +1120,10 @@ def create_flight():
         new_flight = Flight(
             refFlight=str(uuid.uuid4()),
             flightNumber=numero_vol,
-            departureAirportCode=dep_airport,
-            stopoverAirportCodes=stopover_airport,
-            stopoverDurationMinutes=stopover_duration,
-            arrivalAirportCode=arr_airport,
+            depAirportCode=dep_airport,
+            stopoverCodes=stopover_airport,
+            stopoverMins=stopover_duration,
+            arrAirportCode=arr_airport,
             departureTime=dep_time,
             arrivalTime=arr_time,
             refAircraft=avion_id,
@@ -1173,8 +1173,8 @@ def update_flight(id):
             }), 404
 
         numero_vol = str(data.get("flightNumber") or "").strip().upper()
-        dep_airport = str(data.get("departureAirportCode") or "").strip().upper()
-        arr_airport = str(data.get("arrivalAirportCode") or "").strip().upper()
+        dep_airport = str(data.get("depAirportCode") or "").strip().upper()
+        arr_airport = str(data.get("arrAirportCode") or "").strip().upper()
 
         if not numero_vol:
             return jsonify({
@@ -1198,7 +1198,7 @@ def update_flight(id):
             }), 400
 
         stopover_input = (
-            data.get("stopoverAirportCodes")
+            data.get("stopoverCodes")
             or data.get("escale")
             or data.get("stopovers")
         )
@@ -1282,10 +1282,10 @@ def update_flight(id):
         )
 
         flight.flightNumber = numero_vol
-        flight.departureAirportCode = dep_airport
-        flight.stopoverAirportCodes = stopover_airport
-        flight.stopoverDurationMinutes = stopover_duration
-        flight.arrivalAirportCode = arr_airport
+        flight.depAirportCode = dep_airport
+        flight.stopoverCodes = stopover_airport
+        flight.stopoverMins = stopover_duration
+        flight.arrAirportCode = arr_airport
         flight.departureTime = dep_time
         flight.arrivalTime = arr_time
         flight.refAircraft = avion_id
