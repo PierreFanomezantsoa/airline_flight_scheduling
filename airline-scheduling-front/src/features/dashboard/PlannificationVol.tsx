@@ -456,9 +456,11 @@ const AircraftHeader: FC<{
       >
         {isUnassigned ? 'Non assigné' : label}
       </p>
-      <p className={`truncate text-[11px] ${isUnassigned ? 'text-rose-600/80' : 'text-slate-400'}`}>
-        {isUnassigned ? "En attente d'affectation" : `Réf. ${aircraft.slice(0, 8).toUpperCase()}`}
-      </p>
+      {isUnassigned && (
+        <p className="truncate text-[11px] text-rose-600/80">
+          En attente d'affectation
+        </p>
+      )}
     </div>
   );
 
