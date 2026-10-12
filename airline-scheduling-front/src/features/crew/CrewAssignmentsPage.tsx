@@ -35,6 +35,7 @@ import {
   getCrewMembers,
   type PublicUser,
 } from '../Api/apiService';
+import { SearchableDropdown } from './SearchableDropdown';
 
 /* ============================================================================
  * ENDPOINTS
@@ -812,34 +813,45 @@ export const CrewAssignmentsPage: React.FC = () => {
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
-                <select
-                  value={selectedFlightId}
-                  onChange={event => setSelectedFlightId(event.target.value)}
-                  className={`h-10 rounded-xl border border-slate-200 bg-white px-3 text-[13px] font-medium text-slate-700 ${FOCUS_RING}`}
-                >
-                  <option value="TOUS">Tous les vols</option>
-                  {flights.map(flight => (
-                    <option key={flight.refFlight} value={flight.refFlight}>
-                      {flight.flightNumber ?? flight.refFlight} — {flight.depAirportCode ?? '?'} → {flight.arrAirportCode ?? '?'}
-                    </option>
-                  ))}
-                </select>
+                <div className="w-full sm:w-56">
+                  <SearchableDropdown
+                    id="crew-filter-flight"
+                    label="Filtrer par vol"
+                    value={selectedFlightId}
+                    placeholder="Tous les vols"
+                    searchPlaceholder="Rechercher un vol..."
+                    onChange={setSelectedFlightId}
+                    options={[
+                      { value: 'TOUS', label: 'Tous les vols' },
+                      ...flights.map(flight => ({
+                        value: flight.refFlight,
+                        label: flight.flightNumber ?? 'Vol sans numéro',
+                        description: `${flight.depAirportCode ?? '?'} → ${flight.arrAirportCode ?? '?'}`,
+                        searchText: flight.refFlight,
+                      })),
+                    ]}
+                  />
+                </div>
 
-                <select
-                  value={selectedUserId}
-                  onChange={event => setSelectedUserId(event.target.value)}
-                  disabled={loadingUsers}
-                  className={`h-10 rounded-xl border border-slate-200 bg-white px-3 text-[13px] font-medium text-slate-700 disabled:opacity-50 ${FOCUS_RING}`}
-                >
-                  <option value="TOUS">
-                    {loadingUsers ? 'Chargement...' : 'Tous les membres'}
-                  </option>
-                  {users.map(user => (
-                    <option key={user.refUser} value={user.refUser}>
-                      {user.userName} — {user.email}
-                    </option>
-                  ))}
-                </select>
+                <div className="w-full sm:w-56">
+                  <SearchableDropdown
+                    id="crew-filter-member"
+                    label="Filtrer par membre"
+                    value={selectedUserId}
+                    placeholder={loadingUsers ? 'Chargement...' : 'Tous les membres'}
+                    searchPlaceholder="Rechercher un membre..."
+                    onChange={setSelectedUserId}
+                    disabled={loadingUsers}
+                    options={[
+                      { value: 'TOUS', label: 'Tous les membres' },
+                      ...users.map(user => ({
+                        value: user.refUser,
+                        label: user.userName,
+                        description: user.email,
+                      })),
+                    ]}
+                  />
+                </div>
 
                 {activeFilterCount > 0 && (
                   <button
@@ -1166,19 +1178,22 @@ export const CrewAssignmentsPage: React.FC = () => {
                 <span className="mb-1.5 block text-xs font-semibold text-slate-700">
                   Vol <span className="text-rose-500">*</span>
                 </span>
-                <select
-                  required
+                <SearchableDropdown
+                  id="crew-assignment-flight"
+                  label="Vol"
                   value={form.refFlight}
-                  onChange={event => setForm(current => ({ ...current, refFlight: event.target.value }))}
-                  className={`h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 ${FOCUS_RING}`}
-                >
-                  <option value="">Sélectionner un vol</option>
-                  {assignableFlights.map(flight => (
-                    <option key={flight.refFlight} value={flight.refFlight}>
-                      {flight.flightNumber ?? flight.refFlight} — {flight.depAirportCode ?? '?'} → {flight.arrAirportCode ?? '?'}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="Sélectionner un vol"
+                  searchPlaceholder="Rechercher un vol..."
+                  onChange={refFlight =>
+                    setForm(current => ({ ...current, refFlight }))
+                  }
+                  options={assignableFlights.map(flight => ({
+                    value: flight.refFlight,
+                    label: flight.flightNumber ?? 'Vol sans numéro',
+                    description: `${flight.depAirportCode ?? '?'} → ${flight.arrAirportCode ?? '?'}`,
+                    searchText: flight.refFlight,
+                  }))}
+                />
               </label>
 
               {/* MEMBER */}
@@ -1194,25 +1209,29 @@ export const CrewAssignmentsPage: React.FC = () => {
                   )}
                 </div>
 
-                <div className="relative">
-                  <Users className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                  <select
-                    required
-                    value={form.refUser}
-                    disabled={loadingUsers || modalUsers.length === 0}
-                    onChange={event => setForm(current => ({ ...current, refUser: event.target.value }))}
-                    className={`h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-3 text-sm font-medium text-slate-700 disabled:bg-slate-50 disabled:opacity-60 ${FOCUS_RING}`}
-                  >
-                    <option value="">
-                      {loadingUsers ? 'Chargement...' : modalUsers.length === 0 ? 'Aucun membre disponible' : 'Sélectionner un membre'}
-                    </option>
-                    {modalUsers.map(user => (
-                      <option key={user.refUser} value={user.refUser}>
-                        {user.userName} — {user.email}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <SearchableDropdown
+                  id="crew-assignment-member"
+                  label="Membre d’équipage"
+                  value={form.refUser}
+                  placeholder={
+                    loadingUsers
+                      ? 'Chargement...'
+                      : modalUsers.length === 0
+                        ? 'Aucun membre disponible'
+                        : 'Sélectionner un membre'
+                  }
+                  searchPlaceholder="Rechercher un membre..."
+                  onChange={refUser =>
+                    setForm(current => ({ ...current, refUser }))
+                  }
+                  disabled={loadingUsers || modalUsers.length === 0}
+                  icon={<Users className="h-4 w-4 shrink-0 text-slate-400" />}
+                  options={modalUsers.map(user => ({
+                    value: user.refUser,
+                    label: user.userName,
+                    description: user.email,
+                  }))}
+                />
 
                 {!loadingUsers && modalUsers.length === 0 && (
                   <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50/70 p-3.5">

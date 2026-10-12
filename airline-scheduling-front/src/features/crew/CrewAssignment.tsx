@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useCrewAssignments } from './useCrewAssignments';
 import { ApiError } from '../Api/apiService';
+import { SearchableDropdown } from './SearchableDropdown';
 
 /* ============================================================================
  * DESIGN TOKENS
@@ -577,18 +578,20 @@ export const CrewAssignment: React.FC = () => {
                 <label className="mb-1.5 block text-xs font-semibold text-slate-700">
                   Vol cible
                 </label>
-                <select
+                <SearchableDropdown
+                  id="crew-quick-assignment-flight"
+                  label="Vol cible"
                   value={selectedFlightId}
-                  onChange={e => setSelectedFlightId(e.target.value)}
-                  className={`h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 ${FOCUS_RING}`}
-                >
-                  <option value="">Sélectionner un vol</option>
-                  {flights.map(f => (
-                    <option key={f.refFlight} value={f.refFlight}>
-                      Vol {f.flightNumber} ({f.depAirportCode} → {f.arrAirportCode})
-                    </option>
-                  ))}
-                </select>
+                  placeholder="Sélectionner un vol"
+                  searchPlaceholder="Rechercher un vol..."
+                  onChange={setSelectedFlightId}
+                  options={flights.map(flight => ({
+                    value: flight.refFlight,
+                    label: `Vol ${flight.flightNumber ?? 'sans numéro'}`,
+                    description: `${flight.depAirportCode ?? '?'} → ${flight.arrAirportCode ?? '?'}`,
+                    searchText: flight.refFlight,
+                  }))}
+                />
               </div>
 
               {/* Membre */}
@@ -596,32 +599,36 @@ export const CrewAssignment: React.FC = () => {
                 <label className="mb-1.5 block text-xs font-semibold text-slate-700">
                   Agent d'équipage
                 </label>
-                <select
+                <SearchableDropdown
+                  id="crew-quick-assignment-member"
+                  label="Agent d’équipage"
                   value={selectedMemberId}
-                  onChange={e => setSelectedMemberId(e.target.value)}
-                  className={`h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 ${FOCUS_RING}`}
-                >
-                  <option value="">Sélectionner un agent</option>
-                  {crew.map(m => {
-                    const restHours = m.restBeforeHrs ?? 0;
+                  placeholder="Sélectionner un agent"
+                  searchPlaceholder="Rechercher un membre..."
+                  onChange={setSelectedMemberId}
+                  icon={<Users className="h-4 w-4 shrink-0 text-slate-400" />}
+                  options={crew.map(member => {
+                    const restHours = member.restBeforeHrs ?? 0;
                     const isRestOk = restHours >= MIN_REST_HOURS;
-                    const isAlreadyAssigned = Boolean(m.volAssigne);
+                    const isAlreadyAssigned = Boolean(member.volAssigne);
                     const isDisabled = !isRestOk || isAlreadyAssigned;
 
                     let statusText = '✓ Repos conforme';
                     if (!isRestOk) {
                       statusText = `⚠ Repos insuffisant (${restHours}h)`;
                     } else if (isAlreadyAssigned) {
-                      statusText = `⛔ Déjà affecté (Vol ${m.volAssigne?.flightNumber})`;
+                      statusText = `⛔ Déjà affecté (Vol ${member.volAssigne?.flightNumber})`;
                     }
 
-                    return (
-                      <option key={m.refUser} value={m.refUser} disabled={isDisabled}>
-                        {m.userName} ({m.role}) — {statusText}
-                      </option>
-                    );
+                    return {
+                      value: member.refUser,
+                      label: `${member.userName} (${member.role})`,
+                      description: statusText,
+                      searchText: member.refUser,
+                      disabled: isDisabled,
+                    };
                   })}
-                </select>
+                />
               </div>
 
               {/* Preview */}
