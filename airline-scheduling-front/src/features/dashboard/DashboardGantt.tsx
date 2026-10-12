@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Activity,
   AlertCircle,
+  CalendarClock,
   AlertTriangle,
   CheckCircle2,
   Clock,
@@ -19,6 +20,8 @@ import {
 import { FlightDetailsModal } from './FlightDetailsModal';
 import {
   FlightPlanning,
+  UNASSIGNED_AIRCRAFT,
+  normalizeFlightStatus as normalizeFlightStatusValue,
   type AircraftData,
   type Flight,
   type FlightStatus,
@@ -108,7 +111,7 @@ async function getErrorMessage(
 }
 
 /**
- * Transforme une erreur quelconque en message user lisible.
+ * Transforme une erreur quelconque en message utilisateur lisible.
  * Adapté aux deux environnements dev / prod (via ApiError).
  */
 function getFriendlyError(error: unknown, fallback: string): string {
@@ -160,19 +163,43 @@ async function requestJson<T>(path: string, options: RequestInit = {}): Promise<
  * FALLBACK ANALYTICS
  * ========================================================================== */
 
+const normalizeFlightStatus = (status?: FlightStatus | null): string => {
+  const normalized = String(status ?? '')
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/[_-]/g, ' ');
+
+  if (['SCHEDULED', 'PLANIFIE', 'ON TIME', 'PONCTUEL'].includes(normalized)) {
+    return 'PLANIFIE';
+  }
+  if (['DELAYED', 'RETARDE', 'SHIFTED'].includes(normalized)) return 'RETARDE';
+  if (['IN FLIGHT', 'EN VOL'].includes(normalized)) return 'EN VOL';
+  if (['COMPLETED', 'DONE', 'LANDED', 'EFFECTUE'].includes(normalized)) {
+    return 'EFFECTUE';
+  }
+  if (['CANCELLED', 'CANCELED', 'ANNULE'].includes(normalized)) return 'ANNULE';
+  return normalized;
+};
+
 const buildFallbackAnalytics = (flights: Flight[]): Analytics => {
   const totalFlights = flights.length;
-  const count = (status: FlightStatus) =>
-    flights.filter(flight => flight.flightStatus === status).length;
-  const onTimeCount = count('Scheduled');
-  const delayedCount = count('Delayed');
-  const cancelledCount = count('Cancelled');
-  const inFlightCount = count('In-Flight');
-  const effectueCount = count('Effectué');
-  const denominator = Math.max(0, totalFlights - cancelledCount - inFlightCount);
+  const count = (status: string) =>
+    flights.filter(flight => normalizeFlightStatus(flight.flightStatus) === status).length;
+
+  const onTimeCount = count('PLANIFIE');
+  const delayedCount = count('RETARDE');
+  const cancelledCount = count('ANNULE');
+  const inFlightCount = count('EN VOL');
+  const effectueCount = count('EFFECTUE');
+
+  // Indicateur simple de ponctualité pour le tableau de bord.
+  // Le calcul serveur reste prioritaire lorsqu'il est disponible.
+  const completedOrPlanned = onTimeCount + effectueCount + delayedCount;
   const otpRate =
-    denominator > 0
-      ? Number(((onTimeCount / denominator) * 100).toFixed(1))
+    completedOrPlanned > 0
+      ? Number((((onTimeCount + effectueCount) / completedOrPlanned) * 100).toFixed(1))
       : 0;
 
   return {
@@ -216,13 +243,62 @@ const STATUS_STYLES: Record<FlightStatus, StatusStyle> = {
     card: 'hover:border-rose-200',
   },
   'In-Flight': {
-    label: 'En flight',
+    label: 'En vol',
     dot: 'bg-emerald-600',
     badge: 'border-emerald-600 bg-emerald-600 text-white',
     border: 'border-l-emerald-600',
     card: 'hover:border-emerald-300',
   },
   Effectué: {
+    label: 'Effectué',
+    dot: 'bg-slate-400',
+    badge: 'border-slate-200 bg-slate-100 text-slate-600',
+    border: 'border-l-slate-400',
+    card: 'opacity-90 hover:opacity-100',
+  },
+  Planifié: {
+    label: 'Planifié',
+    dot: 'bg-emerald-500',
+    badge: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+    border: 'border-l-emerald-500',
+    card: 'hover:border-emerald-200',
+  },
+  Ponctuel: {
+    label: 'Ponctuel',
+    dot: 'bg-emerald-500',
+    badge: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+    border: 'border-l-emerald-500',
+    card: 'hover:border-emerald-200',
+  },
+  'On-Time': {
+    label: 'Ponctuel',
+    dot: 'bg-emerald-500',
+    badge: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+    border: 'border-l-emerald-500',
+    card: 'hover:border-emerald-200',
+  },
+  Retardé: {
+    label: 'Retardé',
+    dot: 'bg-amber-500',
+    badge: 'border-amber-200 bg-amber-50 text-amber-700',
+    border: 'border-l-amber-500',
+    card: 'hover:border-amber-200',
+  },
+  Annulé: {
+    label: 'Annulé',
+    dot: 'bg-rose-500',
+    badge: 'border-rose-200 bg-rose-50 text-rose-700',
+    border: 'border-l-rose-500',
+    card: 'hover:border-rose-200',
+  },
+  'En Vol': {
+    label: 'En vol',
+    dot: 'bg-emerald-600',
+    badge: 'border-emerald-600 bg-emerald-600 text-white',
+    border: 'border-l-emerald-600',
+    card: 'hover:border-emerald-300',
+  },
+  Completed: {
     label: 'Effectué',
     dot: 'bg-slate-400',
     badge: 'border-slate-200 bg-slate-100 text-slate-600',
@@ -355,7 +431,15 @@ export const DashboardGantt: React.FC = () => {
         signal,
       });
 
-      setFlights(Array.isArray(flightsList) ? flightsList : []);
+      const normalizedFlights = Array.isArray(flightsList)
+        ? flightsList.map(flight => ({
+            ...flight,
+            flightStatus: normalizeFlightStatusValue(
+              flight.flight_status ?? flight.status ?? flight.flightStatus ?? '',
+            ),
+          }))
+        : [];
+      setFlights(normalizedFlights);
 
       // ✅ Analytics — Python + Fleet — NestJS (en parallèle)
       const [analyticsResult, fleetResult] = await Promise.allSettled([
@@ -364,27 +448,29 @@ export const DashboardGantt: React.FC = () => {
       ]);
 
       // Analytics (Python)
+      const fallbackAnalytics = buildFallbackAnalytics(normalizedFlights);
+
       if (analyticsResult.status === 'fulfilled' && analyticsResult.value) {
         const payload = analyticsResult.value;
         setAnalytics({
           ...payload,
           metrics: {
-            ...payload.metrics,
-            effectueCount:
-              payload.metrics?.effectueCount ??
-              flightsList.filter(flight => flight.flightStatus === 'Effectué').length,
+            ...fallbackAnalytics.metrics,
+            ...(payload.metrics ?? {}),
           },
+          distributions: payload.distributions ?? {},
         });
       } else {
-        setAnalytics(buildFallbackAnalytics(flightsList));
+        setAnalytics(fallbackAnalytics);
       }
 
-      // Fleet (NestJS)
+      // Flotte (NestJS)
       if (fleetResult.status === 'fulfilled' && Array.isArray(fleetResult.value)) {
         setFleetAircrafts(fleetResult.value);
       } else {
         setFleetAircrafts([]);
       }
+
     } catch (error: unknown) {
       // ✅ AbortError ignoré silencieusement
       if (isAbortError(error)) return;
@@ -435,7 +521,7 @@ export const DashboardGantt: React.FC = () => {
         throw new ApiError(message, response.status);
       }
 
-      let message = 'Planning optimisé avec succès.';
+      let message = 'Programme de vols optimisé avec succès.';
       try {
         const payload = await response.json();
         message = payload?.message || message;
@@ -487,6 +573,22 @@ export const DashboardGantt: React.FC = () => {
 
   const { metrics } = effectiveAnalytics;
 
+  const operationalSummary = useMemo(() => {
+    const unassignedFlights = flights.filter(
+      flight => !flight.aircraft || flight.aircraft === UNASSIGNED_AIRCRAFT,
+    ).length;
+    const weatherAlerts = flights.filter(
+      flight => normalizeSeverity(flight.weatherSeverity) >= 0.7,
+    ).length;
+    const aircraftInProgram = new Set(
+      flights
+        .map(flight => flight.aircraft)
+        .filter(aircraft => aircraft && aircraft !== UNASSIGNED_AIRCRAFT),
+    ).size;
+
+    return { unassignedFlights, weatherAlerts, aircraftInProgram };
+  }, [flights]);
+
   /* ===========================================================================
    * RENDER
    * =========================================================================== */
@@ -494,29 +596,31 @@ export const DashboardGantt: React.FC = () => {
   return (
     <div className="mx-auto max-w-[1480px] space-y-5">
       {/* ═══════════════ ACTIONS ═══════════════ */}
-      <header className="flex flex-wrap items-center justify-end gap-2.5">
-        <button
-          type="button"
-          onClick={() => void loadData()}
-          disabled={isFetching}
-          className="inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-emerald-300 hover:text-emerald-700 focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-500/15 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
-          Actualiser
-        </button>
+      <header className="flex w-full justify-end py-1">
+        <div className="grid w-full gap-3 sm:flex sm:w-auto sm:justify-end">
+          <button
+            type="button"
+            onClick={() => void loadData()}
+            disabled={isFetching}
+            className="inline-flex h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-emerald-300 hover:text-emerald-700 focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-500/15 disabled:cursor-not-allowed disabled:opacity-60 sm:h-11 sm:w-auto"
+          >
+            <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+            {isFetching ? 'Actualisation…' : 'Actualiser'}
+          </button>
 
-        <button
-          type="button"
-          onClick={triggerOptimization}
-          disabled={isOptimizing || isFetching}
-          className="inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white shadow-md shadow-emerald-600/25 transition hover:bg-emerald-700 focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-500/30 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          <Cpu className={`h-4 w-4 ${isOptimizing ? 'animate-spin' : ''}`} />
-          {isOptimizing ? 'Analyse en cours…' : 'Optimiser le planning'}
-        </button>
+          <button
+            type="button"
+            onClick={triggerOptimization}
+            disabled={isOptimizing || isFetching}
+            className="inline-flex h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white shadow-md shadow-emerald-600/25 transition hover:bg-emerald-700 focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-500/30 disabled:cursor-not-allowed disabled:opacity-60 sm:h-11 sm:w-auto"
+          >
+            <Cpu className={`h-4 w-4 ${isOptimizing ? 'animate-spin' : ''}`} />
+            {isOptimizing ? 'Analyse en cours…' : 'Optimiser le programme'}
+          </button>
+        </div>
       </header>
 
-      {/* ═══════════════ ALERTES ═══════════════ */}
+      {/* ═══════════════ ALERTES SYSTÈME ═══════════════ */}
       {globalError && (
         <AlertMessage
           type="error"
@@ -534,17 +638,27 @@ export const DashboardGantt: React.FC = () => {
         />
       )}
 
-      {/* ═══════════════ KPI ═══════════════ */}
-      <section className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:gap-4 xl:grid-cols-5">
+      {/* ═══════════════ INDICATEURS PRINCIPAUX ═══════════════ */}
+      <section
+        className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6"
+        aria-label="Indicateurs principaux du programme de vols"
+      >
         <KpiCard
           label="Total vols"
           value={metrics.totalFlights}
-          sub="Planning actuel"
+          sub="Programme actuel"
           icon={<Plane className="h-[18px] w-[18px]" />}
           loading={isFetching && flights.length === 0}
         />
         <KpiCard
-          label="En flight"
+          label="Planifiés"
+          value={metrics.onTimeCount}
+          sub="À venir"
+          icon={<CalendarClock className="h-[18px] w-[18px]" />}
+          loading={isFetching && flights.length === 0}
+        />
+        <KpiCard
+          label="En vol"
           value={metrics.inFlightCount}
           sub="Opérations actives"
           icon={<Activity className="h-[18px] w-[18px]" />}
@@ -573,6 +687,28 @@ export const DashboardGantt: React.FC = () => {
           icon={<AlertCircle className="h-[18px] w-[18px]" />}
           alert={metrics.cancelledCount > 0 ? 'danger' : undefined}
           loading={isFetching && flights.length === 0}
+        />
+      </section>
+
+      {/* ═══════════════ POINTS D’ATTENTION ═══════════════ */}
+      <section className="grid gap-3 md:grid-cols-3" aria-label="Synthèse opérationnelle">
+        <SummaryCard
+          label="Ponctualité"
+          value={`${Number(metrics.otpRate ?? 0).toFixed(1)} %`}
+          description="Indicateur global issu des données analytiques disponibles."
+          state={Number(metrics.otpRate ?? 0) >= 80 ? 'ok' : 'warning'}
+        />
+        <SummaryCard
+          label="Vols non affectés"
+          value={operationalSummary.unassignedFlights}
+          description="Vols nécessitant encore l’affectation d’un aéronef."
+          state={operationalSummary.unassignedFlights > 0 ? 'warning' : 'ok'}
+        />
+        <SummaryCard
+          label="Alertes météo"
+          value={operationalSummary.weatherAlerts}
+          description={`${operationalSummary.aircraftInProgram} aéronef${operationalSummary.aircraftInProgram > 1 ? 's' : ''} mobilisé${operationalSummary.aircraftInProgram > 1 ? 's' : ''} dans le programme.`}
+          state={operationalSummary.weatherAlerts > 0 ? 'danger' : 'ok'}
         />
       </section>
 
@@ -656,6 +792,39 @@ const KpiCard: React.FC<{
         )}
         <p className="mt-1.5 text-xs text-slate-500">{sub}</p>
       </div>
+    </article>
+  );
+};
+
+
+const SummaryCard: React.FC<{
+  label: string;
+  value: number | string;
+  description: string;
+  state: 'ok' | 'warning' | 'danger';
+}> = ({ label, value, description, state }) => {
+  const tone =
+    state === 'danger'
+      ? 'border-rose-200 bg-rose-50/60 text-rose-700'
+      : state === 'warning'
+        ? 'border-amber-200 bg-amber-50/60 text-amber-700'
+        : 'border-emerald-200 bg-emerald-50/60 text-emerald-700';
+
+  const dot =
+    state === 'danger'
+      ? 'bg-rose-500'
+      : state === 'warning'
+        ? 'bg-amber-500'
+        : 'bg-emerald-500';
+
+  return (
+    <article className={`rounded-2xl border p-4 ${tone}`}>
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs font-semibold uppercase tracking-wide">{label}</p>
+        <span className={`h-2.5 w-2.5 rounded-full ${dot}`} aria-hidden="true" />
+      </div>
+      <p className="mt-2 text-2xl font-bold tabular-nums text-slate-900">{value}</p>
+      <p className="mt-1 text-xs leading-5 text-slate-600">{description}</p>
     </article>
   );
 };

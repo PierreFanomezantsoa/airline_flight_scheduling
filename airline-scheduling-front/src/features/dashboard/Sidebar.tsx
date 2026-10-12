@@ -73,7 +73,7 @@ export type AvailableRoles =
 type UserRoleLabel =
   | 'Utilisateur'
   | 'Administrateur système'
-  | 'Planificateur de flight'
+  | 'Planificateur des vols'
   | 'Régulateur OCC'
   | 'Membre d’équipage'
   | 'Ingénieur maintenance'
@@ -92,7 +92,7 @@ const MENU_SECTIONS: MenuSection[] = [
       { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
       { id: 'users', label: 'Gestion des utilisateurs', icon: UserCog },
       { id: 'scheduling', label: 'Programmation des vols', icon: CalendarClock },
-      { id: 'aircraft', label: 'Gestion des aircraft', icon: Plane },
+      { id: 'aircraft', label: 'Gestion des aéronefs', icon: Plane },
       { id: 'airports', label: 'Aéroports', icon: MapPin },
       { id: 'flights', label: 'Gestion des vols', icon: CalendarDays },
       { id: 'flight-history', label: 'Historique des vols', icon: History },
@@ -113,7 +113,7 @@ const MENU_SECTIONS: MenuSection[] = [
 
 const allowedScreens: Record<AvailableRoles, ActiveScreen[]> = {
   Admin: [
-    'dashboard', 'users', 'scheduling', 'aircraft', 'flights',
+    'dashboard', 'users', 'scheduling', 'aircraft', 'airports', 'flights',
     'flight-history', 'crew', 'maintenance', 'optimization', 'help',
   ],
   Planificateur: [
@@ -137,7 +137,7 @@ const allowedScreens: Record<AvailableRoles, ActiveScreen[]> = {
 
 const roleLabels: Record<AvailableRoles, UserRoleLabel> = {
   Admin: 'Administrateur système',
-  Planificateur: 'Planificateur de flight',
+  Planificateur: 'Planificateur des vols',
   Regulator: 'Régulateur OCC',
   Crew_Member: 'Membre d’équipage',
   Maintenance_Engineer: 'Ingénieur maintenance',

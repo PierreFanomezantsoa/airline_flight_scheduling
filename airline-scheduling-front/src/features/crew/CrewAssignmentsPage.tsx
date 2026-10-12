@@ -655,7 +655,7 @@ export const CrewAssignmentsPage: React.FC = () => {
     if (selectedFlight && !isAssignableFlight(selectedFlight) && !editingId) {
       setMessage({
         type: 'error',
-        text: 'Ce flight ne peut plus recevoir une nouvelle affectation équipage.',
+        text: 'Ce vol ne peut plus recevoir une nouvelle affectation d’équipage.',
       });
       return;
     }
@@ -1172,7 +1172,7 @@ export const CrewAssignmentsPage: React.FC = () => {
                   onChange={event => setForm(current => ({ ...current, refFlight: event.target.value }))}
                   className={`h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 ${FOCUS_RING}`}
                 >
-                  <option value="">Sélectionner un flight</option>
+                  <option value="">Sélectionner un vol</option>
                   {assignableFlights.map(flight => (
                     <option key={flight.refFlight} value={flight.refFlight}>
                       {flight.flightNumber ?? flight.refFlight} — {flight.depAirportCode ?? '?'} → {flight.arrAirportCode ?? '?'}
@@ -1365,7 +1365,7 @@ export const CrewAssignmentsPage: React.FC = () => {
                 </div>
 
                 <div className="mt-3 border-t border-slate-200 pt-3">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Départ du flight</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Départ du vol</p>
                   <p className="mt-1 flex items-center gap-1.5 font-mono text-xs font-medium text-slate-700">
                     <Clock3 className="h-3.5 w-3.5 text-slate-400" />
                     {formatDateTime(assignmentToDelete.flight?.departureTime)}
@@ -1376,7 +1376,7 @@ export const CrewAssignmentsPage: React.FC = () => {
               <div className="mt-4 flex items-start gap-2.5 rounded-2xl border border-rose-200 bg-rose-50/60 p-3.5">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" />
                 <p className="text-xs leading-5 text-rose-700">
-                  L’affectation sera retirée du flight. Ni le membre d’équipage ni le flight ne seront supprimés.
+                  L’affectation sera retirée du vol. Ni le membre d’équipage ni le vol ne seront supprimés.
                 </p>
               </div>
             </div>

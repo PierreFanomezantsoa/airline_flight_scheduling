@@ -424,6 +424,7 @@ def get_flights():
                     "localDeparture": local_dep_str,
                     "localArrival": local_arr_str,
                     "durationMinutes": duration_minutes,
+                    "flight_status": current_status,
                     "status": current_status,
                     "aircraft": (
                         str(flight.refAircraft)

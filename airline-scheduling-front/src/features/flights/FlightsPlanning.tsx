@@ -990,7 +990,7 @@ export const FlightsPlanning: FC = () => {
       closeModal();
       addToast(
         'success',
-        isEdition ? 'Vol mis à jour avec succès.' : 'Nouveau flight planifié avec succès.',
+        isEdition ? 'Vol mis à jour avec succès.' : 'Nouveau vol programmé avec succès.',
       );
     } catch (error: unknown) {
       const message = getFriendlyError(error, 'Erreur inconnue');
@@ -1245,15 +1245,15 @@ export const FlightsPlanning: FC = () => {
           className="inline-flex h-10 min-w-0 flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-2.5 text-xs font-medium text-white shadow-sm transition hover:bg-emerald-700 sm:h-9 sm:flex-none sm:px-4 sm:text-sm"
         >
           <Plus className="h-4 w-4 shrink-0" />
-          <span className="truncate sm:hidden">Nouveau flight</span>
-          <span className="hidden sm:inline">Planifier un flight</span>
+          <span className="truncate sm:hidden">Nouveau vol</span>
+          <span className="hidden sm:inline">Programmer un vol</span>
         </button>
       </header>
 
       {/* KPI */}
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard label="Total rotations" value={stats.total} hint="Flotte active" icon={<Plane className="h-5 w-5" />} />
-        <KpiCard label="En flight" value={stats.inFlight} hint="Maintenant" icon={<Globe className="h-5 w-5" />} />
+        <KpiCard label="En vol" value={stats.inFlight} hint="Maintenant" icon={<Globe className="h-5 w-5" />} />
         <KpiCard label="En attente" value={stats.pending} hint="À venir" icon={<Clock className="h-5 w-5" />} />
         <KpiCard
           label="Retardés"

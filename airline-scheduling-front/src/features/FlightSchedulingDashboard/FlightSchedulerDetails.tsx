@@ -210,7 +210,7 @@ const FlightSchedulerDetails: FC<FlightSchedulerDetailsProps> = ({
           <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5">
             <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
             <p className="text-xs font-medium text-slate-700">
-              Aucun flight en attente d&apos;affectation dans ce scénario.
+              Aucun vol en attente d&apos;affectation dans ce scénario.
             </p>
           </div>
         ) : (

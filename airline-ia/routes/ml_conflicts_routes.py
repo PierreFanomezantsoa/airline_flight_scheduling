@@ -1394,7 +1394,7 @@ def optimize_flights():
                     conflict[
                         "flightA"
                     ][
-                        "id"
+                        "refFlight"
                     ]
                 )
 
@@ -1412,7 +1412,7 @@ def optimize_flights():
                 # deuxième flight de la rotation.
                 target_id = (
                     flight_b[
-                        "id"
+                        "refFlight"
                     ]
                 )
 

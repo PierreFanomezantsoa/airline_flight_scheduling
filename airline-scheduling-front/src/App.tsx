@@ -115,7 +115,7 @@ const STORAGE_KEYS = {
 
 const ROLE_SCREEN_PERMISSIONS: Record<UserRole, ActiveScreen[]> = {
   Admin: [
-    'dashboard', 'users', 'scheduling', 'aircraft', 'flights',
+    'dashboard', 'users', 'scheduling', 'aircraft', 'airports', 'flights',
     'flight-history', 'crew', 'maintenance', 'optimization', 'help',
   ],
   Planificateur: [
@@ -161,7 +161,7 @@ const SCREEN_META: Record<
 > = {
   dashboard: {
     title: 'Tableau de bord opérationnel',
-    subtitle: 'Vue synthétique des opérations aériennes',
+    subtitle: 'Suivi global des vols, des rotations et des alertes opérationnelles',
   },
   users: {
     title: 'Gestion des utilisateurs',
@@ -172,7 +172,7 @@ const SCREEN_META: Record<
     subtitle: 'Génération, affectation et validation du programme de vols',
   },
   aircraft: {
-    title: 'Gestion des aircraft',
+    title: 'Gestion des aéronefs',
     subtitle: 'Aéronefs physiques et immatriculations',
   },
   airports: {
@@ -201,7 +201,7 @@ const SCREEN_META: Record<
   },
   help: {
     title: 'Aide et support',
-    subtitle: 'Documentation et assistance user',
+    subtitle: 'Documentation et assistance utilisateur',
   },
 };
 

@@ -118,7 +118,9 @@ export interface Flight {
   localDeparture?: string | null;
   localArrival?: string | null;
   durationMinutes?: number | null;
+  flight_status?: string | null;
   flightStatus?: string;
+  status?: string | null;
   aircraft?: string | null;
   aircraftModel?: string | null;
   stopover?: string | null;
@@ -171,14 +173,15 @@ interface FlightHistoryProps {
  * HELPERS
  * ========================================================================== */
 
-const normalizeStatus = (status?: string): FlightStatus => {
+const normalizeStatus = (status?: string | null): FlightStatus => {
   const value = String(status ?? '').trim().toLowerCase();
+  if (!value || value === 'unknown') return 'Inconnu';
   if (['completed', 'effectué', 'effectue', 'done'].includes(value)) return 'Completed';
   if (['delayed', 'retardé', 'retarde'].includes(value)) return 'Delayed';
   if (['cancelled', 'canceled', 'annulé', 'annule'].includes(value)) return 'Cancelled';
   if (['in-flight', 'in flight', 'en flight'].includes(value)) return 'In-Flight';
   if (['scheduled', 'planifié', 'planifie', 'programmé', 'programme'].includes(value)) return 'Scheduled';
-  return status || 'Unknown';
+  return status ?? 'Inconnu';
 };
 
 const normalizeFlight = (flight: Flight): NormalizedFlight => ({
@@ -192,7 +195,9 @@ const normalizeFlight = (flight: Flight): NormalizedFlight => ({
   localDeparture: flight.localDeparture ?? null,
   localArrival: flight.localArrival ?? null,
   durationMinutes: flight.durationMinutes ?? null,
-  flightStatus: normalizeStatus(flight.flightStatus),
+  flightStatus: normalizeStatus(
+    flight.flight_status || flight.flightStatus || flight.status,
+  ),
   refAircraft: flight.aircraft || 'NON ASSIGNÉ',
   aircraftRegistration: flight.aircraftModel || 'Sans registration',
   stopover: flight.stopover ?? null,
@@ -283,7 +288,7 @@ const StatusBadge: FC<{ status: FlightStatus }> = ({ status }) => {
       className: 'border-rose-200 bg-rose-50 text-rose-700',
     },
     'In-Flight': {
-      label: 'En flight',
+      label: 'En vol',
       icon: <Plane size={13} />,
       className: 'border-blue-200 bg-blue-50 text-blue-700',
     },
@@ -857,10 +862,10 @@ const FlightHistory: FC<FlightHistoryProps> = ({
               <Plane size={22} />
             </div>
             <h3 className="mt-4 text-sm font-semibold text-slate-900">
-              Aucun flight historique
+              Aucun vol dans l’historique
             </h3>
             <p className="mt-1 max-w-sm text-sm text-slate-500">
-              Aucun flight ne correspond aux critères actuellement sélectionnés.
+              Aucun vol ne correspond aux critères actuellement sélectionnés.
             </p>
           </div>
         ) : (
@@ -1065,7 +1070,7 @@ const FlightHistory: FC<FlightHistoryProps> = ({
                                     </span>
                                   </div>
                                   <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
-                                    Temps de flight
+                                    Temps de vol
                                   </p>
                                   <p className="mt-1 font-mono text-lg font-bold text-slate-900">
                                     {formatDuration(flight.durationMinutes)}
@@ -1123,7 +1128,7 @@ const FlightHistory: FC<FlightHistoryProps> = ({
                                       />
                                     )}
                                     <DetailItem
-                                      label="Numéro de flight"
+                                      label="Numéro de vol"
                                       value={flight.flightNumber}
                                     />
                                   </div>
@@ -1341,7 +1346,7 @@ const FlightHistory: FC<FlightHistoryProps> = ({
               </section>
 
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                <DetailItem label="Numéro de flight" value={selectedFlight.flightNumber} />
+                <DetailItem label="Numéro de vol" value={selectedFlight.flightNumber} />
                 <DetailItem
                   label="Immatriculation"
                   value={selectedFlight.aircraftRegistration}

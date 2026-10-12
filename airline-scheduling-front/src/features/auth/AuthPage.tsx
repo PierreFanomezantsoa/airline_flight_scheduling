@@ -45,7 +45,7 @@ import {
 
 const ROLE_LABELS: Record<UserRole, string> = {
   Admin: 'Administrateur',
-  Planificateur: 'Planificateur de flight',
+  Planificateur: 'Planificateur des vols',
   Regulator: 'Régulateur OCC',
   Crew_Member: "Membre d'équipage",
   Maintenance_Engineer: 'Ingénieur de maintenance',

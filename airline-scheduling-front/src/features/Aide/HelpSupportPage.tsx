@@ -204,7 +204,7 @@ const DASHBOARD_GUIDES: GuideCardData[] = [
       'Total vols indique le nombre de vols suivis.',
       'OTP indique le niveau de ponctualité opérationnelle.',
       'Retardés indique les vols actuellement en retard.',
-      'En flight indique les opérations en cours.',
+      'En vol indique les opérations en cours.',
       'Annulés indique les vols annulés.',
       'Le programme de vols regroupe les rotations selon les appareils affectés.',
     ],
@@ -249,7 +249,7 @@ const FLIGHT_GUIDES: GuideCardData[] = [
     icon: <Plane className="h-5 w-5" />,
     tone: 'bg-emerald-50 text-emerald-700',
     steps: [
-      'Ouvrez Gestion des vols ou cliquez sur Planifier un flight.',
+      'Ouvrez Gestion des vols ou cliquez sur Programmer un vol.',
       'Saisissez le numéro du flight.',
       'Sélectionnez l’aéroport de départ.',
       'Sélectionnez l’aéroport d’arrivée.',
@@ -286,9 +286,9 @@ const FLIGHT_GUIDES: GuideCardData[] = [
     steps: [
       'Planifié : le flight est programmé.',
       'Retardé : le flight est toujours prévu mais son horaire a été décalé.',
-      'En flight : l’opération est actuellement en cours.',
+      'En vol : l’opération est actuellement en cours.',
       'Effectué : le flight est terminé.',
-      'Annulé : le flight ne sera pas exécuté.',
+      'Annulé : le vol ne sera pas exécuté.',
     ],
   },
   {
@@ -381,7 +381,7 @@ const FLEET_GUIDES: GuideCardData[] = [
     icon: <PlaneTakeoff className="h-5 w-5" />,
     tone: 'bg-emerald-50 text-emerald-700',
     steps: [
-      'Ouvrez Gestion des aircraft.',
+      'Ouvrez Gestion des aéronefs.',
       'Consultez la liste des appareils.',
       'Vérifiez l’registration.',
       'Consultez le modèle.',
@@ -406,7 +406,7 @@ const FLEET_GUIDES: GuideCardData[] = [
   {
     id: 'aircraft-assign',
     title: 'Affecter un appareil',
-    description: 'Associer un aircraft disponible à un flight.',
+    description: 'Associer un aéronef disponible à un vol.',
     icon: <Plane className="h-5 w-5" />,
     tone: 'bg-violet-50 text-violet-700',
     steps: [
@@ -620,7 +620,7 @@ const HISTORY_GUIDES: GuideCardData[] = [
 const FAQ_ITEMS: FAQItem[] = [
   { id: 'faq1', category: 'Vols', question: 'Pourquoi mon flight apparaît-il comme Non assigné ?', answer: 'Cela signifie qu’aucun appareil n’est actuellement affecté au flight. Vous pouvez sélectionner un appareil disponible ou générer un scénario de programmation.', keywords: ['non assigné', 'aircraft', 'affectation'] },
   { id: 'faq2', category: 'Vols', question: 'Pourquoi l’heure d’arrivée est-elle refusée ?', answer: 'L’heure d’arrivée doit être postérieure à l’heure de départ. Vérifiez également les dates lorsque le flight traverse minuit.', keywords: ['heure', 'arrivée', 'départ'] },
-  { id: 'faq3', category: 'Programmation', question: 'Quels vols sont utilisés lors d’une génération ?', answer: 'Les vols Planifiés et Retardés peuvent être utilisés. Les vols En flight, Effectués et Annulés sont exclus.', keywords: ['génération', 'programme de vols', 'status'] },
+  { id: 'faq3', category: 'Programmation', question: 'Quels vols sont utilisés lors d’une génération ?', answer: 'Les vols Planifiés et Retardés peuvent être utilisés. Les vols En vol, Effectués et Annulés sont exclus.', keywords: ['génération', 'programme de vols', 'status'] },
   { id: 'faq4', category: 'Programmation', question: 'L’optimisation modifie-t-elle automatiquement le programme de vols ?', answer: 'Non. Elle propose des alternatives que l’user autorisé doit examiner et valider.', keywords: ['optimisation', 'automatique', 'validation'] },
   { id: 'faq5', category: 'Flotte', question: 'Pourquoi un aircraft ne peut-il pas être affecté ?', answer: 'Il peut être déjà utilisé, indisponible, en maintenance, hors service ou mal positionné.', keywords: ['aircraft', 'indisponible', 'maintenance'] },
   { id: 'faq6', category: 'Équipage', question: 'Pourquoi mon affectation équipage est-elle refusée ?', answer: 'Le membre peut déjà être affecté sur un autre flight ou ne pas respecter le temps de repos nécessaire.', keywords: ['équipage', 'repos', 'chevauchement'] },

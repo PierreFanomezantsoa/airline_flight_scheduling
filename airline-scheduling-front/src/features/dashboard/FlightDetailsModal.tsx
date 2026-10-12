@@ -57,10 +57,17 @@ const FOCUS_RING =
  */
 const STATUS_BAR_CLASSES: Record<FlightStatus, string> = {
   Scheduled: 'bg-emerald-500',
+  Planifié: 'bg-emerald-500',
+  Ponctuel: 'bg-emerald-500',
+  'On-Time': 'bg-emerald-500',
   Delayed: 'bg-amber-500',
+  Retardé: 'bg-amber-500',
   Cancelled: 'bg-rose-500',
+  Annulé: 'bg-rose-500',
   'In-Flight': 'bg-sky-500',
+  'En Vol': 'bg-sky-500',
   Effectué: 'bg-slate-400',
+  Completed: 'bg-slate-400',
 };
 
 /* ========================================================================== */
@@ -189,9 +196,16 @@ export const FlightDetailsModal: FC<FlightDetailsModalProps> = ({
   const severityValue = normalizeSeverity(selectedFlight.weatherSeverity);
   const severityPct = Math.round(severityValue * 100);
 
-  const isInFlight = selectedFlight.flightStatus === 'In-Flight';
-  const isCancelled = selectedFlight.flightStatus === 'Cancelled';
-  const isDone = selectedFlight.flightStatus === 'Effectué';
+  const normalizedStatus = String(selectedFlight.flightStatus)
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/[_-]/g, ' ');
+
+  const isInFlight = ['IN FLIGHT', 'EN VOL'].includes(normalizedStatus);
+  const isCancelled = ['CANCELLED', 'CANCELED', 'ANNULE'].includes(normalizedStatus);
+  const isDone = ['COMPLETED', 'DONE', 'LANDED', 'EFFECTUE'].includes(normalizedStatus);
 
   const statusBarClass =
     STATUS_BAR_CLASSES[selectedFlight.flightStatus] ?? 'bg-slate-300';

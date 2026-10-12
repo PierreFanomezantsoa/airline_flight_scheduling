@@ -718,7 +718,7 @@ export const SchedulingDashboard: React.FC = () => {
                       </span>
                     ) : (
                       <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200/60 px-2.5 py-1 rounded-lg font-extrabold">
-                        {volsAppareil.length} flight(s) programmé(s)
+                        {volsAppareil.length} vol(s) programmé(s)
                       </span>
                     )}
                     <span className="text-[10px] font-mono font-black text-slate-600 bg-white border border-slate-200 px-2 py-1 rounded-md">
@@ -731,7 +731,7 @@ export const SchedulingDashboard: React.FC = () => {
                 <div className="p-4 divide-y divide-slate-100">
                   {volsAppareil.length === 0 ? (
                     <div className="py-2 text-center sm:text-left text-xs text-slate-400 italic">
-                      Aucun flight assigné — Appareil disponible pour programmation.
+                      Aucun vol affecté — aéronef disponible pour programmation.
                     </div>
                   ) : (
                     volsAppareil.map((creneau) => (
@@ -813,7 +813,7 @@ export const SchedulingDashboard: React.FC = () => {
               <Plus className="w-4 h-4 text-emerald-600" /> Nouvelle Affectation
             </h3>
             <p className="text-xs text-slate-400 font-medium">
-              Planifier un flight du carnet vers la flotte.
+              Programmer un vol du carnet vers la flotte.
             </p>
           </div>
 
@@ -847,7 +847,7 @@ export const SchedulingDashboard: React.FC = () => {
                 className="w-full px-3.5 py-2.5 border border-slate-200 rounded-2xl text-xs font-semibold bg-slate-50/50 text-slate-800 focus:bg-white focus:ring-2 focus:ring-emerald-500 outline-none transition cursor-pointer"
                 required
               >
-                <option value="">Attribuer à un aircraft disponible...</option>
+                <option value="">Attribuer à un aéronef disponible...</option>
                 {lignes.filter((l) => l.estActif).map((l) => (
                   <option key={l.id} value={l.id}>
                     {l.name} ({l.code})
@@ -895,7 +895,7 @@ export const SchedulingDashboard: React.FC = () => {
               ) : (
                 <>
                   <Plane className="w-4 h-4" />
-                  <span>Planifier le flight</span>
+                  <span>Programmer le vol</span>
                 </>
               )}
             </button>

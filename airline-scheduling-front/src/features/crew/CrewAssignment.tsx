@@ -241,7 +241,7 @@ function StatusDot({ status }: { status: 'available' | 'assigned' | 'rest' }) {
   };
   const label = {
     available: 'Disponible',
-    assigned: 'En flight',
+    assigned: 'En vol',
     rest: 'Repos insuffisant',
   };
   return (
@@ -402,7 +402,7 @@ export const CrewAssignment: React.FC = () => {
             accent="sky"
           />
           <KpiCard
-            label="En flight"
+            label="En vol"
             value={stats.assigned}
             hint="Actuellement affectés"
             icon={<Plane className="h-4 w-4" />}
@@ -567,7 +567,7 @@ export const CrewAssignment: React.FC = () => {
               </div>
               <div>
                 <h2 className="text-sm font-semibold text-slate-900">Nouvelle affectation</h2>
-                <p className="mt-0.5 text-xs text-slate-500">Sélectionnez un flight et un agent</p>
+                <p className="mt-0.5 text-xs text-slate-500">Sélectionnez un vol et un agent</p>
               </div>
             </header>
 
@@ -582,7 +582,7 @@ export const CrewAssignment: React.FC = () => {
                   onChange={e => setSelectedFlightId(e.target.value)}
                   className={`h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 ${FOCUS_RING}`}
                 >
-                  <option value="">Sélectionner un flight</option>
+                  <option value="">Sélectionner un vol</option>
                   {flights.map(f => (
                     <option key={f.refFlight} value={f.refFlight}>
                       Vol {f.flightNumber} ({f.depAirportCode} → {f.arrAirportCode})

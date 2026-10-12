@@ -60,6 +60,8 @@ export interface Flight {
   localArrival?: string | null;
   durationMinutes?: number | null;
   flightStatus: FlightStatus;
+  flight_status?: FlightStatus | null;
+  status?: FlightStatus | null;
   weatherSeverity: number;
   legs?: FlightLeg[];
 }
@@ -170,14 +172,35 @@ const FILTERS: ReadonlyArray<readonly [StatusFilter, string]> = [
   ['ALL', 'Tous'],
   ['Planifié', 'Planifiés'],
   ['Retardé', 'Retardés'],
-  ['En Vol', 'En flight'],
+  ['En Vol', 'En vol'],
   ['Effectué', 'Effectués'],
   ['Annulé', 'Annulés'],
   ['UNASSIGNED', 'Non assignés'],
 ];
 
+export const normalizeFlightStatus = (status: FlightStatus): FlightStatus => {
+  const normalized = String(status ?? '')
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/[_-]/g, ' ');
+
+  if (['SCHEDULED', 'PLANIFIE', 'ON TIME', 'PONCTUEL'].includes(normalized)) {
+    return 'Scheduled';
+  }
+  if (['DELAYED', 'RETARDE', 'SHIFTED'].includes(normalized)) return 'Delayed';
+  if (['IN FLIGHT', 'EN VOL'].includes(normalized)) return 'In-Flight';
+  if (['COMPLETED', 'DONE', 'LANDED', 'EFFECTUE'].includes(normalized)) {
+    return 'Effectué';
+  }
+  if (['CANCELLED', 'CANCELED', 'ANNULE'].includes(normalized)) return 'Cancelled';
+  if (!normalized || normalized === 'UNKNOWN') return 'Inconnu';
+  return String(status).trim();
+};
+
 const normalizeStatus = (status: FlightStatus): string => {
-  const normalized = String(status)
+  const normalized = String(normalizeFlightStatus(status))
     .trim()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
@@ -236,7 +259,7 @@ const StatusBadge: FC<{ status: FlightStatus; label: string }> = ({ status, labe
 /* ========================================================================== */
 
 const LoadingSkeleton: FC = () => (
-  <div className="space-y-3 p-4 sm:p-5" aria-busy="true" aria-label="Chargement du planning">
+  <div className="space-y-3 p-4 sm:p-5" aria-busy="true" aria-label="Chargement du programme de vols">
     {[1, 2, 3].map((row) => (
       <div key={row} className="animate-pulse overflow-hidden rounded-2xl border border-slate-100">
         <div className="grid lg:grid-cols-[200px_minmax(0,1fr)]">
@@ -627,10 +650,10 @@ export const FlightPlanning: FC<FlightPlanningProps> = ({
             <CalendarClock className="h-4 w-4" />
           </div>
           <div>
-            <h2 className="text-sm font-bold tracking-tight text-slate-900">Planning des rotations</h2>
+            <h2 className="text-sm font-bold tracking-tight text-slate-900">Programme des rotations</h2>
             <p className="text-[11px] text-slate-500">
-              {filteredFlights.length} flight{filteredFlights.length > 1 ? 's' : ''} ·{' '}
-              {aircraftWithFlightsCount} appareil{aircraftWithFlightsCount > 1 ? 's' : ''}
+              {filteredFlights.length} vol{filteredFlights.length > 1 ? 's' : ''} ·{' '}
+              {aircraftWithFlightsCount} aéronef{aircraftWithFlightsCount > 1 ? 's' : ''}
             </p>
           </div>
         </div>
@@ -650,8 +673,8 @@ export const FlightPlanning: FC<FlightPlanningProps> = ({
           <input
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="Rechercher un flight, appareil…"
-            aria-label="Rechercher un flight"
+            placeholder="Rechercher un vol, un aéronef…"
+            aria-label="Rechercher un vol"
             className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-9 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
           />
           {searchQuery && (
@@ -682,7 +705,7 @@ export const FlightPlanning: FC<FlightPlanningProps> = ({
                   key={value}
                   onClick={() => setStatusFilter(value)}
                   aria-pressed={active}
-                  title={`${filterCounts.get(value) ?? 0} flight(s)`}
+                  title={`${filterCounts.get(value) ?? 0} vol(s)`}
                   className={`h-9 shrink-0 cursor-pointer rounded-full px-4 text-sm font-medium transition ${FOCUS_RING} ${
                     active
                       ? isUnassignedFilter
@@ -718,11 +741,11 @@ export const FlightPlanning: FC<FlightPlanningProps> = ({
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-500">
             {activeFilterCount > 0 ? <Search className="h-6 w-6" /> : <Plane className="h-6 w-6" />}
           </div>
-          <p className="mt-4 text-sm font-bold text-slate-900">Aucun flight trouvé</p>
+          <p className="mt-4 text-sm font-bold text-slate-900">Aucun vol trouvé</p>
           <p className="mt-1 text-sm text-slate-500">
             {activeFilterCount > 0
               ? 'Ajustez vos filtres ou votre recherche.'
-              : 'Aucune rotation planifiée pour le moment.'}
+              : 'Aucune rotation programmée pour le moment.'}
           </p>
           {activeFilterCount > 0 && (
             <button

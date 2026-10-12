@@ -703,7 +703,7 @@ export const FlightSchedulerDashboard: FC = () => {
           </header>
           {eligibleFlights.length === 0 ? (
             <p className="px-4 py-6 text-center text-sm text-slate-500">
-              Aucun flight futur valide à planifier dans cet horizon.
+              Aucun vol futur valide à programmer dans cet horizon.
             </p>
           ) : (
             <div className="max-h-64 divide-y divide-slate-100 overflow-y-auto">
@@ -728,7 +728,7 @@ export const FlightSchedulerDashboard: FC = () => {
                 </label>
               ))}
               {visibleEligibleFlights.length === 0 && (
-                <p className="px-4 py-5 text-center text-sm text-slate-500">Aucun flight ne correspond à la recherche.</p>
+                <p className="px-4 py-5 text-center text-sm text-slate-500">Aucun vol ne correspond à la recherche.</p>
               )}
             </div>
           )}
@@ -740,7 +740,7 @@ export const FlightSchedulerDashboard: FC = () => {
               <AlertCircle className="h-5 w-5 text-amber-600" />
             </div>
             <p className="mt-3 text-sm font-medium text-amber-900">
-              Aucun flight ne correspond à vos filtres
+              Aucun vol ne correspond à vos filtres
             </p>
             <p className="mt-1 text-xs text-amber-700">
               Ajustez la recherche ou le status pour élargir les résultats.

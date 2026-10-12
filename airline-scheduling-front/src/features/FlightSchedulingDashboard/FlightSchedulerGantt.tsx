@@ -402,7 +402,7 @@ const FlightSchedulerGantt: FC<FlightSchedulerGanttProps> = ({
 
         <div className="hidden flex-wrap items-center gap-3 sm:flex">
           <LegendDot className="bg-blue-500" label="Planifié" />
-          <LegendDot className="bg-amber-500" label="En flight" />
+          <LegendDot className="bg-amber-500" label="En vol" />
           <LegendDot className="bg-orange-500" label="Retardé" />
           <LegendDot className="bg-emerald-500" label="Effectué" />
           <LegendDot className="bg-rose-500" label="Annulé" />
@@ -415,7 +415,7 @@ const FlightSchedulerGantt: FC<FlightSchedulerGanttProps> = ({
             <Plane className="h-5 w-5" />
           </div>
           <p className="mt-3 text-sm font-medium text-slate-700">
-            Aucun flight programmé sur la période
+            Aucun vol programmé sur la période
           </p>
           <p className="mt-1 text-xs text-slate-500">
             Ajustez la recherche ou les filtres de status.
