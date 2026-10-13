@@ -10,124 +10,86 @@ on:
 permissions:
   contents: read
 
-# Un seul déploiement de production à la fois
 concurrency:
   group: airline-production-deploy
   cancel-in-progress: false
 
 jobs:
-  # ============================================================
-  # 1. Vérification du Frontend React
-  # ============================================================
   verify-frontend:
     name: Vérification Frontend
     runs-on: ubuntu-latest
     timeout-minutes: 15
-
     defaults:
       run:
         working-directory: airline-scheduling-front
-
     steps:
       - name: Récupérer le code source
         uses: actions/checkout@v4
-
       - name: Configurer Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
           cache-dependency-path: airline-scheduling-front/package-lock.json
-
       - name: Installer les dépendances
         run: npm ci
-
-      # ESLint signale encore des problèmes dans le frontend.
-      # Ils sont visibles dans GitHub Actions mais ne bloquent pas le déploiement.
       - name: Vérifier le code avec ESLint
         continue-on-error: true
         run: npm run lint --if-present
-
-      # Le build reste obligatoire.
       - name: Compiler le frontend
         run: npm run build
 
-  # ============================================================
-  # 2. Vérification du Backend NestJS
-  # ============================================================
   verify-backend:
     name: Vérification Backend
     runs-on: ubuntu-latest
     timeout-minutes: 20
-
     defaults:
       run:
         working-directory: airline-scheduling-back/back-airline-scheduling
-
     steps:
       - name: Récupérer le code source
         uses: actions/checkout@v4
-
       - name: Configurer Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
           cache-dependency-path: airline-scheduling-back/back-airline-scheduling/package-lock.json
-
       - name: Installer les dépendances
         run: npm ci
-
-      # Le backend comporte encore des erreurs ESLint,
-      # notamment dans certaines migrations et certains tests.
       - name: Vérifier le code avec ESLint
         continue-on-error: true
         run: npm run lint --if-present
-
-      # Les tests restent bloquants.
       - name: Tests unitaires
         run: npm run test:unit --if-present
-
       - name: Tests d'intégration
         run: npm run test:integration --if-present
-
-      # La compilation reste bloquante.
       - name: Compiler le backend
         run: npm run build
 
-  # ============================================================
-  # 3. Vérification du module Python / Machine Learning
-  # ============================================================
   verify-ai:
     name: Vérification Module Python
     runs-on: ubuntu-latest
     timeout-minutes: 20
-
     defaults:
       run:
         working-directory: airline-ia
-
     steps:
       - name: Récupérer le code source
         uses: actions/checkout@v4
-
       - name: Configurer Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: pip
           cache-dependency-path: airline-ia/requirements.txt
-
       - name: Mettre à jour pip
         run: python -m pip install --upgrade pip
-
       - name: Installer les dépendances
-        run: python -m pip install -r requirements.txt
-
-      - name: Vérifier la compatibilité des dépendances
+        run: python -m pip install --no-cache-dir -r requirements.txt
+      - name: Vérifier les dépendances
         run: python -m pip check
-
-      - name: Vérifier les bibliothèques Machine Learning
+      - name: Vérifier les bibliothèques Python
         run: |
           python - <<'PY'
           import numpy
@@ -136,53 +98,39 @@ jobs:
           import sklearn
           import xgboost
           import joblib
-
           print("NumPy :", numpy.__version__)
           print("Pandas :", pandas.__version__)
           print("SciPy :", scipy.__version__)
           print("Scikit-learn :", sklearn.__version__)
           print("XGBoost :", xgboost.__version__)
           print("Joblib :", joblib.__version__)
-          print("✅ Environnement Machine Learning valide")
+          print("✅ Environnement Python valide")
           PY
-
       - name: Vérifier le fournisseur météo
         run: |
           python - <<'PY'
           from services.weather.api_provider import api_weather_provider
-
           if not api_weather_provider.available:
               raise RuntimeError(
                   api_weather_provider.error
                   or "Le fournisseur météo n'est pas disponible."
               )
-
           print("✅ Fournisseur météo disponible")
           PY
-
       - name: Vérifier la syntaxe Python
         run: python -m compileall -q .
 
-  # ============================================================
-  # 4. Déploiement sur AWS EC2
-  # ============================================================
   deploy:
     name: Déploiement Production EC2
     needs:
       - verify-frontend
       - verify-backend
       - verify-ai
-
     runs-on: ubuntu-latest
     timeout-minutes: 30
-
     environment:
       name: production
-
     steps:
-      - name: Récupérer le code source
-        uses: actions/checkout@v4
-
       - name: Configurer SSH
         uses: webfactory/ssh-agent@v0.9.0
         with:
@@ -192,19 +140,50 @@ jobs:
         run: |
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
-
-          ssh-keyscan -H "${{ secrets.EC2_HOST }}" \
-            >> ~/.ssh/known_hosts
-
+          ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
 
       - name: Tester la connexion SSH
         run: |
           set -euo pipefail
-
-          ssh \
-            "${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}" \
+          ssh "${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}" \
             "echo '✅ Connexion SSH établie' && hostname && whoami"
+
+      - name: Préparer EC2
+        run: |
+          set -euo pipefail
+          ssh "${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          APP_DIR="/home/ubuntu/airline_flight_scheduling"
+          IA_DIR="$APP_DIR/airline-ia"
+          PIP_TMP="/home/ubuntu/pip-tmp"
+
+          echo "💾 Vérification de l'espace disque"
+          df -h /
+          df -h /tmp
+
+          AVAILABLE_MB=$(df -Pm / | awk 'NR == 2 {print $4}')
+
+          if [ "$AVAILABLE_MB" -lt 1500 ]; then
+            echo "❌ Espace disque insuffisant : ${AVAILABLE_MB} Mo"
+            exit 1
+          fi
+
+          if [ ! -d "$APP_DIR" ]; then
+            echo "❌ Application introuvable : $APP_DIR"
+            exit 1
+          fi
+
+          if [ ! -d "$IA_DIR" ]; then
+            echo "❌ Module Python introuvable : $IA_DIR"
+            exit 1
+          fi
+
+          mkdir -p "$PIP_TMP"
+          rm -rf /home/ubuntu/.cache/pip
+
+          echo "✅ EC2 prêt pour le déploiement"
+          REMOTE
 
       - name: Marquer le début du déploiement
         run: echo "DEPLOY_STARTED=true" >> "$GITHUB_ENV"
@@ -212,25 +191,91 @@ jobs:
       - name: Déployer l'application
         run: |
           set -euo pipefail
+          ssh "${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}" 'bash -s' <<'REMOTE'
+          set -euo pipefail
 
-          ssh \
-            "${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}" \
-            "set -euo pipefail
-             cd /home/ubuntu/airline_flight_scheduling
-             bash deploy.sh"
+          APP_DIR="/home/ubuntu/airline_flight_scheduling"
+          IA_DIR="$APP_DIR/airline-ia"
+          PIP_TMP="/home/ubuntu/pip-tmp"
 
-      # ========================================================
-      # 5. Vérification après déploiement
-      # ========================================================
+          mkdir -p "$PIP_TMP"
+
+          export TMPDIR="$PIP_TMP"
+          export TMP="$PIP_TMP"
+          export TEMP="$PIP_TMP"
+          export PIP_NO_CACHE_DIR=1
+
+          cleanup() {
+            rm -rf "$PIP_TMP"
+          }
+
+          trap cleanup EXIT
+
+          cd "$APP_DIR"
+
+          echo "================================================"
+          echo "🐍 Préparation Python"
+          echo "================================================"
+
+          if [ ! -x "$IA_DIR/env/bin/python" ]; then
+            echo "📦 Création de l'environnement virtuel"
+
+            if command -v python3.12 >/dev/null 2>&1; then
+              PYTHON_BIN="$(command -v python3.12)"
+            elif command -v python3 >/dev/null 2>&1; then
+              PYTHON_BIN="$(command -v python3)"
+            else
+              echo "❌ Python introuvable"
+              exit 1
+            fi
+
+            "$PYTHON_BIN" -m venv "$IA_DIR/env"
+          fi
+
+          source "$IA_DIR/env/bin/activate"
+
+          echo "Python : $(python --version)"
+          echo "pip : $(python -m pip --version)"
+
+          echo "================================================"
+          echo "🚀 Déploiement"
+          echo "================================================"
+
+          bash deploy.sh
+
+          echo "================================================"
+          echo "🔍 Vérification Python après déploiement"
+          echo "================================================"
+
+          source "$IA_DIR/env/bin/activate"
+          cd "$IA_DIR"
+
+          python -m pip check
+
+          python - <<'PY'
+          import numpy
+          import pandas
+          import scipy
+          import sklearn
+          import xgboost
+          import joblib
+          print("✅ NumPy :", numpy.__version__)
+          print("✅ Pandas :", pandas.__version__)
+          print("✅ SciPy :", scipy.__version__)
+          print("✅ Scikit-learn :", sklearn.__version__)
+          print("✅ XGBoost :", xgboost.__version__)
+          print("✅ Joblib :", joblib.__version__)
+          print("✅ Environnement Python de production valide")
+          PY
+
+          echo "✅ Déploiement terminé"
+          REMOTE
+
       - name: Health checks
         run: |
           set -euo pipefail
 
           BASE_URL="https://airline-flight.54.156.21.207.nip.io"
-
-          echo "================================================"
-          echo "🏥 Vérification des services"
-          echo "================================================"
 
           check_service() {
             NAME="$1"
@@ -259,45 +304,24 @@ jobs:
             echo "$CODE"
           }
 
-          CODE_FRONT=$(check_service \
-            "Frontend" \
-            "$BASE_URL/")
+          CODE_FRONT=$(check_service "Frontend" "$BASE_URL/")
+          CODE_API=$(check_service "API NestJS" "$BASE_URL/api/")
+          CODE_IA=$(check_service "Module Python" "$BASE_URL/python/")
 
-          CODE_API=$(check_service \
-            "API NestJS" \
-            "$BASE_URL/api/")
-
-          CODE_IA=$(check_service \
-            "Module Python" \
-            "$BASE_URL/python/")
-
-          echo "------------------------------------------------"
           echo "Frontend   : HTTP $CODE_FRONT"
           echo "API NestJS : HTTP $CODE_API"
           echo "Python     : HTTP $CODE_IA"
-          echo "================================================"
 
-          # Frontend : doit être réellement disponible.
-          if [ "$CODE_FRONT" = "000" ]; then
+          if [ "$CODE_FRONT" = "000" ] || [ "$CODE_FRONT" -ge 400 ]; then
             echo "❌ Frontend inaccessible"
             exit 1
           fi
 
-          if [ "$CODE_FRONT" -ge 400 ]; then
-            echo "❌ Erreur HTTP du frontend : $CODE_FRONT"
-            exit 1
-          fi
-
-          # NestJS :
-          # 404 est accepté si aucune route GET /api/ n'existe.
-          # 000 signifie que le service est inaccessible.
           if [ "$CODE_API" = "000" ]; then
             echo "❌ Service NestJS inaccessible"
             exit 1
           fi
 
-          # Flask :
-          # 404 est accepté si aucune route GET /python/ n'existe.
           if [ "$CODE_IA" = "000" ]; then
             echo "❌ Service Python inaccessible"
             exit 1
@@ -305,14 +329,9 @@ jobs:
 
           echo "✅ Déploiement vérifié avec succès"
 
-      # ========================================================
-      # 6. Rollback automatique
-      # ========================================================
       - name: Rollback si échec
-        if: failure() && env.DEPLOY_STARTED == 'true'
+        if: ${{ failure() && env.DEPLOY_STARTED == 'true' }}
         run: |
           echo "⚠️ Échec détecté — lancement du rollback"
-
-          ssh \
-            "${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}" \
+          ssh "${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}" \
             "cd /home/ubuntu/airline_flight_scheduling && bash rollback.sh"
