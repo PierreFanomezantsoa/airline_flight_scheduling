@@ -2,7 +2,7 @@
 
 Priorité des sources :
 1) API météo principale via services.weather.api_provider
-2) modèle ML local joblib
+2) modèle XGBoost local sérialisé avec joblib
 3) dernière valeur API valide (stale cache) si suffisamment récente
 4) mode dégradé neutre (0.5), explicitement marqué indisponible
 
@@ -55,11 +55,11 @@ def _clamp(value: Any, default: float = 0.5) -> float:
 
 
 class LocalWeatherMLProvider:
-    """Charge paresseusement un modèle scikit-learn/joblib local.
+    """Charge paresseusement le modèle XGBoost météo local (joblib).
 
     Contrat attendu du modèle : predict(DataFrame) -> severity [0..1].
     Variables fournies : airport, month, day, day_of_year, hour, weekday.
-    Un Pipeline sklearn avec OneHotEncoder(handle_unknown='ignore') est conseillé.
+    Le modèle entraîné est un Pipeline de prétraitement terminé par XGBRegressor.
     """
 
     def __init__(self, model_path: str = WEATHER_LOCAL_MODEL_PATH):

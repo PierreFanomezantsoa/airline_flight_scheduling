@@ -76,7 +76,7 @@ function getConflictTypeLabel(type: string): string {
     case 'AIRCRAFT_OVERLAP': return 'Chevauchement appareil';
     case 'TURNAROUND_TOO_SHORT': return 'Turnaround insuffisant';
     case 'AIRCRAFT_POSITIONING': return 'Positionnement incompatible';
-    case 'ML_CONFLICT_RISK': return 'Risque de conflit ML';
+    case 'ML_CONFLICT_RISK': return 'Risque de conflit';
     default:
       // Capitalise la 1ère lettre de chaque mot
       return String(type)
@@ -87,18 +87,15 @@ function getConflictTypeLabel(type: string): string {
 }
 
 function getDetectorLabel(detector: string): string {
-  switch (normalizeText(detector)) {
-    case 'DECISION_TREE': return 'Arbre de décision';
-    case 'RULE': return 'Règle métier';
-    default: return detector;
-  }
+  return normalizeText(detector) === 'RULE'
+    ? 'Règle métier'
+    : 'Détection prédictive';
 }
 
 function getDetectorStyle(detector: string): string {
-  if (normalizeText(detector) === 'DECISION_TREE') {
-    return 'border-violet-200 bg-violet-50 text-violet-700';
-  }
-  return 'border-sky-200 bg-sky-50 text-sky-700';
+  return normalizeText(detector) === 'RULE'
+    ? 'border-sky-200 bg-sky-50 text-sky-700'
+    : 'border-violet-200 bg-violet-50 text-violet-700';
 }
 
 /* ============================================================
@@ -205,7 +202,7 @@ const ConflictCard: FC<ConflictCardProps> = ({ conflict }) => {
               {formatProbability(probability)}
             </p>
             <span className="mt-1 block text-[9px] font-bold uppercase tracking-wide text-slate-400">
-              Risque
+              Confiance
             </span>
           </div>
         </div>

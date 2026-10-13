@@ -76,6 +76,7 @@ def optimize_schedule_with_fastapi():
                 "ai_features": {
                     "traffic_density": traffic_density,
                     "weather_severity": weather_severity,
+                    "weather_available": bool(weather_result.get("available", False)),
                     "is_weekend": is_weekend
                 }
             })
@@ -92,7 +93,7 @@ def optimize_schedule_with_fastapi():
                     flight.arrivalTime = datetime.fromisoformat(opt_f["arrival_time"].replace('Z', '+00:00'))
                     flight.flightStatus = opt_f["flightStatus"]
             db.session.commit()
-            return jsonify({"status": "success", "message": "Planning mis à jour avec succès."}), 200
+            return jsonify({"status": "success", "message": "Programme de vols mis à jour avec succès."}), 200
 
     except Exception as e:
         db.session.rollback()

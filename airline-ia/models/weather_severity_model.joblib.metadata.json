@@ -1,0 +1,96 @@
+{
+  "modelVersion": "xgboost-weather-3.0.0",
+  "trainedAt": "2026-10-13T07:57:42.234146+00:00",
+  "sourceCsv": "data\\weather_history.csv",
+  "rows": 100,
+  "airports": [
+    "CDG",
+    "DXB",
+    "JFK",
+    "MRU",
+    "RUN",
+    "TNR"
+  ],
+  "airportCount": 6,
+  "coverageStart": "2025-01-01T00:00:00+00:00",
+  "coverageEnd": "2025-12-31T23:00:00+00:00",
+  "coreModelPath": "models\\weather_severity_model.joblib",
+  "coreFeatures": [
+    "airport",
+    "month",
+    "day",
+    "day_of_year",
+    "hour",
+    "weekday"
+  ],
+  "coreMetrics": {
+    "rows_train": 80,
+    "rows_test": 20,
+    "mae": 0.19568946769833567,
+    "rmse": 0.24545023887787953,
+    "r2": -0.18405337483949058,
+    "absolute_error_p90": 0.3363585320115091
+  },
+  "timeSeriesCvMae": [
+    0.155376,
+    0.180957
+  ],
+  "timeSeriesCvMaeMean": 0.168166,
+  "enhancedModelPath": "models\\weather_severity_model.enhanced.joblib",
+  "enhancedFeatures": [
+    "temperature_c",
+    "wind_speed_kmh",
+    "humidity_pct",
+    "pressure_hpa",
+    "cloud_cover_pct"
+  ],
+  "enhancedMetrics": {
+    "rows_train": 80,
+    "rows_test": 20,
+    "mae": 0.08094838792085647,
+    "rmse": 0.2309399336823055,
+    "r2": -0.04819584853260839,
+    "absolute_error_p90": 0.07763063728809438
+  },
+  "globalMeanSeverity": 0.2271,
+  "airportProfiles": {
+    "CDG": {
+      "count": 17,
+      "meanSeverity": 0.286471,
+      "medianSeverity": 0.2,
+      "p90Severity": 0.476
+    },
+    "DXB": {
+      "count": 17,
+      "meanSeverity": 0.152353,
+      "medianSeverity": 0.05,
+      "p90Severity": 0.38
+    },
+    "JFK": {
+      "count": 17,
+      "meanSeverity": 0.237059,
+      "medianSeverity": 0.2,
+      "p90Severity": 0.38
+    },
+    "MRU": {
+      "count": 16,
+      "meanSeverity": 0.175625,
+      "medianSeverity": 0.17,
+      "p90Severity": 0.38
+    },
+    "RUN": {
+      "count": 16,
+      "meanSeverity": 0.291875,
+      "medianSeverity": 0.2,
+      "p90Severity": 0.62
+    },
+    "TNR": {
+      "count": 17,
+      "meanSeverity": 0.22,
+      "medianSeverity": 0.2,
+      "p90Severity": 0.38
+    }
+  },
+  "trustedForAutomaticStatus": false,
+  "purpose": "Fallback et signal consultatif OCC; jamais décision automatique seule."
+}

@@ -1,3 +1,5 @@
+# Modèle météo local XGBoost
+
 # ML météo local amélioré — Airline Flight Scheduling
 
 Ce module sert de **second avis local et de secours** pour l'OCC.

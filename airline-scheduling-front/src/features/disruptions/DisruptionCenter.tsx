@@ -23,8 +23,8 @@ import { pythonRequestJson } from '../Api/apiService';
  * CONFIGURATION API — Python (port 5000 en dev, /python en prod)
  * ============================================================
  *
- * Les routes /flights/conflicts, /flights/optimize et /flights/ml/info
- * sont hébergées sur le service Python (Flask).
+ * Les routes /flights/conflicts et /flights/optimize sont hébergées sur le
+ * service Python (Flask).
  *
  *   DEV  → VITE_PYTHON_BASE_URL = http://localhost:5000
  *   PROD → VITE_PYTHON_BASE_URL = /python
@@ -32,7 +32,6 @@ import { pythonRequestJson } from '../Api/apiService';
 
 const CONFLICTS_ENDPOINT = '/flights/conflicts';
 const OPTIMIZE_ENDPOINT = '/flights/optimize';
-const ML_INFO_ENDPOINT = '/flights/ml/info';
 
 /* ============================================================
  * TYPES
@@ -44,7 +43,7 @@ export type ConflictSeverity =
   | 'HIGH'
   | 'CRITICAL'
   | string;
-export type ConflictDetector = 'RULE' | 'DECISION_TREE' | string;
+export type ConflictDetector = string;
 export type ScheduleConflictType =
   | 'UNASSIGNED_AIRCRAFT'
   | 'AIRCRAFT_OVERLAP'
@@ -54,7 +53,7 @@ export type ScheduleConflictType =
   | string;
 
 export interface ConflictFlight {
-  id: string;
+  refFlight: string;
   flightNumber?: string | null;
   depAirportCode?: string | null;
   arrAirportCode?: string | null;
@@ -82,8 +81,6 @@ export interface MLConflict {
 }
 
 interface ConflictModelInfo {
-  algorithm: string;
-  version: string;
   externalDependencies?: string[];
   minTurnaroundMinutes?: number;
   positioningMinutes?: number;
@@ -97,23 +94,6 @@ interface ConflictsResponse {
   mediumConflicts: number;
   model: ConflictModelInfo;
   conflicts: MLConflict[];
-}
-
-interface MLInfoResponse {
-  status: string;
-  model: {
-    algorithm: string;
-    version: string;
-    type: string;
-    externalDependencies?: string[];
-    tree?: {
-      root?: string;
-      turnaroundNode?: string;
-      positionNode?: string;
-      positionGapNode?: string;
-      delayedContextNode?: string;
-    };
-  };
 }
 
 interface OptimizationDetail {
@@ -218,12 +198,13 @@ function getProbabilityBarStyle(probability: number): string {
 }
 
 function getConflictTypeLabel(type: ScheduleConflictType): string {
-  switch (normalizeText(type)) {
+  switch (normalizeText(type).replace(/-/g, '_')) {
     case 'UNASSIGNED_AIRCRAFT': return 'Appareil non affecté';
     case 'AIRCRAFT_OVERLAP': return 'Chevauchement appareil';
     case 'TURNAROUND_TOO_SHORT': return 'Turnaround insuffisant';
     case 'AIRCRAFT_POSITIONING': return 'Positionnement incompatible';
-    case 'ML_CONFLICT_RISK': return 'Risque de conflit ML';
+    case 'ML_CONFLICT_RISK':
+    case 'XGBOOST_CONFLICT': return 'Risque de conflit';
     default:
       return String(type)
         .replace(/_/g, ' ')
@@ -233,18 +214,15 @@ function getConflictTypeLabel(type: ScheduleConflictType): string {
 }
 
 function getDetectorLabel(detector: ConflictDetector): string {
-  switch (normalizeText(detector)) {
-    case 'DECISION_TREE': return 'Arbre de décision';
-    case 'RULE': return 'Règle métier';
-    default: return detector;
-  }
+  return normalizeText(detector) === 'RULE'
+    ? 'Règle métier'
+    : 'Détection prédictive';
 }
 
 function getDetectorStyle(detector: ConflictDetector): string {
-  if (normalizeText(detector) === 'DECISION_TREE') {
-    return 'border-violet-200 bg-violet-50 text-violet-700';
-  }
-  return 'border-sky-200 bg-sky-50 text-sky-700';
+  return normalizeText(detector) === 'RULE'
+    ? 'border-sky-200 bg-sky-50 text-sky-700'
+    : 'border-violet-200 bg-violet-50 text-violet-700';
 }
 
 /* ============================================================
@@ -334,7 +312,6 @@ const MetricCard: React.FC<MetricCardProps> = ({
 export const DisruptionCenter: React.FC = () => {
   const [conflicts, setConflicts] = useState<MLConflict[]>([]);
   const [model, setModel] = useState<ConflictModelInfo | null>(null);
-  const [modelInfo, setModelInfo] = useState<MLInfoResponse['model'] | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [optimizing, setOptimizing] = useState(false);
@@ -371,22 +348,11 @@ export const DisruptionCenter: React.FC = () => {
       setError(
         getFriendlyError(
           currentError,
-          'Impossible de joindre le moteur ML Python.',
+          'Impossible de joindre le service de détection des conflits.',
         ),
       );
     } finally {
       if (!silent) setLoading(false);
-    }
-  }, []);
-
-  /* LOAD ML INFO */
-
-  const loadMLInfo = useCallback(async () => {
-    try {
-      const payload = await pythonRequestJson<MLInfoResponse>(ML_INFO_ENDPOINT);
-      setModelInfo(payload.model ?? null);
-    } catch {
-      setModelInfo(null);
     }
   }, []);
 
@@ -396,11 +362,11 @@ export const DisruptionCenter: React.FC = () => {
     if (refreshing) return;
     setRefreshing(true);
     try {
-      await Promise.all([loadConflicts(true), loadMLInfo()]);
+      await loadConflicts(true);
     } finally {
       setRefreshing(false);
     }
-  }, [loadConflicts, loadMLInfo, refreshing]);
+  }, [loadConflicts, refreshing]);
 
   /* OPTIMIZE */
 
@@ -444,10 +410,10 @@ export const DisruptionCenter: React.FC = () => {
 
   useEffect(() => {
     const initialize = async () => {
-      await Promise.all([loadConflicts(), loadMLInfo()]);
+      await loadConflicts();
     };
     void initialize();
-  }, [loadConflicts, loadMLInfo]);
+  }, [loadConflicts]);
 
   /* AUTO REFRESH */
 
@@ -472,9 +438,6 @@ export const DisruptionCenter: React.FC = () => {
     const medium = conflicts.filter(
       (c) => normalizeText(c.severity) === 'MEDIUM',
     ).length;
-    const decisionTree = conflicts.filter(
-      (c) => c.detector === 'DECISION_TREE',
-    ).length;
     const averageProbability =
       conflicts.length > 0
         ? Math.round(
@@ -491,7 +454,6 @@ export const DisruptionCenter: React.FC = () => {
       critical,
       high,
       medium,
-      decisionTree,
       averageProbability,
     };
   }, [conflicts]);
@@ -543,10 +505,10 @@ export const DisruptionCenter: React.FC = () => {
           <Loader2 className="absolute h-14 w-14 animate-spin text-violet-200" />
         </div>
         <p className="mt-4 text-xs font-bold uppercase tracking-widest text-slate-500">
-          Analyse ML des conflits
+          Analyse des conflits
         </p>
         <p className="mt-1 text-xs text-slate-400">
-          Arbre de décision Python en cours d’exécution...
+          Analyse des rotations en cours...
         </p>
       </div>
     );
@@ -561,7 +523,7 @@ export const DisruptionCenter: React.FC = () => {
           <ShieldAlert className="h-7 w-7" />
         </div>
         <h2 className="mt-4 text-lg font-black text-slate-900">
-          Moteur ML indisponible
+          Service de détection indisponible
         </h2>
         <p className="mt-2 max-w-md text-sm leading-6 text-slate-500">
           {error}
@@ -677,7 +639,7 @@ export const DisruptionCenter: React.FC = () => {
         {/* KPI */}
         <section className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
           <MetricCard
-            label="Conflits ML"
+            label="Conflits détectés"
             value={stats.total}
             subtitle="Détectés"
             icon={<BrainCircuit className="h-5 w-5" />}
@@ -713,7 +675,8 @@ export const DisruptionCenter: React.FC = () => {
         </section>
 
         {/* MODEL INFO */}
-        {(model || modelInfo) && (
+        {(model?.minTurnaroundMinutes != null ||
+          model?.positioningMinutes != null) && (
           <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <div className="flex items-start gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-700">
@@ -722,7 +685,7 @@ export const DisruptionCenter: React.FC = () => {
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="text-sm font-black text-slate-900">
-                    Modèle de détection
+                    Paramètres de planification
                   </p>
                 </div>
                 <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-[11px] font-medium text-slate-500">
@@ -911,8 +874,7 @@ export const DisruptionCenter: React.FC = () => {
                   Aucun conflit détecté
                 </p>
                 <p className="mx-auto mt-1 max-w-md text-xs leading-5 text-slate-500">
-                  Aucun conflit ne correspond actuellement aux critères de
-                  l’arbre de décision et aux filtres sélectionnés.
+                  Aucun conflit ne correspond aux détections, aux règles métier et aux filtres sélectionnés.
                 </p>
               </div>
             </div>
@@ -933,7 +895,7 @@ export const DisruptionCenter: React.FC = () => {
                       <th className="px-4 py-3.5">Conflit</th>
                       <th className="px-4 py-3.5">Rotation</th>
                       <th className="px-4 py-3.5">Appareil</th>
-                      <th className="px-4 py-3.5">Risque ML</th>
+                      <th className="px-4 py-3.5">Confiance</th>
                       <th className="px-4 py-3.5">Détecteur</th>
                       <th className="px-4 py-3.5">Motif</th>
                       <th className="px-4 py-3.5">Recommandation</th>

@@ -153,19 +153,14 @@ class LocalWeatherML:
         return row, dt
 
     def _tree_uncertainty(self, model: Any, row: pd.DataFrame) -> float | None:
-        """Dispersion normalisée entre arbres si le pipeline le permet."""
-        try:
-            pre = model.named_steps["preprocessor"]
-            reg = model.named_steps["regressor"]
-            if not hasattr(reg, "estimators_"):
-                return None
-            transformed = pre.transform(row)
-            preds = np.array([float(tree.predict(transformed)[0]) for tree in reg.estimators_])
-            if len(preds) < 2:
-                return None
-            return float(np.clip(np.std(preds), 0.0, 0.5))
-        except Exception:
-            return None
+        """Incertitude indicative compatible XGBoost.
+
+        XGBoost ne fournit pas directement une dispersion équivalente à un
+        ensemble de prédictions indépendantes par arbre via l'API sklearn.
+        La confiance est donc principalement calculée à partir des métriques
+        MAE/P90 enregistrées lors de l'entraînement.
+        """
+        return None
 
     def _confidence(
         self,

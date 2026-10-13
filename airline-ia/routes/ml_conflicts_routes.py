@@ -1,13 +1,13 @@
 # routes/ml_conflicts_routes.py
 # =============================================================================
-# MODULE ML SÉPARÉ : DÉTECTION DE CONFLITS DE VOLS PAR ARBRE DE DÉCISION
+# MODULE ML SÉPARÉ : DÉTECTION DE CONFLITS DE VOLS PAR XGBOOST
 # =============================================================================
 #
 # IMPORTANT :
-# - Ce fichier ne dépend PAS de joblib, numpy ou scikit-learn.
-# - Il fonctionne uniquement avec Python standard + Flask + vos modèles SQLAlchemy.
-# - Le "Decision Tree" est implémenté en Python pur afin d'éviter l'erreur
-#   ModuleNotFoundError: No module named 'joblib'.
+# - La classification des conflits entre deux rotations est assurée par XGBoost.
+# - Les règles de sécurité structurelles (ex. vol sans appareil) restent déterministes.
+# - Le modèle XGBoost est initialisé avec un jeu bootstrap de domaine en attendant
+#   un historique de conflits validés par l'OCC.
 #
 # Endpoints :
 #   GET  /flights/conflicts
@@ -23,6 +23,9 @@
 from __future__ import annotations
 
 from collections import defaultdict
+
+import numpy as np
+from xgboost import XGBClassifier
 from datetime import datetime, timezone
 from typing import Any, Optional
 
@@ -51,7 +54,7 @@ POSITIONING_MINUTES = 180
 # Pour éviter de comparer chaque flight avec absolument tous les autres.
 PAIR_SCAN_WINDOW_MINUTES = 6 * 60
 
-MODEL_VERSION = "pure-python-decision-tree-v1"
+MODEL_VERSION = "xgboost-conflict-v2.0.0"
 
 
 # =============================================================================
@@ -165,7 +168,7 @@ def flight_payload(
         ),
         "status": getattr(
             flight,
-            "status",
+            "flightStatus",
             None,
         ),
         "refAircraft": get_aircraft_id(
@@ -180,7 +183,7 @@ def flight_payload(
 
 
 # =============================================================================
-# FEATURES POUR L'ARBRE DE DÉCISION
+# FEATURES POUR LE MODÈLE XGBOOST
 # =============================================================================
 
 def build_features(
@@ -188,7 +191,7 @@ def build_features(
     flight_b: Flight,
 ) -> Optional[dict]:
     """
-    Transforme deux vols en variables exploitables par l'arbre.
+    Transforme deux vols en variables exploitables par XGBoost.
 
     Les vols sont ordonnés par départ :
         A = premier flight
@@ -339,7 +342,7 @@ def build_features(
             is_delayed(
                 getattr(
                     flight_a,
-                    "status",
+                    "flightStatus",
                     None,
                 )
             )
@@ -348,7 +351,7 @@ def build_features(
             is_delayed(
                 getattr(
                     flight_b,
-                    "status",
+                    "flightStatus",
                     None,
                 )
             )
@@ -357,193 +360,157 @@ def build_features(
 
 
 # =============================================================================
-# ARBRE DE DÉCISION EN PYTHON PUR
+# MODÈLE XGBOOST DE CLASSIFICATION DES CONFLITS
 # =============================================================================
 
-class PurePythonConflictDecisionTree:
-    """
-    Arbre de décision explicable et très léger.
+class XGBoostConflictClassifier:
+    """Classifie le risque entre deux rotations avec XGBoost.
 
-    Arbre logique :
-
-                           overlap > 0 ?
-                          /             \
-                        oui             non
-                        |                |
-                  CRITICAL          gap < 45 ?
-                                     /       \
-                                   oui       non
-                                   |          |
-                                  HIGH   location mismatch ?
-                                            /       \
-                                          oui       non
-                                          |          |
-                                    gap < 180 ?    SAFE
-                                      /    \
-                                    oui    non
-                                    |
-                                   HIGH
-
-    Une branche supplémentaire tient compte des vols déjà retardés afin
-    d'augmenter légèrement le risque lorsque la marge de rotation est faible.
+    En l'absence d'un historique de conflits labellisés dans le dépôt, le
+    modèle est initialisé avec un jeu bootstrap déterministe reproduisant les
+    règles métier existantes. Cette stratégie permet d'utiliser réellement
+    XGBoost tout en conservant le comportement actuel. Pour une exploitation
+    réelle, il faut réentraîner le même modèle avec les décisions OCC
+    historiques (conflit validé/rejeté, type et criticité).
     """
 
-    name = "PurePythonDecisionTree"
+    name = "XGBoostClassifier"
     version = MODEL_VERSION
+    feature_names = [
+        "overlap_minutes",
+        "gap_minutes",
+        "turnaround_shortage_minutes",
+        "location_mismatch",
+        "a_delayed",
+        "b_delayed",
+    ]
+    labels = {
+        0: "SAFE",
+        1: "AIRCRAFT_OVERLAP",
+        2: "TURNAROUND_TOO_SHORT",
+        3: "AIRCRAFT_POSITIONING",
+        4: "ML_CONFLICT_RISK",
+    }
 
-    def predict(
-        self,
-        features: dict,
-    ) -> dict:
-        overlap = float(
-            features[
-                "overlap_minutes"
-            ]
+    def __init__(self, random_state: int = 42):
+        self.random_state = random_state
+        self.model = XGBClassifier(
+            objective="multi:softprob",
+            num_class=len(self.labels),
+            n_estimators=240,
+            max_depth=5,
+            learning_rate=0.04,
+            subsample=0.90,
+            colsample_bytree=0.95,
+            min_child_weight=1.0,
+            reg_lambda=1.0,
+            random_state=random_state,
+            n_jobs=1,
+            tree_method="hist",
+            eval_metric="mlogloss",
         )
+        self._fit_bootstrap_model()
 
-        gap = float(
-            features[
-                "gap_minutes"
-            ]
-        )
-
-        mismatch = bool(
-            features[
-                "location_mismatch"
-            ]
-        )
-
-        delayed_context = bool(
-            features["a_delayed"]
-            or features["b_delayed"]
-        )
-
-        # --------------------------------------------------------------
-        # Noeud 1 : chevauchement direct
-        # --------------------------------------------------------------
+    @staticmethod
+    def _bootstrap_label(gap: float, mismatch: int, delayed: int) -> int:
+        overlap = max(0.0, -gap)
         if overlap > 0:
-            probability = min(
-                1.0,
-                0.88
-                + min(
-                    overlap / 240.0,
-                    0.12,
-                ),
-            )
-
-            return {
-                "isConflict": True,
-                "probability": round(
-                    probability,
-                    4,
-                ),
-                "type": "AIRCRAFT_OVERLAP",
-                "severity": "CRITICAL",
-                "reason": (
-                    f"Chevauchement du même appareil pendant "
-                    f"{round(overlap)} min."
-                ),
-            }
-
-        # --------------------------------------------------------------
-        # Noeud 2 : turnaround insuffisant
-        # --------------------------------------------------------------
+            return 1
         if 0 <= gap < MIN_TURNAROUND_MINUTES:
-            probability = 0.82
+            return 2
+        if mismatch and 0 <= gap < POSITIONING_MINUTES:
+            return 3
+        if delayed and 45 <= gap < 75:
+            return 4
+        return 0
 
-            if delayed_context:
-                probability += 0.08
+    def _fit_bootstrap_model(self) -> None:
+        rng = np.random.default_rng(self.random_state)
+        rows: list[list[float]] = []
+        labels: list[int] = []
 
-            probability += min(
-                (
-                    MIN_TURNAROUND_MINUTES
-                    - gap
-                )
-                / 300.0,
-                0.08,
+        # Échantillonnage dense autour des seuils métier + espace global.
+        boundary_gaps = np.array(
+            [-240, -120, -60, -15, -1, 0, 10, 30, 44, 45, 50, 60, 74, 75, 120, 179, 180, 240, 360],
+            dtype=float,
+        )
+        sampled_gaps = rng.uniform(-240.0, 360.0, size=5000)
+        gaps = np.concatenate([boundary_gaps, sampled_gaps])
+
+        for gap in gaps:
+            for mismatch in (0, 1):
+                for a_delayed, b_delayed in ((0, 0), (1, 0), (0, 1), (1, 1)):
+                    overlap = max(0.0, -float(gap))
+                    shortage = max(0.0, MIN_TURNAROUND_MINUTES - max(float(gap), 0.0))
+                    rows.append(
+                        [
+                            overlap,
+                            float(gap),
+                            shortage,
+                            float(mismatch),
+                            float(a_delayed),
+                            float(b_delayed),
+                        ]
+                    )
+                    labels.append(
+                        self._bootstrap_label(
+                            float(gap),
+                            mismatch,
+                            int(bool(a_delayed or b_delayed)),
+                        )
+                    )
+
+        self.model.fit(np.asarray(rows, dtype=float), np.asarray(labels, dtype=int))
+
+    def predict(self, features: dict) -> dict:
+        row = np.asarray(
+            [[float(features[name]) for name in self.feature_names]],
+            dtype=float,
+        )
+        probabilities = self.model.predict_proba(row)[0]
+        class_id = int(np.argmax(probabilities))
+        probability = float(probabilities[class_id])
+        conflict_type = self.labels[class_id]
+
+        gap = float(features["gap_minutes"])
+        overlap = float(features["overlap_minutes"])
+
+        if conflict_type == "AIRCRAFT_OVERLAP":
+            severity = "CRITICAL"
+            reason = f"Chevauchement du même appareil pendant {round(overlap)} min."
+        elif conflict_type == "TURNAROUND_TOO_SHORT":
+            severity = "HIGH"
+            reason = (
+                f"Temps de rotation de {round(gap)} min inférieur au minimum "
+                f"de {MIN_TURNAROUND_MINUTES} min."
             )
-
-            return {
-                "isConflict": True,
-                "probability": round(
-                    min(
-                        probability,
-                        0.98,
-                    ),
-                    4,
-                ),
-                "type": "TURNAROUND_TOO_SHORT",
-                "severity": "HIGH",
-                "reason": (
-                    f"Temps de rotation de {round(gap)} min "
-                    f"inférieur au minimum de "
-                    f"{MIN_TURNAROUND_MINUTES} min."
-                ),
-            }
-
-        # --------------------------------------------------------------
-        # Noeud 3 : position géographique incompatible
-        # --------------------------------------------------------------
-        if (
-            mismatch
-            and 0
-            <= gap
-            < POSITIONING_MINUTES
-        ):
-            probability = 0.78
-
-            if delayed_context:
-                probability += 0.07
-
-            return {
-                "isConflict": True,
-                "probability": round(
-                    min(
-                        probability,
-                        0.95,
-                    ),
-                    4,
-                ),
-                "type": "AIRCRAFT_POSITIONING",
-                "severity": "HIGH",
-                "reason": (
-                    "L'appareil termine le premier flight dans un "
-                    "aéroport différent de celui du départ du flight "
-                    "suivant, avec un temps de repositionnement "
-                    "insuffisant."
-                ),
-            }
-
-        # --------------------------------------------------------------
-        # Noeud 4 : marge faible + retard existant
-        # --------------------------------------------------------------
-        if (
-            delayed_context
-            and 45 <= gap < 75
-        ):
-            return {
-                "isConflict": True,
-                "probability": 0.61,
-                "type": "ML_CONFLICT_RISK",
-                "severity": "MEDIUM",
-                "reason": (
-                    "La marge de rotation est faible et au moins "
-                    "un des vols est déjà retardé."
-                ),
-            }
+        elif conflict_type == "AIRCRAFT_POSITIONING":
+            severity = "HIGH"
+            reason = (
+                "L'appareil termine le premier vol dans un aéroport différent "
+                "de celui du départ du vol suivant, avec un temps de "
+                "repositionnement insuffisant."
+            )
+        elif conflict_type == "ML_CONFLICT_RISK":
+            severity = "MEDIUM"
+            reason = (
+                "XGBoost estime un risque de conflit : la marge de rotation est "
+                "faible dans un contexte comprenant au moins un vol retardé."
+            )
+        else:
+            severity = None
+            reason = None
 
         return {
-            "isConflict": False,
-            "probability": 0.06,
-            "type": None,
-            "severity": None,
-            "reason": None,
+            "isConflict": conflict_type != "SAFE",
+            "probability": round(probability, 4),
+            "type": None if conflict_type == "SAFE" else conflict_type,
+            "severity": severity,
+            "reason": reason,
         }
 
 
-conflict_tree = (
-    PurePythonConflictDecisionTree()
-)
+conflict_tree = XGBoostConflictClassifier()
 
 
 # =============================================================================
@@ -608,7 +575,7 @@ def detect_conflicts(
         if not is_cancelled_or_completed(
             getattr(
                 flight,
-                "status",
+                "flightStatus",
                 None,
             )
         )
@@ -796,7 +763,7 @@ def detect_conflicts(
                                 "probability"
                             ]
                         ),
-                        "detector": "DECISION_TREE",
+                        "detector": "XGBOOST",
                         "refAircraft": aircraft_id,
                         "aircraftRegistration": (
                             get_aircraft_registration_from_flight(
@@ -945,7 +912,7 @@ def aircraft_in_maintenance(
     status = ""
 
     for attr in (
-        "status",
+        "aircraftStatus",
         "status",
     ):
         value = getattr(
@@ -1051,7 +1018,7 @@ def can_assign_aircraft(
         and not is_cancelled_or_completed(
             getattr(
                 flight,
-                "status",
+                "flightStatus",
                 None,
             )
         )
@@ -1281,7 +1248,7 @@ def get_conflicts():
                     "version": (
                         conflict_tree.version
                     ),
-                    "externalDependencies": [],
+                    "externalDependencies": ["xgboost", "numpy"],
                     "minTurnaroundMinutes": (
                         MIN_TURNAROUND_MINUTES
                     ),
@@ -1311,7 +1278,7 @@ def get_conflicts():
 
 
 # =============================================================================
-# ENDPOINT 2 : INFORMATIONS ARBRE
+# ENDPOINT 2 : INFORMATIONS XGBOOST
 # =============================================================================
 
 @ml_conflicts_bp.route(
@@ -1329,31 +1296,12 @@ def ml_info():
                 "version": (
                     conflict_tree.version
                 ),
-                "type": (
-                    "Decision Tree "
-                    "implemented in pure Python"
-                ),
-                "externalDependencies": [],
-                "tree": {
-                    "root": (
-                        "overlap_minutes > 0"
-                    ),
-                    "turnaroundNode": (
-                        f"gap_minutes < "
-                        f"{MIN_TURNAROUND_MINUTES}"
-                    ),
-                    "positionNode": (
-                        "location_mismatch == 1"
-                    ),
-                    "positionGapNode": (
-                        f"gap_minutes < "
-                        f"{POSITIONING_MINUTES}"
-                    ),
-                    "delayedContextNode": (
-                        "delayed && "
-                        "45 <= gap < 75"
-                    ),
-                },
+                "type": "XGBoost multi-class classifier",
+                "externalDependencies": ["xgboost", "numpy"],
+                "features": conflict_tree.feature_names,
+                "classes": list(conflict_tree.labels.values()),
+                "trainingSource": "bootstrap-domain-rules",
+                "recommendedProductionTraining": "historique OCC labellisé",
             },
         }
     ), 200

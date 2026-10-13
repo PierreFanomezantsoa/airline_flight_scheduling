@@ -153,7 +153,11 @@ export interface WeatherLocalMLPoint {
   riskLevel?: WeatherRiskLevel;
   riskLabel?: string;
   confidence?: number | null;
+  uncertainty?: number | null;
   recommendedAction?: string;
+  modelVersion?: string | null;
+  trustedForAutomaticStatus?: boolean;
+  warnings?: string[];
   error?: string | null;
 }
 
@@ -188,7 +192,12 @@ export interface WeatherAIPreview {
   advisoryRiskLabel?: string;
   localML?: WeatherLocalMLDetail | null;
   localMLAvailable?: boolean;
+  localMLTrustedForAutomaticStatus?: boolean;
+  trustedForAutomaticStatus?: boolean;
+  canAffectStatus?: boolean;
+  weatherSource?: string;
   degraded?: boolean;
+  degradedMode?: boolean;
   apiAvailable?: boolean;
   mlAvailable?: boolean;
   stale?: boolean;
@@ -527,17 +536,17 @@ const getWeatherSourceBadge = (preview?: WeatherAIPreview | null) => {
 
   if (source.includes('LOCAL_ML') && !source.includes('API_PLUS')) {
     return {
-      label: 'ML local',
+      label: 'XGBoost local',
       className: 'border-violet-300 bg-violet-100 text-violet-800',
-      title: 'Score ML local consultatif — non décisionnel',
+      title: 'Score XGBoost local consultatif — non décisionnel',
     };
   }
 
   if (source.includes('API_PLUS_LOCAL_ML')) {
     return {
-      label: 'API + ML',
+      label: 'API + XGBoost',
       className: 'border-emerald-300 bg-emerald-100 text-emerald-800',
-      title: 'Fusion API (80%) + ML local (20%)',
+      title: 'Fusion API météo (80%) + XGBoost local (20%)',
     };
   }
 
@@ -1263,7 +1272,13 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
         let mapped: WeatherAIPreview | null = null;
 
         if (payload.weatherAI) {
-          mapped = { ...payload.weatherAI };
+          mapped = {
+            ...payload.weatherAI,
+            // Le backend Python expose `degradedMode`; on conserve `degraded`
+            // pour la compatibilité avec le rendu existant.
+            degraded:
+              payload.weatherAI.degraded ?? payload.weatherAI.degradedMode ?? false,
+          };
         } else if (payload.airports) {
           const { departure: dep, arrival: arr, stopovers: stops } = payload.airports;
 
@@ -2216,7 +2231,7 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
                           </span>
                           {typeof weatherPreview.advisoryScore === 'number' && (
                             <span
-                              title="Score consultatif (API + ML local)"
+                              title="Score consultatif (API météo + XGBoost local)"
                               className="rounded-lg border border-white/70 bg-white/70 px-2 py-1 font-mono text-[9px] font-black"
                             >
                               Conseil {formatWeatherPercent(weatherPreview.advisoryScore)}
@@ -2259,7 +2274,7 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
                             </span>
                             {weatherPreview.localML?.departure?.riskLabel && (
                               <span className="mt-0.5 block text-[8px] font-semibold opacity-70">
-                                ML : {weatherPreview.localML.departure.riskLabel}
+                                Prévision IA : {weatherPreview.localML.departure.riskLabel}
                               </span>
                             )}
                           </div>
@@ -2275,7 +2290,7 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
                             </span>
                             {weatherPreview.localML?.arrival?.riskLabel && (
                               <span className="mt-0.5 block text-[8px] font-semibold opacity-70">
-                                ML : {weatherPreview.localML.arrival.riskLabel}
+                                Prévision IA : {weatherPreview.localML.arrival.riskLabel}
                               </span>
                             )}
                           </div>
@@ -2309,7 +2324,7 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
                             <AlertCircle className="mt-0.5 h-3 w-3 shrink-0 text-amber-600" />
                             <p className="text-[8px] font-semibold leading-3.5 text-amber-800">
                               Source dégradée :{' '}
-                              {weatherPreview.localML?.source || 'ML local'}.
+                              {weatherPreview.localML?.source || 'XGBoost local'}.
                               Décision OCC requise avant affectation.
                             </p>
                           </div>

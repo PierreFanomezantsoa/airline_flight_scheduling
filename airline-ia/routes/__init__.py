@@ -6,7 +6,7 @@ from .fleet_routes import fleet_bp
 from .analytics_routes import analytics_bp
 from .automatic_schedule_routes import auto_schedule_bp
 
-# Nouveau module IA / arbre de décision pour les conflits
+# Module IA XGBoost pour la détection de conflits
 from .ml_conflicts_routes import ml_conflicts_bp
 
 # IMPORTANT :

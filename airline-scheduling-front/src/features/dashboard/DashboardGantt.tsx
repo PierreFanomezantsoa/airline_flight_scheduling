@@ -1,5 +1,4 @@
 // src/features/dashboard/DashboardGantt.tsx
-
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Activity,
@@ -22,10 +21,15 @@ import {
   FlightPlanning,
   UNASSIGNED_AIRCRAFT,
   normalizeFlightStatus as normalizeFlightStatusValue,
+
   type AircraftData,
+
   type Flight,
+
   type FlightStatus,
+
   type StatusStyle,
+
   type WeatherIndicator,
 } from './PlannificationVol';
 
@@ -59,11 +63,9 @@ interface Analytics {
  * DESIGN TOKENS
  * ========================================================================== */
 
-
 /* ============================================================================
  * HELPERS
  * ========================================================================== */
-
 const normalizeSeverity = (value?: number | null) =>
   Math.min(1, Math.max(0, Number(value ?? 0)));
 
@@ -94,7 +96,6 @@ async function getErrorMessage(
 ): Promise<string> {
   try {
     const payload = await response.json();
-
     if (Array.isArray(payload?.message)) {
       return payload.message.join(' | ');
     }
@@ -133,11 +134,9 @@ function getFriendlyError(error: unknown, fallback: string): string {
         return error.message || fallback;
     }
   }
-
   if (error instanceof Error) {
     return error.message || fallback;
   }
-
   return fallback;
 }
 
@@ -146,7 +145,6 @@ function getFriendlyError(error: unknown, fallback: string): string {
  */
 async function requestJson<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await authFetch(path, options);
-
   if (!response.ok) {
     const message = await getErrorMessage(
       response,
@@ -154,7 +152,6 @@ async function requestJson<T>(path: string, options: RequestInit = {}): Promise<
     );
     throw new ApiError(message, response.status);
   }
-
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
 }
@@ -162,15 +159,13 @@ async function requestJson<T>(path: string, options: RequestInit = {}): Promise<
 /* ============================================================================
  * FALLBACK ANALYTICS
  * ========================================================================== */
-
 const normalizeFlightStatus = (status?: FlightStatus | null): string => {
   const normalized = String(status ?? '')
     .trim()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toUpperCase()
-    .replace(/[_-]/g, ' ');
-
+    .replace(/[\_-]/g, ' ');
   if (['SCHEDULED', 'PLANIFIE', 'ON TIME', 'PONCTUEL'].includes(normalized)) {
     return 'PLANIFIE';
   }
@@ -187,13 +182,11 @@ const buildFallbackAnalytics = (flights: Flight[]): Analytics => {
   const totalFlights = flights.length;
   const count = (status: string) =>
     flights.filter(flight => normalizeFlightStatus(flight.flightStatus) === status).length;
-
   const onTimeCount = count('PLANIFIE');
   const delayedCount = count('RETARDE');
   const cancelledCount = count('ANNULE');
   const inFlightCount = count('EN VOL');
   const effectueCount = count('EFFECTUE');
-
   // Indicateur simple de ponctualité pour le tableau de bord.
   // Le calcul serveur reste prioritaire lorsqu'il est disponible.
   const completedOrPlanned = onTimeCount + effectueCount + delayedCount;
@@ -201,7 +194,6 @@ const buildFallbackAnalytics = (flights: Flight[]): Analytics => {
     completedOrPlanned > 0
       ? Number((((onTimeCount + effectueCount) / completedOrPlanned) * 100).toFixed(1))
       : 0;
-
   return {
     metrics: {
       totalFlights,
@@ -359,7 +351,6 @@ export const DashboardGantt: React.FC = () => {
   /* ===========================================================================
    * FORMATTERS
    * =========================================================================== */
-
   const formatDateTime = useCallback((dateString?: string | null) => {
     if (!dateString) return '--/-- --:--';
     if (/^\d{2}:\d{2}$/.test(dateString)) return dateString;
@@ -372,7 +363,6 @@ export const DashboardGantt: React.FC = () => {
       minute: '2-digit',
     }).format(parsedDate);
   }, []);
-
   const formatLocalIso = useCallback(
     (dateString?: string | null) => {
       if (!dateString) return '--/-- --:--';
@@ -383,7 +373,6 @@ export const DashboardGantt: React.FC = () => {
     },
     [formatDateTime],
   );
-
   const formatDuration = useCallback((minutes?: number | null) => {
     if (minutes == null || !Number.isFinite(minutes)) return '--';
     const total = Math.max(0, Math.round(minutes));
@@ -393,7 +382,6 @@ export const DashboardGantt: React.FC = () => {
     if (rest === 0) return `${hours} h`;
     return `${hours} h ${rest.toString().padStart(2, '0')}`;
   }, []);
-
   const displayRoute = useCallback((flight: Flight) => {
     if (flight.route?.trim()) return flight.route;
     const stopovers = Array.isArray(flight.stopover)
@@ -419,18 +407,15 @@ export const DashboardGantt: React.FC = () => {
    * ✅ Backend NestJS (port 3001) :
    *      /fleet/aircrafts   → requestJson (authFetch)
    * =========================================================================== */
-
   const loadData = useCallback(async (signal?: AbortSignal) => {
     setIsFetching(true);
     setGlobalError(null);
-
     try {
       // ✅ VOLS — Python (Flask)
       const flightsList = await pythonRequestJson<Flight[]>('/flights', {
         method: 'GET',
         signal,
       });
-
       const normalizedFlights = Array.isArray(flightsList)
         ? flightsList.map(flight => ({
             ...flight,
@@ -440,16 +425,13 @@ export const DashboardGantt: React.FC = () => {
           }))
         : [];
       setFlights(normalizedFlights);
-
       // ✅ Analytics — Python + Fleet — NestJS (en parallèle)
       const [analyticsResult, fleetResult] = await Promise.allSettled([
         pythonRequestJson<Analytics>('/flights/analytics', { signal }),
         requestJson<AircraftData[]>('/fleet/aircrafts', { signal }),
       ]);
-
       // Analytics (Python)
       const fallbackAnalytics = buildFallbackAnalytics(normalizedFlights);
-
       if (analyticsResult.status === 'fulfilled' && analyticsResult.value) {
         const payload = analyticsResult.value;
         setAnalytics({
@@ -463,18 +445,15 @@ export const DashboardGantt: React.FC = () => {
       } else {
         setAnalytics(fallbackAnalytics);
       }
-
       // Flotte (NestJS)
       if (fleetResult.status === 'fulfilled' && Array.isArray(fleetResult.value)) {
         setFleetAircrafts(fleetResult.value);
       } else {
         setFleetAircrafts([]);
       }
-
     } catch (error: unknown) {
       // ✅ AbortError ignoré silencieusement
       if (isAbortError(error)) return;
-
       console.error("Erreur d'appel API :", error);
       setGlobalError(
         getFriendlyError(error, 'Impossible de se connecter au serveur central.'),
@@ -483,7 +462,6 @@ export const DashboardGantt: React.FC = () => {
       setIsFetching(false);
     }
   }, []);
-
   useEffect(() => {
     const controller = new AbortController();
     void loadData(controller.signal);
@@ -493,20 +471,17 @@ export const DashboardGantt: React.FC = () => {
   /* ===========================================================================
    * OPTIMISATION — Python (Flask)
    * =========================================================================== */
-
   const triggerOptimization = useCallback(async () => {
     if (isOptimizing) return;
     setIsOptimizing(true);
     setGlobalError(null);
     setGlobalSuccess(null);
-
     try {
       // ✅ Python via pythonFetch (URL /python en prod, localhost:5000 en dev)
       const response = await pythonFetch('/flights/optimize', {
         method: 'POST',
         headers: { Accept: 'application/json' },
       });
-
       if (!response.ok) {
         if (response.status === 404) {
           throw new ApiError(
@@ -520,21 +495,34 @@ export const DashboardGantt: React.FC = () => {
         );
         throw new ApiError(message, response.status);
       }
-
       let message = 'Programme de vols optimisé avec succès.';
       try {
-        const payload = await response.json();
-        message = payload?.message || message;
+        const payload = (await response.json()) as {
+          resolvedConflicts?: number;
+          unresolvedConflicts?: number;
+          conflictsBefore?: number;
+          conflictsAfter?: number;
+          message?: string;
+        };
+        if (
+          typeof payload?.resolvedConflicts === 'number' ||
+          typeof payload?.conflictsAfter === 'number'
+        ) {
+          const resolved = payload.resolvedConflicts ?? 0;
+          const unresolved = payload.unresolvedConflicts ?? 0;
+          const remaining = payload.conflictsAfter ?? 0;
+          message = `Optimisation terminée : ${resolved} conflit(s) résolu(s), ${unresolved} non résolu(s), ${remaining} restant(s).`;
+        } else {
+          message = 'Programme de vols optimisé avec succès.';
+        }
       } catch {
         // Réponse vide autorisée.
       }
-
       setGlobalSuccess(message);
       await loadData();
     } catch (error: unknown) {
       // ✅ AbortError ignoré silencieusement
       if (isAbortError(error)) return;
-
       console.error('Erreur optimisation :', error);
       setGlobalError(
         getFriendlyError(
@@ -550,7 +538,6 @@ export const DashboardGantt: React.FC = () => {
   /* ===========================================================================
    * MÉTÉO
    * =========================================================================== */
-
   const getWeatherIndicator = useCallback(
     (severity: number): WeatherIndicator => {
       const value = normalizeSeverity(severity);
@@ -565,14 +552,11 @@ export const DashboardGantt: React.FC = () => {
   /* ===========================================================================
    * DERIVED
    * =========================================================================== */
-
   const effectiveAnalytics = useMemo(
     () => analytics ?? buildFallbackAnalytics(flights),
     [analytics, flights],
   );
-
   const { metrics } = effectiveAnalytics;
-
   const operationalSummary = useMemo(() => {
     const unassignedFlights = flights.filter(
       flight => !flight.aircraft || flight.aircraft === UNASSIGNED_AIRCRAFT,
@@ -585,14 +569,12 @@ export const DashboardGantt: React.FC = () => {
         .map(flight => flight.aircraft)
         .filter(aircraft => aircraft && aircraft !== UNASSIGNED_AIRCRAFT),
     ).size;
-
     return { unassignedFlights, weatherAlerts, aircraftInProgram };
   }, [flights]);
 
   /* ===========================================================================
    * RENDER
    * =========================================================================== */
-
   return (
     <div className="mx-auto max-w-[1480px] space-y-5">
       {/* ═══════════════ ACTIONS ═══════════════ */}
@@ -607,7 +589,6 @@ export const DashboardGantt: React.FC = () => {
             <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
             {isFetching ? 'Actualisation…' : 'Actualiser'}
           </button>
-
           <button
             type="button"
             onClick={triggerOptimization}
@@ -619,7 +600,6 @@ export const DashboardGantt: React.FC = () => {
           </button>
         </div>
       </header>
-
       {/* ═══════════════ ALERTES SYSTÈME ═══════════════ */}
       {globalError && (
         <AlertMessage
@@ -637,7 +617,6 @@ export const DashboardGantt: React.FC = () => {
           onClose={() => setGlobalSuccess(null)}
         />
       )}
-
       {/* ═══════════════ INDICATEURS PRINCIPAUX ═══════════════ */}
       <section
         className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6"
@@ -689,7 +668,6 @@ export const DashboardGantt: React.FC = () => {
           loading={isFetching && flights.length === 0}
         />
       </section>
-
       {/* ═══════════════ POINTS D’ATTENTION ═══════════════ */}
       <section className="grid gap-3 md:grid-cols-3" aria-label="Synthèse opérationnelle">
         <SummaryCard
@@ -711,7 +689,6 @@ export const DashboardGantt: React.FC = () => {
           state={operationalSummary.weatherAlerts > 0 ? 'danger' : 'ok'}
         />
       </section>
-
       {/* ═══════════════ FLIGHT PLANNING ═══════════════ */}
       <FlightPlanning
         flights={flights}
@@ -724,7 +701,6 @@ export const DashboardGantt: React.FC = () => {
         getWeatherIndicator={getWeatherIndicator}
         onSelectFlight={setSelectedFlight}
       />
-
       {/* ═══════════════ MODALE DÉTAILS ═══════════════ */}
       <FlightDetailsModal
         selectedFlight={selectedFlight}
@@ -749,6 +725,7 @@ const KpiCard: React.FC<{
   value: number | string;
   sub: string;
   icon: React.ReactNode;
+
   /** Couleur d'alerte uniquement quand il y a un problème */
   alert?: 'warning' | 'danger';
   live?: boolean;
@@ -760,10 +737,8 @@ const KpiCard: React.FC<{
       : alert === 'warning'
         ? 'bg-amber-50 text-amber-600 ring-amber-100'
         : 'bg-emerald-50 text-emerald-600 ring-emerald-100';
-
   const valueTone =
     alert === 'danger' ? 'text-rose-600' : alert === 'warning' ? 'text-amber-600' : 'text-slate-900';
-
   return (
     <article className="group relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm shadow-slate-900/[0.03] transition hover:border-emerald-200 hover:shadow-md sm:p-5">
       <span
@@ -796,7 +771,6 @@ const KpiCard: React.FC<{
   );
 };
 
-
 const SummaryCard: React.FC<{
   label: string;
   value: number | string;
@@ -809,14 +783,12 @@ const SummaryCard: React.FC<{
       : state === 'warning'
         ? 'border-amber-200 bg-amber-50/60 text-amber-700'
         : 'border-emerald-200 bg-emerald-50/60 text-emerald-700';
-
   const dot =
     state === 'danger'
       ? 'bg-rose-500'
       : state === 'warning'
         ? 'bg-amber-500'
         : 'bg-emerald-500';
-
   return (
     <article className={`rounded-2xl border p-4 ${tone}`}>
       <div className="flex items-center justify-between gap-3">
@@ -836,7 +808,6 @@ const AlertMessage: React.FC<{
   onClose: () => void;
 }> = ({ type, title, message, onClose }) => {
   const success = type === 'success';
-
   return (
     <div
       className={`flex items-start gap-3 rounded-2xl border bg-white px-4 py-3.5 shadow-sm ${
@@ -851,12 +822,10 @@ const AlertMessage: React.FC<{
       >
         {success ? <CheckCircle2 className="h-[18px] w-[18px]" /> : <XCircle className="h-[18px] w-[18px]" />}
       </div>
-
       <div className="min-w-0 flex-1">
         <p className={`text-sm font-bold ${success ? 'text-emerald-800' : 'text-rose-800'}`}>{title}</p>
         <p className="mt-0.5 text-[13px] leading-5 text-slate-600">{message}</p>
       </div>
-
       <button
         type="button"
         onClick={onClose}

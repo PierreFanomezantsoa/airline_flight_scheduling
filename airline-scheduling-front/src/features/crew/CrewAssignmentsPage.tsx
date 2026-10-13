@@ -5,10 +5,10 @@ import React, {
   useRef,
   useState,
 } from 'react';
-
 import {
   AlertCircle,
   AlertTriangle,
+  ArrowLeft,
   ArrowRight,
   CheckCircle2,
   Clock,
@@ -28,7 +28,6 @@ import {
   Users,
   X,
 } from 'lucide-react';
-
 import {
   ApiError,
   authFetch,
@@ -40,28 +39,25 @@ import { SearchableDropdown } from './SearchableDropdown';
 /* ============================================================================
  * ENDPOINTS
  * ========================================================================== */
-
 const CREW_ASSIGNMENTS_ENDPOINT = '/crew-assignments';
 const FLIGHTS_ENDPOINT = '/flights';
+const ITEMS_PER_PAGE = 10;
 
 /* ============================================================================
  * DESIGN TOKENS
  * ========================================================================== */
-
 const FOCUS_RING =
   'outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10';
 
 /* ============================================================================
  * TYPES
  * ========================================================================== */
-
 type CrewRole =
   | 'Captain'
   | 'First Officer'
   | 'Purser'
   | 'Cabin Crew'
   | 'Other';
-
 type FlightStatus =
   | 'Scheduled'
   | 'Delayed'
@@ -73,7 +69,6 @@ type FlightStatus =
   | 'Annulé'
   | 'En Vol'
   | string;
-
 interface Flight {
   refFlight: string;
   flightNumber?: string;
@@ -84,7 +79,6 @@ interface Flight {
   flightStatus?: FlightStatus;
   refAircraft?: string | null;
 }
-
 interface CrewAssignment {
   refCrewAssign: string;
   refFlight?: string;
@@ -94,18 +88,15 @@ interface CrewAssignment {
   crewRole?: CrewRole;
   restBeforeHrs?: number | null;
 }
-
 interface CrewForm {
   refFlight: string;
   refUser: string;
   crewRole: CrewRole;
 }
-
 interface MessageState {
   type: 'success' | 'error' | 'info';
   text: string;
 }
-
 interface ApiPayload<T> {
   data?: T;
   message?: unknown;
@@ -116,9 +107,7 @@ interface ApiPayload<T> {
 /* ============================================================================
  * ROLES
  * ========================================================================== */
-
 const CREW_ROLES: CrewRole[] = ['Captain', 'First Officer', 'Purser', 'Cabin Crew', 'Other'];
-
 const ROLE_LABELS: Record<CrewRole, string> = {
   Captain: 'Commandant de bord',
   'First Officer': 'Copilote',
@@ -126,7 +115,6 @@ const ROLE_LABELS: Record<CrewRole, string> = {
   'Cabin Crew': 'Personnel de cabine',
   Other: 'Autre',
 };
-
 const ROLE_STYLES: Record<CrewRole, string> = {
   Captain: 'bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-200/70',
   'First Officer': 'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200/70',
@@ -205,15 +193,12 @@ async function getErrorPayload(response: Response): Promise<unknown> {
 
 function extractApiError(payload: unknown, fallback: string): string {
   if (!payload || typeof payload !== 'object') return fallback;
-
   const data = payload as {
     code?: string;
     message?: string | string[] | { code?: string; message?: string };
     error?: string;
   };
-
   if (Array.isArray(data.message)) return data.message.join(' | ');
-
   if (data.code === 'CREW_OVERLAP') {
     return typeof data.message === 'string'
       ? data.message
@@ -224,7 +209,6 @@ function extractApiError(payload: unknown, fallback: string): string {
       ? data.message
       : 'Le temps minimal de repos équipage n’est pas respecté.';
   }
-
   if (typeof data.message === 'object' && data.message !== null) {
     if (data.message.code === 'CREW_OVERLAP') {
       return data.message.message || 'Ce membre est déjà affecté à un autre flight pendant cette période.';
@@ -234,7 +218,6 @@ function extractApiError(payload: unknown, fallback: string): string {
     }
     return data.message.message || fallback;
   }
-
   if (typeof data.message === 'string') return data.message;
   if (data.error) return String(data.error);
   return fallback;
@@ -244,6 +227,7 @@ function extractApiError(payload: unknown, fallback: string): string {
  * Transforme une erreur quelconque (ApiError, Error, inconnu) en message lisible.
  * Adapté aux deux environnements dev / prod.
  */
+
 function getFriendlyError(
   error: unknown,
   fallback = 'Une erreur est survenue.',
@@ -268,20 +252,18 @@ function getFriendlyError(
         return error.message || fallback;
     }
   }
-
   if (error instanceof Error) {
     return error.message || fallback;
   }
-
   return fallback;
 }
 
 /**
  * Requête JSON authentifiée, lève une ApiError en cas d'échec.
  */
+
 async function requestJson<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await authFetch(path, options);
-
   if (!response.ok) {
     const payload = await getErrorPayload(response);
     throw new ApiError(
@@ -290,7 +272,6 @@ async function requestJson<T>(path: string, options: RequestInit = {}): Promise<
       payload,
     );
   }
-
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
 }
@@ -318,7 +299,6 @@ function KpiCard({
           {icon}
         </div>
       </div>
-
       <div className="mt-7 flex items-baseline gap-2">
         <span className="text-[26px] font-bold tabular-nums leading-none tracking-tight text-slate-900">
           {value}
@@ -364,9 +344,7 @@ function AlertBanner({
       label: 'Information',
     },
   }[type];
-
   const { Icon } = config;
-
   return (
     <div className={`flex items-start gap-3 rounded-2xl border px-4 py-3.5 shadow-sm ${config.ring}`} role="alert">
       <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${config.icon}`}>
@@ -402,10 +380,8 @@ function RoleBadge({ role, size = 'md' }: { role?: CrewRole | string | null; siz
       </span>
     );
   }
-
   const style = ROLE_STYLES[role as CrewRole] ?? 'bg-slate-100 text-slate-600 ring-1 ring-inset ring-slate-200';
   const sizeClass = size === 'sm' ? 'px-2 py-0.5 text-[9px]' : 'px-2.5 py-1 text-[10px]';
-
   return (
     <span className={`inline-flex items-center rounded-full font-semibold tracking-wide ${style} ${sizeClass}`}>
       {formatRole(role)}
@@ -431,16 +407,15 @@ export const CrewAssignmentsPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFlightId, setSelectedFlightId] = useState('TOUS');
   const [selectedUserId, setSelectedUserId] = useState('TOUS');
+  const [currentPage, setCurrentPage] = useState(1);
   const [message, setMessage] = useState<MessageState | null>(null);
   const [form, setForm] = useState<CrewForm>({
     refFlight: '',
     refUser: '',
     crewRole: 'Other',
   });
-
   // AbortController pour éviter les race conditions sur le polling
   const pollAbortRef = useRef<AbortController | null>(null);
-
   /* LOAD MEMBERS */
   const loadCrewMembers = useCallback(async () => {
     setLoadingUsers(true);
@@ -467,7 +442,6 @@ export const CrewAssignmentsPage: React.FC = () => {
       setLoadingUsers(false);
     }
   }, []);
-
   /* LOAD DATA */
   const loadData = useCallback(async (silent = false) => {
     if (!silent) {
@@ -479,10 +453,8 @@ export const CrewAssignmentsPage: React.FC = () => {
         requestJson<unknown>(CREW_ASSIGNMENTS_ENDPOINT),
         requestJson<unknown>(FLIGHTS_ENDPOINT),
       ]);
-
       if (assignmentsResult.status === 'rejected') throw assignmentsResult.reason;
       setAssignments(normalizeArray<CrewAssignment>(assignmentsResult.value));
-
       if (flightsResult.status === 'fulfilled') {
         setFlights(normalizeArray<Flight>(flightsResult.value));
       } else {
@@ -497,28 +469,22 @@ export const CrewAssignmentsPage: React.FC = () => {
       if (!silent) setLoading(false);
     }
   }, []);
-
   useEffect(() => {
     void Promise.all([loadData(), loadCrewMembers()]);
   }, [loadData, loadCrewMembers]);
-
   /* POLLING 30s avec AbortController */
   useEffect(() => {
     const timer = window.setInterval(() => {
       if (document.visibilityState !== 'visible') return;
-
       pollAbortRef.current?.abort();
       pollAbortRef.current = new AbortController();
-
       void loadData(true);
     }, 30_000);
-
     return () => {
       window.clearInterval(timer);
       pollAbortRef.current?.abort();
     };
   }, [loadData]);
-
   /* MODAL BODY LOCK + ESCAPE */
   useEffect(() => {
     const hasOpenModal = modalOpen || Boolean(assignmentToDelete);
@@ -541,13 +507,11 @@ export const CrewAssignmentsPage: React.FC = () => {
       window.removeEventListener('keydown', handleEscape);
     };
   }, [modalOpen, assignmentToDelete, saving, deletingId]);
-
   /* DERIVED */
   const assignableFlights = useMemo(() => {
     const currentFlightId = editingId ? form.refFlight : null;
     return flights.filter(flight => isAssignableFlight(flight) || flight.refFlight === currentFlightId);
   }, [flights, editingId, form.refFlight]);
-
   const filteredAssignments = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
     return assignments.filter(assignment => {
@@ -573,27 +537,46 @@ export const CrewAssignmentsPage: React.FC = () => {
       );
     });
   }, [assignments, searchTerm, selectedFlightId, selectedUserId]);
-
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredAssignments.length / ITEMS_PER_PAGE),
+  );
+  const paginatedAssignments = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredAssignments.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredAssignments, currentPage]);
+  const firstVisibleItem =
+    filteredAssignments.length === 0
+      ? 0
+      : (currentPage - 1) * ITEMS_PER_PAGE + 1;
+  const lastVisibleItem = Math.min(
+    currentPage * ITEMS_PER_PAGE,
+    filteredAssignments.length,
+  );
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedFlightId, selectedUserId]);
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
   const uniqueCrewCount = useMemo(
     () => new Set(assignments.map(getAssignmentUserId).filter(Boolean)).size,
     [assignments],
   );
-
   const assignedFlightCount = useMemo(
     () => new Set(assignments.map(getAssignmentFlightId).filter(Boolean)).size,
     [assignments],
   );
-
   const withRestInfo = useMemo(
     () => assignments.filter(item => item.restBeforeHrs !== null && item.restBeforeHrs !== undefined).length,
     [assignments],
   );
-
   const selectedFlight = useMemo(
     () => flights.find(flight => flight.refFlight === form.refFlight) ?? null,
     [flights, form.refFlight],
   );
-
   const modalUsers = useMemo(() => {
     if (!editingId) return users;
     const assignment = assignments.find(item => item.refCrewAssign === editingId);
@@ -601,18 +584,15 @@ export const CrewAssignmentsPage: React.FC = () => {
     if (!currentUser || users.some(user => user.refUser === currentUser.refUser)) return users;
     return [currentUser, ...users];
   }, [users, assignments, editingId]);
-
   const activeFilterCount =
     (searchTerm.trim() ? 1 : 0) +
     (selectedFlightId !== 'TOUS' ? 1 : 0) +
     (selectedUserId !== 'TOUS' ? 1 : 0);
-
   const resetFilters = () => {
     setSearchTerm('');
     setSelectedFlightId('TOUS');
     setSelectedUserId('TOUS');
   };
-
   /* MODAL */
   const openCreateModal = () => {
     setEditingId(null);
@@ -621,7 +601,6 @@ export const CrewAssignmentsPage: React.FC = () => {
     void loadCrewMembers();
     setModalOpen(true);
   };
-
   const openEditModal = (assignment: CrewAssignment) => {
     setEditingId(assignment.refCrewAssign);
     setForm({
@@ -633,18 +612,15 @@ export const CrewAssignmentsPage: React.FC = () => {
     void loadCrewMembers();
     setModalOpen(true);
   };
-
   const closeModal = () => {
     if (saving) return;
     setModalOpen(false);
     setEditingId(null);
   };
-
   /* SAVE */
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (saving) return;
-
     if (!form.refFlight || !form.refUser || !form.crewRole) {
       setMessage({
         type: 'error',
@@ -652,7 +628,6 @@ export const CrewAssignmentsPage: React.FC = () => {
       });
       return;
     }
-
     if (selectedFlight && !isAssignableFlight(selectedFlight) && !editingId) {
       setMessage({
         type: 'error',
@@ -660,16 +635,13 @@ export const CrewAssignmentsPage: React.FC = () => {
       });
       return;
     }
-
     const selectedUser = modalUsers.find(user => user.refUser === form.refUser);
     if (!selectedUser) {
       setMessage({ type: 'error', text: 'Le membre d’équipage sélectionné est introuvable.' });
       return;
     }
-
     setSaving(true);
     setMessage(null);
-
     try {
       const isEdit = Boolean(editingId);
       await requestJson<CrewAssignment>(
@@ -683,7 +655,6 @@ export const CrewAssignmentsPage: React.FC = () => {
           }),
         },
       );
-
       setModalOpen(false);
       setEditingId(null);
       setMessage({
@@ -700,18 +671,15 @@ export const CrewAssignmentsPage: React.FC = () => {
       setSaving(false);
     }
   };
-
   /* DELETE */
   const handleDelete = (assignment: CrewAssignment) => {
     if (deletingId) return;
     setAssignmentToDelete(assignment);
   };
-
   const closeDeleteModal = () => {
     if (deletingId) return;
     setAssignmentToDelete(null);
   };
-
   const confirmDelete = async () => {
     if (!assignmentToDelete || deletingId) return;
     const assignment = assignmentToDelete;
@@ -731,7 +699,6 @@ export const CrewAssignmentsPage: React.FC = () => {
       setDeletingId(null);
     }
   };
-
   /* RENDER */
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100/50 p-4 sm:p-6">
@@ -752,7 +719,6 @@ export const CrewAssignmentsPage: React.FC = () => {
             <RefreshCw className={`h-4 w-4 ${loading || loadingUsers ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">Actualiser</span>
           </button>
-
           <button
             type="button"
             onClick={openCreateModal}
@@ -762,12 +728,10 @@ export const CrewAssignmentsPage: React.FC = () => {
             Nouvelle affectation
           </button>
         </header>
-
         {/* ═══════════════ MESSAGE ═══════════════ */}
         {message && (
           <AlertBanner type={message.type} text={message.text} onClose={() => setMessage(null)} />
         )}
-
         {/* ═══════════════ KPI ═══════════════ */}
         <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <KpiCard
@@ -795,7 +759,6 @@ export const CrewAssignmentsPage: React.FC = () => {
             icon={<AlertCircle className="h-3.5 w-3.5" />}
           />
         </section>
-
         {/* ═══════════════ TABLEAU ═══════════════ */}
         <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
           {/* TOOLBAR */}
@@ -811,7 +774,6 @@ export const CrewAssignmentsPage: React.FC = () => {
                   className={`h-10 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-3 text-sm text-slate-700 placeholder:text-slate-400 ${FOCUS_RING}`}
                 />
               </div>
-
               <div className="flex flex-wrap items-center gap-2">
                 <div className="w-full sm:w-56">
                   <SearchableDropdown
@@ -832,7 +794,6 @@ export const CrewAssignmentsPage: React.FC = () => {
                     ]}
                   />
                 </div>
-
                 <div className="w-full sm:w-56">
                   <SearchableDropdown
                     id="crew-filter-member"
@@ -852,7 +813,6 @@ export const CrewAssignmentsPage: React.FC = () => {
                     ]}
                   />
                 </div>
-
                 {activeFilterCount > 0 && (
                   <button
                     type="button"
@@ -866,7 +826,6 @@ export const CrewAssignmentsPage: React.FC = () => {
               </div>
             </div>
           </div>
-
           {/* EN-TÊTE LISTE */}
           <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
             <div className="flex items-center gap-2.5">
@@ -879,7 +838,6 @@ export const CrewAssignmentsPage: React.FC = () => {
               Vol, membre, crewRole et repos avant rotation
             </p>
           </header>
-
           {/* MOBILE */}
           <div className="space-y-3 bg-slate-50/60 p-4 md:hidden">
             {loading ? (
@@ -910,11 +868,10 @@ export const CrewAssignmentsPage: React.FC = () => {
                 )}
               </div>
             ) : (
-              filteredAssignments.map(assignment => {
+              paginatedAssignments.map(assignment => {
                 const flight = assignment.flight;
                 const user = assignment.user;
                 const initials = (user?.userName ?? 'U').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-
                 return (
                   <article key={assignment.refCrewAssign} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md">
                     <div className="flex items-center justify-between gap-2 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white px-4 py-3">
@@ -935,7 +892,6 @@ export const CrewAssignmentsPage: React.FC = () => {
                         {flight?.flightStatus ?? 'Inconnu'}
                       </span>
                     </div>
-
                     <div className="space-y-3 p-4">
                       <div className="flex items-start gap-3">
                         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-slate-100 to-slate-200 text-xs font-bold text-slate-600">
@@ -952,7 +908,6 @@ export const CrewAssignmentsPage: React.FC = () => {
                           </p>
                         </div>
                       </div>
-
                       <div className="grid grid-cols-2 gap-2">
                         <div className="rounded-xl bg-slate-50 p-3 ring-1 ring-inset ring-slate-100">
                           <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Départ</p>
@@ -973,7 +928,6 @@ export const CrewAssignmentsPage: React.FC = () => {
                         </div>
                       </div>
                     </div>
-
                     <div className="grid grid-cols-2 gap-2 border-t border-slate-100 bg-slate-50/60 p-3">
                       <button
                         type="button"
@@ -997,7 +951,6 @@ export const CrewAssignmentsPage: React.FC = () => {
               })
             )}
           </div>
-
           {/* DESKTOP */}
           <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-[1100px] text-left">
@@ -1012,7 +965,6 @@ export const CrewAssignmentsPage: React.FC = () => {
                   <th className="px-5 py-3 text-right">Actions</th>
                 </tr>
               </thead>
-
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
                   <tr>
@@ -1036,11 +988,10 @@ export const CrewAssignmentsPage: React.FC = () => {
                     </td>
                   </tr>
                 ) : (
-                  filteredAssignments.map(assignment => {
+                  paginatedAssignments.map(assignment => {
                     const flight = assignment.flight;
                     const user = assignment.user;
                     const initials = (user?.userName ?? 'U').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-
                     return (
                       <tr key={assignment.refCrewAssign} className="group transition hover:bg-slate-50/70">
                         <td className="px-5 py-4">
@@ -1058,7 +1009,6 @@ export const CrewAssignmentsPage: React.FC = () => {
                             </div>
                           </div>
                         </td>
-
                         <td className="px-4 py-4">
                           <span className="font-mono text-xs font-medium text-slate-700">
                             {flight?.depAirportCode ?? '--'}{' '}
@@ -1066,7 +1016,6 @@ export const CrewAssignmentsPage: React.FC = () => {
                             {flight?.arrAirportCode ?? '--'}
                           </span>
                         </td>
-
                         <td className="px-4 py-4">
                           <div className="flex items-center gap-3">
                             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-slate-100 to-slate-200 text-[10px] font-bold text-slate-600">
@@ -1078,17 +1027,14 @@ export const CrewAssignmentsPage: React.FC = () => {
                             </div>
                           </div>
                         </td>
-
                         <td className="px-4 py-4">
                           <RoleBadge role={assignment.crewRole} />
                         </td>
-
                         <td className="px-4 py-4">
                           <span className="font-mono text-xs font-medium text-slate-600">
                             {formatDateTime(flight?.departureTime)}
                           </span>
                         </td>
-
                         <td className="px-4 py-4">
                           {assignment.restBeforeHrs === null || assignment.restBeforeHrs === undefined ? (
                             <span className="text-[11px] font-medium text-slate-400">Non calculé</span>
@@ -1099,7 +1045,6 @@ export const CrewAssignmentsPage: React.FC = () => {
                             </span>
                           )}
                         </td>
-
                         <td className="px-5 py-4">
                           <div className="flex justify-end gap-1.5 opacity-70 transition-opacity group-hover:opacity-100">
                             <button
@@ -1127,9 +1072,50 @@ export const CrewAssignmentsPage: React.FC = () => {
               </tbody>
             </table>
           </div>
-        </section>
+                  {filteredAssignments.length > ITEMS_PER_PAGE && (
+            <div className="flex flex-col gap-3 border-t border-slate-100 bg-white px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+              <p className="text-xs text-slate-500">
+                Affichage de{' '}
+                <span className="font-semibold text-slate-700">{firstVisibleItem}</span>{' '}
+                à{' '}
+                <span className="font-semibold text-slate-700">{lastVisibleItem}</span>{' '}
+                sur{' '}
+                <span className="font-semibold text-slate-700">
+                  {filteredAssignments.length}
+                </span>{' '}
+                affectations
+              </p>
+              <div className="flex items-center justify-between gap-2 sm:justify-end">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCurrentPage(page => Math.max(1, page - 1))
+                  }
+                  disabled={currentPage === 1}
+                  className={`inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-40 ${FOCUS_RING}`}
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  Précédent
+                </button>
+                <span className="min-w-[96px] text-center text-xs font-semibold tabular-nums text-slate-600">
+                  Page {currentPage} sur {totalPages}
+                </span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCurrentPage(page => Math.min(totalPages, page + 1))
+                  }
+                  disabled={currentPage === totalPages}
+                  className={`inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-40 ${FOCUS_RING}`}
+                >
+                  Suivant
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
+</section>
       </div>
-
       {/* MODAL CREATE / EDIT */}
       {modalOpen && (
         <div
@@ -1142,7 +1128,6 @@ export const CrewAssignmentsPage: React.FC = () => {
         >
           <div className="flex max-h-[94vh] w-full flex-col overflow-hidden rounded-t-3xl border border-slate-200 bg-white shadow-2xl sm:max-w-lg sm:rounded-3xl">
             <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-slate-200 sm:hidden" />
-
             <header className="flex items-center justify-between gap-3 border-b border-slate-100 px-6 py-5">
               <div className="flex min-w-0 items-center gap-3">
                 <div
@@ -1171,7 +1156,6 @@ export const CrewAssignmentsPage: React.FC = () => {
                 <X className="h-4 w-4" />
               </button>
             </header>
-
             <form onSubmit={handleSubmit} className="flex-1 space-y-4 overflow-y-auto p-6">
               {/* VOL */}
               <label className="block">
@@ -1195,7 +1179,6 @@ export const CrewAssignmentsPage: React.FC = () => {
                   }))}
                 />
               </label>
-
               {/* MEMBER */}
               <label className="block">
                 <div className="mb-1.5 flex items-center justify-between">
@@ -1208,7 +1191,6 @@ export const CrewAssignmentsPage: React.FC = () => {
                     </span>
                   )}
                 </div>
-
                 <SearchableDropdown
                   id="crew-assignment-member"
                   label="Membre d’équipage"
@@ -1232,7 +1214,6 @@ export const CrewAssignmentsPage: React.FC = () => {
                     description: user.email,
                   }))}
                 />
-
                 {!loadingUsers && modalUsers.length === 0 && (
                   <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50/70 p-3.5">
                     <div className="flex items-start gap-2">
@@ -1255,7 +1236,6 @@ export const CrewAssignmentsPage: React.FC = () => {
                   </div>
                 )}
               </label>
-
               {/* ROLE */}
               <label className="block">
                 <span className="mb-1.5 block text-xs font-semibold text-slate-700">
@@ -1274,7 +1254,6 @@ export const CrewAssignmentsPage: React.FC = () => {
                   ))}
                 </select>
               </label>
-
               {/* INFO */}
               <div className="rounded-2xl border border-slate-100 bg-gradient-to-br from-slate-50 to-white p-4">
                 <div className="flex items-start gap-2.5">
@@ -1290,7 +1269,6 @@ export const CrewAssignmentsPage: React.FC = () => {
                 </div>
               </div>
             </form>
-
             <footer className="grid grid-cols-2 gap-3 border-t border-slate-100 bg-slate-50/70 px-6 py-4 sm:flex sm:justify-end">
               <button
                 type="button"
@@ -1313,7 +1291,6 @@ export const CrewAssignmentsPage: React.FC = () => {
           </div>
         </div>
       )}
-
       {/* MODAL SUPPRESSION */}
       {assignmentToDelete && (
         <div
@@ -1326,7 +1303,6 @@ export const CrewAssignmentsPage: React.FC = () => {
         >
           <div className="w-full overflow-hidden rounded-t-3xl border border-slate-200 bg-white shadow-2xl sm:max-w-md sm:rounded-3xl">
             <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-slate-200 sm:hidden" />
-
             <header className="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-5">
               <div className="flex min-w-0 items-start gap-3">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-rose-50 text-rose-600 ring-1 ring-inset ring-rose-100">
@@ -1347,7 +1323,6 @@ export const CrewAssignmentsPage: React.FC = () => {
                 <X className="h-4 w-4" />
               </button>
             </header>
-
             <div className="p-6">
               <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
                 <div className="flex items-center gap-3">
@@ -1362,9 +1337,7 @@ export const CrewAssignmentsPage: React.FC = () => {
                   </div>
                   <RoleBadge role={assignmentToDelete.crewRole} />
                 </div>
-
                 <div className="my-3 border-t border-slate-200" />
-
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Vol</p>
@@ -1382,7 +1355,6 @@ export const CrewAssignmentsPage: React.FC = () => {
                     </p>
                   </div>
                 </div>
-
                 <div className="mt-3 border-t border-slate-200 pt-3">
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Départ du vol</p>
                   <p className="mt-1 flex items-center gap-1.5 font-mono text-xs font-medium text-slate-700">
@@ -1391,7 +1363,6 @@ export const CrewAssignmentsPage: React.FC = () => {
                   </p>
                 </div>
               </div>
-
               <div className="mt-4 flex items-start gap-2.5 rounded-2xl border border-rose-200 bg-rose-50/60 p-3.5">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" />
                 <p className="text-xs leading-5 text-rose-700">
@@ -1399,7 +1370,6 @@ export const CrewAssignmentsPage: React.FC = () => {
                 </p>
               </div>
             </div>
-
             <footer className="grid grid-cols-2 gap-3 border-t border-slate-100 bg-slate-50/70 px-6 py-4 sm:flex sm:justify-end">
               <button
                 type="button"

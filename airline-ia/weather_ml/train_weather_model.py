@@ -10,7 +10,7 @@ Améliorations par rapport à la version initiale :
 - nettoyage et contrôle des données plus stricts ;
 - découpage CHRONOLOGIQUE train/test pour éviter la fuite temporelle ;
 - validation croisée temporelle lorsque le volume le permet ;
-- ExtraTreesRegressor robuste pour une climatologie locale non linéaire ;
+- XGBoost (XGBRegressor) pour modéliser les relations météo non linéaires ;
 - métriques MAE / RMSE / R² / erreur P90 ;
 - métadonnées JSON (version, couverture, aéroports, qualité) ;
 - profil climatologique par aéroport pour fallback / confiance ;
@@ -43,14 +43,14 @@ import joblib
 import numpy as np
 import pandas as pd
 from sklearn.compose import ColumnTransformer
-from sklearn.ensemble import ExtraTreesRegressor, RandomForestRegressor
+from xgboost import XGBRegressor
 from sklearn.impute import SimpleImputer
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.model_selection import TimeSeriesSplit
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.preprocessing import OneHotEncoder
 
-MODEL_VERSION = "2.0.0"
+MODEL_VERSION = "xgboost-weather-3.0.0"
 CORE_FEATURES = ["airport", "month", "day", "day_of_year", "hour", "weekday"]
 OPTIONAL_WEATHER_FEATURES = [
     "temperature_c",
@@ -170,16 +170,22 @@ def _build_core_model(random_state: int = 42) -> Pipeline:
         remainder="drop",
     )
 
-    # ExtraTrees est très rapide en inférence locale, robuste aux relations non
-    # linéaires et permet d'estimer une dispersion entre arbres au runtime.
-    regressor = ExtraTreesRegressor(
-        n_estimators=500,
-        max_depth=18,
-        min_samples_leaf=2,
-        max_features=0.85,
-        bootstrap=False,
+    # XGBoost apprend les relations non linéaires entre aéroport, calendrier
+    # et niveau de sévérité météo. Le mode hist est rapide et adapté à ce
+    # volume de données tabulaires.
+    regressor = XGBRegressor(
+        objective="reg:squarederror",
+        n_estimators=420,
+        max_depth=6,
+        learning_rate=0.035,
+        subsample=0.90,
+        colsample_bytree=0.85,
+        reg_alpha=0.02,
+        reg_lambda=1.0,
+        min_child_weight=2.0,
         random_state=random_state,
         n_jobs=-1,
+        tree_method="hist",
     )
 
     return Pipeline(
@@ -207,7 +213,6 @@ def _build_enhanced_model(weather_features: list[str], random_state: int = 42) -
                 Pipeline(
                     [
                         ("imputer", SimpleImputer(strategy="median")),
-                        ("scaler", StandardScaler()),
                     ]
                 ),
                 numeric,
@@ -216,16 +221,20 @@ def _build_enhanced_model(weather_features: list[str], random_state: int = 42) -
         remainder="drop",
     )
 
-    # RandomForest avec bootstrap : bon compromis pour données météo bruitées et
-    # estimation de dispersion par arbres.
-    regressor = RandomForestRegressor(
-        n_estimators=450,
-        max_depth=20,
-        min_samples_leaf=2,
-        max_features=0.8,
-        bootstrap=True,
+    # Modèle XGBoost enrichi avec les observations météo disponibles.
+    regressor = XGBRegressor(
+        objective="reg:squarederror",
+        n_estimators=520,
+        max_depth=7,
+        learning_rate=0.03,
+        subsample=0.90,
+        colsample_bytree=0.90,
+        reg_alpha=0.02,
+        reg_lambda=1.2,
+        min_child_weight=2.0,
         random_state=random_state,
         n_jobs=-1,
+        tree_method="hist",
     )
 
     return Pipeline(
