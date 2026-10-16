@@ -10,7 +10,7 @@ import {
 
 import type { ReactNode } from 'react';
 
-import { ChevronDown, LogOut, ShieldCheck, User } from 'lucide-react';
+import { ChevronDown, LoaderCircle, LogOut, ShieldCheck, User } from 'lucide-react';
 
 // =============================================================================
 // DASHBOARD
@@ -109,6 +109,9 @@ const STORAGE_KEYS = {
   ACTIVE_SCREEN: 'airline.activeScreen',
   SESSION: 'airline.session',
 } as const;
+
+// Animation courte de sortie : 1,8 s, donc largement sous la limite de 5 s.
+const LOGOUT_ANIMATION_MS = 1800;
 
 // =============================================================================
 // AUTORISATIONS PAR RÔLE
@@ -303,6 +306,7 @@ const UserAvatar: React.FC<UserAvatarProps> = ({ user, size }) => {
 
 function App() {
   const profileMenuRef = useRef<HTMLDivElement>(null);
+  const logoutTimerRef = useRef<number | null>(null);
 
   const initialSession = useMemo(() => getAuthSession(), []);
 
@@ -331,6 +335,9 @@ function App() {
 
   /** Modal de confirmation de déconnexion */
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+
+  /** Affiche l'animation de fermeture de session. */
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const isAuthenticated = user !== null;
 
@@ -468,17 +475,38 @@ function App() {
   }, []);
 
   const closeLogoutModal = useCallback(() => {
+    if (isLoggingOut) return;
     setIsLogoutModalOpen(false);
-  }, []);
+  }, [isLoggingOut]);
 
   const confirmLogout = useCallback(() => {
-    clearAuthSession();
-    localStorage.removeItem(STORAGE_KEYS.ACTIVE_SCREEN);
+    if (isLoggingOut) return;
+
+    setIsLoggingOut(true);
     setIsProfileMenuOpen(false);
-    setIsLogoutModalOpen(false);
-    setUser(null);
-    setActiveScreenState('dashboard');
-    setAuthenticationPage('user');
+
+    if (logoutTimerRef.current !== null) {
+      window.clearTimeout(logoutTimerRef.current);
+    }
+
+    logoutTimerRef.current = window.setTimeout(() => {
+      clearAuthSession();
+      localStorage.removeItem(STORAGE_KEYS.ACTIVE_SCREEN);
+      setUser(null);
+      setActiveScreenState('dashboard');
+      setAuthenticationPage('user');
+      setIsLogoutModalOpen(false);
+      setIsLoggingOut(false);
+      logoutTimerRef.current = null;
+    }, LOGOUT_ANIMATION_MS);
+  }, [isLoggingOut]);
+
+  useEffect(() => {
+    return () => {
+      if (logoutTimerRef.current !== null) {
+        window.clearTimeout(logoutTimerRef.current);
+      }
+    };
   }, []);
 
   // ===========================================================================
@@ -489,14 +517,14 @@ function App() {
     if (!isLogoutModalOpen) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
+      if (event.key === 'Escape' && !isLoggingOut) {
         setIsLogoutModalOpen(false);
       }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isLogoutModalOpen]);
+  }, [isLogoutModalOpen, isLoggingOut]);
 
   // ===========================================================================
   // ROUTAGE DES ÉCRANS
@@ -720,40 +748,100 @@ function App() {
           onClick={closeLogoutModal}
         >
           <section
-            className="w-full max-w-[360px] rounded-3xl bg-white p-6 text-center shadow-2xl shadow-emerald-950/15 ring-1 ring-slate-900/5 animate-in zoom-in-95 duration-200"
+            className={`w-full max-w-[390px] overflow-hidden rounded-3xl bg-white text-center shadow-2xl shadow-emerald-950/15 ring-1 ring-slate-900/5 animate-in zoom-in-95 duration-200 ${
+              isLoggingOut ? 'pointer-events-none' : ''
+            }`}
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 ring-8 ring-emerald-50/50">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-linear-to-br from-emerald-500 to-emerald-700 text-white shadow-md shadow-emerald-700/30">
-                <LogOut className="h-[18px] w-[18px]" />
+            <div className="p-6">
+              {isLoggingOut ? (
+                <div
+                  className="animate-in fade-in zoom-in-95 duration-300"
+                  role="status"
+                  aria-live="polite"
+                >
+                  <div className="relative mx-auto flex h-20 w-20 items-center justify-center">
+                    <span
+                      className="absolute inset-2 rounded-full bg-emerald-100 animate-ping"
+                      aria-hidden="true"
+                    />
+                    <span
+                      className="absolute inset-0 rounded-full border border-emerald-100"
+                      aria-hidden="true"
+                    />
+                    <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-linear-to-br from-emerald-500 to-emerald-700 text-white shadow-lg shadow-emerald-700/30">
+                      <LoaderCircle className="h-6 w-6 animate-spin" />
+                    </div>
+                  </div>
+
+                  <h2
+                    id="logout-dialog-title"
+                    className="mt-5 text-lg font-bold tracking-tight text-slate-900"
+                  >
+                    Déconnexion en cours
+                  </h2>
+
+                  <p
+                    id="logout-dialog-desc"
+                    className="mx-auto mt-1.5 max-w-[270px] text-sm leading-6 text-slate-500"
+                  >
+                    Fermeture sécurisée de votre session. Redirection vers la page de connexion…
+                  </p>
+
+                  <div className="mx-auto mt-5 flex items-center justify-center gap-1.5">
+                    {[0, 1, 2].map((index) => (
+                      <span
+                        key={index}
+                        className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-bounce"
+                        style={{ animationDelay: `${index * 120}ms` }}
+                        aria-hidden="true"
+                      />
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 ring-8 ring-emerald-50/50">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-linear-to-br from-emerald-500 to-emerald-700 text-white shadow-md shadow-emerald-700/30">
+                      <LogOut className="h-[18px] w-[18px]" />
+                    </div>
+                  </div>
+
+                  <h2 id="logout-dialog-title" className="mt-5 text-lg font-bold tracking-tight text-slate-900">
+                    Se déconnecter ?
+                  </h2>
+                  <p id="logout-dialog-desc" className="mt-1.5 text-sm leading-6 text-slate-500">
+                    Vous allez quitter la session de{' '}
+                    <span className="font-semibold text-slate-800">{user.userName}</span>.
+                  </p>
+
+                  <div className="mt-6 grid grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] gap-3">
+                    <button
+                      type="button"
+                      onClick={closeLogoutModal}
+                      autoFocus
+                      className="inline-flex h-12 min-w-0 cursor-pointer items-center justify-center rounded-2xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition-all hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 active:scale-[0.98] focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-500/20"
+                    >
+                      Annuler
+                    </button>
+                    <button
+                      type="button"
+                      onClick={confirmLogout}
+                      className="inline-flex h-12 min-w-0 cursor-pointer items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-3 text-[13px] font-semibold text-white shadow-md shadow-emerald-600/25 transition-all hover:-translate-y-0.5 hover:bg-emerald-700 hover:shadow-lg hover:shadow-emerald-600/30 active:translate-y-0 active:scale-[0.98] focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-500/30 sm:text-sm"
+                    >
+                      <LogOut className="h-4 w-4 shrink-0" />
+                      <span className="whitespace-nowrap">Se déconnecter</span>
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {isLoggingOut && (
+              <div className="h-1 w-full overflow-hidden bg-emerald-50">
+                <div className="h-full w-full animate-pulse bg-emerald-500" />
               </div>
-            </div>
-
-            <h2 id="logout-dialog-title" className="mt-5 text-lg font-bold tracking-tight text-slate-900">
-              Se déconnecter ?
-            </h2>
-            <p id="logout-dialog-desc" className="mt-1.5 text-sm leading-6 text-slate-500">
-              Vous allez quitter la session de{' '}
-              <span className="font-semibold text-slate-800">{user.userName}</span>.
-            </p>
-
-            <div className="mt-6 grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={closeLogoutModal}
-                autoFocus
-                className="inline-flex h-11 cursor-pointer items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-emerald-300 hover:text-emerald-700 focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-500/20"
-              >
-                Annuler
-              </button>
-              <button
-                type="button"
-                onClick={confirmLogout}
-                className="inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white shadow-md shadow-emerald-600/25 transition hover:bg-emerald-700 focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-500/30"
-              >
-                Se déconnecter
-              </button>
-            </div>
+            )}
           </section>
         </div>
       )}
