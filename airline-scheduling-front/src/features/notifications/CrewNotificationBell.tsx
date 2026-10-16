@@ -95,6 +95,7 @@ function notificationStorageKey(
   return `airline.crew.notifications.${userRef}`;
 }
 
+// configuration de la traduction des rôles d'équipage en français
 function translateCrewRole(
   role?: string,
 ): string | undefined {
