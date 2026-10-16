@@ -160,7 +160,7 @@ const formatDateTime = (value?: string | null) => {
     minute: '2-digit',
   });
 };
-
+//get pour les conflits et post pour l'optimisation
 const getFriendlyError = (error: unknown, fallback: string): string => {
   if (error instanceof Error) {
     if (error.message.includes('Failed to fetch')) {
