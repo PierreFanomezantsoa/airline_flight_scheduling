@@ -171,6 +171,7 @@ const getFriendlyError = (error: unknown, fallback: string): string => {
   return fallback;
 };
 
+// methode pour flight optimisation dans le dashboard, qui va permettre de récupérer les conflits et d'optimiser le programme de vol
 export const FlightOptimizationDashboard: React.FC = () => {
   const [conflictResult, setConflictResult] =
     useState<ConflictDetectionResult | null>(null);
