@@ -31,6 +31,7 @@ import {
 import {
   ApiError,
   authFetch,
+  getAuthSession,
   getCrewMembers,
   type PublicUser,
 } from '../Api/apiService';
@@ -95,6 +96,7 @@ interface CrewForm {
 }
 interface MessageState {
   type: 'success' | 'error' | 'info';
+  title?: string;
   text: string;
 }
 interface ApiPayload<T> {
@@ -239,7 +241,7 @@ function getFriendlyError(
       case 401:
         return 'Votre session a expiré. Veuillez vous reconnecter.';
       case 403:
-        return "Vous n'avez pas l'autorisation d'effectuer cette action.";
+        return "Mode consultation : cette action est réservée aux utilisateurs autorisés.";
       case 404:
         return 'Ressource introuvable.';
       case 409:
@@ -256,6 +258,31 @@ function getFriendlyError(
     return error.message || fallback;
   }
   return fallback;
+}
+
+
+function isForbiddenError(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 403;
+}
+
+function getActionMessage(
+  error: unknown,
+  fallback: string,
+  errorTitle = 'Action non réalisée',
+): MessageState {
+  if (error instanceof ApiError && error.status === 403) {
+    return {
+      type: 'info',
+      title: 'Accès limité',
+      text: 'Mode consultation : la gestion des affectations d’équipage est réservée aux utilisateurs autorisés.',
+    };
+  }
+
+  return {
+    type: 'error',
+    title: errorTitle,
+    text: getFriendlyError(error, fallback),
+  };
 }
 
 /**
@@ -311,10 +338,12 @@ function KpiCard({
 
 function AlertBanner({
   type,
+  title,
   text,
   onClose,
 }: {
   type: 'success' | 'error' | 'info';
+  title?: string;
   text: string;
   onClose: () => void;
 }) {
@@ -325,7 +354,7 @@ function AlertBanner({
       title: 'text-emerald-800',
       body: 'text-emerald-700',
       Icon: CheckCircle2,
-      label: 'Opération réussie',
+      label: 'Confirmation',
     },
     error: {
       ring: 'border-rose-200 bg-rose-50/70',
@@ -333,7 +362,7 @@ function AlertBanner({
       title: 'text-rose-800',
       body: 'text-rose-700',
       Icon: AlertTriangle,
-      label: 'Erreur',
+      label: 'Action non réalisée',
     },
     info: {
       ring: 'border-sky-200 bg-sky-50/70',
@@ -346,12 +375,16 @@ function AlertBanner({
   }[type];
   const { Icon } = config;
   return (
-    <div className={`flex items-start gap-3 rounded-2xl border px-4 py-3.5 shadow-sm ${config.ring}`} role="alert">
+    <div
+      className={`flex items-start gap-3 rounded-2xl border px-4 py-3.5 shadow-sm ${config.ring}`}
+      role={type === 'error' ? 'alert' : 'status'}
+      aria-live={type === 'error' ? 'assertive' : 'polite'}
+    >
       <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${config.icon}`}>
         <Icon className="h-4 w-4" />
       </div>
       <div className="min-w-0 flex-1">
-        <p className={`text-sm font-semibold ${config.title}`}>{config.label}</p>
+        <p className={`text-sm font-semibold ${config.title}`}>{title ?? config.label}</p>
         <p className={`mt-0.5 text-xs leading-5 ${config.body}`}>{text}</p>
       </div>
       <button
@@ -394,6 +427,14 @@ function RoleBadge({ role, size = 'md' }: { role?: CrewRole | string | null; siz
  * ========================================================================== */
 
 export const CrewAssignmentsPage: React.FC = () => {
+  const session = useMemo(() => getAuthSession(), []);
+  const currentRole = session?.user?.role;
+
+  const canManageCrewAssignments = useMemo(
+    () => ['Admin', 'Planificateur', 'Regulator'].includes(String(currentRole ?? '')),
+    [currentRole],
+  );
+
   const [assignments, setAssignments] = useState<CrewAssignment[]>([]);
   const [flights, setFlights] = useState<Flight[]>([]);
   const [users, setUsers] = useState<PublicUser[]>([]);
@@ -416,6 +457,15 @@ export const CrewAssignmentsPage: React.FC = () => {
   });
   // AbortController pour éviter les race conditions sur le polling
   const pollAbortRef = useRef<AbortController | null>(null);
+
+  const showAccessAnnouncement = useCallback(() => {
+    setMessage({
+      type: 'info',
+      title: 'Accès limité',
+      text: 'Mode consultation : la gestion des affectations d’équipage est réservée aux utilisateurs autorisés.',
+    });
+  }, []);
+
   /* LOAD MEMBERS */
   const loadCrewMembers = useCallback(async () => {
     setLoadingUsers(true);
@@ -429,15 +479,22 @@ export const CrewAssignmentsPage: React.FC = () => {
       if (filtered.length === 0) {
         setMessage({
           type: 'info',
-          text: 'Aucun membre d’équipage isActive et approuvé n’est actuellement disponible.',
+          title: 'Aucun membre disponible',
+          text: 'Aucun membre d’équipage actif et approuvé n’est actuellement disponible.',
         });
       }
     } catch (error: unknown) {
       setUsers([]);
-      setMessage({
-        type: 'error',
-        text: getFriendlyError(error, 'Impossible de charger les membres d’équipage.'),
-      });
+
+      // Un accès en lecture seule ne doit pas produire de bannière d'erreur
+      // pendant le chargement automatique de la page.
+      if (!isForbiddenError(error)) {
+        setMessage({
+          type: 'error',
+          title: 'Membres d’équipage indisponibles',
+          text: getFriendlyError(error, 'Impossible de charger les membres d’équipage.'),
+        });
+      }
     } finally {
       setLoadingUsers(false);
     }
@@ -461,10 +518,15 @@ export const CrewAssignmentsPage: React.FC = () => {
         setFlights([]);
       }
     } catch (error: unknown) {
-      setMessage({
-        type: 'error',
-        text: getFriendlyError(error, 'Impossible de charger les affectations équipage.'),
-      });
+      // Ne pas afficher "Erreur" lorsqu'un utilisateur en consultation
+      // ouvre simplement l'écran Affectation équipages.
+      if (!isForbiddenError(error)) {
+        setMessage({
+          type: 'error',
+          title: 'Affectations indisponibles',
+          text: getFriendlyError(error, 'Impossible de charger les affectations équipage.'),
+        });
+      }
     } finally {
       if (!silent) setLoading(false);
     }
@@ -595,6 +657,11 @@ export const CrewAssignmentsPage: React.FC = () => {
   };
   /* MODAL */
   const openCreateModal = () => {
+    if (!canManageCrewAssignments) {
+      showAccessAnnouncement();
+      return;
+    }
+
     setEditingId(null);
     setForm({ refFlight: '', refUser: '', crewRole: 'Other' });
     setMessage(null);
@@ -602,6 +669,11 @@ export const CrewAssignmentsPage: React.FC = () => {
     setModalOpen(true);
   };
   const openEditModal = (assignment: CrewAssignment) => {
+    if (!canManageCrewAssignments) {
+      showAccessAnnouncement();
+      return;
+    }
+
     setEditingId(assignment.refCrewAssign);
     setForm({
       refFlight: getAssignmentFlightId(assignment),
@@ -623,21 +695,27 @@ export const CrewAssignmentsPage: React.FC = () => {
     if (saving) return;
     if (!form.refFlight || !form.refUser || !form.crewRole) {
       setMessage({
-        type: 'error',
-        text: 'Veuillez sélectionner un flight, un membre d’équipage et sa crewRole.',
+        type: 'info',
+        title: 'Informations requises',
+        text: 'Veuillez sélectionner un vol, un membre d’équipage et sa fonction à bord.',
       });
       return;
     }
     if (selectedFlight && !isAssignableFlight(selectedFlight) && !editingId) {
       setMessage({
-        type: 'error',
+        type: 'info',
+        title: 'Affectation indisponible',
         text: 'Ce vol ne peut plus recevoir une nouvelle affectation d’équipage.',
       });
       return;
     }
     const selectedUser = modalUsers.find(user => user.refUser === form.refUser);
     if (!selectedUser) {
-      setMessage({ type: 'error', text: 'Le membre d’équipage sélectionné est introuvable.' });
+      setMessage({
+        type: 'info',
+        title: 'Membre introuvable',
+        text: 'Le membre d’équipage sélectionné est introuvable.',
+      });
       return;
     }
     setSaving(true);
@@ -659,14 +737,20 @@ export const CrewAssignmentsPage: React.FC = () => {
       setEditingId(null);
       setMessage({
         type: 'success',
-        text: isEdit ? 'Affectation équipage modifiée avec succès.' : 'Membre d’équipage affecté avec succès.',
+        title: isEdit ? 'Affectation mise à jour' : 'Affectation enregistrée',
+        text: isEdit
+          ? 'L’affectation équipage a été modifiée avec succès.'
+          : 'Le membre d’équipage a été affecté au vol avec succès.',
       });
       await loadData(true);
     } catch (error: unknown) {
-      setMessage({
-        type: 'error',
-        text: getFriendlyError(error, 'Impossible d’enregistrer l’affectation.'),
-      });
+      setMessage(
+        getActionMessage(
+          error,
+          'Impossible d’enregistrer l’affectation.',
+          editingId ? 'Modification non enregistrée' : 'Affectation non enregistrée',
+        ),
+      );
     } finally {
       setSaving(false);
     }
@@ -674,6 +758,12 @@ export const CrewAssignmentsPage: React.FC = () => {
   /* DELETE */
   const handleDelete = (assignment: CrewAssignment) => {
     if (deletingId) return;
+
+    if (!canManageCrewAssignments) {
+      showAccessAnnouncement();
+      return;
+    }
+
     setAssignmentToDelete(assignment);
   };
   const closeDeleteModal = () => {
@@ -688,13 +778,20 @@ export const CrewAssignmentsPage: React.FC = () => {
     try {
       await requestJson(`${CREW_ASSIGNMENTS_ENDPOINT}/${assignment.refCrewAssign}`, { method: 'DELETE' });
       setAssignmentToDelete(null);
-      setMessage({ type: 'success', text: 'Affectation supprimée avec succès.' });
+      setMessage({
+        type: 'success',
+        title: 'Affectation supprimée',
+        text: 'L’affectation a été supprimée avec succès.',
+      });
       await loadData(true);
     } catch (error: unknown) {
-      setMessage({
-        type: 'error',
-        text: getFriendlyError(error, 'Impossible de supprimer cette affectation.'),
-      });
+      setMessage(
+        getActionMessage(
+          error,
+          'Impossible de supprimer cette affectation.',
+          'Suppression non réalisée',
+        ),
+      );
     } finally {
       setDeletingId(null);
     }
@@ -730,7 +827,12 @@ export const CrewAssignmentsPage: React.FC = () => {
         </header>
         {/* ═══════════════ MESSAGE ═══════════════ */}
         {message && (
-          <AlertBanner type={message.type} text={message.text} onClose={() => setMessage(null)} />
+          <AlertBanner
+            type={message.type}
+            title={message.title}
+            text={message.text}
+            onClose={() => setMessage(null)}
+          />
         )}
         {/* ═══════════════ KPI ═══════════════ */}
         <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -770,7 +872,7 @@ export const CrewAssignmentsPage: React.FC = () => {
                   type="search"
                   value={searchTerm}
                   onChange={event => setSearchTerm(event.target.value)}
-                  placeholder="Rechercher un flight, membre ou crewRole..."
+                  placeholder="Rechercher un vol, un membre ou une fonction..."
                   className={`h-10 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-3 text-sm text-slate-700 placeholder:text-slate-400 ${FOCUS_RING}`}
                 />
               </div>
@@ -835,7 +937,7 @@ export const CrewAssignmentsPage: React.FC = () => {
               </span>
             </div>
             <p className="text-xs text-slate-500">
-              Vol, membre, crewRole et repos avant rotation
+              Vol, membre, fonction et repos avant rotation
             </p>
           </header>
           {/* MOBILE */}
@@ -1143,7 +1245,7 @@ export const CrewAssignmentsPage: React.FC = () => {
                   <h2 className="text-base font-bold text-slate-900">
                     {editingId ? 'Modifier l’affectation' : 'Nouvelle affectation'}
                   </h2>
-                  <p className="mt-0.5 text-xs text-slate-500">Vol, membre et crewRole à bord</p>
+                  <p className="mt-0.5 text-xs text-slate-500">Vol, membre et fonction à bord</p>
                 </div>
               </div>
               <button

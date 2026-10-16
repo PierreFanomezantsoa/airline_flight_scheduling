@@ -342,13 +342,7 @@ const InfoPanel = memo(() => (
         <PlaneTakeoff className="h-5 w-5 text-emerald-400" aria-hidden="true" />
       </div>
 
-      <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] font-semibold text-slate-200 backdrop-blur-md">
-        <span className="relative flex h-2 w-2" aria-hidden="true">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
-          <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
-        </span>
-        OCC opérationnel
-      </span>
+
     </div>
 
     {/* Contenu */}
@@ -361,10 +355,7 @@ const InfoPanel = memo(() => (
         </span>
       </h2>
 
-      <p className="mt-3 max-w-sm text-[13px] leading-relaxed text-slate-300">
-        Supervisez la flotte, les conflits de planning, les équipages, la maintenance technique et
-        les opérations OCC depuis un espace centralisé.
-      </p>
+
     </div>
   </aside>
 ));

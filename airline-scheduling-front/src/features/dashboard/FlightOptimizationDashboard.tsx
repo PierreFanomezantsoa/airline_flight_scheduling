@@ -312,26 +312,35 @@ export const FlightOptimizationDashboard: React.FC = () => {
   }, [page, totalPages]);
   return (
     <div className="min-h-screen bg-slate-50">
-      <div className="mx-auto max-w-[1600px] space-y-5 p-4 sm:p-6">
-        <header className="flex justify-end">
-          <div className="grid gap-2 sm:flex">
+      <div className="mx-auto max-w-[1600px] space-y-4 p-3 sm:space-y-5 sm:p-6">
+        <header className="w-full">
+          <div className="grid w-full grid-cols-2 gap-2 rounded-2xl  p-3  sm:flex sm:w-auto sm:justify-end sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none">
             <button
               type="button"
               onClick={() => void loadConflicts(false)}
               disabled={loading || optimizing}
-              className={BTN_SECONDARY}
+              className={`${BTN_SECONDARY} w-full min-w-0 rounded-xl px-3 sm:w-auto sm:px-4`}
             >
-              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-              {loading ? 'Analyse…' : 'Actualiser'}
+              <RefreshCw
+                className={`h-4 w-4 shrink-0 ${loading ? 'animate-spin' : ''}`}
+              />
+              <span className="truncate">
+                {loading ? 'Analyse…' : 'Actualiser'}
+              </span>
             </button>
+
             <button
               type="button"
               onClick={() => setShowOptimizationConfirm(true)}
               disabled={loading || optimizing}
-              className={BTN_PRIMARY}
+              className={`${BTN_PRIMARY} w-full min-w-0 rounded-xl px-3 shadow-sm shadow-emerald-600/20 sm:w-auto sm:px-4`}
             >
-              <Sparkles className={`h-4 w-4 ${optimizing ? 'animate-pulse' : ''}`} />
-              {optimizing ? 'Optimisation…' : 'Optimiser'}
+              <Sparkles
+                className={`h-4 w-4 shrink-0 ${optimizing ? 'animate-pulse' : ''}`}
+              />
+              <span className="truncate">
+                {optimizing ? 'Optimisation…' : 'Optimiser'}
+              </span>
             </button>
           </div>
         </header>

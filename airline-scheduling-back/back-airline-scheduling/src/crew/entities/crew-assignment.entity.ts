@@ -42,4 +42,25 @@ export class CrewAssignment {
 
   @Column({ name: 'priorRestHours', type: 'double precision', nullable: true })
   restBeforeHrs!: number | null;
+
+
+  @Column({
+    name: 'notification_status',
+    type: 'varchar',
+    length: 16,
+    default: 'PENDING',
+  })
+  notificationStatus!: 'PENDING' | 'SENT' | 'FAILED' | 'DISABLED';
+
+  @Column({ name: 'assignment_notified_at', type: 'timestamptz', nullable: true })
+  assignmentNotifiedAt!: Date | null;
+
+  @Column({ name: 'reminder_2h_sent_at', type: 'timestamptz', nullable: true })
+  reminder2hSentAt!: Date | null;
+
+  @Column({ name: 'reminder_1h_sent_at', type: 'timestamptz', nullable: true })
+  reminder1hSentAt!: Date | null;
+
+  @Column({ name: 'last_notification_error', type: 'varchar', length: 500, nullable: true })
+  lastNotificationError!: string | null;
 }

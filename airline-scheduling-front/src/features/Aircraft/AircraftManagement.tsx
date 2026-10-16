@@ -1064,28 +1064,35 @@ export function AircraftManagement() {
    * ====================================================================== */
 
   return (
-    <div className="min-h-screen bg-slate-50/50 p-4 text-slate-800 antialiased sm:p-6 lg:p-8">
-      <div className="mx-auto max-w-[1500px] space-y-6">
+    <div className="min-h-screen bg-slate-50/50 p-3 text-slate-800 antialiased sm:p-6 lg:p-8">
+      <div className="mx-auto max-w-[1500px] space-y-4 sm:space-y-6">
         
-        {/* ═══════════════ HEADER (Boutons d'action uniquement) ═══════════════ */}
-        <header className="flex flex-wrap items-center justify-end gap-3">
-          <button
-            type="button"
-            onClick={() => void loadData()}
-            disabled={loading}
-            className={`inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 ${FOCUS_RING}`}
-          >
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            Actualiser
-          </button>
-          <button
-            type="button"
-            onClick={openCreate}
-            className={`inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-medium text-white shadow-sm transition hover:bg-emerald-700 ${FOCUS_RING}`}
-          >
-            <Plus className="h-4 w-4" />
-            Ajouter un aircraft
-          </button>
+        {/* ═══════════════ HEADER — ACTIONS RESPONSIVES ═══════════════ */}
+        <header className="w-full">
+          <div className="grid w-full grid-cols-2 gap-2  sm:flex sm:w-auto sm:justify-end sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none">
+            <button
+              type="button"
+              onClick={() => void loadData()}
+              disabled={loading}
+              className={`inline-flex h-11 w-full min-w-0 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm transition-all hover:border-slate-300 hover:bg-slate-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:h-10 sm:w-auto sm:px-4 ${FOCUS_RING}`}
+            >
+              <RefreshCw
+                className={`h-4 w-4 shrink-0 ${loading ? 'animate-spin' : ''}`}
+              />
+              <span className="truncate">
+                {loading ? 'Chargement…' : 'Actualiser'}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={openCreate}
+              className={`inline-flex h-11 w-full min-w-0 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-3 text-sm font-semibold text-white shadow-md shadow-emerald-600/20 transition-all hover:bg-emerald-700 hover:shadow-lg hover:shadow-emerald-600/25 active:scale-[0.98] sm:h-10 sm:w-auto sm:px-4 ${FOCUS_RING}`}
+            >
+              <Plus className="h-4 w-4 shrink-0" />
+              <span className="truncate">Ajouter un aéronef</span>
+            </button>
+          </div>
         </header>
 
         {/* ═══════════════ NOTICE ═══════════════ */}

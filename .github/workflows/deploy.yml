@@ -38,6 +38,9 @@ jobs:
       - name: Installer les dépendances
         run: npm ci
 
+      - name: Vérifier la dépendance Socket.IO du frontend
+        run: npm ls socket.io-client --depth=0
+
       - name: Vérifier le code avec ESLint
         continue-on-error: true
         run: npm run lint --if-present
@@ -67,6 +70,11 @@ jobs:
 
       - name: Installer les dépendances
         run: npm ci
+
+      - name: Vérifier les dépendances e-mail et WebSocket
+        run: |
+          npm ls nodemailer --depth=0
+          npm ls @nestjs/websockets @nestjs/platform-socket.io socket.io --depth=0
 
       - name: Vérifier le code avec ESLint
         continue-on-error: true
@@ -189,6 +197,8 @@ jobs:
 
           APP_DIR="/home/ubuntu/airline_flight_scheduling"
           IA_DIR="$APP_DIR/airline-ia"
+          BACKEND_DIR="$APP_DIR/airline-scheduling-back/back-airline-scheduling"
+          BACKEND_ENV="$BACKEND_DIR/.env"
           PIP_TMP="/home/ubuntu/pip-tmp"
 
           echo "================================================"
@@ -218,6 +228,11 @@ jobs:
             exit 1
           fi
 
+          if [ ! -d "$BACKEND_DIR" ]; then
+            echo "❌ Backend NestJS introuvable : $BACKEND_DIR"
+            exit 1
+          fi
+
           mkdir -p "$PIP_TMP"
           rm -rf /home/ubuntu/.cache/pip
 
@@ -236,6 +251,8 @@ jobs:
 
           APP_DIR="/home/ubuntu/airline_flight_scheduling"
           IA_DIR="$APP_DIR/airline-ia"
+          BACKEND_DIR="$APP_DIR/airline-scheduling-back/back-airline-scheduling"
+          BACKEND_ENV="$BACKEND_DIR/.env"
           PIP_TMP="/home/ubuntu/pip-tmp"
 
           mkdir -p "$PIP_TMP"
@@ -285,6 +302,87 @@ jobs:
           echo "================================================"
 
           bash deploy.sh
+
+          echo "================================================"
+          echo "✉️  Vérification configuration notifications équipage"
+          echo "================================================"
+
+          if [ ! -f "$BACKEND_ENV" ]; then
+            echo "❌ Fichier .env backend introuvable : $BACKEND_ENV"
+            exit 1
+          fi
+
+          BACKEND_ENV="$BACKEND_ENV" python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          env_path = Path(os.environ["BACKEND_ENV"])
+          values = {}
+
+          for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+              line = raw_line.strip()
+
+              if not line or line.startswith("#") or "=" not in line:
+                  continue
+
+              key, value = line.split("=", 1)
+              key = key.strip()
+              value = value.strip()
+
+              if (
+                  len(value) >= 2
+                  and value[0] == value[-1]
+                  and value[0] in {"'", '"'}
+              ):
+                  value = value[1:-1]
+
+              values[key] = value
+
+          required = [
+              "AUTH_SECRET",
+              "SMTP_HOST",
+              "SMTP_PORT",
+              "SMTP_SECURE",
+              "SMTP_USER",
+              "SMTP_PASS",
+              "SMTP_FROM",
+              "CREW_REPORT_BEFORE_DEPARTURE_MINUTES",
+              "CREW_REMINDER_CHECK_INTERVAL_MS",
+          ]
+
+          missing = [key for key in required if not values.get(key)]
+
+          if missing:
+              raise SystemExit(
+                  "❌ Variables production absentes ou vides : "
+                  + ", ".join(missing)
+              )
+
+          try:
+              reminder_interval = int(
+                  values["CREW_REMINDER_CHECK_INTERVAL_MS"]
+              )
+          except ValueError:
+              raise SystemExit(
+                  "❌ CREW_REMINDER_CHECK_INTERVAL_MS doit être un entier."
+              )
+
+          if reminder_interval <= 0:
+              raise SystemExit(
+                  "❌ CREW_REMINDER_CHECK_INTERVAL_MS doit être > 0."
+              )
+
+          if reminder_interval > 60000:
+              print(
+                  "⚠️ Intervalle de vérification des rappels :",
+                  reminder_interval,
+                  "ms. 60000 ms est recommandé en production.",
+              )
+
+          print(
+              "✅ Configuration SMTP, authentification et rappels équipage présente."
+          )
+          PY
 
           echo "================================================"
           echo "📦 Installation des dépendances Python"
@@ -391,6 +489,34 @@ jobs:
           echo "✅ Nginx actif"
 
           echo "================================================"
+          echo "🔌 Vérification configuration WebSocket Nginx"
+          echo "================================================"
+
+          NGINX_DUMP="$(sudo nginx -T 2>&1)"
+
+          if ! grep -qE 'location[[:space:]]+/socket\.io/' <<< "$NGINX_DUMP"; then
+            echo "❌ Nginx : location /socket.io/ manquant"
+            exit 1
+          fi
+
+          if ! grep -qiE 'proxy_http_version[[:space:]]+1\.1' <<< "$NGINX_DUMP"; then
+            echo "❌ Nginx : proxy_http_version 1.1 manquant"
+            exit 1
+          fi
+
+          if ! grep -qiE 'proxy_set_header[[:space:]]+Upgrade[[:space:]]+\$http_upgrade' <<< "$NGINX_DUMP"; then
+            echo "❌ Nginx : proxy_set_header Upgrade \$http_upgrade manquant"
+            exit 1
+          fi
+
+          if ! grep -qiE 'proxy_set_header[[:space:]]+Connection' <<< "$NGINX_DUMP"; then
+            echo "❌ Nginx : proxy_set_header Connection manquant"
+            exit 1
+          fi
+
+          echo "✅ Nginx configuré pour Socket.IO / WebSocket"
+
+          echo "================================================"
           echo "🏥 Vérification locale"
           echo "================================================"
 
@@ -446,6 +572,109 @@ jobs:
           echo "✅ Module Python accessible"
 
           echo "================================================"
+          echo "🔌 Vérification Socket.IO locale"
+          echo "================================================"
+
+          SOCKETIO_CODE="$(
+            curl \
+              --silent \
+              --show-error \
+              --output /tmp/socketio-health.txt \
+              --connect-timeout 5 \
+              --max-time 10 \
+              --write-out "%{http_code}" \
+              "http://127.0.0.1:3001/socket.io/?EIO=4&transport=polling&t=deploy-health" \
+              2>/dev/null || true
+          )"
+
+          [ -n "$SOCKETIO_CODE" ] || SOCKETIO_CODE="000"
+
+          echo "Socket.IO local : HTTP $SOCKETIO_CODE"
+
+          if [ "$SOCKETIO_CODE" = "000" ] || [ "$SOCKETIO_CODE" -ge 400 ]; then
+            echo "❌ Socket.IO ne répond pas correctement sur NestJS"
+            cat /tmp/socketio-health.txt 2>/dev/null || true
+            sudo journalctl -u airline-backend -n 100 --no-pager || true
+            exit 1
+          fi
+
+          if ! grep -q '^0' /tmp/socketio-health.txt; then
+            echo "❌ Réponse Socket.IO inattendue"
+            cat /tmp/socketio-health.txt 2>/dev/null || true
+            exit 1
+          fi
+
+          echo "✅ Socket.IO local accessible"
+
+          echo "================================================"
+          echo "✉️  Vérification SMTP avec Nodemailer"
+          echo "================================================"
+
+          cd "$BACKEND_DIR"
+
+          BACKEND_ENV="$BACKEND_ENV" timeout 20 node - <<'NODE'
+          const fs = require('fs');
+          const nodemailer = require('nodemailer');
+
+          const envPath = process.env.BACKEND_ENV;
+          const content = fs.readFileSync(envPath, 'utf8');
+          const env = {};
+
+          for (const rawLine of content.split(/\r?\n/)) {
+            const line = rawLine.trim();
+
+            if (!line || line.startsWith('#') || !line.includes('=')) {
+              continue;
+            }
+
+            const index = line.indexOf('=');
+            const key = line.slice(0, index).trim();
+            let value = line.slice(index + 1).trim();
+
+            if (
+              value.length >= 2 &&
+              (
+                (value.startsWith('"') && value.endsWith('"')) ||
+                (value.startsWith("'") && value.endsWith("'"))
+              )
+            ) {
+              value = value.slice(1, -1);
+            }
+
+            env[key] = value;
+          }
+
+          const port = Number(env.SMTP_PORT || 587);
+          const secure =
+            String(env.SMTP_SECURE || '').toLowerCase() === 'true' ||
+            port === 465;
+
+          const transporter = nodemailer.createTransport({
+            host: env.SMTP_HOST,
+            port,
+            secure,
+            auth: {
+              user: env.SMTP_USER,
+              pass: env.SMTP_PASS,
+            },
+          });
+
+          transporter
+            .verify()
+            .then(() => {
+              console.log('✅ SMTP authentifié et prêt à envoyer');
+              process.exit(0);
+            })
+            .catch((error) => {
+              console.error(
+                '❌ Échec vérification SMTP :',
+                error?.code || error?.message || 'erreur inconnue',
+              );
+              process.exit(1);
+            });
+          NODE
+
+          echo "================================================"
           echo "✅ Déploiement EC2 terminé"
           echo "================================================"
           REMOTE
@@ -468,7 +697,6 @@ jobs:
               curl \
                 --silent \
                 --show-error \
-                --insecure \
                 --location \
                 --retry 3 \
                 --retry-delay 3 \
@@ -499,10 +727,15 @@ jobs:
             "Module Python" \
             "$BASE_URL/python/")
 
+          CODE_SOCKETIO=$(check_service \
+            "Socket.IO" \
+            "$BASE_URL/socket.io/?EIO=4&transport=polling&t=deploy-health")
+
           echo "------------------------------------------------"
           echo "Frontend   : HTTP $CODE_FRONT"
           echo "API NestJS : HTTP $CODE_API"
           echo "Python     : HTTP $CODE_IA"
+          echo "Socket.IO  : HTTP $CODE_SOCKETIO"
           echo "================================================"
 
           if [ "$CODE_FRONT" = "000" ] || [ "$CODE_FRONT" -ge 400 ]; then
@@ -520,9 +753,16 @@ jobs:
             exit 1
           fi
 
+          if [ "$CODE_SOCKETIO" = "000" ] || [ "$CODE_SOCKETIO" -ge 400 ]; then
+            echo "❌ Socket.IO / WebSocket inaccessible via Nginx"
+            exit 1
+          fi
+
           echo "✅ Frontend disponible"
           echo "✅ API NestJS disponible"
           echo "✅ Module Python disponible"
+          echo "✅ Socket.IO disponible via HTTPS/WSS"
+          echo "✅ Certificat TLS validé"
           echo "✅ Déploiement vérifié avec succès"
 
       - name: Rollback si échec

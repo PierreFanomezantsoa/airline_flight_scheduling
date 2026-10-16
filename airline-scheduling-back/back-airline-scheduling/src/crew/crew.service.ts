@@ -14,6 +14,7 @@ import { User } from '../users/entities/user.entity';
 import { CreateCrewAssignmentDto } from './dto/create-crew-assignment.dto';
 import { UpdateCrewAssignmentDto } from './dto/update-crew-assignment.dto';
 import { CrewAssignment } from './entities/crew-assignment.entity';
+import { CrewEmailNotificationService } from './crew-email-notification.service';
 
 @Injectable()
 export class CrewService {
@@ -24,6 +25,7 @@ export class CrewService {
     private readonly flightRepository: Repository<Flight>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    private readonly crewEmailNotificationService: CrewEmailNotificationService,
     @Optional()
     private readonly networkConfigurationService?: NetworkConfigurationService,
   ) {}
@@ -42,7 +44,7 @@ export class CrewService {
     await this.assertNotDuplicate(flight.refFlight, user.refUser);
     const restHours = await this.assertAvailability(user.refUser, flight);
 
-    return this.assignmentRepository.save(
+    const assignment = await this.assignmentRepository.save(
       this.assignmentRepository.create({
         refFlight: flight.refFlight,
         flight: flight,
@@ -52,6 +54,9 @@ export class CrewService {
         restBeforeHrs: restHours,
       }),
     );
+
+    await this.notifyAssignment(assignment, false);
+    return assignment;
   }
 
   findAll(): Promise<CrewAssignment[]> {
@@ -95,6 +100,10 @@ export class CrewService {
 
     const restHours = await this.assertAvailability(user.refUser, flight, id);
 
+    const scheduleChanged =
+      flight.refFlight !== assignment.refFlight ||
+      user.refUser !== assignment.refUser;
+
     assignment.refFlight = flight.refFlight;
     assignment.flight = flight;
     assignment.refUser = user.refUser;
@@ -102,13 +111,42 @@ export class CrewService {
     assignment.restBeforeHrs = restHours;
     if (dto.crewRole !== undefined) assignment.crewRole = dto.crewRole;
 
-    return this.assignmentRepository.save(assignment);
+    if (scheduleChanged) {
+      assignment.reminder2hSentAt = null;
+      assignment.reminder1hSentAt = null;
+    }
+
+    const saved = await this.assignmentRepository.save(assignment);
+    await this.notifyAssignment(saved, true);
+    return saved;
   }
 
   async remove(id: string): Promise<{ deleted: true; id: string }> {
     const assignment = await this.findOne(id);
     await this.assignmentRepository.remove(assignment);
     return { deleted: true, id };
+  }
+
+  private async notifyAssignment(
+    assignment: CrewAssignment,
+    updated: boolean,
+  ): Promise<void> {
+    const result = updated
+      ? await this.crewEmailNotificationService.sendAssignmentUpdated(assignment)
+      : await this.crewEmailNotificationService.sendAssignmentCreated(assignment);
+
+    assignment.notificationStatus = result.sent
+      ? 'SENT'
+      : result.disabled
+        ? 'DISABLED'
+        : 'FAILED';
+
+    assignment.assignmentNotifiedAt = result.sent ? new Date() : null;
+    assignment.lastNotificationError = result.error
+      ? result.error.slice(0, 500)
+      : null;
+
+    await this.assignmentRepository.save(assignment);
   }
 
   private async getFlight(id: string): Promise<Flight> {

@@ -82,25 +82,19 @@ def _safe_float(value: float | np.floating | None) -> float | None:
     value = float(value)
     return value if math.isfinite(value) else None
 
-
 def _prepare_dataframe(csv_path: Path) -> pd.DataFrame:
     df = pd.read_csv(csv_path)
-
     required = {"airport", "observed_at", "severity"}
     missing = required - set(df.columns)
     if missing:
         raise ValueError(f"Colonnes manquantes: {sorted(missing)}")
-
     dt = pd.to_datetime(df["observed_at"], utc=True, errors="coerce")
     severity = pd.to_numeric(df["severity"], errors="coerce")
-
     valid = dt.notna() & severity.notna()
     df = df.loc[valid].copy()
     dt = dt.loc[valid]
-
     if df.empty:
         raise ValueError("Aucune ligne exploitable après nettoyage.")
-
     df["observed_at"] = dt
     df["severity"] = severity.loc[valid].clip(0.0, 1.0)
     df["airport"] = df["airport"].astype(str).str.strip().str.upper()
@@ -108,7 +102,6 @@ def _prepare_dataframe(csv_path: Path) -> pd.DataFrame:
 
     # Retirer les doublons exacts : mêmes aéroport / instant / cible.
     df = df.drop_duplicates(subset=["airport", "observed_at", "severity"])
-
     dt = pd.DatetimeIndex(df["observed_at"])
     df["month"] = dt.month
     df["day"] = dt.day

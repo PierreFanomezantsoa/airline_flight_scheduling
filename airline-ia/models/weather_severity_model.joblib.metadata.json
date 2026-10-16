@@ -1,6 +1,6 @@
 {
   "modelVersion": "xgboost-weather-3.0.0",
-  "trainedAt": "2026-10-13T07:57:42.234146+00:00",
+  "trainedAt": "2026-10-14T12:35:10.503341+00:00",
   "sourceCsv": "data\\weather_history.csv",
   "rows": 100,
   "airports": [

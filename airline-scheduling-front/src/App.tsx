@@ -36,6 +36,7 @@ import FlightHistory from './features/flights/FlightHistory';
 // =============================================================================
 
 import CrewAssignmentsPage from './features/crew/CrewAssignmentsPage';
+import CrewNotificationBell from './features/notifications/CrewNotificationBell';
 
 import { AircraftManagement } from './features/Aircraft/AircraftManagement';
 import { AirportManagement } from './features/airports/AirportManagement';
@@ -571,7 +572,7 @@ function App() {
         }`}
       >
         {/* HEADER */}
-        <header className="relative z-20 border-b border-slate-200/80 bg-white/85 px-4 backdrop-blur-xl sm:px-6 md:sticky md:top-0 lg:px-8">
+        <header className="relative z-20 md:border-b md:border-slate-200/80 md:bg-white/85 px-4 md:backdrop-blur-xl sm:px-6 md:sticky md:top-0 lg:px-8">
           <div className="mx-auto flex h-16 w-full max-w-[1600px] items-center justify-between gap-4">
             <div className="flex min-w-0 items-center gap-3">
               <div className="min-w-0">
@@ -586,8 +587,14 @@ function App() {
               </div>
             </div>
 
-            {/* PROFIL */}
-            <div className="relative hidden shrink-0 md:block" ref={profileMenuRef}>
+            {/* ACTIONS DE LA BARRE SUPÉRIEURE */}
+            <div className="flex shrink-0 items-center gap-2">
+              {user.role === 'Crew_Member' && (
+                <CrewNotificationBell userRef={user.refUser} />
+              )}
+
+              {/* PROFIL */}
+              <div className="relative hidden shrink-0 md:block" ref={profileMenuRef}>
               <button
                 type="button"
                 onClick={() => setIsProfileMenuOpen((previous) => !previous)}
@@ -687,6 +694,7 @@ function App() {
                   </div>
                 </div>
               )}
+              </div>
             </div>
           </div>
         </header>
