@@ -277,7 +277,7 @@ const UserAvatar: React.FC<UserAvatarProps> = ({ user, size }) => {
 
   return (
     <div
-      className={`flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-linear-to-br from-emerald-100 to-emerald-200 ring-2 ring-white shadow-sm ${dimension}`}
+      className={`flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#EBF1FD] ring-2 ring-white shadow-sm ${dimension}`}
     >
       {user.avatarUrl ? (
         <img
@@ -582,7 +582,7 @@ function App() {
   // ===========================================================================
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans antialiased selection:bg-emerald-500/20 selection:text-emerald-900">
+    <div className="min-h-screen bg-[#F8FAFC] font-sans antialiased selection:bg-emerald-500/20 selection:text-emerald-900">
       {/* SIDEBAR */}
       <Sidebar
         activeScreen={activeScreen}

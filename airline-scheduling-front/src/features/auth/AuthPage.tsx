@@ -538,7 +538,7 @@ export function AuthPage({ onAuthenticate, onGoogleSignIn }: AuthPageProps) {
   const SelectedRoleIcon = ROLE_META[form.role]?.icon ?? User;
 
   return (
-    <div className="flex min-h-screen w-full items-center justify-center bg-[#b9d3d9] p-3 font-sans text-slate-900 antialiased sm:p-6">
+    <div className="flex min-h-screen w-full items-center justify-center bg-[#ecf1f0e2] p-3 font-sans text-slate-900 antialiased sm:p-6">
       <main className="grid w-full max-w-5xl overflow-hidden rounded-2xl bg-[#f7fbff]  shadow-[0_24px_60px_-24px_rgba(38,70,83,0.35)] lg:min-h-[580px] lg:grid-cols-[1fr_1.2fr]">
         {/* =================================================================
             GAUCHE : MARQUE + ILLUSTRATION + SLOGAN
