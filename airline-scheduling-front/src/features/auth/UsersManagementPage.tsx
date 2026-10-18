@@ -9,9 +9,10 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock3,
-  Filter,
   Inbox,
   RefreshCw,
+  MoreHorizontal,
+  ArrowUpDown,
   Search,
   Trash2,
   UserCheck,
@@ -211,6 +212,9 @@ export function UsersManagementPage() {
   const [success, setSuccess] = useState('');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<FilterStatus>('ALL');
+  const [roleFilter, setRoleFilter] = useState('ALL');
+  const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'name'>('newest');
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabView>('users');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE);
@@ -267,27 +271,39 @@ export function UsersManagementPage() {
   // FILTRAGE
   // ===========================================================================
 
+  const availableRoles = useMemo(() =>
+    Array.from(new Set(users.map((user) => user.role))).sort((a, b) =>
+      (ROLE_LABELS[a] ?? a).localeCompare(ROLE_LABELS[b] ?? b, 'fr')
+    ), [users]);
+
   const filteredUsers = useMemo(() => {
-    const query = search.trim().toLowerCase();
+    const query = search.trim().toLocaleLowerCase('fr');
     return users.filter((user) => {
       if (activeTab === 'requests' && user.accountStatus !== 'PENDING') return false;
       if (statusFilter !== 'ALL' && user.accountStatus !== statusFilter) return false;
+      if (roleFilter !== 'ALL' && user.role !== roleFilter) return false;
       if (!query) return true;
       return `${user.userName} ${user.email} ${user.role} ${ROLE_LABELS[user.role] ?? ''}`
-        .toLowerCase()
-        .includes(query);
+        .toLocaleLowerCase('fr').includes(query);
+    }).sort((a, b) => {
+      if (sortBy === 'name') return a.userName.localeCompare(b.userName, 'fr');
+      const timeA = a.createdAt ? new Date(a.createdAt).getTime() || 0 : 0;
+      const timeB = b.createdAt ? new Date(b.createdAt).getTime() || 0 : 0;
+      return sortBy === 'oldest' ? timeA - timeB : timeB - timeA;
     });
-  }, [users, search, statusFilter, activeTab]);
+  }, [users, search, statusFilter, roleFilter, activeTab, sortBy]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, statusFilter, activeTab, pageSize]);
+    setOpenMenuId(null);
+  }, [search, statusFilter, roleFilter, activeTab, pageSize, sortBy]);
 
-  const hasActiveFilters = search.trim() !== '' || statusFilter !== 'ALL';
+  const hasActiveFilters = search.trim() !== '' || statusFilter !== 'ALL' || roleFilter !== 'ALL';
 
   const resetFilters = () => {
     setSearch('');
     setStatusFilter('ALL');
+    setRoleFilter('ALL');
   };
 
   const selectTab = (tab: TabView) => {
@@ -297,7 +313,7 @@ export function UsersManagementPage() {
 
   const selectKpi = (status: FilterStatus) => {
     setActiveTab('users');
-    setStatusFilter((current) => (current === status ? 'ALL' : status));
+    setStatusFilter(status);
   };
 
   // ===========================================================================
@@ -399,6 +415,23 @@ export function UsersManagementPage() {
     if (ok) setDeleteTarget(null);
   };
 
+  // Fermer le menu d’actions lors d’un clic extérieur.
+  useEffect(() => {
+    if (!openMenuId) return;
+    const onOutsideClick = (event: MouseEvent) => {
+      if (!(event.target as Element).closest('[data-user-actions-menu]')) setOpenMenuId(null);
+    };
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpenMenuId(null);
+    };
+    document.addEventListener('click', onOutsideClick);
+    document.addEventListener('keydown', onEscape);
+    return () => {
+      document.removeEventListener('click', onOutsideClick);
+      document.removeEventListener('keydown', onEscape);
+    };
+  }, [openMenuId]);
+
   // Échap ferme les fenêtres
   useEffect(() => {
     if (!rejectModal.open && !deleteTarget) return;
@@ -429,52 +462,29 @@ export function UsersManagementPage() {
   });
 
   return (
-    <div className="mx-auto max-w-350 space-y-5">
-      {/* ═══════════════════════════════════════════════════════════════════
-          KPI (cliquables : filtrent le tableau)
-      ═══════════════════════════════════════════════════════════════════ */}
-      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
-        <KpiCard
-          label="Utilisateurs"
-          value={stats.total}
-          hint="Tous les comptes"
-          icon={<Users className="h-[18px] w-[18px]" />}
-          tone="slate"
-          loading={loading}
-          active={activeTab === 'users' && statusFilter === 'ALL'}
-          onClick={() => selectKpi('ALL')}
-        />
-        <KpiCard
-          label="En attente"
-          value={stats.pending}
-          hint="À examiner"
-          icon={<Clock3 className="h-[18px] w-[18px]" />}
-          tone="amber"
-          highlight={stats.pending > 0}
-          loading={loading}
-          active={statusFilter === 'PENDING'}
-          onClick={() => selectKpi('PENDING')}
-        />
-        <KpiCard
-          label="Validés"
-          value={stats.approved}
-          hint="Accès autorisé"
-          icon={<UserCheck className="h-[18px] w-[18px]" />}
-          tone="emerald"
-          loading={loading}
-          active={statusFilter === 'APPROVED'}
-          onClick={() => selectKpi('APPROVED')}
-        />
-        <KpiCard
-          label="Refusés"
-          value={stats.rejected}
-          hint="Accès refusé"
-          icon={<UserX className="h-[18px] w-[18px]" />}
-          tone="rose"
-          loading={loading}
-          active={statusFilter === 'REJECTED'}
-          onClick={() => selectKpi('REJECTED')}
-        />
+    <div className="mx-auto w-full max-w-[1440px] space-y-5 pb-8">
+      {/* Actualisation des données */}
+      <div className="flex justify-end">
+        <button type="button" onClick={() => void loadUsers()} disabled={loading}
+          className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-emerald-200 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-50">
+          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> Actualiser
+        </button>
+      </div>
+
+      {/* Indicateurs interactifs, calculés à partir des véritables comptes */}
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4" aria-label="Synthèse des comptes">
+        <KpiCard label="Total des utilisateurs" value={stats.total} hint="Tous les comptes"
+          icon={<Users className="h-5 w-5" />} tone="slate" loading={loading}
+          active={activeTab === 'users' && statusFilter === 'ALL'} onClick={() => selectKpi('ALL')} />
+        <KpiCard label="Comptes validés" value={stats.approved} hint="Accès autorisé"
+          icon={<UserCheck className="h-5 w-5" />} tone="emerald" loading={loading}
+          active={activeTab === 'users' && statusFilter === 'APPROVED'} onClick={() => selectKpi('APPROVED')} />
+        <KpiCard label="Demandes en attente" value={stats.pending} hint="À examiner"
+          icon={<Clock3 className="h-5 w-5" />} tone="amber" highlight={stats.pending > 0} loading={loading}
+          active={activeTab === 'users' && statusFilter === 'PENDING'} onClick={() => selectKpi('PENDING')} />
+        <KpiCard label="Comptes refusés" value={stats.rejected} hint="Accès refusé"
+          icon={<UserX className="h-5 w-5" />} tone="rose" loading={loading}
+          active={activeTab === 'users' && statusFilter === 'REJECTED'} onClick={() => selectKpi('REJECTED')} />
       </section>
 
       {/* ═══════════════════════════════════════════════════════════════════
@@ -494,79 +504,62 @@ export function UsersManagementPage() {
       {/* ═══════════════════════════════════════════════════════════════════
           CARTE PRINCIPALE
       ═══════════════════════════════════════════════════════════════════ */}
-      <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm shadow-slate-900/[0.03]">
-        {/* Onglets + actualiser */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 pt-4 sm:px-5">
-          <div role="tablist" aria-label="Vue" className="flex gap-1">
+      <section className="relative rounded-2xl border border-slate-200/80 bg-white shadow-sm shadow-slate-900/[0.03]">
+        {/* Navigation */}
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 pt-4 sm:px-5">
+          <div role="tablist" aria-label="Type de comptes" className="flex gap-1">
             <TabButton active={activeTab === 'users'} onClick={() => selectTab('users')}>
-              Tous les utilisateurs
-              <CountPill active={activeTab === 'users'}>{stats.total}</CountPill>
+              Tous les comptes <CountPill active={activeTab === 'users'}>{stats.total}</CountPill>
             </TabButton>
             <TabButton active={activeTab === 'requests'} onClick={() => selectTab('requests')}>
-              Demandes en attente
-              {stats.pending > 0 && <CountPill tone="amber">{stats.pending}</CountPill>}
+              Demandes à traiter {stats.pending > 0 && <CountPill tone="amber">{stats.pending}</CountPill>}
             </TabButton>
           </div>
-
-          <button
-            type="button"
-            onClick={() => void loadUsers()}
-            disabled={loading}
-            className="mb-3 inline-flex h-9 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 text-[13px] font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <RefreshCw className={`h-4 w-4 text-slate-500 ${loading ? 'animate-spin' : ''}`} />
-            Actualiser
-          </button>
+          <p className="pb-3 text-xs font-medium text-slate-500" aria-live="polite">
+            {!loading && `${filteredUsers.length} résultat${filteredUsers.length > 1 ? 's' : ''}`}
+          </p>
         </div>
 
-        {/* Recherche + filtre */}
-        <div className="flex flex-col gap-3 border-b border-slate-100 bg-slate-50/50 px-4 py-3 sm:flex-row sm:items-center sm:px-5">
-          <div className="relative w-full sm:max-w-xs">
+        {/* Barre de recherche et filtres */}
+        <div className="flex flex-col gap-3 border-b border-slate-100 bg-slate-50/40 px-4 py-4 lg:flex-row lg:items-center sm:px-5">
+          <div className="relative min-w-0 flex-1 lg:max-w-[380px]">
             <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input
-              type="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Rechercher un name, e-mail ou rôle…"
-              aria-label="Rechercher un user"
-              className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-3 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
-            />
+            <input type="search" value={search} onChange={(e) => setSearch(e.target.value)}
+              placeholder="Rechercher un nom, un e-mail ou un rôle…" aria-label="Rechercher un utilisateur"
+              className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-3 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10" />
           </div>
-
-          {activeTab === 'users' && (
-            <div className="relative">
-              <Filter className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as FilterStatus)}
-                aria-label="Filtrer par status"
-                className="h-10 w-full cursor-pointer appearance-none rounded-xl border border-slate-200 bg-white pl-10 pr-9 text-sm font-medium text-slate-700 outline-none transition hover:border-slate-300 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 sm:w-auto"
-              >
+          <div className="flex flex-wrap items-center gap-2 lg:ml-auto">
+            <div className="relative flex-1 sm:flex-none">
+              <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} aria-label="Filtrer par rôle"
+                className="h-10 w-full min-w-[145px] cursor-pointer appearance-none rounded-xl border border-slate-200 bg-white pl-3 pr-8 text-[13px] font-medium text-slate-700 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10">
+                <option value="ALL">Tous les rôles</option>
+                {availableRoles.map((role) => <option key={role} value={role}>{ROLE_LABELS[role] ?? role}</option>)}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            </div>
+            {activeTab === 'users' && <div className="relative flex-1 sm:flex-none">
+              <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as FilterStatus)} aria-label="Filtrer par statut"
+                className="h-10 w-full min-w-[145px] cursor-pointer appearance-none rounded-xl border border-slate-200 bg-white pl-3 pr-8 text-[13px] font-medium text-slate-700 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10">
                 <option value="ALL">Tous les statuts</option>
                 <option value="PENDING">En attente</option>
                 <option value="APPROVED">Validés</option>
                 <option value="REJECTED">Refusés</option>
               </select>
-              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            </div>}
+            <div className="relative flex-1 sm:flex-none">
+              <ArrowUpDown className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+              <select value={sortBy} onChange={(e) => setSortBy(e.target.value as 'newest' | 'oldest' | 'name')} aria-label="Trier les utilisateurs"
+                className="h-10 w-full min-w-[155px] cursor-pointer appearance-none rounded-xl border border-slate-200 bg-white pl-8 pr-7 text-[13px] font-medium text-slate-700 outline-none focus:border-emerald-500">
+                <option value="newest">Plus récents</option><option value="oldest">Plus anciens</option><option value="name">Nom (A à Z)</option>
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
             </div>
-          )}
-
-          {hasActiveFilters && (
-            <button
-              type="button"
-              onClick={resetFilters}
-              className="inline-flex h-10 cursor-pointer items-center gap-1.5 self-start rounded-xl px-3 text-[13px] font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 sm:self-auto"
-            >
-              <X className="h-3.5 w-3.5" />
-              Réinitialiser
-            </button>
-          )}
-
-          {!loading && (
-            <p className="text-xs font-medium text-slate-500 sm:ml-auto">
-              {filteredUsers.length} résultat{filteredUsers.length > 1 ? 's' : ''}
-            </p>
-          )}
+            {hasActiveFilters && <button type="button" onClick={resetFilters}
+              className="inline-flex h-10 items-center gap-1 rounded-xl px-3 text-xs font-semibold text-emerald-700 hover:bg-emerald-50">
+              <X className="h-3.5 w-3.5" /> Effacer
+            </button>}
+          </div>
         </div>
 
         {/* Contenu */}
@@ -588,8 +581,8 @@ export function UsersManagementPage() {
             </div>
 
             {/* DESKTOP : TABLEAU */}
-            <div className="hidden overflow-x-auto md:block">
-              <table className="w-full min-w-250 border-collapse">
+            <div className="hidden overflow-x-auto md:block lg:overflow-visible">
+              <table className="w-full min-w-[850px] border-collapse">
                 <thead>
                   <tr className="bg-slate-50/70">
                     <TableHeader className="pl-5">Utilisateur</TableHeader>
@@ -610,7 +603,7 @@ export function UsersManagementPage() {
                         actionLoadingId === user.refUser ? 'opacity-60' : ''
                       }`}
                     >
-                      <td className="py-3 pl-5 pr-4">
+                      <td className="py-3.5 pl-5 pr-4">
                         <div className="flex items-center gap-3">
                           <UserAvatar user={user} />
                           <div className="min-w-0">
@@ -626,14 +619,17 @@ export function UsersManagementPage() {
                         <StatusBadge status={user.accountStatus} />
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 text-[13px] text-slate-600">
-                        {formatDate(user.createdAt ?? user.createdAt)}
+                        {formatDate(user.createdAt)}
                       </td>
                       <td className="px-4 py-3">
                         <DecisionCell user={user} />
                       </td>
                       <td className="py-3 pl-4 pr-5">
-                        <div className="flex justify-end gap-1.5">
-                          <UserActions {...actionProps(user)} />
+                        <div className="flex justify-end">
+                          <UserActionMenu {...actionProps(user)}
+                            open={openMenuId === user.refUser}
+                            onToggle={() => setOpenMenuId((id) => id === user.refUser ? null : user.refUser)}
+                            onClose={() => setOpenMenuId(null)} />
                         </div>
                       </td>
                     </tr>
@@ -643,7 +639,7 @@ export function UsersManagementPage() {
             </div>
 
             {/* PAGINATION */}
-            <div className="flex flex-col items-center justify-between gap-3 border-t border-slate-100 px-4 py-3 sm:flex-row sm:px-5">
+            <div className="flex flex-col items-center justify-between gap-3 border-t border-slate-100 bg-white px-4 py-3.5 sm:flex-row sm:px-5">
               <div className="flex items-center gap-2 text-xs text-slate-500">
                 <span>Lignes par page</span>
                 <div className="relative">
@@ -1006,6 +1002,28 @@ function UserActions({
   );
 }
 
+// Menu contextuel du tableau (mobile : boutons visibles dans la carte)
+function UserActionMenu({ user, isBusy, open, onToggle, onClose, onApprove, onReject, onSetPending, onDelete }: UserActionsProps & {
+  open: boolean; onToggle: () => void; onClose: () => void;
+}) {
+  const action = (handler: () => void) => () => { onClose(); handler(); };
+  return <div className="relative" data-user-actions-menu>
+    <button type="button" onClick={onToggle} disabled={isBusy} aria-expanded={open}
+      aria-haspopup="menu" aria-label={`Actions pour ${user.userName}`}
+      className={`flex h-9 w-9 items-center justify-center rounded-lg border transition disabled:opacity-50 ${open ? 'border-emerald-300 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-white text-slate-500 hover:border-emerald-200 hover:text-emerald-700'}`}>
+      <MoreHorizontal className="h-5 w-5" />
+    </button>
+    {open && <div role="menu" className="absolute right-0 top-10 z-30 min-w-[195px] overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl shadow-slate-900/10">
+      {user.accountStatus === 'PENDING' ? <>
+        <button role="menuitem" type="button" onClick={action(onApprove)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-emerald-700 hover:bg-emerald-50"><Check className="h-4 w-4" /> Valider le compte</button>
+        <button role="menuitem" type="button" onClick={action(onReject)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-slate-100"><UserX className="h-4 w-4" /> Refuser le compte</button>
+      </> : <button role="menuitem" type="button" onClick={action(onSetPending)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-slate-100"><Clock3 className="h-4 w-4" /> Remettre en attente</button>}
+      <div className="my-1 border-t border-slate-100" />
+      <button role="menuitem" type="button" onClick={action(onDelete)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-rose-600 hover:bg-rose-50"><Trash2 className="h-4 w-4" /> Supprimer le compte</button>
+    </div>}
+  </div>;
+}
+
 // =============================================================================
 // MOBILE CARD
 // =============================================================================
@@ -1036,7 +1054,7 @@ function UserMobileCard(props: UserActionsProps) {
         <div>
           <dt className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Création</dt>
           <dd className="mt-1.5 text-[13px] font-medium text-slate-700">
-            {formatDate(user.createdAt ?? user.createdAt)}
+            {formatDate(user.createdAt)}
           </dd>
         </div>
         {user.accountStatus !== 'PENDING' && (
@@ -1185,7 +1203,7 @@ function EmptyState({
     ? 'Aucun résultat'
     : isRequests
       ? 'Aucune demande en attente'
-      : 'Aucun user';
+      : 'Aucun utilisateur';
   const text = hasFilters
     ? 'Aucun compte ne correspond à votre recherche ou au filtre choisi.'
     : isRequests
@@ -1273,16 +1291,15 @@ function KpiCard({ label, value, hint, icon, tone, highlight = false, loading = 
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`group relative cursor-pointer overflow-hidden rounded-2xl border bg-white p-4 text-left shadow-sm shadow-slate-900/[0.03] transition-all hover:-translate-y-px hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 sm:p-5 ${
+      className={`group relative cursor-pointer overflow-hidden rounded-2xl border bg-white p-4 text-left shadow-sm shadow-slate-900/[0.04] transition-all hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 sm:p-5 ${
         active ? `border-transparent ring-2 ${style.ring}` : 'border-slate-200/80 hover:border-slate-300'
       }`}
     >
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-[13px] font-semibold text-slate-600">{label}</span>
-        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${style.icon}`}>{icon}</span>
-      </div>
-
-      <div className="mt-3">
+      <div className="flex items-start gap-3">
+        <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${style.icon}`}>{icon}</span>
+        <div className="min-w-0 flex-1">
+          <span className="text-[12px] font-semibold text-slate-500">{label}</span>
+          <div className="mt-1">
         {loading ? (
           <div className="h-8 w-12 animate-pulse rounded-lg bg-slate-100" />
         ) : (
@@ -1294,7 +1311,9 @@ function KpiCard({ label, value, hint, icon, tone, highlight = false, loading = 
             {value}
           </span>
         )}
-        <p className="mt-1.5 text-xs text-slate-500">{hint}</p>
+          <p className="mt-1.5 text-[11px] text-slate-500">{hint}</p>
+          </div>
+        </div>
       </div>
     </button>
   );

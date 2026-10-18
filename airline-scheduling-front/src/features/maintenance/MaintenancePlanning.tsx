@@ -5,7 +5,6 @@ import {
   useRef,
   useState,
 } from 'react';
-import type { ReactNode } from 'react';
 
 import {
   Wrench,
@@ -15,7 +14,6 @@ import {
   Loader2,
   AlertCircle,
   CheckCircle2,
-  ShieldAlert,
   X,
   Plane,
   RefreshCw,
@@ -26,7 +24,6 @@ import {
   Filter,
   ChevronLeft,
   ChevronRight,
-  Activity,
   ArrowUpRight,
 } from 'lucide-react';
 
@@ -639,7 +636,7 @@ export const MaintenancePlanning: React.FC = () => {
         if (availability.flightConflict) {
           const conflict = availability.flightConflict;
           showToast(
-            `Impossible de planifier : le flight ${conflict.flightNumber} occupe déjà cet aircraft du ${new Date(
+            `Impossible de planifier : le vol ${conflict.flightNumber} occupe déjà cet appareil du ${new Date(
               conflict.departureTime,
             ).toLocaleString('fr-FR')} au ${new Date(
               conflict.arrivalTime,
@@ -833,7 +830,7 @@ export const MaintenancePlanning: React.FC = () => {
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
             <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
           </span>
-          Sync 30s
+          Synchronisation 30 s
         </span>
         <button
           type="button"
@@ -847,34 +844,6 @@ export const MaintenancePlanning: React.FC = () => {
           Actualiser
         </button>
       </div>
-
-      {/* KPI */}
-      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KpiCard
-          icon={<Wrench className="h-4 w-4" />}
-          label="Appareils en maintenance"
-          value={maintenanceAircrafts.length}
-          hint="Flotte technique"
-        />
-        <KpiCard
-          icon={<Activity className="h-4 w-4" />}
-          label="En atelier"
-          value={maintenanceSummary.active}
-          hint="Créneaux en cours"
-        />
-        <KpiCard
-          icon={<Calendar className="h-4 w-4" />}
-          label="Planifiés"
-          value={maintenanceSummary.planned}
-          hint="À venir"
-        />
-        <KpiCard
-          icon={<ShieldAlert className="h-4 w-4" />}
-          label="Urgences AOG"
-          value={maintenanceSummary.aog}
-          hint="Priorité maximale"
-        />
-      </section>
 
       {/* ALERTE — décisions requises */}
       {pendingReviewSlots.length > 0 && (
@@ -918,12 +887,9 @@ export const MaintenancePlanning: React.FC = () => {
                 <h2 className="text-sm font-semibold text-slate-900">
                   Appareils nécessitant une intervention
                 </h2>
-                <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold tabular-nums text-slate-600">
-                  {maintenanceAircrafts.length}
-                </span>
               </div>
               <p className="mt-1 text-xs text-slate-500">
-                Liste alimentée automatiquement par le status technique de la
+                Liste alimentée automatiquement par le statut technique de la
                 flotte.
               </p>
             </div>
@@ -941,6 +907,30 @@ export const MaintenancePlanning: React.FC = () => {
               />
               Synchroniser
             </button>
+          </div>
+
+          {/* SYNTHÈSE DES MAINTENANCES — intégrée au bloc des appareils */}
+          <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 py-2 text-xs text-slate-600" aria-label="Synthèse des maintenances">
+        <span className="inline-flex items-center gap-2">
+          <span aria-hidden="true" className="text-emerald-500">●</span>
+          <span>Appareils en maintenance</span>
+          <strong className="tabular-nums text-slate-900">{maintenanceAircrafts.length}</strong>
+        </span>
+        <span className="inline-flex items-center gap-2">
+          <span aria-hidden="true" className="text-emerald-500">●</span>
+          <span>En atelier</span>
+          <strong className="tabular-nums text-slate-900">{maintenanceSummary.active}</strong>
+        </span>
+        <span className="inline-flex items-center gap-2">
+          <span aria-hidden="true" className="text-slate-400">●</span>
+          <span>Planifiés</span>
+          <strong className="tabular-nums text-slate-900">{maintenanceSummary.planned}</strong>
+        </span>
+        <span className="inline-flex items-center gap-2">
+          <span aria-hidden="true" className="text-rose-500">●</span>
+          <span>Urgences AOG</span>
+          <strong className="tabular-nums text-rose-700">{maintenanceSummary.aog}</strong>
+        </span>
           </div>
 
           <div className="mt-4">
@@ -973,7 +963,7 @@ export const MaintenancePlanning: React.FC = () => {
           <TabButton
             active={activeTab === 'active'}
             onClick={() => setActiveTab('active')}
-            label="Planning isActive"
+            label="Planning actif"
             count={filteredSlots.length}
           />
           <TabButton
@@ -1039,7 +1029,7 @@ export const MaintenancePlanning: React.FC = () => {
                 ? 'Aucun historique'
                 : activeTab === 'pending'
                   ? 'Aucune décision en attente'
-                  : 'Aucun créneau isActive'
+                  : 'Aucun créneau actif'
             }
             description={
               searchQuery
@@ -1468,30 +1458,6 @@ export const MaintenancePlanning: React.FC = () => {
 /* ============================================================================
  * SOUS-COMPOSANTS
  * ========================================================================== */
-
-interface KpiCardProps {
-  icon: ReactNode;
-  label: string;
-  value: number;
-  hint: string;
-}
-
-function KpiCard({ icon, label, value, hint }: KpiCardProps) {
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4">
-      <div className="flex items-center gap-2 text-slate-500">
-        <span className="flex h-7 w-7 items-center justify-center rounded-md bg-slate-100 text-slate-600">
-          {icon}
-        </span>
-        <span className="text-xs font-medium">{label}</span>
-      </div>
-      <p className="mt-3 text-3xl font-semibold tabular-nums tracking-tight text-slate-900">
-        {value}
-      </p>
-      <p className="mt-1 text-[11px] text-slate-400">{hint}</p>
-    </div>
-  );
-}
 
 interface TabButtonProps {
   active: boolean;

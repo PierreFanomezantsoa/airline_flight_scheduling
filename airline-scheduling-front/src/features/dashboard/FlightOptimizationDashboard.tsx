@@ -6,9 +6,6 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Clock,
-  Cpu,
-  Layers,
   Plane,
   RefreshCw,
   Search,
@@ -361,45 +358,6 @@ export const FlightOptimizationDashboard: React.FC = () => {
             onClose={() => setSuccess(null)}
           />
         )}
-        <section className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-          <KpiCard
-            icon={<Layers className="h-4 w-4" />}
-            label="Conflits détectés"
-            value={conflictResult?.totalConflicts ?? 0}
-            hint="Programme actuel"
-          />
-          <KpiCard
-            icon={<AlertTriangle className="h-4 w-4" />}
-            label="Critiques"
-            value={conflictResult?.criticalConflicts ?? 0}
-            hint="Priorité maximale"
-          />
-          <KpiCard
-            icon={<Cpu className="h-4 w-4" />}
-            label="Détections prédictives"
-            value={predictiveCount}
-            hint="Analyse des rotations"
-          />
-          <KpiCard
-            icon={<CheckCircle2 className="h-4 w-4" />}
-            label="Contrôles métier"
-            value={ruleCount}
-            hint="Règles déterministes"
-          />
-          <KpiCard
-            icon={<Clock className="h-4 w-4" />}
-            label="Dernière analyse"
-            value={
-              lastScanAt
-                ? lastScanAt.toLocaleTimeString('fr-FR', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })
-                : '—'
-            }
-            hint="Analyse actualisée"
-          />
-        </section>
         <section className={`${SURFACE} overflow-hidden`}>
           <div className="border-b border-slate-100 p-4 sm:p-5">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -408,7 +366,7 @@ export const FlightOptimizationDashboard: React.FC = () => {
                   Conflits du programme de vols
                 </h2>
                 <p className="mt-1 text-xs text-slate-500">
-                  Le pourcentage indique le niveau de confiance de la détection. Les règles métier sont affichées à 100 %.
+                  Le pourcentage indique le niveau de confiance de la détection.
                 </p>
               </div>
               <div className="flex flex-col gap-2 sm:flex-row">
@@ -422,19 +380,37 @@ export const FlightOptimizationDashboard: React.FC = () => {
                     className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:ring-4 focus:ring-emerald-500/10"
                   />
                 </div>
-                <select
-                  value={severityFilter}
-                  onChange={event =>
-                    setSeverityFilter(event.target.value as SeverityFilter)
-                  }
-                  className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-500/10"
-                >
-                  <option value="ALL">Toutes les criticités</option>
-                  <option value="CRITICAL">Critique</option>
-                  <option value="HIGH">Élevé</option>
-                  <option value="MEDIUM">Modéré</option>
-                </select>
+
               </div>
+            </div>
+            <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-4" role="group" aria-label="Filtrer les conflits par criticité">
+              {([
+                { id: 'ALL', label: 'Tous les conflits', count: conflicts.length, dot: 'bg-emerald-500' },
+                { id: 'CRITICAL', label: 'Critiques', count: conflicts.filter(c => c.severity === 'CRITICAL').length, dot: 'bg-rose-500' },
+                { id: 'HIGH', label: 'Élevés', count: conflicts.filter(c => c.severity === 'HIGH').length, dot: 'bg-orange-500' },
+                { id: 'MEDIUM', label: 'Modérés', count: conflicts.filter(c => c.severity === 'MEDIUM').length, dot: 'bg-amber-500' },
+              ] as const).map(item => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setSeverityFilter(item.id)}
+                  aria-pressed={severityFilter === item.id}
+                  className={`inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 ${
+                    severityFilter === item.id
+                      ? 'border-emerald-600 bg-emerald-600 text-white shadow-sm'
+                      : 'border-slate-200 bg-white text-slate-600 hover:border-emerald-200 hover:bg-emerald-50'
+                  }`}
+                >
+                  <span className={`h-2 w-2 rounded-full ${severityFilter === item.id ? 'bg-white' : item.dot}`} />
+                  {item.label}
+                  <span className={`rounded-md px-1.5 py-0.5 tabular-nums ${severityFilter === item.id ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'}`}>{item.count}</span>
+                </button>
+              ))}
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-slate-500" aria-label="Informations de l'analyse">
+              <span>Détections prédictives : <strong className="text-slate-700">{predictiveCount}</strong></span>
+              <span>Contrôles métier : <strong className="text-slate-700">{ruleCount}</strong></span>
+              <span>Dernière analyse : <strong className="text-slate-700">{lastScanAt ? lastScanAt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '—'}</strong></span>
             </div>
           </div>
           {loading && !conflictResult ? (
@@ -853,33 +829,6 @@ function FlightDetail({
         Arrivée : {formatDateTime(flight.arrivalTime)}
       </p>
     </div>
-  );
-}
-
-function KpiCard({
-  icon,
-  label,
-  value,
-  hint,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: number | string;
-  hint: string;
-}) {
-  return (
-    <article className={`${SURFACE} p-4 shadow-sm shadow-slate-900/[0.03]`}>
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-xs font-semibold text-slate-500">{label}</span>
-        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100">
-          {icon}
-        </span>
-      </div>
-      <p className="mt-3 text-2xl font-bold tracking-tight text-slate-900 tabular-nums">
-        {value}
-      </p>
-      <p className="mt-1 text-[11px] text-slate-500">{hint}</p>
-    </article>
   );
 }
 

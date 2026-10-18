@@ -82,67 +82,6 @@ function getFriendlyError(error: unknown, fallback = "Échec de l'enregistrement
  * SOUS-COMPOSANTS
  * ========================================================================== */
 
-function KpiCard({
-  label,
-  value,
-  hint,
-  icon,
-  accent = 'emerald',
-}: {
-  label: string;
-  value: number | string;
-  hint: string;
-  icon: React.ReactNode;
-  accent?: 'emerald' | 'amber' | 'sky' | 'violet';
-}) {
-  const accents = {
-    emerald: {
-      bg: 'bg-emerald-50',
-      text: 'text-emerald-600',
-      value: 'text-emerald-700',
-      bar: 'from-emerald-400/80 to-emerald-500/40',
-    },
-    amber: {
-      bg: 'bg-amber-50',
-      text: 'text-amber-600',
-      value: 'text-amber-700',
-      bar: 'from-amber-400/80 to-amber-500/40',
-    },
-    sky: {
-      bg: 'bg-sky-50',
-      text: 'text-sky-600',
-      value: 'text-sky-700',
-      bar: 'from-sky-400/80 to-sky-500/40',
-    },
-    violet: {
-      bg: 'bg-violet-50',
-      text: 'text-violet-600',
-      value: 'text-violet-700',
-      bar: 'from-violet-400/80 to-violet-500/40',
-    },
-  }[accent];
-
-  return (
-    <article className="group relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md">
-      <div className={`absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r ${accents.bar}`} />
-      <div className="flex items-start justify-between gap-3">
-        <span className="text-[13px] font-medium text-slate-500">{label}</span>
-        <div
-          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${accents.bg} ${accents.text} transition-transform group-hover:scale-110`}
-        >
-          {icon}
-        </div>
-      </div>
-      <div className="mt-5 flex items-baseline gap-2">
-        <span className={`text-[28px] font-bold tabular-nums leading-none tracking-tight ${accents.value}`}>
-          {value}
-        </span>
-      </div>
-      <p className="mt-2 text-[11px] font-medium text-slate-400">{hint}</p>
-    </article>
-  );
-}
-
 function AlertBanner({
   type,
   text,
@@ -386,38 +325,6 @@ export const CrewAssignment: React.FC = () => {
         {/* ═══════════════ API ERROR ═══════════════ */}
         {apiError && <AlertBanner type="error" text={apiError} />}
 
-        {/* ═══════════════ KPI ═══════════════ */}
-        <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <KpiCard
-            label="Effectif total"
-            value={stats.total}
-            hint="Membres enregistrés"
-            icon={<Users className="h-4 w-4" />}
-            accent="emerald"
-          />
-          <KpiCard
-            label="Disponibles"
-            value={stats.available}
-            hint="Repos conforme"
-            icon={<UserCheck className="h-4 w-4" />}
-            accent="sky"
-          />
-          <KpiCard
-            label="En vol"
-            value={stats.assigned}
-            hint="Actuellement affectés"
-            icon={<Plane className="h-4 w-4" />}
-            accent="violet"
-          />
-          <KpiCard
-            label="Alertes repos"
-            value={stats.alerts}
-            hint="Repos insuffisant"
-            icon={<AlertTriangle className="h-4 w-4" />}
-            accent="amber"
-          />
-        </section>
-
         {/* ═══════════════ CONTENU PRINCIPAL ═══════════════ */}
         <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
           {/* ═════════ REGISTRE ═════════ */}
@@ -434,6 +341,12 @@ export const CrewAssignment: React.FC = () => {
               </p>
             </header>
 
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-slate-100 bg-slate-50/50 px-5 py-3 text-xs text-slate-600" aria-label="Répartition du personnel d’équipage">
+              <span><strong className="font-semibold text-slate-900">{stats.total}</strong> membres</span>
+              <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-emerald-500" /><strong className="text-emerald-700">{stats.available}</strong> disponibles</span>
+              <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-sky-500" /><strong className="text-slate-800">{stats.assigned}</strong> affectés</span>
+              <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-amber-500" /><strong className="text-amber-700">{stats.alerts}</strong> repos insuffisants</span>
+            </div>
             <div className="divide-y divide-slate-100">
               {crew.length === 0 ? (
                 <div className="flex min-h-[200px] flex-col items-center justify-center p-6 text-center">

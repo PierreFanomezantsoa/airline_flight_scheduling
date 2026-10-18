@@ -1,17 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { FC, ReactNode } from 'react';
+import type { FC } from 'react';
 import {
   AlertCircle,
-  AlertTriangle,
-  Calendar,
   CheckCircle2,
   Info,
   Play,
-  Plane,
   RefreshCw,
   RotateCcw,
   Search,
-  ShieldCheck,
   WandSparkles,
   X,
 } from 'lucide-react';
@@ -22,7 +18,6 @@ import FlightSchedulerGantt, {
 } from './FlightSchedulerGantt';
 import FlightSchedulerDetails, {
   type AnalyticsMetrics,
-  type AutoScheduleMetrics,
   type AutoScheduleResponse,
   type Flight,
 } from './FlightSchedulerDetails';
@@ -319,11 +314,6 @@ export const FlightSchedulerDashboard: FC = () => {
     items: [],
     timezone: 'UTC',
   });
-  const [currentMetrics, setCurrentMetrics] = useState<AutoScheduleMetrics>({
-    totalFlights: 0,
-    assignedFlights: 0,
-    unassignedFlights: 0,
-  });
   const [previewScenario, setPreviewScenario] =
     useState<AutoScheduleResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -392,13 +382,6 @@ export const FlightSchedulerDashboard: FC = () => {
         const payload = await ganttResponse.json();
         const gantt = normalizeGanttPayload(payload, flightList);
         setCurrentGantt(gantt);
-        setCurrentMetrics(
-          payload?.metrics ?? {
-            totalFlights: gantt.items.length,
-            assignedFlights: gantt.items.filter((item) => item.refAircraft !== 'UNASSIGNED').length,
-            unassignedFlights: gantt.items.filter((item) => item.refAircraft === 'UNASSIGNED').length,
-          },
-        );
       }
     } catch (error: unknown) {
       setMessage({
@@ -421,7 +404,7 @@ export const FlightSchedulerDashboard: FC = () => {
   const runAutomaticGeneration = async (apply: boolean) => {
     if (generating || applying) return;
     if (!apply && selectedFlightRefs.length === 0) {
-      setMessage({ type: 'info', text: 'Sélectionnez au moins un flight éligible.' });
+      setMessage({ type: 'info', text: 'Sélectionnez au moins un vol éligible.' });
       return;
     }
 
@@ -547,7 +530,6 @@ export const FlightSchedulerDashboard: FC = () => {
     return currentGantt;
   }, [previewScenario, currentGantt]);
 
-  const activeMetrics = previewScenario?.metrics ?? currentMetrics;
   const isPreview = Boolean(previewScenario);
 
   const assignmentLookup = useMemo(() => {
@@ -626,50 +608,6 @@ export const FlightSchedulerDashboard: FC = () => {
           />
         )}
 
-        {/* ═══════════════ KPI CARDS ═══════════════ */}
-        <section className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
-          <KpiCard
-            label="Vols horizon"
-            value={activeMetrics.totalFlights}
-            hint="Fenêtre courante"
-            icon={<Calendar className="h-4 w-4" />}
-          />
-          <KpiCard
-            label="Affectés"
-            value={activeMetrics.assignedFlights}
-            hint="Avec appareil"
-            icon={<CheckCircle2 className="h-4 w-4" />}
-          />
-          <KpiCard
-            label="Non affectés"
-            value={activeMetrics.unassignedFlights}
-            hint="Action requise"
-            icon={<AlertTriangle className="h-4 w-4" />}
-            isWarning={activeMetrics.unassignedFlights > 0}
-          />
-          <KpiCard
-            label="Décalés"
-            value={previewScenario?.metrics.shiftedFlights ?? 0}
-            hint="Scénario"
-            icon={<RefreshCw className="h-4 w-4" />}
-          />
-          <KpiCard
-            label="Appareils actifs"
-            value={
-              previewScenario?.metrics.operationalAircraft ??
-              activeSchedule.rows.filter((row) => row.refAircraft !== 'UNASSIGNED').length
-            }
-            hint="En opération"
-            icon={<Plane className="h-4 w-4" />}
-          />
-          <KpiCard
-            label="OTP"
-            value={`${effectiveAnalytics.otpRate}%`}
-            hint="Ponctualité"
-            icon={<ShieldCheck className="h-4 w-4" />}
-          />
-        </section>
-
         <section className="rounded-xl border border-slate-200 bg-white">
           <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
             <div>
@@ -717,7 +655,7 @@ export const FlightSchedulerDashboard: FC = () => {
                     checked={selectedFlightRefs.includes(flight.refFlight)}
                     onChange={() => toggleEligibleFlight(flight.refFlight)}
                     className="h-4 w-4 accent-emerald-600"
-                    aria-label={`Inclure le flight ${flight.flightNumber}`}
+                    aria-label={`Inclure le vol ${flight.flightNumber}`}
                   />
                   <span className="min-w-0 truncate text-sm font-medium text-slate-800">
                     {flight.flightNumber} <span className="font-normal text-slate-500">· {flight.origin} → {flight.destination}</span>
@@ -743,7 +681,7 @@ export const FlightSchedulerDashboard: FC = () => {
               Aucun vol ne correspond à vos filtres
             </p>
             <p className="mt-1 text-xs text-amber-700">
-              Ajustez la recherche ou le status pour élargir les résultats.
+              Ajustez la recherche ou le statut pour élargir les résultats.
             </p>
             <button
               type="button"
@@ -768,7 +706,7 @@ export const FlightSchedulerDashboard: FC = () => {
                 <input
                   value={searchTerm}
                   onChange={(event) => setSearchTerm(event.target.value)}
-                  placeholder="Rechercher un flight, appareil..."
+                  placeholder="Rechercher un vol, appareil..."
                   className={`h-10 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-9 text-sm text-slate-700 placeholder:text-slate-400 ${FOCUS_RING}`}
                 />
                 {searchTerm && (
@@ -824,51 +762,6 @@ export const FlightSchedulerDashboard: FC = () => {
         </section>
       </div>
     </div>
-  );
-};
-
-/* ============================================================================
- * KPI CARD
- * ========================================================================== */
-
-interface KpiCardProps {
-  label: string;
-  value: string | number;
-  hint: string;
-  icon: ReactNode;
-  isWarning?: boolean;
-}
-
-const KpiCard: FC<KpiCardProps> = ({
-  label,
-  value,
-  hint,
-  icon,
-  isWarning = false,
-}) => {
-  return (
-    <article className="rounded-xl border border-slate-200 bg-white p-5 transition hover:border-slate-300">
-      <div className="flex items-start justify-between gap-3">
-        <span className="text-[13px] font-medium text-slate-600">{label}</span>
-        <div
-          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md ${
-            isWarning ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'
-          }`}
-        >
-          {icon}
-        </div>
-      </div>
-      <div className="mt-4 flex items-baseline gap-2">
-        <span
-          className={`text-3xl font-bold tabular-nums tracking-tight ${
-            isWarning ? 'text-amber-600' : 'text-slate-900'
-          }`}
-        >
-          {value}
-        </span>
-        <span className="text-xs font-medium text-slate-400">{hint}</span>
-      </div>
-    </article>
   );
 };
 

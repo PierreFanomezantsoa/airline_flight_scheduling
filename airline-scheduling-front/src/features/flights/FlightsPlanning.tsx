@@ -4,7 +4,7 @@ import {
   useMemo,
   useState,
 } from 'react';
-import type { FC, ReactNode } from 'react';
+import type { FC } from 'react';
 
 import {
   AlertCircle,
@@ -214,7 +214,7 @@ const STATUS_STYLES: Record<NormalizedStatus, { badge: string; dot: string }> = 
 
 const STATUS_FILTERS = [
   { id: 'ALL', label: 'Tous' },
-  { id: 'En attente', label: 'En attente' },
+  { id: 'En attente', label: 'Planifiés' },
   { id: 'Ponctuel', label: 'Ponctuels' },
   { id: 'En Vol', label: 'En Vol' },
   { id: 'Retardé', label: 'Retardés' },
@@ -703,7 +703,7 @@ export const FlightsPlanning: FC = () => {
     const normalizedRawStatus = rawStatus.toLowerCase();
     if (['cancelled', 'canceled', 'annulé', 'annule'].includes(normalizedRawStatus)) return 'Annulé';
     if (['delayed', 'retardé', 'retarde'].includes(normalizedRawStatus)) return 'Retardé';
-    if (['in-flight', 'en flight'].includes(normalizedRawStatus)) return 'En Vol';
+    if (['in-flight', 'en flight', 'en vol'].includes(normalizedRawStatus)) return 'En Vol';
     if (['effectué', 'effectue', 'completed', 'done', 'landed'].includes(normalizedRawStatus)) return 'Effectué';
 
     const now = new Date();
@@ -1018,7 +1018,7 @@ export const FlightsPlanning: FC = () => {
       setFlights((previous) =>
         previous.filter((flight) => flight.refFlight !== deletingFlight.refFlight),
       );
-      addToast('success', `Le flight ${deletingFlight.flightNumber} a été supprimé.`);
+      addToast('success', `Le vol ${deletingFlight.flightNumber} a été supprimé.`);
       setDeletingFlight(null);
       setDeleteConfirmed(false);
     } catch (error: unknown) {
@@ -1139,17 +1139,39 @@ export const FlightsPlanning: FC = () => {
     if (currentPage > totalPages) setCurrentPage(totalPages);
   }, [currentPage, totalPages]);
 
-  const stats = useMemo(() => {
-    const statuses = flights
-      .map(getCalculatedStatus)
-      .filter((status) => status !== 'Effectué');
-    return {
-      total: statuses.length,
-      inFlight: statuses.filter((status) => status === 'En Vol').length,
-      delayed: statuses.filter((status) => status === 'Retardé').length,
-      pending: statuses.filter((status) => status === 'En attente').length,
+  // Comptage des statuts sur l'ensemble des vols non terminés.
+  // Les valeurs restent indépendantes de la recherche et du filtre courant.
+  const statusCounts = useMemo(() => {
+    const counts = {
+      total: 0,
+      planned: 0,
+      inFlight: 0,
+      delayed: 0,
+      cancelled: 0,
+      onTime: 0,
     };
+
+    for (const flight of flights) {
+      const status = getCalculatedStatus(flight);
+      if (status === 'Effectué') continue;
+      counts.total += 1;
+      if (status === 'En attente') counts.planned += 1;
+      else if (status === 'En Vol') counts.inFlight += 1;
+      else if (status === 'Retardé') counts.delayed += 1;
+      else if (status === 'Annulé') counts.cancelled += 1;
+      else if (status === 'Ponctuel') counts.onTime += 1;
+    }
+
+    return counts;
   }, [flights, getCalculatedStatus]);
+
+  const quickStatusFilters = [
+    { id: 'ALL', label: 'Tous les vols', value: statusCounts.total, dot: 'bg-emerald-500' },
+    { id: 'En attente', label: 'Planifiés', value: statusCounts.planned, dot: 'bg-slate-400' },
+    { id: 'En Vol', label: 'En vol', value: statusCounts.inFlight, dot: 'bg-emerald-500' },
+    { id: 'Retardé', label: 'En retard', value: statusCounts.delayed, dot: 'bg-amber-500' },
+    { id: 'Annulé', label: 'Annulés', value: statusCounts.cancelled, dot: 'bg-rose-500' },
+  ];
 
   /* -------------------------------------------------------------------------
    * RENDER
@@ -1250,57 +1272,76 @@ export const FlightsPlanning: FC = () => {
         </button>
       </header>
 
-      {/* KPI */}
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard label="Total rotations" value={stats.total} hint="Flotte active" icon={<Plane className="h-5 w-5" />} />
-        <KpiCard label="En vol" value={stats.inFlight} hint="Maintenant" icon={<Globe className="h-5 w-5" />} />
-        <KpiCard label="En attente" value={stats.pending} hint="À venir" icon={<Clock className="h-5 w-5" />} />
-        <KpiCard
-          label="Retardés"
-          value={stats.delayed}
-          hint="À surveiller"
-          icon={<AlertCircle className="h-5 w-5" />}
-          variant={stats.delayed > 0 ? 'warning' : 'default'}
-        />
-      </section>
-
       {/* TABLEAU / CARTES */}
       <section className={`${SURFACE} overflow-hidden`}>
-        {/* SEARCH + FILTRES INTÉGRÉS */}
-        <div className="border-b border-slate-100 p-4 sm:p-5">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="relative w-full lg:max-w-[320px]">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+        {/* Barre de recherche et de filtres : sans cartes KPI */}
+        <div className="border-b border-slate-100 px-4 py-4 sm:px-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="relative w-full sm:max-w-sm">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
                 type="search"
-                placeholder="Rechercher un flight, appareil..."
+                aria-label="Rechercher un vol"
+                placeholder="Rechercher un vol, un appareil, un itinéraire…"
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
-                className={`h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-4 text-sm text-slate-700 placeholder:text-slate-400 ${FOCUS_RING}`}
+                className={`h-10 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-4 text-sm text-slate-700 placeholder:text-slate-400 ${FOCUS_RING}`}
               />
             </div>
 
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 lg:overflow-visible lg:pb-0">
-              <span className="hidden items-center gap-1.5 text-xs font-medium text-slate-500 sm:inline-flex">
-                <Filter className="h-3.5 w-3.5" />
-                Filtrer :
-              </span>
-              {STATUS_FILTERS.map((filter) => (
+            <div className="flex items-center gap-2">
+              <div className="relative min-w-45 flex-1 sm:flex-none">
+                <Filter className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <select
+                  aria-label="Filtrer les vols par statut"
+                  value={selectedStatusFilter}
+                  onChange={(event) => setSelectedStatusFilter(event.target.value)}
+                  className={`h-10 w-full cursor-pointer appearance-none rounded-lg border border-slate-200 bg-white pl-9 pr-8 text-sm font-medium text-slate-700 ${FOCUS_RING}`}
+                >
+                  {STATUS_FILTERS.map((filter) => (
+                    <option key={filter.id} value={filter.id}>
+                      {filter.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {(searchTerm || selectedStatusFilter !== 'ALL') && (
+                <button
+                  type="button"
+                  onClick={() => { setSearchTerm(''); setSelectedStatusFilter('ALL'); }}
+                  className="inline-flex h-10 items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                >
+                  <X className="h-3.5 w-3.5" /> Effacer
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Totaux intégrés à la barre : cliquables, sans blocs de statistiques */}
+          <nav aria-label="Répartition des vols par statut" className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-slate-100 pt-3">
+            {quickStatusFilters.map((filter) => {
+              const active = selectedStatusFilter === filter.id;
+              return (
                 <button
                   key={filter.id}
                   type="button"
+                  aria-pressed={active}
                   onClick={() => setSelectedStatusFilter(filter.id)}
-                  className={`h-8 shrink-0 rounded-full px-4 text-xs font-medium transition ${
-                    selectedStatusFilter === filter.id
-                      ? 'bg-emerald-600 text-white shadow-sm shadow-slate-900/20'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  className={`inline-flex h-8 items-center gap-2 rounded-lg border px-2.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 ${
+                    active
+                      ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                      : 'border-transparent text-slate-600 hover:border-slate-200 hover:bg-slate-50'
                   }`}
                 >
-                  {filter.label}
+                  <span className={`h-1.5 w-1.5 rounded-full ${filter.dot}`} aria-hidden="true" />
+                  <span>{filter.label}</span>
+                  <span className={`rounded-md px-1.5 py-0.5 font-bold tabular-nums ${active ? 'bg-white text-emerald-700' : 'bg-slate-100 text-slate-700'}`}>
+                    {filter.value}
+                  </span>
                 </button>
-              ))}
-            </div>
-          </div>
+              );
+            })}
+          </nav>
         </div>
 
         {/* EN-TÊTE DU TABLEAU */}
@@ -1588,7 +1629,7 @@ export const FlightsPlanning: FC = () => {
               </div>
               <div className="min-w-0">
                 <h3 className="text-base font-semibold text-slate-900">
-                  Supprimer le flight{' '}
+                  Supprimer le vol{' '}
                   <span className="font-mono">{deletingFlight.flightNumber}</span>
                 </h3>
                 <p className="mt-1 text-sm text-slate-500">
@@ -1694,52 +1735,6 @@ export const FlightsPlanning: FC = () => {
         </div>
       )}
     </div>
-  );
-};
-
-/* ============================================================================
- * KPI CARD
- * ========================================================================== */
-
-interface KpiCardProps {
-  label: string;
-  value: number;
-  hint: string;
-  icon: ReactNode;
-  variant?: 'default' | 'warning';
-}
-
-const KpiCard: FC<KpiCardProps> = ({
-  label,
-  value,
-  hint,
-  icon,
-  variant = 'default',
-}) => {
-  const isWarning = variant === 'warning';
-  return (
-    <article className="flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md">
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-medium text-slate-500">{label}</span>
-        <div
-          className={`flex h-8 w-8 items-center justify-center rounded-lg ${
-            isWarning ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'
-          }`}
-        >
-          {icon}
-        </div>
-      </div>
-      <div className="mt-4 flex items-baseline gap-2">
-        <span
-          className={`text-3xl font-bold ${
-            isWarning ? 'text-amber-600' : 'text-slate-900'
-          }`}
-        >
-          {value}
-        </span>
-        <span className="text-xs font-medium text-slate-400">{hint}</span>
-      </div>
-    </article>
   );
 };
 

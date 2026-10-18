@@ -391,44 +391,6 @@ function StatusBadge({
   );
 }
 
-function StatCard({
-  label,
-  value,
-  hint,
-  icon,
-  tone = 'bg-slate-50 text-slate-600',
-}: {
-  label: string;
-  value: number;
-  hint: string;
-  icon: ReactNode;
-  tone?: string;
-}) {
-  return (
-    <article className="flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md">
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-medium text-slate-500">{label}</span>
-        <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${tone}`}>
-          {icon}
-        </div>
-      </div>
-      <div className="mt-4 flex items-baseline gap-2">
-        <span className="text-3xl font-bold text-slate-900">{formatNumber(value, 0)}</span>
-        <span className="text-xs font-medium text-slate-400">{hint}</span>
-      </div>
-    </article>
-  );
-}
-
-function InfoMetric({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <span className={LABEL_UPPER}>{label}</span>
-      <p className="mt-1 font-mono text-sm font-bold text-slate-800">{value}</p>
-    </div>
-  );
-}
-
 function AlertBanner({
   type,
   text,
@@ -665,6 +627,15 @@ export function AircraftManagement() {
     });
   }, [aircrafts, searchTerm, statusFilter]);
 
+  // Compteurs des états de la flotte : basés sur les données chargées.
+  const statusCounts = useMemo(() => ({
+    ALL: aircrafts.length,
+    [AircraftStatus.ACTIVE]: aircrafts.filter(a => a.aircraftStatus === AircraftStatus.ACTIVE).length,
+    [AircraftStatus.MAINTENANCE]: aircrafts.filter(a => a.aircraftStatus === AircraftStatus.MAINTENANCE).length,
+    [AircraftStatus.OUT_OF_SERVICE]: aircrafts.filter(a => a.aircraftStatus === AircraftStatus.OUT_OF_SERVICE).length,
+    [AircraftStatus.RETIRED]: aircrafts.filter(a => a.aircraftStatus === AircraftStatus.RETIRED).length,
+  }), [aircrafts]);
+
   // Reset pagination when filters change
   useEffect(() => {
     setCurrentPage(1);
@@ -768,7 +739,7 @@ export function AircraftManagement() {
 
   const validateForm = (): string | null => {
     if (!formData.registration.trim()) {
-      return "L'registration est obligatoire.";
+      return "L’immatriculation est obligatoire.";
     }
     if (!formData.model.trim()) {
       return 'Le modèle est obligatoire.';
@@ -786,7 +757,7 @@ export function AircraftManagement() {
       !Number.isFinite(formData.totalFlightHrs) ||
       formData.totalFlightHrs < 0
     ) {
-      return 'Les heures de flight totales ne peuvent pas être négatives.';
+      return 'Les heures de vol totales ne peuvent pas être négatives.';
     }
     if (
       formData.homeBase &&
@@ -844,7 +815,7 @@ export function AircraftManagement() {
         );
         setNotice({
           kind: 'success',
-          message: `L'aircraft ${commonPayload.registration} a été mis à jour.`,
+          message: `L’aéronef ${commonPayload.registration} a été mis à jour.`,
         });
       } else {
         await requestJson<Aircraft>('/fleet/aircrafts', {
@@ -856,7 +827,7 @@ export function AircraftManagement() {
         });
         setNotice({
           kind: 'success',
-          message: `L'aircraft ${commonPayload.registration} a été créé.`,
+          message: `L’aéronef ${commonPayload.registration} a été créé.`,
         });
       }
 
@@ -884,7 +855,7 @@ export function AircraftManagement() {
     if (aircraft.aircraftStatus === AircraftStatus.RETIRED) return;
 
     const confirmed = window.confirm(
-      `Retirer l'aircraft ${aircraft.registration} de la flotte ?\n\nLe backend ne supprime pas la ligne : le status deviendra "Retired".`,
+      `Retirer l’aéronef ${aircraft.registration} de la flotte ?\n\nLe backend ne supprime pas la ligne : le statut deviendra "Retired".`,
     );
     if (!confirmed) return;
 
@@ -899,7 +870,7 @@ export function AircraftManagement() {
 
       setNotice({
         kind: 'success',
-        message: `L'aircraft ${aircraft.registration} a été retiré de la flotte.`,
+        message: `L’aéronef ${aircraft.registration} a été retiré de la flotte.`,
       });
 
       await loadData(undefined, true);
@@ -978,7 +949,7 @@ export function AircraftManagement() {
     if (!Number.isFinite(hours) || hours <= 0) {
       setNotice({
         kind: 'error',
-        message: 'Les heures flightées doivent être strictement positives.',
+        message: 'Les heures de vol doivent être strictement positives.',
       });
       return;
     }
@@ -1104,58 +1075,47 @@ export function AircraftManagement() {
           />
         )}
 
-        {/* ═══════════════ KPI ═══════════════ */}
-        <section className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
-          <StatCard
-            label="Total flotte"
-            value={statistics?.totalAvions ?? aircrafts.length}
-            hint="Aéronefs"
-            icon={<Plane className="h-5 w-5" />}
-            tone="bg-emerald-50 text-emerald-600"
-          />
-          <StatCard
-            label="Actifs"
-            value={
-              statistics?.avionsActifs ??
-              aircrafts.filter(a => a.aircraftStatus === AircraftStatus.ACTIVE).length
-            }
-            hint="Opérationnels"
-            icon={<CheckCircle2 className="h-5 w-5" />}
-            tone="bg-emerald-50 text-emerald-600"
-          />
-          <StatCard
-            label="Maintenance"
-            value={
-              statistics?.avionsEnMaintenance ??
-              aircrafts.filter(a => a.aircraftStatus === AircraftStatus.MAINTENANCE)
-                .length
-            }
-            hint="Immobilisés"
-            icon={<Wrench className="h-5 w-5" />}
-            tone="bg-amber-50 text-amber-600"
-          />
-          <StatCard
-            label="Hors service"
-            value={
-              statistics?.avionsHorsService ??
-              aircrafts.filter(a => a.aircraftStatus === AircraftStatus.OUT_OF_SERVICE)
-                .length
-            }
-            hint="Action requise"
-            icon={<AlertTriangle className="h-5 w-5" />}
-            tone="bg-rose-50 text-rose-600"
-          />
-          <StatCard
-            label="Retirés"
-            value={
-              statistics?.avionsRetires ??
-              aircrafts.filter(a => a.aircraftStatus === AircraftStatus.RETIRED).length
-            }
-            hint="Hors flotte"
-            icon={<History className="h-5 w-5" />}
-            tone="bg-slate-50 text-slate-600"
-          />
-        </section>
+        {/* ═══════════════ INDICATEURS GLOBAUX DE LA FLOTTE ═══════════════ */}
+        {statistics && (
+          <section aria-label="Statistiques globales de flotte" className="space-y-3">
+            <div>
+              <h2 className="text-sm font-semibold text-slate-900">Statistiques globales de flotte</h2>
+              <p className="mt-0.5 text-xs text-slate-500">Indicateurs agrégés</p>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-xs font-semibold text-slate-600">Heures de vol de la flotte</p>
+                  <span className="rounded-lg bg-emerald-50 p-2 text-emerald-600"><History className="h-4 w-4" /></span>
+                </div>
+                <p className="mt-3 text-2xl font-bold tabular-nums tracking-tight text-slate-900">
+                  {formatNumber(statistics.totalFlightHrs)} <span className="text-sm font-medium text-slate-500">h</span>
+                </p>
+                <p className="mt-1 text-xs text-slate-500">Cumul des heures de vol</p>
+              </article>
+              <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-xs font-semibold text-slate-600">Moyenne par aéronef</p>
+                  <span className="rounded-lg bg-emerald-50 p-2 text-emerald-600"><Gauge className="h-4 w-4" /></span>
+                </div>
+                <p className="mt-3 text-2xl font-bold tabular-nums tracking-tight text-slate-900">
+                  {formatNumber(statistics.moyenneHeuresDeVol)} <span className="text-sm font-medium text-slate-500">h</span>
+                </p>
+                <p className="mt-1 text-xs text-slate-500">Heures moyennes de vol</p>
+              </article>
+              <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-xs font-semibold text-slate-600">Capacité moyenne</p>
+                  <span className="rounded-lg bg-emerald-50 p-2 text-emerald-600"><Plane className="h-4 w-4" /></span>
+                </div>
+                <p className="mt-3 text-2xl font-bold tabular-nums tracking-tight text-slate-900">
+                  {formatNumber(statistics.capaciteMoyenne, 0)} <span className="text-sm font-medium text-slate-500">sièges</span>
+                </p>
+                <p className="mt-1 text-xs text-slate-500">Capacité par appareil</p>
+              </article>
+            </div>
+          </section>
+        )}
 
         {/* ═══════════════ TABLE ═══════════════ */}
         <section className={`${SURFACE} overflow-hidden`}>
@@ -1169,7 +1129,7 @@ export function AircraftManagement() {
                   type="search"
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
-                  placeholder="Immatriculation, modèle, manufacturer..."
+                  placeholder="Immatriculation, modèle, constructeur..."
                   className={`h-10 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-9 text-sm text-slate-700 placeholder:text-slate-400 ${FOCUS_RING}`}
                 />
                 {searchTerm && (
@@ -1206,6 +1166,40 @@ export function AircraftManagement() {
             </div>
           </div>
 
+          {/* Répartition de la flotte — filtre rapide sans cartes KPI */}
+          <div className="border-b border-slate-100 bg-white px-4 py-3 sm:px-5">
+            <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Filtrer la flotte par statut">
+              {([
+                { value: 'ALL', label: 'Tous les aéronefs', dot: 'bg-emerald-500' },
+                { value: AircraftStatus.ACTIVE, label: 'Actifs', dot: 'bg-emerald-500' },
+                { value: AircraftStatus.MAINTENANCE, label: 'En maintenance', dot: 'bg-amber-500' },
+                { value: AircraftStatus.OUT_OF_SERVICE, label: 'Hors service', dot: 'bg-rose-500' },
+                { value: AircraftStatus.RETIRED, label: 'Retirés', dot: 'bg-slate-400' },
+              ] as const).map(item => {
+                const active = statusFilter === item.value;
+                return (
+                  <button
+                    key={item.value}
+                    type="button"
+                    onClick={() => setStatusFilter(item.value)}
+                    aria-pressed={active}
+                    className={`inline-flex min-h-9 items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 ${
+                      active
+                        ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                        : 'border-slate-200 bg-white text-slate-600 hover:border-emerald-200 hover:bg-emerald-50/50'
+                    }`}
+                  >
+                    <span className={`h-2 w-2 rounded-full ${item.dot}`} aria-hidden="true" />
+                    <span>{item.label}</span>
+                    <span className={`rounded-md px-1.5 py-0.5 tabular-nums ${active ? 'bg-white text-emerald-700' : 'bg-slate-100 text-slate-700'}`}>
+                      {statusCounts[item.value]}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {loading ? (
             <div className="flex min-h-[240px] items-center justify-center">
               <span className="inline-flex items-center gap-2 text-sm font-medium text-slate-500">
@@ -1219,7 +1213,7 @@ export function AircraftManagement() {
                 <Plane className="h-6 w-6" />
               </div>
               <p className="mt-4 text-sm font-semibold text-slate-900">
-                Aucun aircraft trouvé
+                Aucun aéronef trouvé
               </p>
               <p className="mt-1 text-sm text-slate-500">
                 Ajustez la recherche ou les filtres.
@@ -1471,7 +1465,7 @@ export function AircraftManagement() {
                                 type="button"
                                 onClick={() => { setHoursAircraft(aircraft); setFlightHours(''); setNotice(null); }}
                                 disabled={busy || isRetired}
-                                title="Ajouter des heures de flight"
+                                title="Ajouter des heures de vol"
                                 className={`flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:border-sky-300 hover:bg-sky-50 hover:text-sky-700 disabled:opacity-35 ${FOCUS_RING}`}
                               >
                                 <Gauge className="h-3.5 w-3.5" />
@@ -1501,7 +1495,7 @@ export function AircraftManagement() {
                                 type="button"
                                 onClick={() => void retireAircraft(aircraft)}
                                 disabled={busy || isRetired}
-                                title={isRetired ? 'Avion déjà retiré' : "Retirer l'aircraft"}
+                                title={isRetired ? 'Avion déjà retiré' : "Retirer l’aéronef"}
                                 className={`flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-35 ${FOCUS_RING}`}
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
@@ -1562,45 +1556,7 @@ export function AircraftManagement() {
             </>
           )}
 
-          {/* ═══════════════ STATS BAS INTÉGRÉES ═══════════════ */}
-          {statistics && (
-            <div className="border-t border-slate-100 p-5 sm:p-6">
-              <header className="mb-4 flex items-center gap-3">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
-                  <Gauge className="h-4 w-4" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-semibold text-slate-900">
-                    Statistiques globales de flotte
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    Indicateurs agrégés
-                  </p>
-                </div>
-              </header>
 
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4">
-                  <InfoMetric
-                    label="Heures flotte"
-                    value={`${formatNumber(statistics.totalFlightHrs)} h`}
-                  />
-                </div>
-                <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4">
-                  <InfoMetric
-                    label="Moyenne / aircraft"
-                    value={`${formatNumber(statistics.moyenneHeuresDeVol)} h`}
-                  />
-                </div>
-                <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4">
-                  <InfoMetric
-                    label="Capacité moyenne"
-                    value={`${formatNumber(statistics.capaciteMoyenne, 0)} sièges`}
-                  />
-                </div>
-              </div>
-            </div>
-          )}
         </section>
       </div>
 
@@ -1627,7 +1583,7 @@ export function AircraftManagement() {
                 </div>
                 <div className="min-w-0">
                   <h2 className="text-base font-bold text-slate-900">
-                    {editingAircraft ? `Modifier ${editingAircraft.registration}` : 'Ajouter un aircraft'}
+                    {editingAircraft ? `Modifier ${editingAircraft.registration}` : 'Ajouter un aéronef'}
                   </h2>
                   <p className="mt-0.5 text-xs text-slate-500">
                     Champs alignés sur le backend Fleet
@@ -1648,6 +1604,7 @@ export function AircraftManagement() {
 
             {/* FORM */}
             <form
+              id="aircraft-editor-form"
               onSubmit={handleSubmit}
               className="flex-1 space-y-5 overflow-y-auto p-6"
             >
@@ -1664,7 +1621,7 @@ export function AircraftManagement() {
                   />
                 </Field>
 
-                <Field label="Type d'aircraft">
+                <Field label="Type d’aéronef">
                   <select
                     name="refAircraftType"
                     value={formData.refAircraftType}
@@ -1733,7 +1690,7 @@ export function AircraftManagement() {
                   />
                 </Field>
 
-                <Field label="Heures de flight totales">
+                <Field label="Heures de vol totales">
                   <input
                     type="number"
                     name="totalFlightHrs"
@@ -1747,7 +1704,7 @@ export function AircraftManagement() {
 
                 <Field label="Statut" required>
                   <select
-                    name="status"
+                    name="aircraftStatus"
                     value={formData.aircraftStatus}
                     onChange={handleChange}
                     className={inputClass}
@@ -1795,6 +1752,7 @@ export function AircraftManagement() {
 
               <button
                 type="submit"
+                form="aircraft-editor-form"
                 disabled={submitting}
                 className={`inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-medium text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50 sm:min-w-[140px] ${FOCUS_RING}`}
               >
@@ -1805,7 +1763,7 @@ export function AircraftManagement() {
                 ) : (
                   <Plus className="h-4 w-4" />
                 )}
-                {editingAircraft ? 'Enregistrer' : "Créer l'aircraft"}
+                {editingAircraft ? 'Enregistrer' : "Créer l’aéronef"}
               </button>
             </footer>
           </div>
@@ -1865,7 +1823,7 @@ export function AircraftManagement() {
                     Confirmer la fin de maintenance ?
                   </p>
                   <p className="mt-1 text-xs leading-5 text-amber-700">
-                    Le compteur, la date de maintenance et le status seront recalculés automatiquement.
+                    Le compteur, la date de maintenance et le statut seront recalculés automatiquement.
                   </p>
                 </div>
               </div>
@@ -1982,7 +1940,7 @@ export function AircraftManagement() {
             </header>
 
             <form onSubmit={submitFlightHours} className="space-y-4 p-6">
-              <Field label="Heures flightées" required>
+              <Field label="Heures de vol" required>
                 <input
                   type="number"
                   min={0.1}
@@ -1998,7 +1956,7 @@ export function AircraftManagement() {
               <div className="flex items-start gap-2.5 rounded-lg border border-slate-100 bg-slate-50/50 p-3">
                 <Info className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
                 <p className="text-xs leading-5 text-slate-600">
-                  Cette action augmente les heures totales et le compteur depuis maintenance. Le backend bascule automatiquement l'aircraft en maintenance si la limite est atteinte.
+                  Cette action augmente les heures totales et le compteur depuis maintenance. Le backend bascule automatiquement l’aéronef en maintenance si la limite est atteinte.
                 </p>
               </div>
 

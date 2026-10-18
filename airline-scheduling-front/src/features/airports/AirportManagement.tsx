@@ -1,12 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import {
-  ArrowUpDown,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Clock,
-  Globe2,
   LoaderCircle,
   MapPin,
   Pencil,
@@ -178,10 +176,6 @@ export function AirportManagement() {
 
   const activeCount = airports.filter((airport) => airport.active).length;
   const inactiveCount = airports.length - activeCount;
-  const countryCount = useMemo(
-    () => new Set(airports.map((a) => a.country).filter(Boolean)).size,
-    [airports],
-  );
 
   /* ═══════════════ ACTIONS ═══════════════ */
 
@@ -322,87 +316,8 @@ export function AirportManagement() {
           </button>
         </div>
 
-        {/* ═══════════════ CARTES MÉTRIQUES ═══════════════ */}
-        <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <article className="rounded-2xl border border-slate-200/80 bg-white px-4 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)] sm:px-5 sm:py-5">
-            <div className="flex items-start justify-between">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 sm:text-[11px]">
-                Total
-              </p>
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 sm:h-9 sm:w-9">
-                <Plane className="h-3.5 w-3.5 rotate-45 sm:h-4 sm:w-4" />
-              </div>
-            </div>
-            <div className="mt-2 flex items-baseline gap-1.5 sm:mt-3 sm:gap-2">
-              <span className="text-2xl font-bold leading-none tabular-nums text-slate-900 sm:text-3xl">
-                {airports.length}
-              </span>
-              <span className="text-[10px] font-medium text-slate-500 sm:text-xs">
-                Aéroports
-              </span>
-            </div>
-          </article>
-
-          <article className="rounded-2xl border border-slate-200/80 bg-white px-4 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)] sm:px-5 sm:py-5">
-            <div className="flex items-start justify-between">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 sm:text-[11px]">
-                Actifs
-              </p>
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 sm:h-9 sm:w-9">
-                <CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-              </div>
-            </div>
-            <div className="mt-2 flex items-baseline gap-1.5 sm:mt-3 sm:gap-2">
-              <span className="text-2xl font-bold leading-none tabular-nums text-emerald-700 sm:text-3xl">
-                {activeCount}
-              </span>
-              <span className="text-[10px] font-medium text-slate-500 sm:text-xs">
-                Actifs
-              </span>
-            </div>
-          </article>
-
-          <article className="rounded-2xl border border-slate-200/80 bg-white px-4 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)] sm:px-5 sm:py-5">
-            <div className="flex items-start justify-between">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 sm:text-[11px]">
-                Inactifs
-              </p>
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-rose-50 text-rose-500 sm:h-9 sm:w-9">
-                <XCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-              </div>
-            </div>
-            <div className="mt-2 flex items-baseline gap-1.5 sm:mt-3 sm:gap-2">
-              <span className="text-2xl font-bold leading-none tabular-nums text-slate-900 sm:text-3xl">
-                {inactiveCount}
-              </span>
-              <span className="text-[10px] font-medium text-slate-500 sm:text-xs">
-                Inactifs
-              </span>
-            </div>
-          </article>
-
-          <article className="rounded-2xl border border-slate-200/80 bg-white px-4 py-4 shadow-[0_1px_3px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)] sm:px-5 sm:py-5">
-            <div className="flex items-start justify-between">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 sm:text-[11px]">
-                Pays
-              </p>
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sky-50 text-sky-600 sm:h-9 sm:w-9">
-                <Globe2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-              </div>
-            </div>
-            <div className="mt-2 flex items-baseline gap-1.5 sm:mt-3 sm:gap-2">
-              <span className="text-2xl font-bold leading-none tabular-nums text-sky-700 sm:text-3xl">
-                {countryCount}
-              </span>
-              <span className="text-[10px] font-medium text-slate-500 sm:text-xs">
-                Pays
-              </span>
-            </div>
-          </article>
-        </section>
-
         {/* ═══════════════ CONTENEUR PRINCIPAL ═══════════════ */}
-        <section className="mt-5 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_1px_3px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)] sm:mt-6">
+        <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_1px_3px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)]">
           {/* Barre de recherche + filtres */}
           <div className="flex flex-col gap-3 border-b border-slate-100 p-3 sm:p-4 lg:flex-row lg:items-center lg:justify-between">
             <label className="relative block w-full lg:max-w-md">
@@ -416,30 +331,32 @@ export function AirportManagement() {
               />
             </label>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="relative flex-1 sm:flex-initial">
-                <select
-                  value={statusFilter}
-                  onChange={(event) =>
-                    setStatusFilter(
-                      event.target.value as 'all' | 'active' | 'inactive',
-                    )
-                  }
-                  aria-label="Filtrer par status"
-                  className="h-11 w-full appearance-none rounded-xl border border-slate-200 bg-white pl-4 pr-10 text-sm font-semibold text-slate-700 outline-none transition hover:border-slate-300 focus:border-emerald-600 focus:ring-4 focus:ring-emerald-600/10 sm:w-auto"
+            <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Filtrer les aéroports par statut">
+              {([
+                { value: 'all', label: 'Tous', count: airports.length, dot: 'bg-emerald-500' },
+                { value: 'active', label: 'Actifs', count: activeCount, dot: 'bg-emerald-500' },
+                { value: 'inactive', label: 'Inactifs', count: inactiveCount, dot: 'bg-rose-500' },
+              ] as const).map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setStatusFilter(option.value)}
+                  aria-pressed={statusFilter === option.value}
+                  className={`inline-flex h-10 items-center gap-2 rounded-xl border px-3 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 ${
+                    statusFilter === option.value
+                      ? 'border-emerald-600 bg-emerald-600 text-white shadow-sm'
+                      : 'border-slate-200 bg-white text-slate-600 hover:border-emerald-200 hover:bg-emerald-50'
+                  }`}
                 >
-                  <option value="all">Tous les statuts</option>
-                  <option value="active">Actifs</option>
-                  <option value="inactive">Inactifs</option>
-                </select>
-                <ArrowUpDown className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-              </div>
-
-              <span className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-xl bg-slate-100 px-3.5 text-sm font-bold text-slate-700">
-                {visibleAirports.length}
-                <span className="hidden font-medium text-slate-500 sm:inline">
-                  {visibleAirports.length > 1 ? 'aéroports' : 'aéroport'}
-                </span>
+                  <span className={`h-2 w-2 rounded-full ${statusFilter === option.value ? 'bg-white' : option.dot}`} />
+                  <span>{option.label}</span>
+                  <span className={`rounded-md px-1.5 py-0.5 tabular-nums ${statusFilter === option.value ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'}`}>
+                    {option.count}
+                  </span>
+                </button>
+              ))}
+              <span className="ml-auto text-xs font-medium text-slate-500">
+                {visibleAirports.length} résultat{visibleAirports.length > 1 ? 's' : ''}
               </span>
             </div>
           </div>

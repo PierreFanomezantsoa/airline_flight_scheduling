@@ -6,14 +6,11 @@ import React, {
   useState,
 } from 'react';
 import {
-  AlertCircle,
   AlertTriangle,
   ArrowLeft,
   ArrowRight,
   CheckCircle2,
-  Clock,
   Clock3,
-  Globe,
   Info,
   Mail,
   Pencil,
@@ -22,7 +19,6 @@ import {
   Save,
   Search,
   ShieldCheck,
-  Sparkles,
   Trash2,
   UserPlus,
   Users,
@@ -306,35 +302,6 @@ async function requestJson<T>(path: string, options: RequestInit = {}): Promise<
 /* ============================================================================
  * SOUS-COMPOSANTS
  * ========================================================================== */
-
-function KpiCard({
-  label,
-  value,
-  hint,
-  icon,
-}: {
-  label: string;
-  value: string | number;
-  hint: string;
-  icon: React.ReactNode;
-}) {
-  return (
-    <article className="group rounded-xl border border-slate-200/80 bg-white px-5 py-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all hover:border-slate-300 hover:shadow-[0_4px_14px_rgba(15,23,42,0.06)]">
-      <div className="flex items-start justify-between gap-3">
-        <span className="text-[13px] font-medium text-slate-500">{label}</span>
-        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-emerald-50 text-emerald-500 transition-transform group-hover:scale-110">
-          {icon}
-        </div>
-      </div>
-      <div className="mt-7 flex items-baseline gap-2">
-        <span className="text-[26px] font-bold tabular-nums leading-none tracking-tight text-slate-900">
-          {value}
-        </span>
-        <span className="text-[12px] font-medium text-slate-400">{hint}</span>
-      </div>
-    </article>
-  );
-}
 
 function AlertBanner({
   type,
@@ -834,33 +801,6 @@ export const CrewAssignmentsPage: React.FC = () => {
             onClose={() => setMessage(null)}
           />
         )}
-        {/* ═══════════════ KPI ═══════════════ */}
-        <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <KpiCard
-            label="Affectations"
-            value={assignments.length}
-            hint="Total enregistrées"
-            icon={<Sparkles className="h-3.5 w-3.5" />}
-          />
-          <KpiCard
-            label="Membres actifs"
-            value={uniqueCrewCount}
-            hint="Maintenant"
-            icon={<Globe className="h-3.5 w-3.5" />}
-          />
-          <KpiCard
-            label="Vols couverts"
-            value={assignedFlightCount}
-            hint="À venir"
-            icon={<Clock className="h-3.5 w-3.5" />}
-          />
-          <KpiCard
-            label="Repos renseignés"
-            value={withRestInfo}
-            hint="À surveiller"
-            icon={<AlertCircle className="h-3.5 w-3.5" />}
-          />
-        </section>
         {/* ═══════════════ TABLEAU ═══════════════ */}
         <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
           {/* TOOLBAR */}
@@ -940,6 +880,12 @@ export const CrewAssignmentsPage: React.FC = () => {
               Vol, membre, fonction et repos avant rotation
             </p>
           </header>
+           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-slate-100 bg-slate-50/50 px-5 py-3 text-xs text-slate-600" aria-label="Synthèse des affectations">
+             <span><strong className="text-slate-900">{assignments.length}</strong> affectations</span>
+             <span><strong className="text-emerald-700">{uniqueCrewCount}</strong> membres concernés</span>
+             <span><strong className="text-slate-900">{assignedFlightCount}</strong> vols couverts</span>
+             <span><strong className="text-amber-700">{withRestInfo}</strong> repos renseignés</span>
+           </div>
           {/* MOBILE */}
           <div className="space-y-3 bg-slate-50/60 p-4 md:hidden">
             {loading ? (

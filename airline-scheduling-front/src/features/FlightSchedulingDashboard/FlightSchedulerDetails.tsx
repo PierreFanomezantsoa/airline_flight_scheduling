@@ -1,15 +1,6 @@
 // src/features/FlightSchedulingDashboard/FlightSchedulerDetails.tsx
-
 import type { FC } from 'react';
-import {
-  AlertTriangle,
-  CheckCircle2,
-  Sparkles,
-} from 'lucide-react';
-
-/* ============================================================================
- * TYPES
- * ========================================================================== */
+import { AlertTriangle, CheckCircle2 } from 'lucide-react';
 
 export interface Flight {
   refFlight: string;
@@ -81,149 +72,62 @@ interface FlightSchedulerDetailsProps {
   previewScenario: AutoScheduleResponse | null;
 }
 
-/* ============================================================================
- * SOUS-COMPOSANTS
- * ========================================================================== */
-
-interface SmallValueProps {
-  label: string;
-  value: string | number;
-}
-
-const SmallValue: FC<SmallValueProps> = ({ label, value }) => {
-  const stringValue = String(value);
-  return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-      <span className="block truncate text-[10px] font-medium uppercase tracking-wide text-slate-500">
-        {label}
-      </span>
-      <strong
-        className="mt-1 block truncate text-sm font-semibold tabular-nums text-slate-800"
-        title={stringValue}
-      >
-        {stringValue}
-      </strong>
-    </div>
-  );
-};
-
-interface UnassignedFlightRowProps {
-  item: AutoScheduleUnassigned;
-}
-
-const UnassignedFlightRow: FC<UnassignedFlightRowProps> = ({ item }) => (
-  <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2">
-    <div className="min-w-0">
-      <span className="font-mono text-xs font-semibold text-slate-900">
-        {item.flightNumber || 'N/A'}
-      </span>
-      <span className="ml-2 font-mono text-[10px] text-slate-500">
-        {item.origin || '—'} → {item.destination || '—'}
-      </span>
-    </div>
-    <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wide text-amber-700">
-      {item.reason || 'Non affecté'}
-    </span>
-  </div>
-);
-
-/* ============================================================================
- * COMPOSANT PRINCIPAL
- * ========================================================================== */
-
-const FlightSchedulerDetails: FC<FlightSchedulerDetailsProps> = ({
-  previewScenario,
-}) => {
+const FlightSchedulerDetails: FC<FlightSchedulerDetailsProps> = ({ previewScenario }) => {
   if (!previewScenario) return null;
 
-  const scenarioUnassigned = previewScenario?.metrics.unassignedFlights ?? 0;
-  const unassignedList = previewScenario?.unassigned ?? [];
-  const hasUnassigned = unassignedList.length > 0;
+  const unassignedList = previewScenario.unassigned ?? [];
+  const unassignedCount = previewScenario.metrics.unassignedFlights ?? 0;
 
   return (
-    <section className="grid gap-4 p-4 sm:p-5 xl:grid-cols-2">
-      {/* ─────────── MÉTRIQUES DU GÉNÉRATEUR ─────────── */}
-      <div className="rounded-xl border border-slate-200 bg-white p-5">
-        <header className="mb-4 flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-50 text-sky-600">
-            <Sparkles className="h-4 w-4" />
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold text-slate-900">
-              Résultat du générateur
-            </h3>
-            <p className="mt-0.5 text-xs text-slate-500">
-              Statistiques du scénario prévisualisé
-            </p>
-          </div>
-        </header>
-
-        <div className="grid grid-cols-2 gap-3">
-          <SmallValue
-            label="Affectations directes"
-            value={previewScenario.metrics.directAssignments ?? 0}
-          />
-          <SmallValue
-            label="Vols décalés"
-            value={previewScenario.metrics.shiftedFlights ?? 0}
-          />
-          <SmallValue
-            label="Avions opérationnels"
-            value={previewScenario.metrics.operationalAircraft ?? 0}
-          />
-          <SmallValue
-            label="Stratégie"
-            value={previewScenario.strategy ?? 'Deterministic greedy'}
-          />
+    <section className="p-4 sm:p-5" aria-label="Vols non affectés du scénario">
+      <header className="mb-4 flex items-center gap-3">
+        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
+          unassignedCount > 0
+            ? 'bg-amber-50 text-amber-600'
+            : 'bg-emerald-50 text-emerald-600'
+        }`}>
+          {unassignedCount > 0 ? <AlertTriangle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
         </div>
-      </div>
+        <div className="min-w-0">
+          <h3 className="text-sm font-semibold text-slate-900">Vols non affectés</h3>
+          <p className="mt-0.5 text-xs text-slate-500">
+            {unassignedCount > 0
+              ? `${unassignedCount} vol${unassignedCount > 1 ? 's' : ''} à traiter`
+              : 'Tous les vols ont reçu une affectation'}
+          </p>
+        </div>
+      </header>
 
-      {/* ─────────── VOLS NON AFFECTÉS ─────────── */}
-      <div className="rounded-xl border border-slate-200 bg-white p-5">
-        <header className="mb-4 flex items-center gap-3">
-          <div
-            className={`flex h-8 w-8 items-center justify-center rounded-lg ${
-              scenarioUnassigned > 0
-                ? 'bg-amber-50 text-amber-600'
-                : 'bg-emerald-50 text-emerald-600'
-            }`}
-          >
-            {scenarioUnassigned > 0 ? (
-              <AlertTriangle className="h-4 w-4" />
-            ) : (
-              <CheckCircle2 className="h-4 w-4" />
-            )}
-          </div>
-          <div className="min-w-0">
-            <h3 className="text-sm font-semibold text-slate-900">
-              Vols non affectés
-            </h3>
-            <p className="mt-0.5 text-xs text-slate-500">
-              {scenarioUnassigned > 0
-                ? `${scenarioUnassigned} flight${scenarioUnassigned > 1 ? 's' : ''} à traiter`
-                : 'Tous les vols ont reçu une affectation'}
-            </p>
-          </div>
-        </header>
-
-        {!hasUnassigned ? (
-          <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5">
-            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
-            <p className="text-xs font-medium text-slate-700">
-              Aucun vol en attente d&apos;affectation dans ce scénario.
-            </p>
-          </div>
-        ) : (
-          <div className="max-h-44 space-y-2 overflow-y-auto pr-1">
-            {unassignedList.map((item, index) => (
-              <UnassignedFlightRow
-                key={`${item.refFlight}-${index}`}
-                item={item}
-              />
-            ))}
-          </div>
-        )}
-      </div>
+      {unassignedList.length === 0 ? (
+        <div className={`flex items-center gap-2 rounded-xl border px-4 py-3 ${
+          unassignedCount > 0
+            ? 'border-amber-200 bg-amber-50 text-amber-800'
+            : 'border-emerald-100 bg-emerald-50/50 text-slate-700'
+        }`}>
+          {unassignedCount > 0
+            ? <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
+            : <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />}
+          <p className="text-xs font-medium">
+            {unassignedCount > 0
+              ? 'Certains vols restent sans affectation, mais leur détail n’est pas disponible.'
+              : 'Aucun vol en attente d’affectation dans ce scénario.'}
+          </p>
+        </div>
+      ) : (
+        <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
+          {unassignedList.map((item, index) => (
+            <div key={`${item.refFlight}-${index}`} className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <span className="font-mono text-xs font-semibold text-slate-900">{item.flightNumber || 'N° non renseigné'}</span>
+                <span className="ml-2 text-xs text-slate-500">{item.origin || '—'} → {item.destination || '—'}</span>
+              </div>
+              <span className="max-w-full self-start rounded-lg bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800 sm:self-auto">
+                {item.reason || 'Affectation requise'}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
     </section>
   );
 };
