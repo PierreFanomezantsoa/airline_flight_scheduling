@@ -1318,7 +1318,7 @@ export const FlightsPlanning: FC = () => {
           </div>
 
           {/* Totaux intégrés à la barre : cliquables, sans blocs de statistiques */}
-          <nav aria-label="Répartition des vols par statut" className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-slate-100 pt-3">
+          <nav aria-label="Répartition des vols par statut" className="mt-3 grid grid-cols-2 gap-2 border-t border-slate-100 pt-3 sm:flex sm:flex-wrap sm:items-center sm:gap-1.5">
             {quickStatusFilters.map((filter) => {
               const active = selectedStatusFilter === filter.id;
               return (
@@ -1327,15 +1327,15 @@ export const FlightsPlanning: FC = () => {
                   type="button"
                   aria-pressed={active}
                   onClick={() => setSelectedStatusFilter(filter.id)}
-                  className={`inline-flex h-8 items-center gap-2 rounded-lg border px-2.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 ${
+                  className={`inline-flex h-10 min-w-0 items-center justify-center gap-1.5 rounded-xl border px-2 text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 sm:justify-start sm:gap-2 sm:px-3 sm:text-xs ${filter.id === 'ALL' ? 'col-span-2 sm:col-auto' : ''} ${
                     active
-                      ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-                      : 'border-transparent text-slate-600 hover:border-slate-200 hover:bg-slate-50'
+                      ? 'border-emerald-300 bg-emerald-100 text-emerald-800 shadow-sm'
+                      : 'border-slate-200 bg-white text-slate-600 hover:border-emerald-200 hover:bg-emerald-50'
                   }`}
                 >
-                  <span className={`h-1.5 w-1.5 rounded-full ${filter.dot}`} aria-hidden="true" />
-                  <span>{filter.label}</span>
-                  <span className={`rounded-md px-1.5 py-0.5 font-bold tabular-nums ${active ? 'bg-white text-emerald-700' : 'bg-slate-100 text-slate-700'}`}>
+                  <span className={`h-2 w-2 rounded-full ${active ? 'bg-emerald-600' : filter.dot}`} aria-hidden="true" />
+                  <span className="truncate">{filter.label}</span>
+                  <span className={`shrink-0 rounded-md px-1.5 py-0.5 font-bold tabular-nums ${active ? 'bg-emerald-200 text-emerald-900' : 'bg-slate-100 text-slate-700'}`}>
                     {filter.value}
                   </span>
                 </button>

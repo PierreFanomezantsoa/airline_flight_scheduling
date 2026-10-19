@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Check, ChevronDown, Search } from 'lucide-react';
+import { createPortal } from 'react-dom';
 
 export interface SearchableDropdownOption {
   value: string;
@@ -42,6 +43,11 @@ export const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const [panelPosition, setPanelPosition] = useState<{
+    top: number; left: number; width: number; maxHeight: number;
+  }>({ top: 0, left: 0, width: 280, maxHeight: 320 });
   const listboxId = `${id}-options`;
   const selectedOption = options.find(option => option.value === value);
   const filteredOptions = useMemo(() => {
@@ -58,8 +64,33 @@ export const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
   useEffect(() => {
     if (!isOpen) return;
 
+    const positionPanel = () => {
+      const anchor = dropdownRef.current;
+      if (!anchor) return;
+      const rect = anchor.getBoundingClientRect();
+      const margin = 12;
+      const gap = 6;
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      const width = Math.min(Math.max(rect.width, 280), viewportWidth - margin * 2);
+      const left = Math.max(margin, Math.min(rect.left, viewportWidth - width - margin));
+      const spaceBelow = viewportHeight - rect.bottom - margin - gap;
+      const spaceAbove = rect.top - margin - gap;
+      const openAbove = spaceBelow < 210 && spaceAbove > spaceBelow;
+      const maxHeight = Math.max(120, Math.min(340, openAbove ? spaceAbove : spaceBelow));
+      setPanelPosition({
+        top: openAbove ? Math.max(margin, rect.top - gap - maxHeight) : rect.bottom + gap,
+        left,
+        width,
+        maxHeight,
+      });
+    };
+
+    positionPanel();
+    const raf = window.requestAnimationFrame(() => searchRef.current?.focus());
     const closeOnOutsidePointer = (event: PointerEvent) => {
-      if (!dropdownRef.current?.contains(event.target as Node)) {
+      const node = event.target as Node;
+      if (!dropdownRef.current?.contains(node) && !panelRef.current?.contains(node)) {
         setIsOpen(false);
         setQuery('');
       }
@@ -69,14 +100,25 @@ export const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
         event.stopPropagation();
         setIsOpen(false);
         setQuery('');
+        dropdownRef.current?.querySelector('button')?.focus();
       }
+    };
+    const closeOnScroll = (event: Event) => {
+      if (panelRef.current?.contains(event.target as Node)) return;
+      setIsOpen(false);
+      setQuery('');
     };
 
     document.addEventListener('pointerdown', closeOnOutsidePointer);
     document.addEventListener('keydown', closeOnEscape);
+    window.addEventListener('resize', positionPanel);
+    window.addEventListener('scroll', closeOnScroll, true);
     return () => {
+      window.cancelAnimationFrame(raf);
       document.removeEventListener('pointerdown', closeOnOutsidePointer);
       document.removeEventListener('keydown', closeOnEscape);
+      window.removeEventListener('resize', positionPanel);
+      window.removeEventListener('scroll', closeOnScroll, true);
     };
   }, [isOpen]);
 
@@ -106,13 +148,17 @@ export const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
         />
       </button>
 
-      {isOpen && (
-        <div className="absolute left-0 top-[calc(100%+6px)] z-40 w-full min-w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl shadow-slate-900/10">
+      {isOpen && createPortal(
+        <div
+          ref={panelRef}
+          className="fixed z-[110] flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl shadow-slate-900/15"
+          style={{ top: panelPosition.top, left: panelPosition.left, width: panelPosition.width, maxHeight: panelPosition.maxHeight }}
+        >
           <div className="border-b border-slate-100 p-2">
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
-                autoFocus
+                ref={searchRef}
                 type="search"
                 value={query}
                 onChange={event => setQuery(event.target.value)}
@@ -122,7 +168,7 @@ export const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
               />
             </div>
           </div>
-          <div id={listboxId} role="listbox" aria-label={label} className="max-h-56 overflow-y-auto">
+          <div id={listboxId} role="listbox" aria-label={label} className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
             {filteredOptions.length ? (
               filteredOptions.map(option => (
                 <button
@@ -160,7 +206,7 @@ export const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
             )}
           </div>
         </div>
-      )}
+      , document.body)}
     </div>
   );
 };

@@ -765,8 +765,8 @@ export const CrewAssignmentsPage: React.FC = () => {
   };
   /* RENDER */
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100/50 p-4 sm:p-6">
-      <div className="mx-auto max-w-7xl space-y-6">
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100/50 px-0 py-3 sm:p-6">
+      <div className="mx-auto w-full max-w-7xl space-y-4 sm:space-y-6">
         {/* ═══════════════ HEADER ═══════════════ */}
         <header className="flex items-center justify-end gap-2">
           <button
@@ -804,7 +804,7 @@ export const CrewAssignmentsPage: React.FC = () => {
         {/* ═══════════════ TABLEAU ═══════════════ */}
         <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
           {/* TOOLBAR */}
-          <div className="border-b border-slate-100 bg-slate-50/50 p-4">
+          <div className="border-b border-slate-100 bg-slate-50/50 p-2.5 sm:p-4">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div className="relative w-full lg:max-w-md">
                 <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -816,8 +816,8 @@ export const CrewAssignmentsPage: React.FC = () => {
                   className={`h-10 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-3 text-sm text-slate-700 placeholder:text-slate-400 ${FOCUS_RING}`}
                 />
               </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="w-full sm:w-56">
+              <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
+                <div className="min-w-0 sm:w-56">
                   <SearchableDropdown
                     id="crew-filter-flight"
                     label="Filtrer par vol"
@@ -836,7 +836,7 @@ export const CrewAssignmentsPage: React.FC = () => {
                     ]}
                   />
                 </div>
-                <div className="w-full sm:w-56">
+                <div className="min-w-0 sm:w-56">
                   <SearchableDropdown
                     id="crew-filter-member"
                     label="Filtrer par membre"
@@ -869,7 +869,7 @@ export const CrewAssignmentsPage: React.FC = () => {
             </div>
           </div>
           {/* EN-TÊTE LISTE */}
-          <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
+          <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-3 py-3 sm:px-5 sm:py-4">
             <div className="flex items-center gap-2.5">
               <h2 className="text-sm font-semibold text-slate-900">Affectations enregistrées</h2>
               <span className="inline-flex h-5 items-center rounded-md bg-slate-100 px-2 text-[11px] font-semibold text-slate-600 tabular-nums">
@@ -880,14 +880,14 @@ export const CrewAssignmentsPage: React.FC = () => {
               Vol, membre, fonction et repos avant rotation
             </p>
           </header>
-           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-slate-100 bg-slate-50/50 px-5 py-3 text-xs text-slate-600" aria-label="Synthèse des affectations">
+           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-slate-100 bg-slate-50/50 px-3 py-3 text-xs sm:px-5 text-slate-600" aria-label="Synthèse des affectations">
              <span><strong className="text-slate-900">{assignments.length}</strong> affectations</span>
              <span><strong className="text-emerald-700">{uniqueCrewCount}</strong> membres concernés</span>
              <span><strong className="text-slate-900">{assignedFlightCount}</strong> vols couverts</span>
              <span><strong className="text-amber-700">{withRestInfo}</strong> repos renseignés</span>
            </div>
           {/* MOBILE */}
-          <div className="space-y-3 bg-slate-50/60 p-4 md:hidden">
+          <div className="space-y-2.5 bg-slate-50/60 p-2 sm:p-4 md:hidden">
             {loading ? (
               <div className="flex min-h-[180px] items-center justify-center rounded-2xl border border-slate-200 bg-white">
                 <span className="inline-flex items-center gap-2 text-sm font-medium text-slate-500">

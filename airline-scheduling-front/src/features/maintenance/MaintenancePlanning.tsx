@@ -448,6 +448,19 @@ export const MaintenancePlanning: React.FC = () => {
     [slots],
   );
 
+  // Compteurs indépendants de l'onglet et de la recherche sélectionnés.
+  const tabCounts = useMemo(() => ({
+    active: slots.filter(slot =>
+      !isPendingReview(slot) &&
+      slot.maintStatus !== 'Completed' &&
+      slot.maintStatus !== 'Cancelled'
+    ).length,
+    pending: slots.filter(isPendingReview).length,
+    history: slots.filter(slot =>
+      slot.maintStatus === 'Completed' || slot.maintStatus === 'Cancelled'
+    ).length,
+  }), [slots]);
+
   const requestedMaintenanceConflict = useMemo(() => {
     const interval = buildMaintenanceInterval(startDate, durationDays);
     if (!interval || !selectedAircraftId) return null;
@@ -825,13 +838,6 @@ export const MaintenancePlanning: React.FC = () => {
 
       {/* ACTIONS RAPIDES */}
       <div className="flex items-center justify-end gap-2">
-        <span className="hidden items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-medium text-slate-500 sm:inline-flex">
-          <span className="relative flex h-1.5 w-1.5">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
-          </span>
-          Synchronisation 30 s
-        </span>
         <button
           type="button"
           onClick={() => void loadData()}
@@ -959,24 +965,25 @@ export const MaintenancePlanning: React.FC = () => {
         </div>
 
         {/* TABS */}
-        <div className="flex items-center gap-1 border-b border-slate-200 px-4 sm:px-6">
+        <div className="flex items-center gap-2 overflow-x-auto border-b border-slate-200 px-3 py-2 sm:px-6" role="tablist" aria-label="Statuts du planning de maintenance">
           <TabButton
             active={activeTab === 'active'}
             onClick={() => setActiveTab('active')}
             label="Planning actif"
-            count={filteredSlots.length}
+            count={tabCounts.active}
           />
           <TabButton
             active={activeTab === 'pending'}
             onClick={() => setActiveTab('pending')}
             label="Décisions"
-            count={pendingReviewSlots.length}
+            count={tabCounts.pending}
             accent={pendingReviewSlots.length > 0}
           />
           <TabButton
             active={activeTab === 'history'}
             onClick={() => setActiveTab('history')}
             label="Historique"
+            count={tabCounts.history}
           />
         </div>
 
@@ -1477,22 +1484,24 @@ function TabButton({
   return (
     <button
       type="button"
+      role="tab"
+      aria-selected={active}
       onClick={onClick}
-      className={`relative -mb-px flex items-center gap-2 border-b-2 px-3 py-3.5 text-sm font-medium transition ${
+      className={`inline-flex h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl border px-3 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 sm:text-sm ${
         active
-          ? 'border-emerald-600 text-emerald-700'
-          : 'border-transparent text-slate-500 hover:text-slate-700'
+          ? 'border-emerald-200 bg-emerald-100 text-emerald-800'
+          : 'border-transparent bg-white text-slate-600 hover:border-slate-200 hover:bg-slate-50'
       }`}
     >
-      {label}
-      {typeof count === 'number' && count > 0 && (
+      <span>{label}</span>
+      {typeof count === 'number' && (
         <span
-          className={`inline-flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums ${
-            accent
-              ? 'bg-amber-100 text-amber-700'
+          className={`inline-flex h-5 min-w-5 items-center justify-center rounded-md px-1.5 text-[11px] font-bold tabular-nums ${
+            accent && count > 0
+              ? 'bg-amber-100 text-amber-800'
               : active
-                ? 'bg-emerald-100 text-emerald-700'
-                : 'bg-slate-100 text-slate-600'
+                ? 'bg-white text-emerald-800'
+                : 'bg-slate-100 text-slate-700'
           }`}
         >
           {count}

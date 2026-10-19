@@ -21,6 +21,7 @@ import {
   X,
 } from 'lucide-react';
 import type { LucideProps } from 'lucide-react';
+import CrewNotificationBell from '../notifications/CrewNotificationBell';
 
 export type ActiveScreen =
   | 'dashboard'
@@ -56,10 +57,11 @@ interface MenuSection {
 interface SidebarProps {
   activeScreen: ActiveScreen;
   setActiveScreen: (screen: ActiveScreen) => void;
-  user: { userName: string; email: string; role?: string } | null;
+  user: { userName: string; email: string; role?: string; refUser?: string } | null;
   onLogout: () => void;
   isCollapsed: boolean;
   onCollapsedChange: (collapsed: boolean) => void;
+  isMobileViewport?: boolean;
 }
 
 export type AvailableRoles =
@@ -201,6 +203,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onLogout,
   isCollapsed,
   onCollapsedChange,
+  isMobileViewport = false,
 }) => {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isMobileProfileOpen, setIsMobileProfileOpen] = useState(false);
@@ -491,7 +494,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </span>
       </div>
 
-      <div className="relative shrink-0" ref={mobileProfileRef}>
+      <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+        {isMobileViewport && currentRole === 'Crew_Member' && user?.refUser && (
+          <CrewNotificationBell userRef={user.refUser} />
+        )}
+        <div className="relative shrink-0" ref={mobileProfileRef}>
         <button
           type="button"
           onClick={() => setIsMobileProfileOpen((open) => !open)}
@@ -506,32 +513,53 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {isMobileProfileOpen && (
           <div
             role="menu"
-            aria-label="Compte user"
-            className="absolute right-0 top-[calc(100%+0.75rem)] z-50 w-64 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-xl border border-slate-200 bg-white p-3 text-slate-900 shadow-xl shadow-slate-900/10"
+            aria-label="Menu du compte utilisateur"
+            className="absolute right-0 top-[calc(100%+0.5rem)] z-[80] w-[min(19rem,calc(100vw-1.25rem))] overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-900 shadow-2xl shadow-slate-900/15"
           >
-            <div className="min-w-0 border-b border-slate-100 px-1 pb-3">
-              <p className="truncate text-sm font-semibold">{userDisplayName}</p>
-              {user?.email && (
-                <p className="truncate text-xs text-slate-500">{user.email}</p>
-              )}
-              <p className="mt-1 text-[11px] font-medium text-emerald-700">
-                {userRoleLabel}
-              </p>
+            {/* Bandeau de profil sobre, visible sur petits écrans. */}
+            <div className="relative border-b border-emerald-100 bg-emerald-50/60 px-4 pb-3.5 pt-4">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-emerald-200 bg-white text-base font-bold text-emerald-700 shadow-sm">
+                  {userInitial}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-bold text-slate-900" title={userDisplayName}>
+                    {userDisplayName}
+                  </p>
+                  {user?.email && (
+                    <p className="mt-0.5 truncate text-[11px] text-slate-500" title={user.email}>
+                      {user.email}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="mt-3 flex items-center gap-2">
+                <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-emerald-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
+                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" aria-hidden="true" />
+                  <span className="truncate">{userRoleLabel}</span>
+                </span>
+              </div>
             </div>
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setIsMobileProfileOpen(false);
-                onLogout();
-              }}
-              className="mt-2 flex h-10 w-full items-center gap-2 rounded-lg px-2 text-sm font-medium text-rose-600 transition hover:bg-rose-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/30"
-            >
-              <LogOut className="h-4 w-4" />
-              Déconnexion
-            </button>
+            <div className="p-2.5">
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setIsMobileProfileOpen(false);
+                  onLogout();
+                }}
+                className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] font-semibold text-rose-600 outline-none transition hover:bg-rose-50 active:bg-rose-100 focus-visible:ring-2 focus-visible:ring-rose-500/30"
+              >
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-rose-50">
+                  <LogOut className="h-4 w-4" />
+                </span>
+                <span className="flex-1">Se déconnecter</span>
+                <ChevronDown className="h-3.5 w-3.5 -rotate-90 text-rose-400" />
+              </button>
+            </div>
           </div>
         )}
+        </div>
       </div>
     </header>
   );

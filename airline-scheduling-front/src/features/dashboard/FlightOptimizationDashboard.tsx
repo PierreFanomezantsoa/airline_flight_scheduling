@@ -366,7 +366,7 @@ export const FlightOptimizationDashboard: React.FC = () => {
                   Conflits du programme de vols
                 </h2>
                 <p className="mt-1 text-xs text-slate-500">
-                  Le pourcentage indique le niveau de confiance de la détection.
+                  Le pourcentage indique le niveau de confiance de la détection. Les règles métier sont affichées à 100 %.
                 </p>
               </div>
               <div className="flex flex-col gap-2 sm:flex-row">
@@ -383,7 +383,7 @@ export const FlightOptimizationDashboard: React.FC = () => {
 
               </div>
             </div>
-            <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-4" role="group" aria-label="Filtrer les conflits par criticité">
+            <div className="mt-4 grid grid-cols-2 gap-2 border-t border-slate-100 pt-4 sm:flex sm:flex-wrap sm:items-center" role="group" aria-label="Filtrer les conflits par criticité">
               {([
                 { id: 'ALL', label: 'Tous les conflits', count: conflicts.length, dot: 'bg-emerald-500' },
                 { id: 'CRITICAL', label: 'Critiques', count: conflicts.filter(c => c.severity === 'CRITICAL').length, dot: 'bg-rose-500' },
@@ -395,15 +395,15 @@ export const FlightOptimizationDashboard: React.FC = () => {
                   type="button"
                   onClick={() => setSeverityFilter(item.id)}
                   aria-pressed={severityFilter === item.id}
-                  className={`inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 ${
+                  className={`flex h-10 min-w-0 w-full items-center justify-center gap-1.5 rounded-xl border px-2 text-[11px] font-semibold transition sm:h-9 sm:w-auto sm:gap-2 sm:px-3 sm:text-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 ${
                     severityFilter === item.id
-                      ? 'border-emerald-600 bg-emerald-600 text-white shadow-sm'
+                      ? 'border-emerald-200 bg-emerald-100 text-emerald-800 shadow-sm'
                       : 'border-slate-200 bg-white text-slate-600 hover:border-emerald-200 hover:bg-emerald-50'
                   }`}
                 >
-                  <span className={`h-2 w-2 rounded-full ${severityFilter === item.id ? 'bg-white' : item.dot}`} />
-                  {item.label}
-                  <span className={`rounded-md px-1.5 py-0.5 tabular-nums ${severityFilter === item.id ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'}`}>{item.count}</span>
+                  <span className={`h-2 w-2 shrink-0 rounded-full ${item.dot}`} />
+                  <span className="truncate whitespace-nowrap">{item.label}</span>
+                  <span className={`shrink-0 rounded-md px-1.5 py-0.5 tabular-nums ${severityFilter === item.id ? 'bg-white text-emerald-800' : 'bg-slate-100 text-slate-700'}`}>{item.count}</span>
                 </button>
               ))}
             </div>

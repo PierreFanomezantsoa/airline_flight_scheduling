@@ -593,7 +593,7 @@ export default function CrewNotificationBell({
         <section
           role="dialog"
           aria-label="Notifications équipage"
-          className="absolute right-0 z-[70] mt-2 w-[380px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/10"
+          className="fixed inset-x-3 top-[4.25rem] z-[70] flex max-h-[calc(100dvh-5rem)] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/10 md:absolute md:inset-x-auto md:right-0 md:top-auto md:mt-2 md:w-[380px] md:max-w-[calc(100vw-2rem)]"
         >
           <header className="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-3.5">
             <div className="min-w-0">
@@ -639,7 +639,7 @@ export default function CrewNotificationBell({
             )}
           </header>
 
-          <div className="max-h-[440px] overflow-y-auto">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain md:max-h-[440px]">
             {notifications.length ===
             0 ? (
               <div className="px-6 py-10 text-center">

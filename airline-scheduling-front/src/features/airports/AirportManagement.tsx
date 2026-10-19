@@ -344,13 +344,13 @@ export function AirportManagement() {
                   aria-pressed={statusFilter === option.value}
                   className={`inline-flex h-10 items-center gap-2 rounded-xl border px-3 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 ${
                     statusFilter === option.value
-                      ? 'border-emerald-600 bg-emerald-600 text-white shadow-sm'
+                      ? 'border-emerald-200 bg-emerald-100 text-emerald-800'
                       : 'border-slate-200 bg-white text-slate-600 hover:border-emerald-200 hover:bg-emerald-50'
                   }`}
                 >
-                  <span className={`h-2 w-2 rounded-full ${statusFilter === option.value ? 'bg-white' : option.dot}`} />
+                  <span className={`h-2 w-2 rounded-full ${option.dot}`} />
                   <span>{option.label}</span>
-                  <span className={`rounded-md px-1.5 py-0.5 tabular-nums ${statusFilter === option.value ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'}`}>
+                  <span className={`rounded-md px-1.5 py-0.5 tabular-nums ${statusFilter === option.value ? 'bg-white text-emerald-800' : 'bg-slate-100 text-slate-700'}`}>
                     {option.count}
                   </span>
                 </button>
