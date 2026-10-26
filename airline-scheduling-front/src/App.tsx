@@ -758,7 +758,7 @@ function App() {
       ═════════════════════════════════════════════════════════════════════ */}
       {isLogoutModalOpen && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm animate-in fade-in duration-150"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-blue-950/45 p-4 backdrop-blur-sm animate-in fade-in duration-150"
           role="alertdialog"
           aria-modal="true"
           aria-labelledby="logout-dialog-title"
@@ -766,100 +766,75 @@ function App() {
           onClick={closeLogoutModal}
         >
           <section
-            className={`w-full max-w-[390px] overflow-hidden rounded-3xl bg-white text-center shadow-2xl shadow-emerald-950/15 ring-1 ring-slate-900/5 animate-in zoom-in-95 duration-200 ${
+            className={`w-full max-w-[430px] overflow-hidden rounded-3xl border border-blue-100 bg-white text-left shadow-2xl shadow-blue-950/20 animate-in zoom-in-95 duration-200 ${
               isLoggingOut ? 'pointer-events-none' : ''
             }`}
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="p-6">
+            <div className="h-1.5 bg-linear-to-r from-blue-400 via-blue-600 to-blue-800" aria-hidden="true" />
+            <div className="p-6 sm:p-7">
               {isLoggingOut ? (
-                <div
-                  className="animate-in fade-in zoom-in-95 duration-300"
-                  role="status"
-                  aria-live="polite"
-                >
-                  <div className="relative mx-auto flex h-20 w-20 items-center justify-center">
-                    <span
-                      className="absolute inset-2 rounded-full bg-emerald-100 animate-ping"
-                      aria-hidden="true"
-                    />
-                    <span
-                      className="absolute inset-0 rounded-full border border-emerald-100"
-                      aria-hidden="true"
-                    />
-                    <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-linear-to-br from-emerald-500 to-emerald-700 text-white shadow-lg shadow-emerald-700/30">
-                      <LoaderCircle className="h-6 w-6 animate-spin" />
+                <div role="status" aria-live="polite">
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 ring-1 ring-blue-100">
+                      <LoaderCircle className="h-7 w-7 animate-spin motion-reduce:animate-none" aria-hidden="true" />
                     </div>
-                  </div>
-
-                  <h2
-                    id="logout-dialog-title"
-                    className="mt-5 text-lg font-bold tracking-tight text-slate-900"
-                  >
-                    Déconnexion en cours
-                  </h2>
-
-                  <p
-                    id="logout-dialog-desc"
-                    className="mx-auto mt-1.5 max-w-[270px] text-sm leading-6 text-slate-500"
-                  >
-                    Fermeture sécurisée de votre session. Redirection vers la page de connexion…
-                  </p>
-
-                  <div className="mx-auto mt-5 flex items-center justify-center gap-1.5">
-                    {[0, 1, 2].map((index) => (
-                      <span
-                        key={index}
-                        className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-bounce"
-                        style={{ animationDelay: `${index * 120}ms` }}
-                        aria-hidden="true"
-                      />
-                    ))}
+                    <div className="min-w-0">
+                      <h2 id="logout-dialog-title" className="text-lg font-bold tracking-tight text-slate-900">
+                        Déconnexion en cours
+                      </h2>
+                      <p id="logout-dialog-desc" className="mt-1 text-sm leading-5 text-slate-500">
+                        Fermeture de votre session…
+                      </p>
+                    </div>
                   </div>
                 </div>
               ) : (
                 <>
-                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 ring-8 ring-emerald-50/50">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-linear-to-br from-emerald-500 to-emerald-700 text-white shadow-md shadow-emerald-700/30">
-                      <LogOut className="h-[18px] w-[18px]" />
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-blue-200 bg-blue-50 text-blue-600">
+                      <LogOut className="h-6 w-6" aria-hidden="true" />
+                    </div>
+                    <div className="min-w-0 pt-0.5">
+                      <h2 id="logout-dialog-title" className="text-xl font-bold tracking-tight text-slate-900">
+                        Se déconnecter ?
+                      </h2>
+                      <p id="logout-dialog-desc" className="mt-1 text-sm leading-6 text-slate-500">
+                        Votre session sera fermée et vous reviendrez à la page de connexion.
+                      </p>
                     </div>
                   </div>
 
-                  <h2 id="logout-dialog-title" className="mt-5 text-lg font-bold tracking-tight text-slate-900">
-                    Se déconnecter ?
-                  </h2>
-                  <p id="logout-dialog-desc" className="mt-1.5 text-sm leading-6 text-slate-500">
-                    Vous allez quitter la session de{' '}
-                    <span className="font-semibold text-slate-800">{user.userName}</span>.
-                  </p>
+                  <div className="mt-6 flex items-center gap-3 rounded-2xl border border-blue-100 bg-blue-50/70 px-4 py-3">
+                    <UserAvatar user={user} size="sm" />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-slate-900">{user.userName}</p>
+                      <p className="truncate text-xs text-slate-500">{user.email}</p>
+                    </div>
+                  </div>
 
-                  <div className="mt-6 grid grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] gap-3">
+                  <div className="mt-6 flex flex-col-reverse gap-2.5 sm:flex-row sm:justify-end">
                     <button
                       type="button"
                       onClick={closeLogoutModal}
                       autoFocus
-                      className="inline-flex h-12 min-w-0 cursor-pointer items-center justify-center rounded-2xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition-all hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 active:scale-[0.98] focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-500/20"
+                      className="inline-flex h-11 w-full cursor-pointer items-center justify-center rounded-xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-500/20 sm:w-auto"
                     >
-                      Annuler
+                      Rester connecté
                     </button>
                     <button
                       type="button"
                       onClick={confirmLogout}
-                      className="inline-flex h-12 min-w-0 cursor-pointer items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-3 text-[13px] font-semibold text-white shadow-md shadow-emerald-600/25 transition-all hover:-translate-y-0.5 hover:bg-emerald-700 hover:shadow-lg hover:shadow-emerald-600/30 active:translate-y-0 active:scale-[0.98] focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-500/30 sm:text-sm"
+                      className="inline-flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm shadow-blue-600/20 transition-colors hover:bg-blue-700 focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-500/30 sm:w-auto"
                     >
                       <LogOut className="h-4 w-4 shrink-0" />
-                      <span className="whitespace-nowrap">Se déconnecter</span>
+                      <span>Se déconnecter</span>
                     </button>
                   </div>
                 </>
               )}
             </div>
 
-            {isLoggingOut && (
-              <div className="h-1 w-full overflow-hidden bg-emerald-50">
-                <div className="h-full w-full animate-pulse bg-emerald-500" />
-              </div>
-            )}
           </section>
         </div>
       )}

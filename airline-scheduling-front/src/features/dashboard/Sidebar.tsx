@@ -297,28 +297,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
         onClick={() => handleNavigate(item.id)}
         aria-current={isActive ? 'page' : undefined}
         title={collapsed ? item.label : undefined}
-        className={`group relative flex w-full cursor-pointer select-none items-center rounded-xl text-left text-[13px] outline-none transition-all duration-150 focus-visible:ring-2 focus-visible:ring-emerald-500/40 ${
-          collapsed ? 'h-10 justify-center' : 'h-9 gap-3 px-3'
+        className={`group relative flex w-full cursor-pointer select-none items-center overflow-hidden rounded-xl border text-left text-[13px] outline-none transition-all duration-150 focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white ${
+          collapsed ? 'h-10 justify-center' : 'h-10 gap-2.5 px-2.5'
         } ${
           isActive
-            ? 'bg-emerald-50 font-semibold text-emerald-800'
-            : 'font-medium text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
+            ? 'border-blue-200 bg-blue-50 font-semibold text-blue-800 shadow-[inset_3px_0_0_#3b82f6]'
+            : 'border-transparent font-medium text-slate-600 hover:border-blue-100 hover:bg-blue-50 hover:text-blue-800'
         }`}
       >
-        {isActive && (
-          <span
-            aria-hidden
-            className={`absolute top-1/2 w-1 -translate-y-1/2 rounded-r-full bg-emerald-600 ${
-              collapsed ? '-left-3 h-6' : '-left-3 h-5'
-            }`}
-          />
-        )}
-
-        <Icon
-          className={`h-4.5 w-4.5 shrink-0 transition-colors ${
-            isActive ? 'text-emerald-600' : 'text-slate-400 group-hover:text-slate-600'
-          }`}
-        />
+        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors ${
+          isActive ? 'bg-blue-100 text-blue-600' : 'bg-slate-50 text-slate-400 group-hover:bg-blue-100 group-hover:text-blue-600'
+        }`}>
+          <Icon className="h-4.5 w-4.5" />
+        </span>
 
         {!collapsed && (
           <>
@@ -326,7 +317,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {item.badge && (
               <span
                 className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                  isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'
+                  isActive ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'
                 }`}
               >
                 {item.badge}
@@ -343,7 +334,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   // ===========================================================================
 
   const renderSections = (collapsed: boolean) => (
-    <div className="space-y-5">
+    <div className="space-y-3">
       {visibleSections.map((section, index) => {
         const isOpen = collapsed || (openSections[section.id] ?? true);
         const sectionId = `sidebar-section-${section.id}${collapsed ? '-c' : ''}`;
@@ -351,14 +342,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
         return (
           <div key={section.id}>
             {collapsed ? (
-              index > 0 && <div className="mx-auto mb-3 h-px w-8 bg-slate-200" aria-hidden />
+              index > 0 && <div className="mx-auto mb-2 h-px w-8 bg-blue-100" aria-hidden />
             ) : (
               <button
                 type="button"
                 onClick={() => toggleSection(section.id)}
                 aria-expanded={isOpen}
                 aria-controls={sectionId}
-                className="mb-1 flex w-full cursor-pointer items-center justify-between rounded-lg px-3 py-1 text-[10.5px] font-bold uppercase tracking-widest text-slate-400 transition hover:text-slate-600"
+                className="mb-1 flex w-full cursor-pointer items-center justify-between rounded-lg px-3 py-1 text-[10.5px] font-bold uppercase tracking-widest text-slate-400 transition hover:text-blue-700 focus-visible:outline-2 focus-visible:outline-blue-400"
               >
                 <span className="truncate">{section.label}</span>
                 <ChevronDown
@@ -390,13 +381,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
   // ===========================================================================
 
   const renderUserCard = () => (
-    <div className="flex items-center gap-3 rounded-xl border border-slate-200/70 bg-linear-to-br from-slate-50 to-white px-3 py-2.5">
+    <div className="flex items-center gap-3 rounded-xl border border-blue-100 bg-blue-50/70 px-3 py-2.5">
       <Avatar initial={userInitial} hasUser={Boolean(user)} />
       <div className="min-w-0">
         <p className="m-0 truncate text-[13px] font-semibold leading-tight text-slate-900">
           {userDisplayName}
         </p>
-        <p className="m-0 mt-0.5 truncate text-[11px] font-medium text-emerald-700">
+        <p className="m-0 mt-0.5 truncate text-[11px] font-medium text-blue-700">
           {userRoleLabel}
         </p>
       </div>
@@ -413,11 +404,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
       onClick={onLogout}
       title={collapsed ? 'Déconnexion' : undefined}
       aria-label="Déconnexion"
-      className={`group flex w-full cursor-pointer items-center rounded-xl text-[13px] font-medium text-slate-500 transition hover:bg-rose-50 hover:text-rose-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/30 ${
-        collapsed ? 'h-10 justify-center' : 'h-9 gap-3 px-3'
+      className={`group flex w-full cursor-pointer items-center rounded-xl text-[13px] font-medium text-slate-600 transition hover:bg-blue-50 hover:text-blue-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+        collapsed ? 'h-10 justify-center' : 'h-10 gap-3 px-3'
       }`}
     >
-      <LogOut className="h-4.5 w-4.5 shrink-0 text-slate-400 transition group-hover:text-rose-500" />
+      <LogOut className="h-4.5 w-4.5 shrink-0 text-slate-400 transition group-hover:text-blue-600" />
       {!collapsed && <span>Déconnexion</span>}
     </button>
   );
@@ -440,7 +431,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         role="dialog"
         aria-modal="true"
         aria-label="Navigation principale"
-        className={`fixed inset-y-0 left-0 z-50 flex w-[85%] max-w-xs flex-col overflow-hidden bg-white shadow-2xl transition-transform duration-300 ease-out md:hidden ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-[85%] max-w-xs flex-col overflow-hidden border-r border-blue-100 bg-white shadow-2xl transition-transform duration-300 ease-out md:hidden ${
           isMobileOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -449,14 +440,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <BrandMark />
             <div className="leading-tight">
               <p className="text-[15px] font-bold tracking-tight text-slate-900">Opérations aériennes</p>
-              <p className="text-[11px] font-medium text-slate-400">Centre de contrôle</p>
+              <p className="text-[11px] font-medium text-slate-500">Centre de contrôle</p>
             </div>
           </div>
           <button
             type="button"
             onClick={() => setIsMobileOpen(false)}
             aria-label="Fermer le menu"
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-blue-50 hover:text-blue-700"
           >
             <X className="h-4 w-4" />
           </button>
@@ -466,7 +457,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         <nav className="flex-1 overflow-y-auto px-3 py-2">{renderSections(false)}</nav>
 
-        <div className="border-t border-slate-100 p-3">{renderLogout(false)}</div>
+        <div className="border-t border-blue-100 p-3">{renderLogout(false)}</div>
       </aside>
     </>
   );
@@ -574,7 +565,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {renderMobileDrawer()}
 
       <aside
-        className={`fixed left-0 top-0 z-30 hidden h-screen flex-col border-r border-slate-200/80 bg-white transition-[width] duration-300 md:flex ${
+        className={`fixed left-0 top-0 z-30 hidden h-screen flex-col border-r border-blue-100 bg-white shadow-xl shadow-blue-950/5 transition-[width] duration-300 md:flex ${
           isCollapsed ? 'w-19' : 'w-64'
         }`}
       >
@@ -602,7 +593,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <p className="truncate text-[14px] font-bold tracking-tight text-slate-900">
                     Opérations aériennes
                   </p>
-                  <p className="truncate text-[11px] font-medium text-slate-400">Centre de contrôle</p>
+                  <p className="truncate text-[11px] font-medium text-slate-500">Centre de contrôle</p>
                 </div>
               </div>
 
@@ -611,7 +602,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onClick={() => onCollapsedChange(true)}
                 title="Réduire le menu"
                 aria-label="Réduire le menu"
-                className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-lg text-slate-400 transition hover:bg-blue-50 hover:text-blue-700"
               >
                 <ChevronsLeft className="h-4 w-4" />
               </button>
@@ -630,20 +621,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
           )}
         </div>
 
-        <div className="mx-3 h-px shrink-0 bg-slate-100" aria-hidden />
+        <div className="mx-3 h-px shrink-0 bg-blue-100" aria-hidden />
 
         {/* Navigation */}
         <nav
-          className={`flex-1 overflow-y-auto overflow-x-hidden py-4 scrollbar-thin ${
-            isCollapsed ? 'px-3' : 'px-3'
-          }`}
+          className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           aria-label="Navigation principale"
         >
           {renderSections(isCollapsed)}
         </nav>
 
         {/* Pied */}
-        <div className="shrink-0 border-t border-slate-100 p-3">{renderLogout(isCollapsed)}</div>
+        <div className="shrink-0 border-t border-blue-100 p-3">{renderLogout(isCollapsed)}</div>
       </aside>
     </>
   );

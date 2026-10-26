@@ -18,7 +18,6 @@ import {
   EyeOff,
   Lock,
   Mail,
-  PlaneTakeoff,
   ShieldCheck,
   User,
   CalendarClock,
@@ -29,6 +28,7 @@ import {
 import type { LucideIcon } from 'lucide-react';
 
 import myImage from '../../assets/avions.png';
+import isalosysLogo from '../../assets/isalosys.png';
 
 import {
   logIn,
@@ -544,13 +544,8 @@ export function AuthPage({ onAuthenticate, onGoogleSignIn }: AuthPageProps) {
             GAUCHE : MARQUE + ILLUSTRATION + SLOGAN
         ================================================================= */}
         <section className="hidden flex-col px-8 py-6 lg:flex">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#263238] text-white">
-              <PlaneTakeoff className="h-4 w-4" aria-hidden="true" />
-            </div>
-            <span className="text-lg font-medium tracking-tight text-slate-800">
-              Airline Operations
-            </span>
+          <div className="flex items-center">
+            <img src={isalosysLogo} alt="Isalosys" className="h-16 w-auto max-w-full object-contain" />
           </div>
 
           <div className="flex flex-1 flex-col items-center justify-center gap-8 py-6">
@@ -570,13 +565,8 @@ export function AuthPage({ onAuthenticate, onGoogleSignIn }: AuthPageProps) {
           }`}
         >
           {/* Marque visible uniquement sur mobile */}
-          <div className="mb-8 flex items-center gap-2.5 lg:hidden">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#263238] text-white">
-              <PlaneTakeoff className="h-4 w-4" aria-hidden="true" />
-            </div>
-            <span className="text-lg font-medium tracking-tight text-slate-800">
-              Airline Operations
-            </span>
+          <div className="mb-8 flex items-center lg:hidden">
+            <img src={isalosysLogo} alt="Isalosys" className="h-16 w-auto max-w-full object-contain" />
           </div>
 
           <div className="w-full">

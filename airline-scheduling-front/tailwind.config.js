@@ -9,10 +9,10 @@ export default {
       colors: {
         // Couleurs orientées "Aéronautique"
         airline: {
-          navy: '#1a365d',
-          blue: '#2b6cb0',
-          sky: '#ebf8ff',
-          alert: '#c53030'
+          navy: '#172554',
+          blue: '#2563eb',
+          sky: '#dbeafe',
+          alert: '#dc2626'
         }
       }
     },

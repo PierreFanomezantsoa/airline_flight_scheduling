@@ -544,7 +544,7 @@ const getWeatherSourceBadge = (preview?: WeatherAIPreview | null) => {
 
   if (source.includes('API_PLUS_LOCAL_ML')) {
     return {
-      label: 'API + XGBoost',
+      label: 'Prévision IA',
       className: 'border-emerald-300 bg-emerald-100 text-emerald-800',
       title: 'Fusion API météo (80%) + XGBoost local (20%)',
     };
