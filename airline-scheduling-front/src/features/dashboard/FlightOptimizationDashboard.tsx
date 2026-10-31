@@ -13,7 +13,7 @@ import {
   X,
   XCircle,
 } from 'lucide-react';
-import { pythonRequestJson } from '../Api/apiService';
+import { getAuthSession, pythonRequestJson } from '../Api/apiService';
 /* ============================================================================
  * CENTRE CONFLITS & OPTIMISATION — API Python / Flask :5000
  * ----------------------------------------------------------------------------
@@ -170,6 +170,9 @@ const getFriendlyError = (error: unknown, fallback: string): string => {
 
 // methode pour flight optimisation dans le dashboard, qui va permettre de récupérer les conflits et d'optimiser le programme de vol
 export const FlightOptimizationDashboard: React.FC = () => {
+  const canOptimize = ['Planificateur', 'Regulator'].includes(
+    String(getAuthSession()?.user.role ?? ''),
+  );
   const [conflictResult, setConflictResult] =
     useState<ConflictDetectionResult | null>(null);
   const [optimizationResult, setOptimizationResult] =
@@ -210,7 +213,7 @@ export const FlightOptimizationDashboard: React.FC = () => {
     }
   }, []);
   const runOptimization = useCallback(async () => {
-    if (optimizing) return;
+    if (!canOptimize || optimizing) return;
     setShowOptimizationConfirm(false);
     setOptimizing(true);
     setError(null);
@@ -236,7 +239,7 @@ export const FlightOptimizationDashboard: React.FC = () => {
     } finally {
       setOptimizing(false);
     }
-  }, [loadConflicts, optimizing]);
+  }, [canOptimize, loadConflicts, optimizing]);
   useEffect(() => {
     void loadConflicts(false);
   }, [loadConflicts]);
@@ -329,8 +332,11 @@ export const FlightOptimizationDashboard: React.FC = () => {
 
             <button
               type="button"
-              onClick={() => setShowOptimizationConfirm(true)}
-              disabled={loading || optimizing}
+              onClick={() => {
+                if (canOptimize) setShowOptimizationConfirm(true);
+              }}
+              disabled={!canOptimize || loading || optimizing}
+              title={!canOptimize ? "Votre rôle ne permet pas d'optimiser le programme." : undefined}
               className={`${BTN_PRIMARY} w-full min-w-0 rounded-xl px-3 shadow-sm shadow-emerald-600/20 sm:w-auto sm:px-4`}
             >
               <Sparkles
@@ -581,7 +587,7 @@ export const FlightOptimizationDashboard: React.FC = () => {
           </article>
         </section>
       </div>
-      {showOptimizationConfirm && (
+      {showOptimizationConfirm && canOptimize && (
         <OptimizationConfirmModal
           conflictCount={conflictResult?.totalConflicts ?? 0}
           onCancel={() => setShowOptimizationConfirm(false)}

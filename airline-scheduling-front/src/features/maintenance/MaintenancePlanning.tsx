@@ -278,6 +278,8 @@ type TabKey = 'active' | 'pending' | 'history';
 const ITEMS_PER_PAGE = 8;
 
 export const MaintenancePlanning: React.FC = () => {
+  const canManageMaintenance =
+    getCurrentUser()?.role === 'Maintenance_Engineer';
   const [slots, setSlots] = useState<MaintenanceSlot[]>([]);
   const [aircrafts, setAircrafts] = useState<AircraftLike[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -582,6 +584,7 @@ export const MaintenancePlanning: React.FC = () => {
    * --------------------------------------------------------------------- */
 
   const selectAircraftForPlanning = (aircraft: AircraftLike) => {
+    if (!canManageMaintenance) return;
     setSelectedAircraftId(aircraft.refAircraft);
     if (!startDate) {
       const today = new Date();
@@ -601,6 +604,7 @@ export const MaintenancePlanning: React.FC = () => {
 
   const handleScheduleMaintenance = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (!canManageMaintenance) return;
     if (!selectedAircraftId || !startDate || durationDays <= 0) {
       showToast(
         'Veuillez sélectionner un appareil, une date et une durée valides.',
@@ -709,6 +713,7 @@ export const MaintenancePlanning: React.FC = () => {
 
   const handleExtend = useCallback(
     async (slotId: string, additionalDays: number) => {
+      if (!canManageMaintenance) return;
       try {
         await maintenanceService.extend(slotId, additionalDays);
         showToast(
@@ -722,11 +727,12 @@ export const MaintenancePlanning: React.FC = () => {
         showToast(getApiErrorMessage(error), 'error');
       }
     },
-    [loadData, showToast],
+    [canManageMaintenance, loadData, showToast],
   );
 
   const handleCloseSlot = useCallback(
     async (slotId: string) => {
+      if (!canManageMaintenance) return;
       try {
         await maintenanceService.close(slotId);
         showToast(
@@ -738,10 +744,11 @@ export const MaintenancePlanning: React.FC = () => {
         showToast(getApiErrorMessage(error), 'error');
       }
     },
-    [loadData, showToast],
+    [canManageMaintenance, loadData, showToast],
   );
 
   const openDeleteModal = (slot: MaintenanceSlot) => {
+    if (!canManageMaintenance) return;
     const targetAircraft = slot.aircraft as AircraftLike | undefined;
     setDeleteConfirmed(false);
     setDeleteModal({
@@ -763,7 +770,7 @@ export const MaintenancePlanning: React.FC = () => {
   };
 
   const handleConfirmDelete = async () => {
-    if (!deleteModal.slotId) return;
+    if (!canManageMaintenance || !deleteModal.slotId) return;
     if (deleteModal.daysCount > 3 && !deleteConfirmed) return;
     try {
       await maintenanceService.remove(deleteModal.slotId);
@@ -956,6 +963,7 @@ export const MaintenancePlanning: React.FC = () => {
                     key={aircraft.refAircraft}
                     aircraft={aircraft}
                     hasSlot={activeSlotAircraftIds.has(aircraft.refAircraft)}
+                    canManageMaintenance={canManageMaintenance}
                     onPlan={() => selectAircraftForPlanning(aircraft)}
                   />
                 ))}
@@ -1008,6 +1016,7 @@ export const MaintenancePlanning: React.FC = () => {
             <button
               type="button"
               onClick={() => {
+                if (!canManageMaintenance) return;
                 if (!startDate) {
                   const today = new Date();
                   setStartDate(
@@ -1020,7 +1029,9 @@ export const MaintenancePlanning: React.FC = () => {
                 }
                 setFormOpen(true);
               }}
-              className={BTN_PRIMARY}
+              disabled={!canManageMaintenance}
+              title={!canManageMaintenance ? "Votre rôle ne permet pas de gérer la maintenance." : undefined}
+              className={`${BTN_PRIMARY} disabled:opacity-40`}
             >
               <Plus className="h-4 w-4" />
               Nouveau blocage
@@ -1051,6 +1062,7 @@ export const MaintenancePlanning: React.FC = () => {
                 <SlotMobileCard
                   key={slot.refMaintSlot}
                   slot={slot}
+                  canManageMaintenance={canManageMaintenance}
                   onDelete={openDeleteModal}
                   onExtend={handleExtend}
                   onClose={handleCloseSlot}
@@ -1085,6 +1097,7 @@ export const MaintenancePlanning: React.FC = () => {
                     <SlotTableRow
                       key={slot.refMaintSlot}
                       slot={slot}
+                      canManageMaintenance={canManageMaintenance}
                       onDelete={openDeleteModal}
                       onExtend={handleExtend}
                       onClose={handleCloseSlot}
@@ -1347,7 +1360,7 @@ export const MaintenancePlanning: React.FC = () => {
                 <button
                   type="submit"
                   disabled={
-                    submitting ||
+                    !canManageMaintenance || submitting ||
                     selectableAircrafts.length === 0 ||
                     Boolean(requestedMaintenanceConflict)
                   }
@@ -1447,7 +1460,7 @@ export const MaintenancePlanning: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => void handleConfirmDelete()}
-                  disabled={deleteModal.daysCount > 3 && !deleteConfirmed}
+                  disabled={!canManageMaintenance || (deleteModal.daysCount > 3 && !deleteConfirmed)}
                   className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-rose-600 px-4 text-sm font-medium text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
@@ -1513,12 +1526,13 @@ function TabButton({
 
 interface SlotTableRowProps {
   slot: MaintenanceSlot;
+  canManageMaintenance: boolean;
   onDelete: (slot: MaintenanceSlot) => void;
   onExtend: (slotId: string, days: number) => Promise<void> | void;
   onClose: (slotId: string) => Promise<void> | void;
 }
 
-function SlotTableRow({ slot, onDelete, onExtend, onClose }: SlotTableRowProps) {
+function SlotTableRow({ slot, canManageMaintenance, onDelete, onExtend, onClose }: SlotTableRowProps) {
   const statusInfo = getStatusVisual(slot);
   const daysCount = calculateDurationInDays(slot.startTime, slot.endTime);
   const targetAircraft = slot.aircraft as AircraftLike | undefined;
@@ -1590,6 +1604,7 @@ function SlotTableRow({ slot, onDelete, onExtend, onClose }: SlotTableRowProps) 
       <td className="px-4 py-3.5">
         <SlotActions
           slot={slot}
+          canManageMaintenance={canManageMaintenance}
           onDelete={onDelete}
           onExtend={onExtend}
           onClose={onClose}
@@ -1599,7 +1614,7 @@ function SlotTableRow({ slot, onDelete, onExtend, onClose }: SlotTableRowProps) 
   );
 }
 
-function SlotMobileCard({ slot, onDelete, onExtend, onClose }: SlotTableRowProps) {
+function SlotMobileCard({ slot, canManageMaintenance, onDelete, onExtend, onClose }: SlotTableRowProps) {
   const statusInfo = getStatusVisual(slot);
   const targetAircraft = slot.aircraft as AircraftLike | undefined;
   const registration = getAircraftRegistration(targetAircraft);
@@ -1687,6 +1702,7 @@ function SlotMobileCard({ slot, onDelete, onExtend, onClose }: SlotTableRowProps
       <div className="mt-3 border-t border-slate-100 pt-2">
         <SlotActions
           slot={slot}
+          canManageMaintenance={canManageMaintenance}
           onDelete={onDelete}
           onExtend={onExtend}
           onClose={onClose}
@@ -1699,6 +1715,7 @@ function SlotMobileCard({ slot, onDelete, onExtend, onClose }: SlotTableRowProps
 
 interface SlotActionsProps {
   slot: MaintenanceSlot;
+  canManageMaintenance: boolean;
   onDelete: (slot: MaintenanceSlot) => void;
   onExtend: (slotId: string, days: number) => Promise<void> | void;
   onClose: (slotId: string) => Promise<void> | void;
@@ -1707,6 +1724,7 @@ interface SlotActionsProps {
 
 function SlotActions({
   slot,
+  canManageMaintenance,
   onDelete,
   onExtend,
   onClose,
@@ -1741,8 +1759,8 @@ function SlotActions({
           <button
             type="button"
             onClick={() => void handleExtend()}
-            disabled={extending || closing}
-            className={`inline-flex h-8 items-center justify-center gap-1 rounded-md border border-slate-200 bg-white text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-50 ${
+            disabled={!canManageMaintenance || extending || closing}
+            className={`inline-flex h-8 items-center justify-center gap-1 rounded-md border border-slate-200 bg-white text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 ${
               mobile ? 'flex-1 px-2' : 'px-2.5'
             }`}
             title="Prolonger de 1 jour"
@@ -1757,7 +1775,7 @@ function SlotActions({
           <button
             type="button"
             onClick={() => void handleClose()}
-            disabled={closing || extending}
+            disabled={!canManageMaintenance || closing || extending}
             className={`inline-flex h-8 items-center justify-center gap-1 rounded-md bg-emerald-600 text-[11px] font-medium text-white transition hover:bg-emerald-700 disabled:opacity-50 ${
               mobile ? 'flex-1 px-2' : 'px-2.5'
             }`}
@@ -1774,8 +1792,9 @@ function SlotActions({
       <button
         type="button"
         onClick={() => onDelete(slot)}
+        disabled={!canManageMaintenance}
         aria-label="Annuler ce créneau"
-        className={`inline-flex h-8 items-center justify-center rounded-md text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 ${
+        className={`inline-flex h-8 items-center justify-center rounded-md text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-40 ${
           mobile ? 'w-9 shrink-0 border border-slate-200' : 'w-8'
         }`}
         title="Annuler ce créneau"
@@ -1789,10 +1808,11 @@ function SlotActions({
 interface AircraftRowProps {
   aircraft: AircraftLike;
   hasSlot: boolean;
+  canManageMaintenance: boolean;
   onPlan: () => void;
 }
 
-function AircraftRow({ aircraft, hasSlot, onPlan }: AircraftRowProps) {
+function AircraftRow({ aircraft, hasSlot, canManageMaintenance, onPlan }: AircraftRowProps) {
   const ratio = maintenanceRatio(aircraft);
   const used = Number(aircraft.hrsSinceMaint ?? 0);
   const limit = Number(aircraft.maintLimitHrs ?? 0);
@@ -1880,7 +1900,8 @@ function AircraftRow({ aircraft, hasSlot, onPlan }: AircraftRowProps) {
           <button
             type="button"
             onClick={onPlan}
-            className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-[11px] font-medium text-slate-700 transition hover:bg-slate-50"
+            disabled={!canManageMaintenance}
+            className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-[11px] font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <CalendarPlus className="h-3.5 w-3.5" />
             Planifier

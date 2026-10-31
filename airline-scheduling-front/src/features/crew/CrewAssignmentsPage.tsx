@@ -398,7 +398,7 @@ export const CrewAssignmentsPage: React.FC = () => {
   const currentRole = session?.user?.role;
 
   const canManageCrewAssignments = useMemo(
-    () => ['Admin', 'Planificateur', 'Regulator'].includes(String(currentRole ?? '')),
+    () => ['Planificateur', 'Regulator'].includes(String(currentRole ?? '')),
     [currentRole],
   );
 
@@ -659,7 +659,7 @@ export const CrewAssignmentsPage: React.FC = () => {
   /* SAVE */
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (saving) return;
+    if (!canManageCrewAssignments || saving) return;
     if (!form.refFlight || !form.refUser || !form.crewRole) {
       setMessage({
         type: 'info',
@@ -738,7 +738,7 @@ export const CrewAssignmentsPage: React.FC = () => {
     setAssignmentToDelete(null);
   };
   const confirmDelete = async () => {
-    if (!assignmentToDelete || deletingId) return;
+    if (!canManageCrewAssignments || !assignmentToDelete || deletingId) return;
     const assignment = assignmentToDelete;
     setDeletingId(assignment.refCrewAssign);
     setMessage(null);
@@ -786,7 +786,9 @@ export const CrewAssignmentsPage: React.FC = () => {
           <button
             type="button"
             onClick={openCreateModal}
-            className={`inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 px-3 text-xs font-semibold text-white shadow-lg shadow-emerald-500/25 transition hover:from-emerald-600 hover:to-emerald-700 hover:shadow-emerald-500/40 sm:px-4 sm:text-sm ${FOCUS_RING}`}
+            disabled={!canManageCrewAssignments}
+            title={!canManageCrewAssignments ? "Votre rôle ne permet pas de gérer les affectations." : undefined}
+            className={`inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 px-3 text-xs font-semibold text-white shadow-lg shadow-emerald-500/25 transition hover:from-emerald-600 hover:to-emerald-700 hover:shadow-emerald-500/40 disabled:cursor-not-allowed disabled:opacity-40 sm:px-4 sm:text-sm ${FOCUS_RING}`}
           >
             <UserPlus className="h-4 w-4" />
             Nouvelle affectation
@@ -980,7 +982,8 @@ export const CrewAssignmentsPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => openEditModal(assignment)}
-                        className={`inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-600 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 ${FOCUS_RING}`}
+                        disabled={!canManageCrewAssignments}
+                        className={`inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-600 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-40 ${FOCUS_RING}`}
                       >
                         <Pencil className="h-3.5 w-3.5" />
                         Modifier
@@ -988,7 +991,8 @@ export const CrewAssignmentsPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => handleDelete(assignment)}
-                        className={`inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white text-xs font-medium text-rose-600 transition hover:border-rose-300 hover:bg-rose-50 ${FOCUS_RING}`}
+                        disabled={!canManageCrewAssignments}
+                        className={`inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white text-xs font-medium text-rose-600 transition hover:border-rose-300 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40 ${FOCUS_RING}`}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                         Supprimer
@@ -1098,16 +1102,18 @@ export const CrewAssignmentsPage: React.FC = () => {
                             <button
                               type="button"
                               onClick={() => openEditModal(assignment)}
+                              disabled={!canManageCrewAssignments}
                               title="Modifier"
-                              className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-emerald-50 hover:text-emerald-600"
+                              className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-emerald-50 hover:text-emerald-600 disabled:cursor-not-allowed disabled:opacity-40"
                             >
                               <Pencil className="h-3.5 w-3.5" />
                             </button>
                             <button
                               type="button"
                               onClick={() => handleDelete(assignment)}
+                              disabled={!canManageCrewAssignments}
                               title="Supprimer"
-                              className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
+                              className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-40"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </button>
@@ -1329,7 +1335,7 @@ export const CrewAssignmentsPage: React.FC = () => {
               <button
                 type="button"
                 onClick={handleSubmit}
-                disabled={saving || loadingUsers || modalUsers.length === 0}
+                disabled={!canManageCrewAssignments || saving || loadingUsers || modalUsers.length === 0}
                 className={`inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 px-4 text-sm font-semibold text-white shadow-lg shadow-emerald-500/25 transition hover:from-emerald-600 hover:to-emerald-700 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none sm:min-w-[140px] ${FOCUS_RING}`}
               >
                 {saving ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
@@ -1430,7 +1436,7 @@ export const CrewAssignmentsPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => void confirmDelete()}
-                disabled={Boolean(deletingId)}
+                disabled={!canManageCrewAssignments || Boolean(deletingId)}
                 className={`inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-rose-500 to-rose-600 px-4 text-sm font-semibold text-white shadow-lg shadow-rose-500/25 transition hover:from-rose-600 hover:to-rose-700 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none sm:min-w-[140px] ${FOCUS_RING}`}
               >
                 {deletingId ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}

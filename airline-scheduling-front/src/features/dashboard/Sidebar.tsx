@@ -12,7 +12,6 @@ import {
   Menu,
   MapPin,
   Plane,
-  SlidersHorizontal,
   Sparkles,
   User,
   UserCog,
@@ -48,8 +47,8 @@ interface MenuItem {
 }
 
 interface MenuSection {
-  id: 'general' | 'operations';
-  label: string;
+  id: 'dashboard' | 'operations' | 'configuration' | 'tracking' | 'support';
+  label?: string;
   icon: LucideComponent;
   items: MenuItem[];
 }
@@ -87,27 +86,47 @@ type UserRoleLabel =
 
 const MENU_SECTIONS: MenuSection[] = [
   {
-    id: 'general',
-    label: 'Général',
+    id: 'dashboard',
     icon: FolderOpen,
     items: [
       { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
-      { id: 'users', label: 'Gestion des utilisateurs', icon: UserCog },
-      { id: 'scheduling', label: 'Programmation des vols', icon: CalendarClock },
-      { id: 'aircraft', label: 'Gestion des aéronefs', icon: Plane },
-      { id: 'airports', label: 'Aéroports', icon: MapPin },
-      { id: 'flights', label: 'Gestion des vols', icon: CalendarDays },
-      { id: 'flight-history', label: 'Historique des vols', icon: History },
     ],
   },
   {
     id: 'operations',
-    label: 'Gestion opérationnelle',
-    icon: SlidersHorizontal,
+    label: 'Opérations',
+    icon: CalendarClock,
     items: [
+      { id: 'scheduling', label: 'Programmation des vols', icon: CalendarClock },
+      { id: 'flights', label: 'Gestion des vols', icon: CalendarDays },
       { id: 'optimization', label: 'Optimisation automatique', icon: Sparkles },
       { id: 'crew', label: 'Affectation des équipages', icon: Users },
       { id: 'maintenance', label: 'Planification maintenance', icon: Wrench },
+    ],
+  },
+  {
+    id: 'configuration',
+    label: 'Paramétrage',
+    icon: FolderOpen,
+    items: [
+      { id: 'users', label: 'Gestion des utilisateurs', icon: UserCog },
+      { id: 'aircraft', label: 'Gestion des aéronefs', icon: Plane },
+      { id: 'airports', label: 'Aéroports', icon: MapPin },
+    ],
+  },
+  {
+    id: 'tracking',
+    label: 'Suivi',
+    icon: History,
+    items: [
+      { id: 'flight-history', label: 'Historique des vols', icon: History },
+    ],
+  },
+  {
+    id: 'support',
+    label: 'Support',
+    icon: HelpCircle,
+    items: [
       { id: 'help', label: 'Aide et support', icon: HelpCircle },
     ],
   },
@@ -210,8 +229,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const mobileProfileRef = useRef<HTMLDivElement>(null);
 
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    general: true,
+    dashboard: true,
     operations: true,
+    configuration: true,
+    tracking: true,
+    support: true,
   });
 
   const userDisplayName = user?.userName?.trim() || 'Utilisateur';
@@ -343,7 +365,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div key={section.id}>
             {collapsed ? (
               index > 0 && <div className="mx-auto mb-2 h-px w-8 bg-blue-100" aria-hidden />
-            ) : (
+            ) : section.label ? (
               <button
                 type="button"
                 onClick={() => toggleSection(section.id)}
@@ -358,7 +380,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   }`}
                 />
               </button>
-            )}
+            ) : null}
 
             <div
               id={sectionId}

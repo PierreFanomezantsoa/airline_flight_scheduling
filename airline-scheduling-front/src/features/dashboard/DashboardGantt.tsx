@@ -38,6 +38,7 @@ import {
 import {
   ApiError,
   authFetch,
+  getAuthSession,
   pythonFetch,
   pythonRequestJson,
 } from '../Api/apiService';
@@ -339,6 +340,9 @@ const WEATHER_CONFIG = {
  * ========================================================================== */
 
 export const DashboardGantt: React.FC = () => {
+  const canOptimize = ['Planificateur', 'Regulator'].includes(
+    String(getAuthSession()?.user.role ?? ''),
+  );
   const [flights, setFlights] = useState<Flight[]>([]);
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [fleetAircrafts, setFleetAircrafts] = useState<AircraftData[]>([]);
@@ -472,7 +476,7 @@ export const DashboardGantt: React.FC = () => {
    * OPTIMISATION — Python (Flask)
    * =========================================================================== */
   const triggerOptimization = useCallback(async () => {
-    if (isOptimizing) return;
+    if (!canOptimize || isOptimizing) return;
     setIsOptimizing(true);
     setGlobalError(null);
     setGlobalSuccess(null);
@@ -533,7 +537,7 @@ export const DashboardGantt: React.FC = () => {
     } finally {
       setIsOptimizing(false);
     }
-  }, [isOptimizing, loadData]);
+  }, [canOptimize, isOptimizing, loadData]);
 
   /* ===========================================================================
    * MÉTÉO
@@ -592,7 +596,8 @@ export const DashboardGantt: React.FC = () => {
           <button
             type="button"
             onClick={triggerOptimization}
-            disabled={isOptimizing || isFetching}
+            disabled={!canOptimize || isOptimizing || isFetching}
+            title={!canOptimize ? "Votre rôle ne permet pas d'optimiser le programme." : undefined}
             className="inline-flex h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white shadow-md shadow-emerald-600/25 transition hover:bg-emerald-700 focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-500/30 disabled:cursor-not-allowed disabled:opacity-60 sm:h-11 sm:w-auto"
           >
             <Cpu className={`h-4 w-4 ${isOptimizing ? 'animate-spin' : ''}`} />

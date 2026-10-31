@@ -38,6 +38,7 @@ import {
 import {
   ApiError,
   authFetch,
+  getAuthSession,
 } from '../Api/apiService';
 
 // =============================================================================
@@ -468,6 +469,9 @@ function AlertBanner({
 // =============================================================================
 
 export function AircraftManagement() {
+  const canManageAircraft = ['Planificateur', 'Maintenance_Engineer'].includes(
+    String(getAuthSession()?.user.role ?? ''),
+  );
   const [aircrafts, setAircrafts] = useState<Aircraft[]>([]);
   const [types, setTypes] = useState<AircraftType[]>([]);
   const [statistics, setStatistics] = useState<FleetStatistics | null>(null);
@@ -654,6 +658,7 @@ export function AircraftManagement() {
    * ====================================================================== */
 
   const openCreate = () => {
+    if (!canManageAircraft) return;
     setEditingAircraft(null);
     setFormData({ ...EMPTY_FORM });
     setNotice(null);
@@ -661,6 +666,7 @@ export function AircraftManagement() {
   };
 
   const openEdit = (aircraft: Aircraft) => {
+    if (!canManageAircraft) return;
     setEditingAircraft(aircraft);
     setFormData({
       registration: aircraft.registration,
@@ -780,7 +786,7 @@ export function AircraftManagement() {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (submitting) return;
+    if (!canManageAircraft || submitting) return;
 
     const validationError = validateForm();
     if (validationError) {
@@ -852,6 +858,7 @@ export function AircraftManagement() {
    * ====================================================================== */
 
   const retireAircraft = async (aircraft: Aircraft) => {
+    if (!canManageAircraft) return;
     if (aircraft.aircraftStatus === AircraftStatus.RETIRED) return;
 
     const confirmed = window.confirm(
@@ -889,6 +896,7 @@ export function AircraftManagement() {
    * ====================================================================== */
 
   const openMaintenanceResetModal = (aircraft: Aircraft) => {
+    if (!canManageAircraft) return;
     if (aircraft.aircraftStatus === AircraftStatus.RETIRED) return;
     setMaintenanceAircraft(aircraft);
     setNotice(null);
@@ -905,7 +913,7 @@ export function AircraftManagement() {
   };
 
   const resetMaintenance = async () => {
-    if (!maintenanceAircraft) return;
+    if (!canManageAircraft || !maintenanceAircraft) return;
     const aircraft = maintenanceAircraft;
 
     setActionAircraftId(aircraft.refAircraft);
@@ -943,8 +951,7 @@ export function AircraftManagement() {
 
   const submitFlightHours = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!hoursAircraft || submitting) return;
-
+    if (!canManageAircraft || !hoursAircraft || submitting) return;
     const hours = Number(flightHours);
     if (!Number.isFinite(hours) || hours <= 0) {
       setNotice({
@@ -986,6 +993,13 @@ export function AircraftManagement() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const openFlightHoursModal = (aircraft: Aircraft) => {
+    if (!canManageAircraft) return;
+    setHoursAircraft(aircraft);
+    setFlightHours('');
+    setNotice(null);
   };
 
   /* ========================================================================
@@ -1058,7 +1072,9 @@ export function AircraftManagement() {
             <button
               type="button"
               onClick={openCreate}
-              className={`inline-flex h-11 w-full min-w-0 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-3 text-sm font-semibold text-white shadow-md shadow-emerald-600/20 transition-all hover:bg-emerald-700 hover:shadow-lg hover:shadow-emerald-600/25 active:scale-[0.98] sm:h-10 sm:w-auto sm:px-4 ${FOCUS_RING}`}
+              disabled={!canManageAircraft}
+              title={!canManageAircraft ? "Votre rôle ne permet pas de gérer les aéronefs." : undefined}
+              className={`inline-flex h-11 w-full min-w-0 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-3 text-sm font-semibold text-white shadow-md shadow-emerald-600/20 transition-all hover:bg-emerald-700 hover:shadow-lg hover:shadow-emerald-600/25 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 sm:h-10 sm:w-auto sm:px-4 ${FOCUS_RING}`}
             >
               <Plus className="h-4 w-4 shrink-0" />
               <span className="truncate">Ajouter un aéronef</span>
@@ -1316,8 +1332,8 @@ export function AircraftManagement() {
                       <div className="grid grid-cols-4 gap-2 border-t border-slate-100 bg-slate-50/50 p-3">
                         <button
                           type="button"
-                          onClick={() => { setHoursAircraft(aircraft); setFlightHours(''); setNotice(null); }}
-                          disabled={busy || isRetired}
+                          onClick={() => openFlightHoursModal(aircraft)}
+                          disabled={!canManageAircraft || busy || isRetired}
                           className={`inline-flex h-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:border-sky-300 hover:bg-sky-50 hover:text-sky-700 disabled:opacity-35 ${FOCUS_RING}`}
                         >
                           <Gauge className="h-4 w-4" />
@@ -1326,7 +1342,7 @@ export function AircraftManagement() {
                         <button
                           type="button"
                           onClick={() => openMaintenanceResetModal(aircraft)}
-                          disabled={busy || isRetired}
+                          disabled={!canManageAircraft || busy || isRetired}
                           className={`inline-flex h-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:border-amber-300 hover:bg-amber-50 hover:text-amber-700 disabled:opacity-35 ${FOCUS_RING}`}
                         >
                           <RotateCcw className={`h-4 w-4 ${busy ? 'animate-spin' : ''}`} />
@@ -1335,7 +1351,7 @@ export function AircraftManagement() {
                         <button
                           type="button"
                           onClick={() => openEdit(aircraft)}
-                          disabled={busy}
+                          disabled={!canManageAircraft || busy}
                           className={`inline-flex h-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 disabled:opacity-35 ${FOCUS_RING}`}
                         >
                           <Pencil className="h-4 w-4" />
@@ -1344,7 +1360,7 @@ export function AircraftManagement() {
                         <button
                           type="button"
                           onClick={() => void retireAircraft(aircraft)}
-                          disabled={busy || isRetired}
+                          disabled={!canManageAircraft || busy || isRetired}
                           className={`inline-flex h-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-35 ${FOCUS_RING}`}
                         >
                           <Trash2 className="h-4 w-4" />
@@ -1463,8 +1479,8 @@ export function AircraftManagement() {
                             <div className="flex justify-end gap-1.5">
                               <button
                                 type="button"
-                                onClick={() => { setHoursAircraft(aircraft); setFlightHours(''); setNotice(null); }}
-                                disabled={busy || isRetired}
+                                onClick={() => openFlightHoursModal(aircraft)}
+                                disabled={!canManageAircraft || busy || isRetired}
                                 title="Ajouter des heures de vol"
                                 className={`flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:border-sky-300 hover:bg-sky-50 hover:text-sky-700 disabled:opacity-35 ${FOCUS_RING}`}
                               >
@@ -1474,7 +1490,7 @@ export function AircraftManagement() {
                               <button
                                 type="button"
                                 onClick={() => openMaintenanceResetModal(aircraft)}
-                                disabled={busy || isRetired}
+                                disabled={!canManageAircraft || busy || isRetired}
                                 title="Réinitialiser la maintenance"
                                 className={`flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:border-amber-300 hover:bg-amber-50 hover:text-amber-700 disabled:opacity-35 ${FOCUS_RING}`}
                               >
@@ -1484,7 +1500,7 @@ export function AircraftManagement() {
                               <button
                                 type="button"
                                 onClick={() => openEdit(aircraft)}
-                                disabled={busy}
+                                disabled={!canManageAircraft || busy}
                                 title="Modifier"
                                 className={`flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 disabled:opacity-35 ${FOCUS_RING}`}
                               >
@@ -1494,7 +1510,7 @@ export function AircraftManagement() {
                               <button
                                 type="button"
                                 onClick={() => void retireAircraft(aircraft)}
-                                disabled={busy || isRetired}
+                                disabled={!canManageAircraft || busy || isRetired}
                                 title={isRetired ? 'Avion déjà retiré' : "Retirer l’aéronef"}
                                 className={`flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-35 ${FOCUS_RING}`}
                               >
@@ -1753,7 +1769,7 @@ export function AircraftManagement() {
               <button
                 type="submit"
                 form="aircraft-editor-form"
-                disabled={submitting}
+                disabled={!canManageAircraft || submitting}
                 className={`inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-medium text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50 sm:min-w-[140px] ${FOCUS_RING}`}
               >
                 {submitting ? (
@@ -1878,7 +1894,7 @@ export function AircraftManagement() {
               <button
                 type="button"
                 onClick={() => void resetMaintenance()}
-                disabled={actionAircraftId === maintenanceAircraft.refAircraft}
+                disabled={!canManageAircraft || actionAircraftId === maintenanceAircraft.refAircraft}
                 className={`inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 text-sm font-medium text-white shadow-sm transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50 sm:min-w-[160px] ${FOCUS_RING}`}
               >
                 {actionAircraftId === maintenanceAircraft.refAircraft ? (
@@ -1971,7 +1987,7 @@ export function AircraftManagement() {
                 </button>
                 <button
                   type="submit"
-                  disabled={submitting}
+                  disabled={!canManageAircraft || submitting}
                   className={`inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-medium text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50 sm:min-w-[120px] ${FOCUS_RING}`}
                 >
                   {submitting ? (

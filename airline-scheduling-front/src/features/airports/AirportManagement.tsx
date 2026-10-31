@@ -17,7 +17,7 @@ import {
   X,
   XCircle,
 } from 'lucide-react';
-import { ApiError, authFetch } from '../Api/apiService';
+import { ApiError, authFetch, getAuthSession } from '../Api/apiService';
 
 interface Airport {
   refAirport: string;
@@ -92,6 +92,9 @@ function errorMessage(error: unknown): string {
 }
 
 export function AirportManagement() {
+  const canManageAirports = ['Planificateur', 'Regulator'].includes(
+    String(getAuthSession()?.user.role ?? ''),
+  );
   const [airports, setAirports] = useState<Airport[]>([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
@@ -180,6 +183,7 @@ export function AirportManagement() {
   /* ═══════════════ ACTIONS ═══════════════ */
 
   const openCreateForm = () => {
+    if (!canManageAirports) return;
     setEditingAirport(null);
     setForm(EMPTY_FORM);
     setNotice(null);
@@ -187,6 +191,7 @@ export function AirportManagement() {
   };
 
   const openEditForm = (airport: Airport) => {
+    if (!canManageAirports) return;
     setEditingAirport(airport);
     setForm({
       refAirport: airport.refAirport,
@@ -201,6 +206,7 @@ export function AirportManagement() {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!canManageAirports) return;
     setSaving(true);
     setNotice(null);
 
@@ -238,6 +244,7 @@ export function AirportManagement() {
   };
 
   const reactivateAirport = async (airport: Airport) => {
+    if (!canManageAirports) return;
     setActionIata(airport.refAirport);
     setNotice(null);
     try {
@@ -255,6 +262,7 @@ export function AirportManagement() {
   };
 
   const askDeleteAirport = (airport: Airport) => {
+    if (!canManageAirports) return;
     setConfirmDialog({
       isOpen: true,
       airport,
@@ -269,7 +277,7 @@ export function AirportManagement() {
   };
 
   const confirmDelete = async () => {
-    if (!confirmDialog.airport || !confirmDialog.acknowledged) return;
+    if (!canManageAirports || !confirmDialog.airport || !confirmDialog.acknowledged) return;
 
     setConfirmDialog((prev) => ({ ...prev, isLoading: true }));
     setActionIata(confirmDialog.airport.refAirport);
@@ -308,7 +316,9 @@ export function AirportManagement() {
           <button
             type="button"
             onClick={openCreateForm}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-linear-to-br from-emerald-500 to-emerald-700 px-4 text-sm font-bold text-white shadow-md shadow-emerald-600/25 transition hover:from-emerald-600 hover:to-emerald-800 hover:shadow-lg"
+            disabled={!canManageAirports}
+            title={!canManageAirports ? "Votre rôle ne permet pas de gérer les aéroports." : undefined}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-linear-to-br from-emerald-500 to-emerald-700 px-4 text-sm font-bold text-white shadow-md shadow-emerald-600/25 transition hover:from-emerald-600 hover:to-emerald-800 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-40"
           >
             <Plus className="h-4 w-4" />
             <span className="hidden sm:inline">Ajouter un aéroport</span>
@@ -471,7 +481,7 @@ export function AirportManagement() {
                       <button
                         type="button"
                         onClick={() => void reactivateAirport(airport)}
-                        disabled={actionIata === airport.refAirport || airport.active}
+                        disabled={!canManageAirports || actionIata === airport.refAirport || airport.active}
                         title={`Réactiver ${airport.refAirport}`}
                         aria-label={`Réactiver ${airport.refAirport}`}
                         className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-600 transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
@@ -487,7 +497,7 @@ export function AirportManagement() {
                       <button
                         type="button"
                         onClick={() => askDeleteAirport(airport)}
-                        disabled={actionIata === airport.refAirport || !airport.active}
+                        disabled={!canManageAirports || actionIata === airport.refAirport || !airport.active}
                         title={`Désactiver ${airport.refAirport}`}
                         aria-label={`Désactiver ${airport.refAirport}`}
                         className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-600 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-40"
@@ -503,9 +513,10 @@ export function AirportManagement() {
                       <button
                         type="button"
                         onClick={() => openEditForm(airport)}
+                        disabled={!canManageAirports}
                         title={`Modifier ${airport.refAirport}`}
                         aria-label={`Modifier ${airport.refAirport}`}
-                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
                       >
                         <Pencil className="h-3.5 w-3.5" />
                       </button>
@@ -618,7 +629,7 @@ export function AirportManagement() {
                           <button
                             type="button"
                             onClick={() => void reactivateAirport(airport)}
-                            disabled={actionIata === airport.refAirport || airport.active}
+                            disabled={!canManageAirports || actionIata === airport.refAirport || airport.active}
                             title={`Réactiver ${airport.refAirport}`}
                             aria-label={`Réactiver ${airport.refAirport}`}
                             className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
@@ -633,7 +644,7 @@ export function AirportManagement() {
                           <button
                             type="button"
                             onClick={() => askDeleteAirport(airport)}
-                            disabled={actionIata === airport.refAirport || !airport.active}
+                            disabled={!canManageAirports || actionIata === airport.refAirport || !airport.active}
                             title={`Désactiver ${airport.refAirport}`}
                             aria-label={`Désactiver ${airport.refAirport}`}
                             className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-40"
@@ -648,9 +659,10 @@ export function AirportManagement() {
                           <button
                             type="button"
                             onClick={() => openEditForm(airport)}
+                            disabled={!canManageAirports}
                             title={`Modifier ${airport.refAirport}`}
                             aria-label={`Modifier ${airport.refAirport}`}
-                            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
                           >
                             <Pencil className="h-3.5 w-3.5" />
                           </button>
@@ -918,7 +930,7 @@ export function AirportManagement() {
                   </button>
                   <button
                     type="submit"
-                    disabled={saving}
+                    disabled={!canManageAirports || saving}
                     className="inline-flex h-11 items-center gap-2 rounded-xl bg-linear-to-br from-emerald-500 to-emerald-700 px-4 text-sm font-bold text-white shadow-md shadow-emerald-600/25 transition hover:from-emerald-600 hover:to-emerald-800 hover:shadow-lg disabled:opacity-50"
                   >
                     {saving && <LoaderCircle className="h-4 w-4 animate-spin" />}
@@ -1004,7 +1016,7 @@ export function AirportManagement() {
                 <button
                   type="button"
                   onClick={() => void confirmDelete()}
-                  disabled={!confirmDialog.acknowledged || confirmDialog.isLoading}
+                  disabled={!canManageAirports || !confirmDialog.acknowledged || confirmDialog.isLoading}
                   className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-linear-to-br from-rose-500 to-rose-700 px-4 text-sm font-bold text-white shadow-md shadow-rose-600/25 transition hover:from-rose-600 hover:to-rose-800 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {confirmDialog.isLoading ? (

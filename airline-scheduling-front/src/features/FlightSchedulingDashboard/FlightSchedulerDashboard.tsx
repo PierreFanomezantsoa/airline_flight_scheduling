@@ -305,6 +305,9 @@ const getErrorMessage = async (
  * ========================================================================== */
 
 export const FlightSchedulerDashboard: FC = () => {
+  const canManageSchedule = ['Planificateur', 'Regulator'].includes(
+    String(getAuthSession()?.user.role ?? ''),
+  );
   const [flights, setFlights] = useState<Flight[]>([]);
   const [eligibleFlights, setEligibleFlights] = useState<EligibleFlight[]>([]);
   const [selectedFlightRefs, setSelectedFlightRefs] = useState<string[]>([]);
@@ -402,7 +405,7 @@ export const FlightSchedulerDashboard: FC = () => {
    * ----------------------------------------------------------------------- */
 
   const runAutomaticGeneration = async (apply: boolean) => {
-    if (generating || applying) return;
+    if (!canManageSchedule || generating || applying) return;
     if (!apply && selectedFlightRefs.length === 0) {
       setMessage({ type: 'info', text: 'Sélectionnez au moins un vol éligible.' });
       return;
@@ -575,8 +578,9 @@ export const FlightSchedulerDashboard: FC = () => {
             <button
               type="button"
               onClick={() => void runAutomaticGeneration(true)}
-              disabled={applying || !previewScenario.scenarioSignature || (previewScenario.metrics.assignedFlights ?? 0) === 0}
-              className={`inline-flex h-10 min-w-0 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 text-xs font-medium text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-50 sm:px-4 sm:text-sm ${FOCUS_RING}`}
+              disabled={!canManageSchedule || applying || !previewScenario.scenarioSignature || (previewScenario.metrics.assignedFlights ?? 0) === 0}
+              title={!canManageSchedule ? "Votre rôle ne permet pas de modifier le programme." : undefined}
+              className={`inline-flex h-10 min-w-0 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 text-xs font-medium text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4 sm:text-sm ${FOCUS_RING}`}
             >
               <Play className={`h-4 w-4 ${applying ? 'animate-pulse' : ''}`} />
               <span className="sm:hidden">{applying ? 'Application…' : 'Appliquer'}</span>
@@ -588,8 +592,9 @@ export const FlightSchedulerDashboard: FC = () => {
             <button
               type="button"
               onClick={() => void runAutomaticGeneration(false)}
-              disabled={generating || applying}
-              className={`inline-flex h-10 min-w-0 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 text-xs font-medium text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-50 sm:px-4 sm:text-sm ${FOCUS_RING}`}
+              disabled={!canManageSchedule || generating || applying}
+              title={!canManageSchedule ? "Votre rôle ne permet pas de générer un scénario." : undefined}
+              className={`inline-flex h-10 min-w-0 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 text-xs font-medium text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4 sm:text-sm ${FOCUS_RING}`}
             >
               <WandSparkles className={`h-4 w-4 ${generating ? 'animate-pulse' : ''}`} />
               <span className="sm:hidden">{generating ? 'En cours…' : 'Générer'}</span>
