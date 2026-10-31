@@ -994,7 +994,7 @@ export function AircraftManagement() {
       setSubmitting(false);
     }
   };
-
+// methode pour ouvrir le modal d'ajout d'heures de vol
   const openFlightHoursModal = (aircraft: Aircraft) => {
     if (!canManageAircraft) return;
     setHoursAircraft(aircraft);
