@@ -52,7 +52,7 @@ const AUTO_SCHEDULE_GENERATE_ENDPOINT = '/flights/auto-schedule/generate';
 const AUTO_SCHEDULE_GANTT_ENDPOINT = '/flights/auto-schedule/gantt';
 
 const FOCUS_RING =
-  'outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10';
+  'outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10';
 
 /* ============================================================================
  * TYPES
@@ -309,7 +309,6 @@ export const FlightSchedulerDashboard: FC = () => {
     String(getAuthSession()?.user.role ?? ''),
   );
   const [flights, setFlights] = useState<Flight[]>([]);
-  const [eligibleFlights, setEligibleFlights] = useState<EligibleFlight[]>([]);
   const [selectedFlightRefs, setSelectedFlightRefs] = useState<string[]>([]);
   const [analytics, setAnalytics] = useState<AnalyticsMetrics | null>(null);
   const [currentGantt, setCurrentGantt] = useState<GanttPayload>({
@@ -360,7 +359,6 @@ export const FlightSchedulerDashboard: FC = () => {
       const eligibleList: EligibleFlight[] = Array.isArray(eligiblePayload?.flights)
         ? eligiblePayload.flights
         : [];
-      setEligibleFlights(eligibleList);
       setSelectedFlightRefs(eligibleList.map((flight) => flight.refFlight));
       setPreviewScenario(null);
 
@@ -507,24 +505,6 @@ export const FlightSchedulerDashboard: FC = () => {
     return result;
   }, [normalizedFlights, searchTerm, selectedStatus]);
 
-  const visibleEligibleFlights = useMemo(() => {
-    const term = searchTerm.trim().toLowerCase();
-    return eligibleFlights.filter((flight) =>
-      !term ||
-      [flight.flightNumber, flight.origin, flight.destination]
-        .some((value) => value.toLowerCase().includes(term)),
-    );
-  }, [eligibleFlights, searchTerm]);
-
-  const toggleEligibleFlight = (refFlight: string) => {
-    setSelectedFlightRefs((current) =>
-      current.includes(refFlight)
-        ? current.filter((id) => id !== refFlight)
-        : [...current, refFlight],
-    );
-    setPreviewScenario(null);
-  };
-
   const effectiveAnalytics = analytics ?? buildFallbackAnalytics(flights);
 
   const activeSchedule = useMemo<GanttPayload>(() => {
@@ -559,7 +539,7 @@ export const FlightSchedulerDashboard: FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 p-4 sm:p-6">
-      <div className="mx-auto max-w-375 space-y-5">
+      <div className="mx-auto max-w-[1500px] min-w-0 space-y-5">
         {/* ═══════════════ HEADER ═══════════════ */}
         <header className="flex items-center justify-end gap-2">
           <button
@@ -580,7 +560,7 @@ export const FlightSchedulerDashboard: FC = () => {
               onClick={() => void runAutomaticGeneration(true)}
               disabled={!canManageSchedule || applying || !previewScenario.scenarioSignature || (previewScenario.metrics.assignedFlights ?? 0) === 0}
               title={!canManageSchedule ? "Votre rôle ne permet pas de modifier le programme." : undefined}
-              className={`inline-flex h-10 min-w-0 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 text-xs font-medium text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4 sm:text-sm ${FOCUS_RING}`}
+              className={`inline-flex h-10 min-w-0 items-center justify-center gap-2 rounded-lg bg-blue-800 px-3 text-xs font-medium text-white shadow-sm transition hover:bg-blue-900 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4 sm:text-sm ${FOCUS_RING}`}
             >
               <Play className={`h-4 w-4 ${applying ? 'animate-pulse' : ''}`} />
               <span className="sm:hidden">{applying ? 'Application…' : 'Appliquer'}</span>
@@ -594,7 +574,7 @@ export const FlightSchedulerDashboard: FC = () => {
               onClick={() => void runAutomaticGeneration(false)}
               disabled={!canManageSchedule || generating || applying}
               title={!canManageSchedule ? "Votre rôle ne permet pas de générer un scénario." : undefined}
-              className={`inline-flex h-10 min-w-0 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 text-xs font-medium text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4 sm:text-sm ${FOCUS_RING}`}
+              className={`inline-flex h-10 min-w-0 items-center justify-center gap-2 rounded-lg bg-blue-800 px-3 text-xs font-medium text-white shadow-sm transition hover:bg-blue-900 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4 sm:text-sm ${FOCUS_RING}`}
             >
               <WandSparkles className={`h-4 w-4 ${generating ? 'animate-pulse' : ''}`} />
               <span className="sm:hidden">{generating ? 'En cours…' : 'Générer'}</span>
@@ -613,69 +593,8 @@ export const FlightSchedulerDashboard: FC = () => {
           />
         )}
 
-        <section className="rounded-xl border border-slate-200 bg-white">
-          <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
-            <div>
-              <h2 className="text-sm font-semibold text-slate-900">Vols éligibles</h2>
-              <p className="mt-0.5 text-xs text-slate-500">
-                {selectedFlightRefs.length} sélectionné{selectedFlightRefs.length > 1 ? 's' : ''} sur {eligibleFlights.length} dans les {OPTIONS.horizonDays} prochains jours
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedFlightRefs(eligibleFlights.map((flight) => flight.refFlight));
-                  setPreviewScenario(null);
-                }}
-                className="h-8 rounded-md border border-slate-200 px-3 text-xs font-medium text-slate-700 hover:bg-slate-50"
-              >
-                Tout sélectionner
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedFlightRefs([]);
-                  setPreviewScenario(null);
-                }}
-                className="h-8 rounded-md border border-slate-200 px-3 text-xs font-medium text-slate-700 hover:bg-slate-50"
-              >
-                Tout désélectionner
-              </button>
-            </div>
-          </header>
-          {eligibleFlights.length === 0 ? (
-            <p className="px-4 py-6 text-center text-sm text-slate-500">
-              Aucun vol futur valide à programmer dans cet horizon.
-            </p>
-          ) : (
-            <div className="max-h-64 divide-y divide-slate-100 overflow-y-auto">
-              {visibleEligibleFlights.map((flight) => (
-                <label
-                  key={flight.refFlight}
-                  className="grid cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-4 py-2.5 hover:bg-slate-50"
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedFlightRefs.includes(flight.refFlight)}
-                    onChange={() => toggleEligibleFlight(flight.refFlight)}
-                    className="h-4 w-4 accent-emerald-600"
-                    aria-label={`Inclure le vol ${flight.flightNumber}`}
-                  />
-                  <span className="min-w-0 truncate text-sm font-medium text-slate-800">
-                    {flight.flightNumber} <span className="font-normal text-slate-500">· {flight.origin} → {flight.destination}</span>
-                  </span>
-                  <time className="text-xs tabular-nums text-slate-500" dateTime={flight.departure}>
-                    {new Intl.DateTimeFormat('fr-FR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(flight.departure))}
-                  </time>
-                </label>
-              ))}
-              {visibleEligibleFlights.length === 0 && (
-                <p className="px-4 py-5 text-center text-sm text-slate-500">Aucun vol ne correspond à la recherche.</p>
-              )}
-            </div>
-          )}
-        </section>
+        {/* La sélection des vols éligibles reste gérée en interne :
+            aucun encart de sélection n'est affiché dans l'interface. */}
 
         {!loading && filteredFlights.length === 0 && flights.length > 0 && (
           <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-center">
@@ -726,7 +645,7 @@ export const FlightSchedulerDashboard: FC = () => {
                 )}
               </div>
 
-              <div className="flex items-center gap-2 overflow-x-auto pb-1 lg:overflow-visible lg:pb-0">
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
                 <span className="hidden items-center gap-1.5 text-xs font-medium text-slate-500 sm:inline-flex">
                   Filtrer :
                 </span>
@@ -737,7 +656,7 @@ export const FlightSchedulerDashboard: FC = () => {
                     onClick={() => setSelectedStatus(tab.id)}
                     className={`h-8 shrink-0 rounded-full px-4 text-xs font-medium transition ${
                       selectedStatus === tab.id
-                        ? 'bg-emerald-600 text-white'
+                        ? 'bg-blue-800 text-white'
                         : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                     }`}
                   >
@@ -758,13 +677,13 @@ export const FlightSchedulerDashboard: FC = () => {
         </section>
 
         {/* ═══════════════ TABLEAU ═══════════════ */}
-        <section className="rounded-xl border border-slate-200 bg-white">
+        {previewScenario && <section className="rounded-xl border border-slate-200 bg-white">
           <FlightSchedulerDetails
             flights={filteredFlights}
             analytics={effectiveAnalytics}
             previewScenario={previewScenario}
           />
-        </section>
+        </section>}
       </div>
     </div>
   );

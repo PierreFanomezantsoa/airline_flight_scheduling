@@ -688,7 +688,7 @@ function App() {
                   >
                     {/* Bandeau fin avec dégradé */}
                     <div
-                      className="h-1.5 bg-linear-to-r from-emerald-400 via-emerald-500 to-teal-500"
+                      className="h-1.5 "
                       aria-hidden="true"
                     />
 
@@ -771,7 +771,7 @@ function App() {
             }`}
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="h-1.5 bg-linear-to-r from-blue-400 via-blue-600 to-blue-800" aria-hidden="true" />
+            <div className="h-1.5" aria-hidden="true" />
             <div className="p-6 sm:p-7">
               {isLoggingOut ? (
                 <div role="status" aria-live="polite">

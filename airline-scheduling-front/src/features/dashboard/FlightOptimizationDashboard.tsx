@@ -6,10 +6,10 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  Gauge,
   Plane,
   RefreshCw,
   Search,
-  Sparkles,
   X,
   XCircle,
 } from 'lucide-react';
@@ -339,7 +339,7 @@ export const FlightOptimizationDashboard: React.FC = () => {
               title={!canOptimize ? "Votre rôle ne permet pas d'optimiser le programme." : undefined}
               className={`${BTN_PRIMARY} w-full min-w-0 rounded-xl px-3 shadow-sm shadow-emerald-600/20 sm:w-auto sm:px-4`}
             >
-              <Sparkles
+              <Gauge
                 className={`h-4 w-4 shrink-0 ${optimizing ? 'animate-pulse' : ''}`}
               />
               <span className="truncate">
@@ -660,7 +660,7 @@ function OptimizationConfirmModal({
             Annuler
           </button>
           <button type="button" onClick={onConfirm} className={BTN_PRIMARY}>
-            <Sparkles className="h-4 w-4" />
+            <Gauge className="h-4 w-4" />
             Lancer l’optimisation
           </button>
         </div>

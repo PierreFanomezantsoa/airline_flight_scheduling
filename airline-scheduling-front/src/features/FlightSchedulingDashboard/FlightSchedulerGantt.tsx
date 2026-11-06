@@ -1,15 +1,11 @@
 // src/features/FlightSchedulingDashboard/FlightSchedulerGantt.tsx
-
-import { useMemo, useState } from 'react';
+// Gantt SVG responsive avec d3 (échelle UTC), sans défilement horizontal.
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FC } from 'react';
-import { MapPin, Plane } from 'lucide-react';
-
-/* ============================================================================
- * TYPES
- * ========================================================================== */
+import { scaleUtc } from 'd3';
+import { CalendarDays, ChevronLeft, ChevronRight, Clock3, Plane, X } from 'lucide-react';
 
 export type FlightStatus = 'Planifié' | 'En Vol' | 'Retardé' | 'Annulé' | 'Effectué';
-
 export interface GanttRow {
   refAircraft: string;
   aircraftRegistration: string;
@@ -18,7 +14,6 @@ export interface GanttRow {
   currentPosition?: string | null;
   aircraftStatus?: string | null;
 }
-
 export interface GanttItem {
   refFlight: string;
   flightNumber?: string | null;
@@ -38,13 +33,7 @@ export interface GanttItem {
   shiftMinutes?: number;
   weatherSeverity?: number | null;
 }
-
-export interface GanttPayload {
-  timezone?: string;
-  rows: GanttRow[];
-  items: GanttItem[];
-}
-
+export interface GanttPayload { timezone?: string; rows: GanttRow[]; items: GanttItem[]; }
 export interface AutoScheduleAssignment {
   refFlight: string;
   flightNumber?: string | null;
@@ -64,7 +53,6 @@ export interface AutoScheduleAssignment {
   shiftMinutes?: number;
   reason?: string;
 }
-
 interface FlightSchedulerGanttProps {
   schedule: GanttPayload;
   searchTerm: string;
@@ -72,648 +60,283 @@ interface FlightSchedulerGanttProps {
   isPreview: boolean;
   assignmentLookup: Map<string, AutoScheduleAssignment>;
 }
-
-interface StatusConfigItem {
-  bg: string;
-  border: string;
-  text: string;
-  dot: string;
-  accent: string;
-}
-
-interface GanttRowWithItems extends GanttRow {
-  items: GanttItem[];
-}
-
-/* ============================================================================
- * CONFIGURATION
- * ========================================================================== */
-
-const STATUS_CONFIG: Record<FlightStatus, StatusConfigItem> = {
-  Planifié: {
-    bg: 'bg-blue-50 hover:bg-blue-100',
-    border: 'border-blue-200',
-    text: 'text-blue-900',
-    dot: 'bg-blue-500',
-    accent: 'bg-blue-500',
-  },
-  'En Vol': {
-    bg: 'bg-amber-50 hover:bg-amber-100',
-    border: 'border-amber-200',
-    text: 'text-amber-900',
-    dot: 'bg-amber-500 animate-pulse',
-    accent: 'bg-amber-500',
-  },
-  Retardé: {
-    bg: 'bg-orange-50 hover:bg-orange-100',
-    border: 'border-orange-200',
-    text: 'text-orange-900',
-    dot: 'bg-orange-500',
-    accent: 'bg-orange-500',
-  },
-  Annulé: {
-    bg: 'bg-rose-50 hover:bg-rose-100',
-    border: 'border-rose-200',
-    text: 'text-rose-900',
-    dot: 'bg-rose-500',
-    accent: 'bg-rose-500',
-  },
-  Effectué: {
-    bg: 'bg-emerald-50 hover:bg-emerald-100',
-    border: 'border-emerald-200',
-    text: 'text-emerald-900',
-    dot: 'bg-emerald-500',
-    accent: 'bg-emerald-500',
-  },
+const PALETTE: Record<FlightStatus, { fill: string; stroke: string; text: string }> = {
+  'Planifié': { fill: '#DBEAFE', stroke: '#2563EB', text: '#1D4ED8' },
+  'En Vol': { fill: '#BFDBFE', stroke: '#1D4ED8', text: '#1E40AF' },
+  'Retardé': { fill: '#FEF3C7', stroke: '#D97706', text: '#92400E' },
+  'Annulé': { fill: '#FFE4E6', stroke: '#E11D48', text: '#9F1239' },
+  'Effectué': { fill: '#E2E8F0', stroke: '#64748B', text: '#334155' },
 };
-
-/* ============================================================================
- * HELPERS
- * ========================================================================== */
-
-const normalizeFlightStatus = (value?: string | null): FlightStatus => {
-  const normalized = String(value ?? '').trim().toUpperCase().replace(/_/g, ' ');
-  if (['IN-FLIGHT', 'IN FLIGHT', 'EN VOL'].includes(normalized)) return 'En Vol';
-  if (['DELAYED', 'RETARDÉ', 'RETARDE', 'SHIFTED'].includes(normalized)) return 'Retardé';
-  if (['CANCELLED', 'CANCELED', 'ANNULÉ', 'ANNULE'].includes(normalized)) return 'Annulé';
-  if (['EFFECTUÉ', 'EFFECTUE', 'DONE', 'COMPLETED', 'LANDED'].includes(normalized))
-    return 'Effectué';
+const DAY = 86_400_000;
+const HOUR = 3_600_000;
+const parse = (s?: string | null): number => {
+  if (!s) return NaN;
+  const n = new Date(s).getTime();
+  return Number.isFinite(n) ? n : NaN;
+};
+function normalizeStatus(input?: string | null): FlightStatus {
+  const status = String(input ?? '').trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[_-]/g, ' ');
+  if (['IN FLIGHT', 'EN VOL'].includes(status)) return 'En Vol';
+  if (['DELAYED', 'RETARDE', 'SHIFTED'].includes(status)) return 'Retardé';
+  if (['CANCELLED', 'CANCELED', 'ANNULE'].includes(status)) return 'Annulé';
+  if (['COMPLETED', 'DONE', 'LANDED', 'EFFECTUE'].includes(status)) return 'Effectué';
   return 'Planifié';
-};
-
-const safeDate = (value?: string | null): Date | null => {
-  if (!value) return null;
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date;
-};
-
-const formatDateTime = (value?: string | null): string => {
-  const date = safeDate(value);
-  if (!date) return '--';
-  return date.toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
-};
-
-const formatDuration = (minutes?: number | null): string => {
-  if (minutes == null || !Number.isFinite(minutes) || minutes < 0) return '--';
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-  return `${hours} h ${String(remainingMinutes).padStart(2, '0')} min`;
-};
-
-const getRoute = (item: GanttItem): string =>
-  [item.origin, ...(item.stopovers ?? []), item.destination]
-    .filter((airport): airport is string => Boolean(airport?.trim()))
-    .join(' → ');
-
-const formatUtcTick = (timestamp: number): string =>
-  new Intl.DateTimeFormat('fr-FR', {
-    timeZone: 'UTC',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  }).format(new Date(timestamp));
-
-const formatUtcDay = (timestamp: number): string =>
-  new Intl.DateTimeFormat('fr-FR', {
-    timeZone: 'UTC',
-    weekday: 'short',
-    day: '2-digit',
-    month: '2-digit',
-  }).format(new Date(timestamp));
-
-/**
- * Calcule la position en % d'un timestamp sur la timeline.
- */
-const computeLeft = (
-  timestamp: number,
-  minTime: number,
-  totalDuration: number,
-): number => ((timestamp - minTime) / totalDuration) * 100;
-
-/**
- * Construit le tooltip multi-lignes d'un item Gantt.
- */
-function buildItemTooltip(
-  item: GanttItem,
-  localStart: string | null | undefined,
-  localEnd: string | null | undefined,
-  shiftMinutes: number,
-): string {
-  const stopoverCount = item.stopovers?.length ?? 0;
-  return [
-    `Vol ${item.flightNumber ?? ''}`,
-    getRoute(item) || `${item.origin ?? '?'} → ${item.destination ?? '?'}`,
-    `Durée totale : ${formatDuration(item.durationMinutes)}`,
-    stopoverCount > 0
-      ? `${stopoverCount} escale${stopoverCount > 1 ? 's' : ''}${item.stopoverMins != null ? ` · ${formatDuration(item.stopoverMins)} au sol` : ''}`
-      : 'Vol direct',
-    `Départ UTC : ${formatDateTime(item.start)}`,
-    `Arrivée UTC : ${formatDateTime(item.end)}`,
-    localStart ? `Départ local : ${formatDateTime(localStart)}` : '',
-    localEnd ? `Arrivée locale : ${formatDateTime(localEnd)}` : '',
-    shiftMinutes > 0 ? `Décalage : +${shiftMinutes} min` : 'Aucun décalage',
-  ]
-    .filter(Boolean)
-    .join('\n');
 }
-
-/* ============================================================================
- * SOUS-COMPOSANTS
- * ========================================================================== */
-
-interface LegendDotProps {
-  className: string;
-  label: string;
+function formatUtc(value: number, detailed = false) {
+  return new Intl.DateTimeFormat('fr-FR', {
+    timeZone: 'UTC', day: '2-digit', month: '2-digit',
+    ...(detailed ? { year: 'numeric' } : {}),
+    hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  }).format(new Date(value)).replace(',', '');
 }
+function formatLocal(value?: string | null, fallback?: number) {
+  if (value) {
+    const m = value.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
+    if (m) return `${m[3]}/${m[2]}/${m[1]} ${m[4]}:${m[5]}`;
+  }
+  return fallback !== undefined ? `${formatUtc(fallback, true)} UTC` : '—';
+}
+function isUUID(value: string) { return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value); }
 
-const LegendDot: FC<LegendDotProps> = ({ className, label }) => (
-  <span className="inline-flex items-center gap-1.5 text-[10px] font-medium text-slate-500">
-    <span className={`h-2 w-2 rounded-full ${className}`} />
-    {label}
-  </span>
-);
+type PositionedItem = { item: GanttItem; start: number; end: number; lane: number; status: FlightStatus };
+type PositionedRow = { row: GanttRow; flights: PositionedItem[]; laneCount: number; top: number; height: number };
 
-/* ============================================================================
- * COMPOSANT PRINCIPAL
- * ========================================================================== */
+const FlightSchedulerGantt: FC<FlightSchedulerGanttProps> = ({ schedule, searchTerm, selectedStatus, isPreview, assignmentLookup }) => {
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(900);
+  const [rangeMode, setRangeMode] = useState<'all' | 'day' | 'week'>('week');
+  const [offset, setOffset] = useState(0);
+  const [selected, setSelected] = useState<string | null>(null);
 
-const FlightSchedulerGantt: FC<FlightSchedulerGanttProps> = ({
-  schedule,
-  searchTerm,
-  selectedStatus,
-  isPreview,
-  assignmentLookup,
-}) => {
-  const [renderedAt] = useState(() => Date.now());
-
-  /* -------------------------------------------------------------------------
-   * CALCUL DES DONNÉES GANTT
-   * ----------------------------------------------------------------------- */
-
-  const ganttData = useMemo(() => {
-    const term = searchTerm.trim().toLowerCase();
-
-    const filteredItems = (schedule.items ?? []).filter((item) => {
-      const status = normalizeFlightStatus(item.flightStatus);
-      const matchesStatus = selectedStatus === 'TOUS' || status === selectedStatus;
-      const matchesSearch =
-        !term ||
-        [
-          item.flightNumber,
-          item.origin,
-          item.destination,
-          item.aircraftRegistration,
-          item.label,
-        ]
-          .filter(Boolean)
-          .some((value) => String(value).toLowerCase().includes(term));
-      return matchesStatus && matchesSearch;
-    });
-
-    const itemsByRow = new Map<string, GanttItem[]>();
-    filteredItems.forEach((item) => {
-      const rowItems = itemsByRow.get(item.refAircraft) ?? [];
-      rowItems.push(item);
-      itemsByRow.set(item.refAircraft, rowItems);
-    });
-
-    const rows: GanttRowWithItems[] = schedule.rows
-      .map((row) => ({
-        ...row,
-        items: itemsByRow.get(row.refAircraft) ?? [],
-      }))
-      .filter((row) => row.items.length > 0);
-
-    const validItems = filteredItems.filter((item) => {
-      const start = safeDate(item.start);
-      const end = safeDate(item.end);
-      return Boolean(start && end && end.getTime() > start.getTime());
-    });
-
-    const emptyResult = {
-      rows,
-      minTime: 0,
-      maxTime: 0,
-      totalDuration: 1,
-      hourTicks: [] as number[],
-    };
-
-    if (validItems.length === 0) return emptyResult;
-
-    let minTs = Number.POSITIVE_INFINITY;
-    let maxTs = Number.NEGATIVE_INFINITY;
-    for (const item of validItems) {
-      const s = new Date(item.start).getTime();
-      const e = new Date(item.end).getTime();
-      if (s < minTs) minTs = s;
-      if (e > maxTs) maxTs = e;
+  useEffect(() => {
+    const element = wrapperRef.current;
+    if (!element) return;
+    const measure = () => setWidth(Math.max(280, Math.floor(element.getBoundingClientRect().width)));
+    measure();
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', measure);
+      return () => window.removeEventListener('resize', measure);
     }
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
 
-    if (!Number.isFinite(minTs) || !Number.isFinite(maxTs)) return emptyResult;
-
-    const minDate = new Date(minTs);
-    minDate.setUTCHours(0, 0, 0, 0);
-    const maxDate = new Date(maxTs);
-    maxDate.setUTCHours(23, 59, 59, 999);
-
-    const minTime = minDate.getTime();
-    const maxTime = maxDate.getTime();
-    const totalDuration = Math.max(1, maxTime - minTime);
-    const durationDays = totalDuration / (24 * 3600 * 1000);
-
-    let stepHours = 3;
-    if (durationDays > 7) stepHours = 24;
-    else if (durationDays > 3) stepHours = 12;
-    else if (durationDays > 1) stepHours = 6;
-
-    const stepMs = stepHours * 3600 * 1000;
-    const firstTick = Math.ceil(minTime / stepMs) * stepMs;
-
-    const hourTicks: number[] = [];
-    for (let time = firstTick; time <= maxTime; time += stepMs) {
-      hourTicks.push(time);
-    }
-
-    return { rows, minTime, maxTime, totalDuration, hourTicks };
-  }, [schedule, searchTerm, selectedStatus]);
-
-  /* -------------------------------------------------------------------------
-   * STATISTIQUES
-   * ----------------------------------------------------------------------- */
-
-  const stats = useMemo(() => {
-    let total = 0;
-    let shifted = 0;
-    let activeRows = 0;
-
-    ganttData.rows.forEach((row) => {
-      if (row.refAircraft !== 'UNASSIGNED' && row.items.length > 0) activeRows += 1;
-      row.items.forEach((item) => {
-        total += 1;
-        const shift =
-          item.shiftMinutes ??
-          assignmentLookup.get(item.refFlight)?.shiftMinutes ??
-          0;
-        if (shift > 0) shifted += 1;
-      });
+  const items = useMemo(() => {
+    const q = searchTerm.trim().toLocaleLowerCase('fr');
+    return (schedule.items ?? []).filter(item => {
+      const start = parse(item.start), end = parse(item.end);
+      if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return false;
+      if (selectedStatus !== 'TOUS' && normalizeStatus(item.flightStatus) !== selectedStatus) return false;
+      return !q || [item.flightNumber, item.origin, item.destination, item.aircraftRegistration, item.label]
+        .some(value => String(value ?? '').toLocaleLowerCase('fr').includes(q));
     });
+  }, [schedule.items, selectedStatus, searchTerm]);
 
-    return { total, shifted, rows: ganttData.rows.length, activeRows };
-  }, [ganttData, assignmentLookup]);
+  const domain = useMemo(() => {
+    const first = Math.min(...items.map(item => parse(item.start)));
+    const last = Math.max(...items.map(item => parse(item.end)));
+    if (!Number.isFinite(first) || !Number.isFinite(last)) return null;
+    const span = rangeMode === 'day' ? DAY : rangeMode === 'week' ? 7 * DAY : Math.max(DAY, last - first + HOUR * 2);
+    // Si la période contient le présent, afficher directement les vols actuels.
+    const now = Date.now();
+    const anchor = first <= now && last >= now ? now : first;
+    const start = rangeMode === 'all' ? first - HOUR : Math.floor(anchor / DAY) * DAY + offset * span;
+    return { start, end: rangeMode === 'all' ? last + HOUR : start + span, span };
+  }, [items, rangeMode, offset]);
 
-  /* -------------------------------------------------------------------------
-   * LIGNE "MAINTENANT"
-   * ----------------------------------------------------------------------- */
+  const visibleItems = useMemo(() => !domain ? [] : items.filter(item => parse(item.end) > domain.start && parse(item.start) < domain.end), [items, domain]);
+  const labelWidth = width < 550 ? 100 : width < 840 ? 130 : 176;
+  const plotWidth = Math.max(120, width - labelWidth - 14);
+  const scale = useMemo(() => scaleUtc()
+    .domain([new Date(domain?.start ?? 0), new Date(domain?.end ?? 1)])
+    .range([labelWidth, labelWidth + plotWidth]), [domain, labelWidth, plotWidth]);
+  const ticks = useMemo(() => domain ? scale.ticks(Math.max(2, Math.floor(plotWidth / (width < 550 ? 100 : 125)))) : [], [scale, domain, plotWidth, width]);
 
-  const nowLineLeft = useMemo(() => {
-    if (!ganttData.minTime || !ganttData.maxTime) return null;
-    if (renderedAt < ganttData.minTime || renderedAt > ganttData.maxTime) return null;
-    return computeLeft(renderedAt, ganttData.minTime, ganttData.totalDuration);
-  }, [ganttData, renderedAt]);
+  const positioned = useMemo(() => {
+    const byAircraft = new Map<string, GanttItem[]>();
+    visibleItems.forEach(item => byAircraft.set(item.refAircraft, [...(byAircraft.get(item.refAircraft) ?? []), item]));
+    const known = new Map((schedule.rows ?? []).map(row => [row.refAircraft, row]));
+    const result: PositionedRow[] = [];
+    let top = 52;
+    for (const [key, value] of byAircraft) {
+      const laneEnds: number[] = [];
+      const flights: PositionedItem[] = [];
+      for (const item of [...value].sort((a, b) => parse(a.start) - parse(b.start))) {
+        const start = parse(item.start), end = parse(item.end);
+        let lane = laneEnds.findIndex(value => value <= start);
+        if (lane < 0) lane = laneEnds.length;
+        laneEnds[lane] = end;
+        flights.push({ item, start, end, lane, status: normalizeStatus(item.flightStatus) });
+      }
+      const row = known.get(key) ?? {
+        refAircraft: key,
+        aircraftRegistration: value[0]?.aircraftRegistration || (key === 'UNASSIGNED' ? 'Non affecté' : key),
+      };
+      const laneCount = Math.max(1, laneEnds.length);
+      const height = Math.max(56, 14 + laneCount * 32);
+      result.push({ row, flights, laneCount, top, height });
+      top += height;
+    }
+    return { rows: result, height: top + 8 };
+  }, [visibleItems, schedule.rows]);
 
-  /* -------------------------------------------------------------------------
-   * RENDER
-   * ----------------------------------------------------------------------- */
+  const focused = useMemo(() => items.find(item => item.refFlight === selected) ?? null, [items, selected]);
+  const now = Date.now();
+  const totalShifted = visibleItems.filter(item => (item.shiftMinutes ?? assignmentLookup.get(item.refFlight)?.shiftMinutes ?? 0) > 0).length;
+  const changeMode = (mode: 'all' | 'day' | 'week') => { setRangeMode(mode); setOffset(0); setSelected(null); };
 
   return (
-    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-      {/* HEADER */}
-      <div className="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2.5">
-          <h2 className="text-sm font-semibold text-slate-900">
-            Programme de vols
-          </h2>
-          <span className="inline-flex h-5 items-center rounded-md bg-slate-100 px-2 text-[11px] font-medium text-slate-600">
-            {stats.total}
-          </span>
-          {isPreview && (
-            <span className="inline-flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[10px] font-semibold text-sky-700">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-sky-500" />
-              Prévisualisation
-            </span>
-          )}
-          <span className="text-xs text-slate-500">
-            · {stats.activeRows} appareil{stats.activeRows > 1 ? 's' : ''} isActive
-            {stats.activeRows > 1 ? 's' : ''}
-            {stats.shifted > 0 &&
-              ` · ${stats.shifted} décalé${stats.shifted > 1 ? 's' : ''}`}
-          </span>
-        </div>
-
-        <div className="hidden flex-wrap items-center gap-3 sm:flex">
-          <LegendDot className="bg-blue-500" label="Planifié" />
-          <LegendDot className="bg-amber-500" label="En vol" />
-          <LegendDot className="bg-orange-500" label="Retardé" />
-          <LegendDot className="bg-emerald-500" label="Effectué" />
-          <LegendDot className="bg-rose-500" label="Annulé" />
-        </div>
-      </div>
-
-      {ganttData.rows.length === 0 ? (
-        <div className="flex min-h-60 flex-col items-center justify-center p-8 text-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-50 text-slate-300">
-            <Plane className="h-5 w-5" />
+    <section className="min-w-0 overflow-hidden bg-white" aria-label="Diagramme de Gantt des vols">
+      <header className="flex flex-col gap-3 border-b border-slate-100 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <Plane className="h-4 w-4 text-blue-700" />
+            <h2 className="text-sm font-bold text-slate-900">Diagramme de Gantt des rotations</h2>
+            {isPreview && <span className="rounded-md bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-800">Prévisualisation</span>}
           </div>
-          <p className="mt-3 text-sm font-medium text-slate-700">
-            Aucun vol programmé sur la période
-          </p>
-          <p className="mt-1 text-xs text-slate-500">
-            Ajustez la recherche ou les filtres de status.
-          </p>
+          <p className="mt-1 text-xs text-slate-500">{visibleItems.length} vol(s) visibles · {positioned.rows.length} aéronef(s) · {totalShifted} décalage(s)</p>
         </div>
-      ) : (
-        <div className="flex flex-col">
-          <div className="order-2 divide-y divide-slate-100 sm:hidden">
-            {ganttData.rows.map((row) => (
-              <div key={row.refAircraft} className="p-3">
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border ${
-                      row.refAircraft === 'UNASSIGNED'
-                        ? 'border-rose-200 bg-rose-50 text-rose-600'
-                        : 'border-emerald-200 bg-emerald-50 text-emerald-600'
-                    }`}
-                  >
-                    <Plane className="h-4 w-4" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-slate-800">
-                      {row.aircraftRegistration}
-                    </p>
-                    <p className="mt-0.5 flex items-center gap-1 text-xs text-slate-500">
-                      <MapPin className="h-3 w-3 shrink-0" />
-                      <span className="truncate">
-                        {row.refAircraft === 'UNASSIGNED'
-                          ? 'Affectation requise'
-                          : row.currentPosition || row.base || 'Position à déterminer'}
-                      </span>
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-3 space-y-2">
-                  {row.items.map((item) => {
-                    const status = normalizeFlightStatus(item.flightStatus);
-                    const config = STATUS_CONFIG[status];
-                    const route =
-                      getRoute(item) ||
-                      `${item.origin ?? '?'} → ${item.destination ?? '?'}`;
-                    const assignment = assignmentLookup.get(item.refFlight);
-                    const shiftMinutes =
-                      item.shiftMinutes ?? assignment?.shiftMinutes ?? 0;
-
-                    return (
-                      <article
-                        key={item.refFlight}
-                        className={`rounded-lg border p-3 ${config.bg} ${config.border}`}
-                        title={buildItemTooltip(
-                          item,
-                          item.localStart ?? assignment?.localDeparture,
-                          item.localEnd ?? assignment?.localArrival,
-                          shiftMinutes,
-                        )}
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <h3 className={`min-w-0 truncate text-sm font-semibold ${config.text}`}>
-                            {item.flightNumber || item.label || 'Vol sans numéro'}
-                          </h3>
-                          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white/80 px-2 py-1 text-[11px] font-medium text-slate-700">
-                            <span className={`h-2 w-2 rounded-full ${config.dot}`} />
-                            {status}
-                          </span>
-                        </div>
-                        <p className="mt-2 wrap-break-word text-sm font-medium text-slate-700">
-                          {route}
-                        </p>
-                        <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-slate-600">
-                          <p>
-                            <span className="block text-[10px] font-medium uppercase tracking-wide text-slate-400">
-                              Départ
-                            </span>
-                            {formatDateTime(item.localStart ?? item.start)}
-                          </p>
-                          <p>
-                            <span className="block text-[10px] font-medium uppercase tracking-wide text-slate-400">
-                              Arrivée
-                            </span>
-                            {formatDateTime(item.localEnd ?? item.end)}
-                          </p>
-                        </div>
-                        {(item.durationMinutes != null || shiftMinutes > 0) && (
-                          <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
-                            {item.durationMinutes != null && (
-                              <span>Durée : {formatDuration(item.durationMinutes)}</span>
-                            )}
-                            {shiftMinutes > 0 && (
-                              <span className="font-semibold text-orange-700">
-                                Décalage : +{shiftMinutes} min
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </article>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
+        <div className="grid w-full grid-cols-[repeat(3,minmax(0,1fr))_36px_36px] gap-1.5 sm:flex sm:w-auto sm:items-center">
+          {(['day', 'week', 'all'] as const).map(mode => (
+            <button key={mode} type="button" onClick={() => changeMode(mode)} aria-pressed={rangeMode === mode}
+              className={`min-h-9 rounded-md border px-1.5 py-1.5 text-[11px] font-semibold sm:px-2.5 sm:text-xs ${rangeMode === mode ? 'border-blue-800 bg-blue-800 text-white' : 'border-blue-100 bg-white text-blue-800 hover:bg-blue-50'}`}>
+              {mode === 'day' ? '24 h' : mode === 'week' ? '7 jours' : 'Tout'}
+            </button>
+          ))}
+          {rangeMode !== 'all' && <>
+            <button type="button" onClick={() => { setOffset(v => v - 1); setSelected(null); }} aria-label="Période précédente" className="flex min-h-9 items-center justify-center rounded-md border border-slate-200 p-1.5 text-blue-800 hover:bg-blue-50"><ChevronLeft className="h-4 w-4" /></button>
+            <button type="button" onClick={() => { setOffset(v => v + 1); setSelected(null); }} aria-label="Période suivante" className="flex min-h-9 items-center justify-center rounded-md border border-slate-200 p-1.5 text-blue-800 hover:bg-blue-50"><ChevronRight className="h-4 w-4" /></button>
+          </>}
+          {rangeMode === 'all' && <><span className="hidden sm:hidden" aria-hidden="true"/><span className="hidden sm:hidden" aria-hidden="true"/></>}
+        </div>
+      </header>
+      <div ref={wrapperRef} className="w-full min-w-0 overflow-x-hidden">
+        {!domain || !positioned.rows.length ? (
+          <div className="flex min-h-56 flex-col items-center justify-center px-4 py-10 text-center">
+            <CalendarDays className="h-8 w-8 text-blue-300" />
+            <p className="mt-3 text-sm font-semibold text-slate-800">Aucun vol sur cette période</p>
+            <p className="mt-1 text-xs text-slate-500">Choisissez une autre période ou modifiez les filtres.</p>
           </div>
-
-          <div className="order-1 overflow-x-auto">
-          <p className="px-3 py-2 text-xs text-slate-500 sm:hidden">
-            Faites glisser le planning horizontalement pour consulter les horaires.
-          </p>
-          <div className="min-w-136 sm:min-w-362.5">
-            {/* EN-TÊTE TIMELINE */}
-            <div className="sticky top-0 z-30 flex border-b border-slate-200 bg-slate-50">
-              <div className="sticky left-0 z-40 flex w-32 shrink-0 items-center border-r border-slate-200 bg-slate-50 px-2 py-3 sm:w-64 sm:px-4">
-                <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-400 sm:text-[11px] sm:tracking-wider">
-                  <span className="sm:hidden">Appareil</span>
-                  <span className="hidden sm:inline">APPAREIL / POSITION</span>
-                </span>
-              </div>
-              <div className="relative h-12 flex-1">
-                {ganttData.hourTicks.map((tick) => {
-                  const left = computeLeft(
-                    tick,
-                    ganttData.minTime,
-                    ganttData.totalDuration,
-                  );
-                  return (
-                    <div
-                      key={tick}
-                      className="absolute top-0 flex h-full -translate-x-1/2 flex-col items-center justify-center border-l border-slate-200 pl-2"
-                      style={{ left: `${left}%` }}
-                    >
-                      <span className="rounded bg-white px-1.5 py-0.5 font-mono text-[10px] font-semibold text-slate-700 shadow-sm">
-                        {formatUtcTick(tick)}
-                      </span>
-                      <span className="mt-0.5 font-mono text-[9px] font-medium text-slate-400">
-                        {formatUtcDay(tick)}
-                      </span>
+        ) : (
+          <>
+            {/* MOBILE : une chronologie SVG compacte par vol, sans déplacement horizontal. */}
+            <div className="space-y-3 px-3 py-3 sm:hidden">
+              {positioned.rows.map(({ row, flights }) => {
+                const aircraftName = row.aircraftRegistration && !isUUID(row.aircraftRegistration)
+                  ? row.aircraftRegistration : row.refAircraft === 'UNASSIGNED' ? 'Non affecté' : 'Aéronef';
+                return (
+                  <section key={row.refAircraft} className="overflow-hidden rounded-lg border border-blue-100 bg-white">
+                    <div className="flex items-center justify-between gap-2 border-b border-blue-100 bg-blue-50/70 px-3 py-2.5">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white text-blue-700"><Plane className="h-4 w-4" /></span>
+                        <div className="min-w-0">
+                          <p className="truncate text-xs font-bold text-slate-900">{aircraftName}</p>
+                          <p className="truncate text-[10px] text-slate-500">{row.currentPosition || row.base || 'Position non renseignée'}</p>
+                        </div>
+                      </div>
+                      <span className="shrink-0 text-[10px] font-semibold text-blue-800">{flights.length} vol{flights.length > 1 ? 's' : ''}</span>
                     </div>
-                  );
+                    <div className="divide-y divide-slate-100">
+                      {flights.map(({ item, start, end, status }) => {
+                        const palette = PALETTE[status];
+                        const active = selected === item.refFlight;
+                        const shift = item.shiftMinutes ?? assignmentLookup.get(item.refFlight)?.shiftMinutes ?? 0;
+                        const from = Math.max(domain.start, start);
+                        const to = Math.min(domain.end, end);
+                        const left = Math.min(100, Math.max(0, (from - domain.start) / domain.span * 100));
+                        const length = Math.min(100 - left, Math.max(0.6, (to - from) / domain.span * 100));
+                        return (
+                          <button key={item.refFlight} type="button"
+                            onClick={() => setSelected(active ? null : item.refFlight)}
+                            aria-expanded={active}
+                            className={`block w-full px-3 py-3 text-left transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 ${active ? 'bg-blue-50/60' : 'hover:bg-slate-50'}`}>
+                            <div className="flex min-w-0 items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="truncate text-xs font-bold text-slate-900">{item.flightNumber || item.label || 'Vol sans numéro'}</p>
+                                <p className="mt-0.5 truncate text-[11px] text-slate-500">{item.origin || '—'} → {item.destination || '—'}</p>
+                              </div>
+                              <span className="shrink-0 rounded-md border px-2 py-1 text-[10px] font-semibold"
+                                style={{ borderColor: palette.stroke, color: palette.text, backgroundColor: palette.fill }}>{status}</span>
+                            </div>
+                            <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
+                              <div><span className="block text-[10px] text-slate-500">Départ</span><span className="font-medium tabular-nums text-slate-800">{formatLocal(item.localStart ?? assignmentLookup.get(item.refFlight)?.localDeparture, start)}</span></div>
+                              <div><span className="block text-[10px] text-slate-500">Arrivée</span><span className="font-medium tabular-nums text-slate-800">{formatLocal(item.localEnd ?? assignmentLookup.get(item.refFlight)?.localArrival, end)}</span></div>
+                            </div>
+                            <svg viewBox="0 0 320 24" className="mt-2 block h-6 w-full" role="img" aria-label={`Durée et position du vol ${item.flightNumber || ''} dans la période sélectionnée`} preserveAspectRatio="none">
+                              <rect x="0" y="9" width="320" height="6" rx="3" fill="#E2E8F0" />
+                              <rect x={left * 3.2} y="7" width={Math.max(2, length * 3.2)} height="10" rx="3" fill={palette.stroke} />
+                              <circle cx={left * 3.2} cy="12" r="3" fill={palette.text} />
+                            </svg>
+                            {shift > 0 && <p className="mt-1 text-[10px] font-semibold text-amber-700">Décalage : +{shift} min</p>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </section>
+                );
+              })}
+            </div>
+            {/* ORDINATEUR / TABLETTE : diagramme SVG D3 sur toute la largeur. */}
+            <svg width="100%" height={positioned.height} viewBox={`0 0 ${width} ${positioned.height}`} role="img" aria-label="Chronologie des vols, affichée en UTC et répartie par aéronef" className="hidden w-full sm:block" style={{ maxWidth: '100%' }}>
+            <rect x={0} y={0} width={width} height={positioned.height} fill="#FFFFFF" />
+            <rect x={0} y={0} width={width} height={52} fill="#EFF6FF" />
+            <line x1={labelWidth} x2={labelWidth} y1={0} y2={positioned.height} stroke="#CBD5E1" />
+            <text x={12} y={19} fontSize={10} fontWeight={700} fill="#1E3A8A">AÉRONEF</text>
+            <text x={12} y={35} fontSize={9} fill="#64748B">Rotation / position</text>
+            {ticks.map(tick => {
+              const x = scale(tick);
+              return <g key={tick.valueOf()}>
+                <line x1={x} x2={x} y1={43} y2={positioned.height} stroke="#DBEAFE" strokeDasharray="3 3" />
+                <text x={x} y={18} fontSize={width < 550 ? 9 : 10} fill="#1E40AF" textAnchor="middle" fontWeight={600}>{new Intl.DateTimeFormat('fr-FR', {timeZone:'UTC', hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(tick)}</text>
+                <text x={x} y={35} fontSize={9} fill="#64748B" textAnchor="middle">{new Intl.DateTimeFormat('fr-FR', {timeZone:'UTC', day:'2-digit',month:'2-digit'}).format(tick)}</text>
+              </g>;
+            })}
+            {positioned.rows.map(({ row, flights, top, height }, index) => {
+              const label = row.aircraftRegistration && !isUUID(row.aircraftRegistration) ? row.aircraftRegistration : (row.refAircraft === 'UNASSIGNED' ? 'Non affecté' : 'Appareil');
+              return <g key={row.refAircraft}>
+                <rect x={0} y={top} width={width} height={height} fill={index % 2 ? '#F8FAFC' : '#FFFFFF'} />
+                <line x1={0} y1={top + height} x2={width} y2={top + height} stroke="#E2E8F0" />
+                <text x={12} y={top + 23} fontSize={width < 550 ? 10 : 12} fontWeight={700} fill="#0F172A">{label.length > (width < 550 ? 12 : 20) ? `${label.slice(0, width < 550 ? 10 : 18)}…` : label}</text>
+                <text x={12} y={top + 39} fontSize={9} fill="#64748B">{(row.currentPosition || row.base || '').slice(0, width < 550 ? 11 : 22)}</text>
+                {flights.map(({ item, start, end, lane, status }) => {
+                  const left = Math.max(labelWidth + 1, scale(new Date(start)));
+                  const right = Math.min(width - 1, scale(new Date(end)));
+                  if (right <= left) return null;
+                  const w = Math.max(1, right - left);
+                  const y = top + 9 + lane * 32;
+                  const palette = PALETTE[status];
+                  const shift = item.shiftMinutes ?? assignmentLookup.get(item.refFlight)?.shiftMinutes ?? 0;
+                  const active = selected === item.refFlight;
+                  return <g key={item.refFlight} role="button" tabIndex={0} aria-label={`Voir le vol ${item.flightNumber || item.label || ''}`}
+                    onClick={() => setSelected(item.refFlight)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelected(item.refFlight); } }} style={{ cursor:'pointer' }}>
+                    <rect x={left} y={y} width={w} height={25} rx={4} fill={palette.fill} stroke={active ? '#1E40AF' : palette.stroke} strokeWidth={active ? 2 : 1} />
+                    <rect x={left} y={y} width={Math.min(4,w)} height={25} rx={2} fill={palette.stroke} />
+                    {w >= 35 && <text x={left+7} y={y+16} fontSize={width < 550 ? 9 : 10} fontWeight={700} fill={palette.text} clipPath={undefined}>{(item.flightNumber || item.label || 'Vol').slice(0, Math.max(2, Math.floor((w-10)/6)))}</text>}
+                    {shift > 0 && w > 90 && <text x={right - 5} y={y+16} textAnchor="end" fontSize={9} fill={palette.text}>+{shift}m</text>}
+                    <title>{`${item.flightNumber || 'Vol'} : ${item.origin || '?'} → ${item.destination || '?'}\n${formatUtc(start, true)} – ${formatUtc(end, true)} UTC\nStatut : ${status}${shift ? `\nDécalage : +${shift} min` : ''}`}</title>
+                  </g>;
                 })}
-                {nowLineLeft !== null && (
-                  <div
-                    className="absolute top-0 h-full w-px bg-rose-500"
-                    style={{ left: `${nowLineLeft}%` }}
-                  >
-                    <span className="absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rounded-full bg-rose-500 ring-2 ring-white" />
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* LIGNES */}
-            <div className="divide-y divide-slate-100">
-              {ganttData.rows.map((row) => (
-                <div
-                  key={row.refAircraft}
-                  className="group flex items-center transition hover:bg-slate-50/60"
-                >
-                  {/* CARTE APPAREIL */}
-                  <div className="sticky left-0 z-20 flex w-32 shrink-0 items-center gap-2 border-r border-slate-200 bg-white px-2 py-3 group-hover:bg-slate-50 sm:w-64 sm:gap-3 sm:px-4">
-                    <div
-                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border sm:h-9 sm:w-9 ${
-                        row.refAircraft === 'UNASSIGNED'
-                          ? 'border-rose-200 bg-rose-50 text-rose-600'
-                          : 'border-emerald-200 bg-emerald-50 text-emerald-600'
-                      }`}
-                    >
-                      <Plane className="h-4 w-4" />
-                    </div>
-                    <div className="min-w-0">
-                      <span className="block truncate text-[11px] font-semibold text-slate-800 sm:text-xs">
-                        {row.aircraftRegistration}
-                      </span>
-                      {row.refAircraft === 'UNASSIGNED' ? (
-                        <span className="mt-0.5 inline-flex items-center gap-1 text-[10px] font-medium text-rose-600">
-                          <span className="h-1 w-1 animate-pulse rounded-full bg-rose-500" />
-                          Affectation requise
-                        </span>
-                      ) : (
-                        <>
-                          {row.base && (
-                            <span className="mt-0.5 hidden truncate text-[10px] font-medium text-slate-500 sm:block">
-                              Base <strong className="text-slate-600">{row.base}</strong>
-                              {row.capacity ? ` · ${row.capacity} sièges` : ''}
-                            </span>
-                          )}
-                          <span
-                            className={`mt-0.5 flex items-center gap-1 truncate text-[9px] font-medium sm:text-[10px] ${
-                              row.currentPosition ? 'text-emerald-700' : 'text-slate-400'
-                            }`}
-                          >
-                            <MapPin className="h-2.5 w-2.5 shrink-0" />
-                            {row.currentPosition || row.base || 'Position à déterminer'}
-                          </span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* TIMELINE DE LA LIGNE */}
-                  <div className="relative mx-2 my-2 h-16 flex-1">
-                    {/* Grille verticale */}
-                    {ganttData.hourTicks.map((tick) => {
-                      const left = computeLeft(
-                        tick,
-                        ganttData.minTime,
-                        ganttData.totalDuration,
-                      );
-                      return (
-                        <div
-                          key={`${row.refAircraft}-${tick}`}
-                          className="absolute bottom-0 top-0 border-l border-slate-100"
-                          style={{ left: `${left}%` }}
-                        />
-                      );
-                    })}
-
-                    {/* Ligne "maintenant" */}
-                    {nowLineLeft !== null && (
-                      <div
-                        className="pointer-events-none absolute bottom-0 top-0 z-10 w-px bg-rose-500/70"
-                        style={{ left: `${nowLineLeft}%` }}
-                      />
-                    )}
-
-                    {/* Barres des vols */}
-                    {row.items.map((item) => {
-                      const start = safeDate(item.start);
-                      const end = safeDate(item.end);
-                      if (!start || !end) return null;
-
-                      const startMs = start.getTime();
-                      const endMs = end.getTime();
-                      const left = Math.max(
-                        0,
-                        computeLeft(startMs, ganttData.minTime, ganttData.totalDuration),
-                      );
-                      const width = Math.max(
-                        0.5,
-                        ((endMs - startMs) / ganttData.totalDuration) * 100,
-                      );
-
-                      const status = normalizeFlightStatus(item.flightStatus);
-                      const config = STATUS_CONFIG[status];
-                      const assignment = assignmentLookup.get(item.refFlight);
-                      const shiftMinutes =
-                        item.shiftMinutes ?? assignment?.shiftMinutes ?? 0;
-                      const localStart = item.localStart ?? assignment?.localDeparture;
-                      const localEnd = item.localEnd ?? assignment?.localArrival;
-                      const route = getRoute(item);
-                      const stopoverCount = item.stopovers?.length ?? 0;
-
-                      return (
-                        <div
-                          key={item.refFlight}
-                          className={`group/item absolute bottom-2 top-2 flex min-w-24 cursor-pointer items-center justify-between overflow-hidden rounded-lg border px-1.5 shadow-sm transition-all duration-150 hover:z-30 hover:-translate-y-0.5 hover:shadow-md sm:min-w-31.25 sm:px-2.5 ${config.bg} ${config.border}`}
-                          style={{ left: `${left}%`, width: `${width}%` }}
-                          title={buildItemTooltip(item, localStart, localEnd, shiftMinutes)}
-                        >
-                          <span
-                            className={`absolute inset-y-0 left-0 w-1 ${config.accent}`}
-                            aria-hidden
-                          />
-                          <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5 pl-1.5">
-                            <div className="flex min-w-0 items-center gap-1.5">
-                              <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${config.dot}`} />
-                              <span className={`truncate text-[10px] font-semibold sm:text-[11px] ${config.text}`}>
-                                {item.flightNumber}
-                              </span>
-                              {shiftMinutes > 0 && (
-                                <span className="shrink-0 rounded border border-orange-200 bg-white px-1 py-0.5 text-[9px] font-bold text-orange-700">
-                                  +{shiftMinutes}m
-                                </span>
-                              )}
-                              {stopoverCount > 0 && (
-                                <span className="shrink-0 rounded border border-sky-200 bg-white px-1 py-0.5 text-[9px] font-semibold text-sky-700">
-                                  {stopoverCount} escale{stopoverCount > 1 ? 's' : ''}
-                                </span>
-                              )}
-                            </div>
-                            <div className="hidden min-w-0 items-center justify-between gap-1 font-mono text-[9px] text-slate-600 sm:flex">
-                              <span className="truncate">{route}</span>
-                              <span className="shrink-0">
-                                {formatDuration(item.durationMinutes).replace(' min', '')}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-          </div>
+              </g>;
+            })}
+            {now >= domain.start && now <= domain.end && <g>
+              <line x1={scale(new Date(now))} x2={scale(new Date(now))} y1={43} y2={positioned.height} stroke="#E11D48" strokeWidth={1.5} strokeDasharray="5 3" />
+              <circle cx={scale(new Date(now))} cy={43} r={3.5} fill="#E11D48" />
+            </g>}
+            </svg>
+          </>
+        )}
+      </div>
+      {focused && <div className="flex flex-wrap items-start justify-between gap-3 border-t border-blue-100 bg-blue-50/60 px-3 py-3 sm:px-4">
+        <div className="min-w-0 flex-1 space-y-1 break-words text-xs">
+          <p className="font-bold text-blue-900">{focused.flightNumber || 'Vol'} · {focused.origin || '—'} → {focused.destination || '—'}</p>
+          <p className="text-slate-700"><Clock3 className="mr-1 inline h-3.5 w-3.5"/>Départ : {formatLocal(focused.localStart ?? assignmentLookup.get(focused.refFlight)?.localDeparture, parse(focused.start))}</p>
+          <p className="text-slate-700">Arrivée : {formatLocal(focused.localEnd ?? assignmentLookup.get(focused.refFlight)?.localArrival, parse(focused.end))}</p>
+          <p className="text-slate-600">Statut : {normalizeStatus(focused.flightStatus)} · {(focused.durationMinutes ?? Math.round((parse(focused.end) - parse(focused.start)) / 60000))} min</p>
         </div>
-      )}
+        <button type="button" onClick={() => setSelected(null)} aria-label="Fermer les détails" className="rounded-md p-1.5 text-blue-800 hover:bg-blue-100"><X className="h-4 w-4"/></button>
+      </div>}
     </section>
   );
 };
-
 export default FlightSchedulerGantt;

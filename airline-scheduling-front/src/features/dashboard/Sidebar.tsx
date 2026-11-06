@@ -5,6 +5,7 @@ import {
   ChevronDown,
   ChevronsLeft,
   FolderOpen,
+  Gauge,
   HelpCircle,
   History,
   LayoutDashboard,
@@ -12,7 +13,6 @@ import {
   Menu,
   MapPin,
   Plane,
-  Sparkles,
   User,
   UserCog,
   Users,
@@ -99,7 +99,7 @@ const MENU_SECTIONS: MenuSection[] = [
     items: [
       { id: 'scheduling', label: 'Programmation des vols', icon: CalendarClock },
       { id: 'flights', label: 'Gestion des vols', icon: CalendarDays },
-      { id: 'optimization', label: 'Optimisation automatique', icon: Sparkles },
+      { id: 'optimization', label: 'Optimisation automatique', icon: Gauge },
       { id: 'crew', label: 'Affectation des équipages', icon: Users },
       { id: 'maintenance', label: 'Planification maintenance', icon: Wrench },
     ],
@@ -323,7 +323,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           collapsed ? 'h-10 justify-center' : 'h-10 gap-2.5 px-2.5'
         } ${
           isActive
-            ? 'border-blue-200 bg-blue-50 font-semibold text-blue-800 shadow-[inset_3px_0_0_#3b82f6]'
+            ? 'border-blue-200 bg-blue-50 font-semibold text-blue-800'
             : 'border-transparent font-medium text-slate-600 hover:border-blue-100 hover:bg-blue-50 hover:text-blue-800'
         }`}
       >
@@ -399,24 +399,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   );
 
   // ===========================================================================
-  // CARTE UTILISATEUR
-  // ===========================================================================
-
-  const renderUserCard = () => (
-    <div className="flex items-center gap-3 rounded-xl border border-blue-100 bg-blue-50/70 px-3 py-2.5">
-      <Avatar initial={userInitial} hasUser={Boolean(user)} />
-      <div className="min-w-0">
-        <p className="m-0 truncate text-[13px] font-semibold leading-tight text-slate-900">
-          {userDisplayName}
-        </p>
-        <p className="m-0 mt-0.5 truncate text-[11px] font-medium text-blue-700">
-          {userRoleLabel}
-        </p>
-      </div>
-    </div>
-  );
-
-  // ===========================================================================
   // DÉCONNEXION
   // ===========================================================================
 
@@ -453,7 +435,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         role="dialog"
         aria-modal="true"
         aria-label="Navigation principale"
-        className={`fixed inset-y-0 left-0 z-50 flex w-[85%] max-w-xs flex-col overflow-hidden border-r border-blue-100 bg-white shadow-2xl transition-transform duration-300 ease-out md:hidden ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-[85%] max-w-xs flex-col overflow-hidden border-r border-blue-100 bg-white transition-transform duration-300 ease-out md:hidden ${
           isMobileOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -474,8 +456,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <X className="h-4 w-4" />
           </button>
         </div>
-
-        <div className="px-3 pb-3">{renderUserCard()}</div>
 
         <nav className="flex-1 overflow-y-auto px-3 py-2">{renderSections(false)}</nav>
 
@@ -587,7 +567,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {renderMobileDrawer()}
 
       <aside
-        className={`fixed left-0 top-0 z-30 hidden h-screen flex-col border-r border-blue-100 bg-white shadow-xl shadow-blue-950/5 transition-[width] duration-300 md:flex ${
+        className={`fixed left-0 top-0 z-30 hidden h-screen flex-col border-r border-blue-100 bg-white transition-[width] duration-300 md:flex ${
           isCollapsed ? 'w-19' : 'w-64'
         }`}
       >
@@ -631,19 +611,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </>
           )}
         </div>
-
-        {/* Utilisateur */}
-        <div className={`shrink-0 pb-3 ${isCollapsed ? 'flex justify-center px-2' : 'px-3'}`}>
-          {isCollapsed ? (
-            <div title={`${userDisplayName} · ${userRoleLabel}`}>
-              <Avatar initial={userInitial} hasUser={Boolean(user)} />
-            </div>
-          ) : (
-            renderUserCard()
-          )}
-        </div>
-
-        <div className="mx-3 h-px shrink-0 bg-blue-100" aria-hidden />
 
         {/* Navigation */}
         <nav
