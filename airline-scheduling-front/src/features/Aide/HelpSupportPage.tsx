@@ -1,5 +1,4 @@
 import React, {
-  useEffect,
   useMemo,
   useState,
 } from 'react';
@@ -11,7 +10,6 @@ import {
   BookOpen,
   CheckCircle2,
   ChevronDown,
-  ChevronLeft,
   ChevronRight,
   ChevronUp,
   Clock3,
@@ -24,12 +22,10 @@ import {
   History,
   Info,
   Layers,
-  LifeBuoy,
   Lock,
   Navigation,
   Plane,
   PlaneTakeoff,
-  RefreshCw,
   Search,
   Send,
   Settings,
@@ -39,7 +35,6 @@ import {
   UserCog,
   Users,
   Wrench,
-  X,
 } from 'lucide-react';
 
 /* ============================================================================
@@ -121,7 +116,6 @@ interface LocalTicket {
  * ========================================================================== */
 
 const SUPPORT_STORAGE_KEY = 'airline.help.support.tickets';
-const VISIBLE_TABS = 5;
 
 /* ============================================================================
  * NAVIGATION
@@ -154,13 +148,13 @@ const START_GUIDES: GuideCardData[] = [
     icon: <Lock className="h-5 w-5" />,
     tone: 'bg-emerald-50 text-emerald-700',
     steps: [
-      'Ouvrez l’application Airline Flight Scheduling.',
+      'Ouvrez l’application Airline Vol Scheduling.',
       'Saisissez votre adresse e-mail.',
       'Saisissez votre mot de passe.',
       'Cliquez sur le bouton de connexion.',
       'Après authentification, l’application affiche les écrans autorisés pour votre rôle.',
     ],
-    note: 'Les menus accessibles peuvent varier selon votre profil user.',
+    note: 'Les menus accessibles peuvent varier selon votre profil utilisateur.',
   },
   {
     id: 'navigation',
@@ -212,28 +206,28 @@ const DASHBOARD_GUIDES: GuideCardData[] = [
   {
     id: 'dashboard-filter',
     title: 'Rechercher et filtrer',
-    description: 'Retrouver rapidement un flight dans le programme de vols.',
+    description: 'Retrouver rapidement un vol dans le programme de vols.',
     icon: <Search className="h-5 w-5" />,
     tone: 'bg-sky-50 text-sky-700',
     steps: [
       'Cliquez dans la barre de recherche.',
-      'Saisissez un numéro de flight, un aéroport ou un appareil.',
-      'Utilisez les boutons de status pour limiter les résultats.',
+      'Saisissez un numéro de vol, un aéroport ou un appareil.',
+      'Utilisez les boutons de statut pour limiter les résultats.',
       'Le filtre Non assignés permet d’afficher les vols sans appareil.',
       'Cliquez sur Réinitialiser pour supprimer les filtres.',
     ],
   },
   {
     id: 'dashboard-details',
-    title: 'Ouvrir la fiche d’un flight',
+    title: 'Ouvrir la fiche d’un vol',
     description: 'Consulter les informations détaillées d’une rotation.',
     icon: <Info className="h-5 w-5" />,
     tone: 'bg-slate-100 text-slate-700',
     steps: [
-      'Cliquez sur une carte de flight.',
+      'Cliquez sur une carte de vol.',
       'La fiche opérationnelle s’ouvre au centre de l’écran.',
       'Consultez l’origine et la destination.',
-      'Vérifiez le status et l’appareil.',
+      'Vérifiez le statut et l’appareil.',
       'Consultez le départ local, l’arrivée locale et la durée.',
       'Vérifiez les informations météo.',
       'Fermez la fiche avec le bouton Fermer ou la croix.',
@@ -243,14 +237,14 @@ const DASHBOARD_GUIDES: GuideCardData[] = [
 
 const FLIGHT_GUIDES: GuideCardData[] = [
   {
-    id: 'create-flight',
-    title: 'Créer un nouveau flight',
-    description: 'Ajouter un flight au programme de vols de la compagnie.',
+    id: 'create-vol',
+    title: 'Créer un nouveau vol',
+    description: 'Ajouter un vol au programme de vols de la compagnie.',
     icon: <Plane className="h-5 w-5" />,
     tone: 'bg-emerald-50 text-emerald-700',
     steps: [
       'Ouvrez Gestion des vols ou cliquez sur Programmer un vol.',
-      'Saisissez le numéro du flight.',
+      'Saisissez le numéro du vol.',
       'Sélectionnez l’aéroport de départ.',
       'Sélectionnez l’aéroport d’arrivée.',
       'Renseignez la date et l’heure de départ.',
@@ -262,14 +256,14 @@ const FLIGHT_GUIDES: GuideCardData[] = [
     note: 'L’heure d’arrivée doit être postérieure à l’heure de départ.',
   },
   {
-    id: 'edit-flight',
-    title: 'Modifier un flight',
-    description: 'Mettre à jour les informations d’un flight existant.',
+    id: 'edit-vol',
+    title: 'Modifier un vol',
+    description: 'Mettre à jour les informations d’un vol existant.',
     icon: <Settings className="h-5 w-5" />,
     tone: 'bg-sky-50 text-sky-700',
     steps: [
       'Ouvrez le module Gestion des vols.',
-      'Recherchez le flight concerné.',
+      'Recherchez le vol concerné.',
       'Cliquez sur Modifier.',
       'Changez les informations nécessaires.',
       'Vérifiez les horaires et l’appareil affecté.',
@@ -278,21 +272,21 @@ const FLIGHT_GUIDES: GuideCardData[] = [
     ],
   },
   {
-    id: 'status-flight',
+    id: 'statut-vol',
     title: 'Comprendre les statuts',
-    description: 'Identifier rapidement l’état d’un flight.',
+    description: 'Identifier rapidement l’état d’un vol.',
     icon: <Activity className="h-5 w-5" />,
     tone: 'bg-violet-50 text-violet-700',
     steps: [
-      'Planifié : le flight est programmé.',
-      'Retardé : le flight est toujours prévu mais son horaire a été décalé.',
+      'Planifié : le vol est programmé.',
+      'Retardé : le vol est toujours prévu mais son horaire a été décalé.',
       'En vol : l’opération est actuellement en cours.',
-      'Effectué : le flight est terminé.',
+      'Effectué : le vol est terminé.',
       'Annulé : le vol ne sera pas exécuté.',
     ],
   },
   {
-    id: 'flight-time',
+    id: 'vol-time',
     title: 'Comprendre les horaires',
     description: 'Distinguer les heures locales et la référence UTC.',
     icon: <Clock3 className="h-5 w-5" />,
@@ -383,17 +377,17 @@ const FLEET_GUIDES: GuideCardData[] = [
     steps: [
       'Ouvrez Gestion des aéronefs.',
       'Consultez la liste des appareils.',
-      'Vérifiez l’registration.',
+      'Vérifiez l’immatriculation.',
       'Consultez le modèle.',
       'Vérifiez la capacité.',
       'Vérifiez la base de l’appareil.',
-      'Consultez son status opérationnel.',
+      'Consultez son statut opérationnel.',
     ],
   },
   {
-    id: 'aircraft-status',
-    title: 'Comprendre le status d’un appareil',
-    description: 'Savoir rapidement si un aircraft peut être utilisé.',
+    id: 'appareil-statut',
+    title: 'Comprendre le statut d’un appareil',
+    description: 'Savoir rapidement si un appareil peut être utilisé.',
     icon: <Activity className="h-5 w-5" />,
     tone: 'bg-sky-50 text-sky-700',
     steps: [
@@ -404,16 +398,16 @@ const FLEET_GUIDES: GuideCardData[] = [
     ],
   },
   {
-    id: 'aircraft-assign',
+    id: 'appareil-assign',
     title: 'Affecter un appareil',
     description: 'Associer un aéronef disponible à un vol.',
     icon: <Plane className="h-5 w-5" />,
     tone: 'bg-violet-50 text-violet-700',
     steps: [
-      'Sélectionnez le flight concerné.',
+      'Sélectionnez le vol concerné.',
       'Choisissez un appareil.',
       'Vérifiez qu’il n’est pas déjà utilisé.',
-      'Vérifiez son status technique.',
+      'Vérifiez son statut technique.',
       'Contrôlez son positionnement.',
       'Enregistrez l’affectation.',
     ],
@@ -424,15 +418,15 @@ const CREW_GUIDES: GuideCardData[] = [
   {
     id: 'crew-add',
     title: 'Affecter un membre d’équipage',
-    description: 'Ajouter une affectation sur un flight.',
+    description: 'Ajouter une affectation sur un vol.',
     icon: <Users className="h-5 w-5" />,
     tone: 'bg-sky-50 text-sky-700',
     steps: [
       'Ouvrez Affectation des équipages.',
       'Cliquez sur Nouvelle affectation.',
-      'Sélectionnez le flight.',
+      'Sélectionnez le vol.',
       'Sélectionnez le membre.',
-      'Choisissez sa crewRole.',
+      'Choisissez sa fonction.',
       'Cliquez sur Affecter.',
       'Corrigez les éventuels conflits signalés.',
     ],
@@ -458,10 +452,10 @@ const CREW_GUIDES: GuideCardData[] = [
     icon: <AlertTriangle className="h-5 w-5" />,
     tone: 'bg-amber-50 text-amber-700',
     steps: [
-      'Le membre peut déjà être affecté sur un autre flight.',
+      'Le membre peut déjà être affecté sur un autre vol.',
       'Les horaires peuvent se chevaucher.',
       'Le temps de repos peut être insuffisant.',
-      'Le flight ou le membre peut ne pas être valide.',
+      'Le vol ou le membre peut ne pas être valide.',
       'Consultez le message d’erreur affiché par l’application.',
     ],
   },
@@ -491,8 +485,8 @@ const MAINTENANCE_GUIDES: GuideCardData[] = [
     icon: <AlertTriangle className="h-5 w-5" />,
     tone: 'bg-rose-50 text-rose-700',
     steps: [
-      'Un appareil ne peut pas assurer un flight pendant une maintenance.',
-      'Un chevauchement entre flight et maintenance est signalé.',
+      'Un appareil ne peut pas assurer un vol pendant une maintenance.',
+      'Un chevauchement entre vol et maintenance est signalé.',
       'Un seuil de maintenance atteint peut empêcher une affectation.',
       'Vérifiez les créneaux avant d’affecter l’appareil.',
     ],
@@ -508,9 +502,9 @@ const CONFLICT_GUIDES: GuideCardData[] = [
     tone: 'bg-amber-50 text-amber-700',
     steps: [
       'Horaires invalides : la fenêtre temporelle n’est pas cohérente.',
-      'Avion non assigné : aucun appareil n’est associé au flight.',
+      'Avion non assigné : aucun appareil n’est associé au vol.',
       'Avion indisponible : l’appareil ne peut pas être utilisé.',
-      'Chevauchement aircraft : le même appareil est utilisé sur deux vols simultanément.',
+      'Chevauchement appareil : le même appareil est utilisé sur deux vols simultanément.',
       'Turnaround insuffisant : le temps entre deux rotations est trop court.',
       'Positionnement incohérent : l’appareil n’est pas au bon endroit.',
       'Maintenance : l’appareil n’est pas disponible.',
@@ -525,7 +519,7 @@ const CONFLICT_GUIDES: GuideCardData[] = [
     icon: <ShieldCheck className="h-5 w-5" />,
     tone: 'bg-emerald-50 text-emerald-700',
     steps: [
-      'Identifiez le flight concerné.',
+      'Identifiez le vol concerné.',
       'Lisez le type de conflit.',
       'Vérifiez la ressource responsable.',
       'Consultez les alternatives disponibles.',
@@ -540,7 +534,7 @@ const WEATHER_GUIDES: GuideCardData[] = [
   {
     id: 'weather-read',
     title: 'Comprendre le risque météo',
-    description: 'Interpréter le niveau affiché sur un flight.',
+    description: 'Interpréter le niveau affiché sur un vol.',
     icon: <Cloud className="h-5 w-5" />,
     tone: 'bg-sky-50 text-sky-700',
     steps: [
@@ -589,8 +583,8 @@ const HISTORY_GUIDES: GuideCardData[] = [
     tone: 'bg-slate-100 text-slate-700',
     steps: [
       'Ouvrez Historique des vols.',
-      'Utilisez la recherche pour retrouver un flight.',
-      'Filtrez par status.',
+      'Utilisez la recherche pour retrouver un vol.',
+      'Filtrez par statut.',
       'Choisissez une période si nécessaire.',
       'Cliquez sur Détails pour consulter les informations.',
     ],
@@ -598,16 +592,16 @@ const HISTORY_GUIDES: GuideCardData[] = [
   {
     id: 'history-details',
     title: 'Lire les détails historiques',
-    description: 'Consulter les informations enregistrées pour un flight passé.',
+    description: 'Consulter les informations enregistrées pour un vol passé.',
     icon: <FileQuestion className="h-5 w-5" />,
     tone: 'bg-sky-50 text-sky-700',
     steps: [
-      'Vérifiez le numéro du flight.',
+      'Vérifiez le numéro du vol.',
       'Consultez l’itinéraire.',
       'Vérifiez les horaires locaux.',
       'Consultez les références UTC.',
       'Vérifiez l’appareil.',
-      'Consultez le status final.',
+      'Consultez le statut final.',
       'Vérifiez les informations météo disponibles.',
     ],
   },
@@ -618,15 +612,15 @@ const HISTORY_GUIDES: GuideCardData[] = [
  * ========================================================================== */
 
 const FAQ_ITEMS: FAQItem[] = [
-  { id: 'faq1', category: 'Vols', question: 'Pourquoi mon flight apparaît-il comme Non assigné ?', answer: 'Cela signifie qu’aucun appareil n’est actuellement affecté au flight. Vous pouvez sélectionner un appareil disponible ou générer un scénario de programmation.', keywords: ['non assigné', 'aircraft', 'affectation'] },
-  { id: 'faq2', category: 'Vols', question: 'Pourquoi l’heure d’arrivée est-elle refusée ?', answer: 'L’heure d’arrivée doit être postérieure à l’heure de départ. Vérifiez également les dates lorsque le flight traverse minuit.', keywords: ['heure', 'arrivée', 'départ'] },
-  { id: 'faq3', category: 'Programmation', question: 'Quels vols sont utilisés lors d’une génération ?', answer: 'Les vols Planifiés et Retardés peuvent être utilisés. Les vols En vol, Effectués et Annulés sont exclus.', keywords: ['génération', 'programme de vols', 'status'] },
-  { id: 'faq4', category: 'Programmation', question: 'L’optimisation modifie-t-elle automatiquement le programme de vols ?', answer: 'Non. Elle propose des alternatives que l’user autorisé doit examiner et valider.', keywords: ['optimisation', 'automatique', 'validation'] },
-  { id: 'faq5', category: 'Flotte', question: 'Pourquoi un aircraft ne peut-il pas être affecté ?', answer: 'Il peut être déjà utilisé, indisponible, en maintenance, hors service ou mal positionné.', keywords: ['aircraft', 'indisponible', 'maintenance'] },
-  { id: 'faq6', category: 'Équipage', question: 'Pourquoi mon affectation équipage est-elle refusée ?', answer: 'Le membre peut déjà être affecté sur un autre flight ou ne pas respecter le temps de repos nécessaire.', keywords: ['équipage', 'repos', 'chevauchement'] },
-  { id: 'faq7', category: 'Météo', question: 'La météo peut-elle annuler automatiquement un flight ?', answer: 'Non. Le système peut recommander une révision ou un retard, mais la décision finale reste manuelle.', keywords: ['météo', 'annulation', 'occ'] },
+  { id: 'faq1', category: 'Vols', question: 'Pourquoi mon vol apparaît-il comme Non assigné ?', answer: 'Cela signifie qu’aucun appareil n’est actuellement affecté au vol. Vous pouvez sélectionner un appareil disponible ou générer un scénario de programmation.', keywords: ['non assigné', 'appareil', 'affectation'] },
+  { id: 'faq2', category: 'Vols', question: 'Pourquoi l’heure d’arrivée est-elle refusée ?', answer: 'L’heure d’arrivée doit être postérieure à l’heure de départ. Vérifiez également les dates lorsque le vol traverse minuit.', keywords: ['heure', 'arrivée', 'départ'] },
+  { id: 'faq3', category: 'Programmation', question: 'Quels vols sont utilisés lors d’une génération ?', answer: 'Les vols Planifiés et Retardés peuvent être utilisés. Les vols En vol, Effectués et Annulés sont exclus.', keywords: ['génération', 'programme de vols', 'statut'] },
+  { id: 'faq4', category: 'Programmation', question: 'L’optimisation modifie-t-elle automatiquement le programme de vols ?', answer: 'Non. Elle propose des alternatives que l’utilisateur autorisé doit examiner et valider.', keywords: ['optimisation', 'automatique', 'validation'] },
+  { id: 'faq5', category: 'Flotte', question: 'Pourquoi un appareil ne peut-il pas être affecté ?', answer: 'Il peut être déjà utilisé, indisponible, en maintenance, hors service ou mal positionné.', keywords: ['appareil', 'indisponible', 'maintenance'] },
+  { id: 'faq6', category: 'Équipage', question: 'Pourquoi mon affectation équipage est-elle refusée ?', answer: 'Le membre peut déjà être affecté sur un autre vol ou ne pas respecter le temps de repos nécessaire.', keywords: ['équipage', 'repos', 'chevauchement'] },
+  { id: 'faq7', category: 'Météo', question: 'La météo peut-elle annuler automatiquement un vol ?', answer: 'Non. Le système peut recommander une révision ou un retard, mais la décision finale reste manuelle.', keywords: ['météo', 'annulation', 'occ'] },
   { id: 'faq8', category: 'Horaires', question: 'Pourquoi l’heure locale est-elle différente de l’heure UTC ?', answer: 'Chaque aéroport possède son propre fuseau horaire. L’UTC sert de référence commune alors que l’heure locale sert à l’affichage opérationnel.', keywords: ['utc', 'heure locale', 'fuseau'] },
-  { id: 'faq9', category: 'Historique', question: 'Pourquoi consulter l’historique des vols ?', answer: 'Il permet de retrouver les opérations passées, leurs horaires, leur status final et les principales informations opérationnelles.', keywords: ['historique', 'flight effectué'] },
+  { id: 'faq9', category: 'Historique', question: 'Pourquoi consulter l’historique des vols ?', answer: 'Il permet de retrouver les opérations passées, leurs horaires, leur statut final et les principales informations opérationnelles.', keywords: ['historique', 'vol effectué'] },
   { id: 'faq10', category: 'Accès', question: 'Pourquoi certains menus ne sont-ils pas visibles ?', answer: 'Les menus dépendent de votre rôle et des permissions associées à votre compte.', keywords: ['rôle', 'permission', 'menu'] },
 ];
 
@@ -657,93 +651,91 @@ const SUPPORT_PRIORITY_LABELS: Record<SupportPriority, string> = {
 };
 
 /* ============================================================================
- * COMPONENT
+ * CENTRE D'AIDE — INTERFACE RESPONSIVE
  * ========================================================================== */
 
+const ALL_GUIDES: Partial<Record<HelpSection, GuideCardData[]>> = {
+  START: START_GUIDES,
+  DASHBOARD: DASHBOARD_GUIDES,
+  FLIGHTS: FLIGHT_GUIDES,
+  SCHEDULING: SCHEDULING_GUIDES,
+  FLEET: FLEET_GUIDES,
+  CREW: CREW_GUIDES,
+  MAINTENANCE: MAINTENANCE_GUIDES,
+  CONFLICTS: CONFLICT_GUIDES,
+  WEATHER: WEATHER_GUIDES,
+  HISTORY: HISTORY_GUIDES,
+};
+
+function normalize(value: string) {
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+
 const HelpSupportPage: React.FC = () => {
-  const [activeSection, setActiveSection] = useState<HelpSection>('START');
+  const [activeSection, setActiveSection] = useState<HelpSection | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const [expandedGuide, setExpandedGuide] = useState<string | null>(null);
   const [expandedFaq, setExpandedFaq] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [windowStart, setWindowStart] = useState(0);
-
   const [supportForm, setSupportForm] = useState<SupportForm>({
-    subject: '',
-    category: 'GENERAL',
-    priority: 'MEDIUM',
-    description: '',
+    subject: '', category: 'GENERAL', priority: 'MEDIUM', description: '',
   });
   const [supportSuccess, setSupportSuccess] = useState('');
   const [supportError, setSupportError] = useState('');
   const [sending, setSending] = useState(false);
 
-  /* =========================================================================
-   * INDEX ET NAV ITEM ACTIFS
-   * ======================================================================= */
+  const query = normalize(searchQuery.trim());
+  const isSearching = query.length > 0;
 
-  const activeIndex = useMemo(
-    () => HELP_NAV_ITEMS.findIndex((item) => item.id === activeSection),
-    [activeSection],
-  );
-
-  const activeNavItem = HELP_NAV_ITEMS[activeIndex] ?? HELP_NAV_ITEMS[0];
-
-  const hasPrev = activeIndex > 0;
-  const hasNext = activeIndex < HELP_NAV_ITEMS.length - 1;
-
-  /* =========================================================================
-   * FENÊTRE DE TABS
-   * ======================================================================= */
-
-  const maxStart = Math.max(0, HELP_NAV_ITEMS.length - VISIBLE_TABS);
-
-  useEffect(() => {
-    setWindowStart((prev) => {
-      if (activeIndex < prev) return activeIndex;
-      if (activeIndex >= prev + VISIBLE_TABS) {
-        return Math.min(activeIndex - VISIBLE_TABS + 1, maxStart);
-      }
-      return Math.min(prev, maxStart);
-    });
-  }, [activeIndex, maxStart]);
-
-  const visibleTabs = useMemo(() => {
-    const start = Math.max(0, Math.min(windowStart, maxStart));
-    return HELP_NAV_ITEMS.slice(start, start + VISIBLE_TABS);
-  }, [windowStart, maxStart]);
-
-  /* =========================================================================
-   * FAQ FILTER
-   * ======================================================================= */
-
-  const filteredFaq = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-    if (!query) return FAQ_ITEMS;
-    return FAQ_ITEMS.filter((faq) =>
-      [faq.category, faq.question, faq.answer, ...faq.keywords]
-        .join(' ')
-        .toLowerCase()
-        .includes(query),
+  const guideResults = useMemo(() => {
+    const entries = Object.entries(ALL_GUIDES).flatMap(([section, guides]) =>
+      (guides ?? []).map((guide) => ({
+        ...guide,
+        section: section as HelpSection,
+      })),
     );
-  }, [searchQuery]);
+    if (!query) return [];
+    return entries.filter((guide) => normalize([
+      guide.title, guide.description, ...guide.steps, guide.note ?? '',
+      HELP_NAV_ITEMS.find((nav) => nav.id === guide.section)?.label ?? '',
+    ].join(' ')).includes(query));
+  }, [query]);
 
-  /* =========================================================================
-   * SUPPORT
-   * ======================================================================= */
+  const faqResults = useMemo(() => {
+    if (!query) return FAQ_ITEMS;
+    return FAQ_ITEMS.filter((faq) => normalize([
+      faq.category, faq.question, faq.answer, ...faq.keywords,
+    ].join(' ')).includes(query));
+  }, [query]);
 
-  const handleSubmitSupport = async (event: React.FormEvent) => {
+  const guideList = activeSection ? ALL_GUIDES[activeSection] ?? [] : [];
+  const selectedItem = HELP_NAV_ITEMS.find((item) => item.id === activeSection);
+
+  const selectSection = (section: HelpSection) => {
+    setSearchQuery('');
+    setActiveSection(section);
+    setExpandedGuide(null);
+    setExpandedFaq(null);
+    // Scroll is deliberately left to the application's existing scroll container.
+  };
+
+  const resetHome = () => {
+    setActiveSection(null);
+    setSearchQuery('');
+    setExpandedGuide(null);
+    setExpandedFaq(null);
+  };
+
+  const handleSubmitSupport = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-
-    setSupportSuccess('');
     setSupportError('');
+    setSupportSuccess('');
 
     if (!supportForm.subject.trim() || !supportForm.description.trim()) {
-      setSupportError('Veuillez renseigner le sujet et la description.');
+      setSupportError('Veuillez renseigner le sujet et la description de votre demande.');
       return;
     }
 
     setSending(true);
-
     try {
       const ticket: LocalTicket = {
         id: `SUP-${Date.now().toString().slice(-8)}`,
@@ -752,710 +744,272 @@ const HelpSupportPage: React.FC = () => {
         priority: supportForm.priority,
         createdAt: new Date().toISOString(),
       };
-
-      const previous = JSON.parse(
-        localStorage.getItem(SUPPORT_STORAGE_KEY) || '[]',
-      );
-
-      const tickets = Array.isArray(previous)
-        ? [ticket, ...previous].slice(0, 20)
-        : [ticket];
-
-      localStorage.setItem(SUPPORT_STORAGE_KEY, JSON.stringify(tickets));
-
-      setSupportSuccess(`Votre demande ${ticket.id} a été enregistrée.`);
-
-      setSupportForm({
-        subject: '',
-        category: 'GENERAL',
-        priority: 'MEDIUM',
-        description: '',
-      });
+      const raw = localStorage.getItem(SUPPORT_STORAGE_KEY);
+      let previous: LocalTicket[] = [];
+      if (raw) {
+        try {
+          const parsed: unknown = JSON.parse(raw);
+          if (Array.isArray(parsed)) previous = parsed as LocalTicket[];
+        } catch {
+          previous = [];
+        }
+      }
+      localStorage.setItem(SUPPORT_STORAGE_KEY, JSON.stringify([ticket, ...previous].slice(0, 20)));
+      setSupportSuccess(`Votre demande ${ticket.id} a été enregistrée dans ce navigateur. Elle n'a pas encore été transmise à une équipe de support.`);
+      setSupportForm({ subject: '', category: 'GENERAL', priority: 'MEDIUM', description: '' });
     } catch {
-      setSupportError('Impossible d’enregistrer votre demande.');
+      setSupportError('Impossible d’enregistrer votre demande dans ce navigateur.');
     } finally {
       setSending(false);
     }
   };
 
-  /* =========================================================================
-   * GUIDE SOURCE
-   * ======================================================================= */
-
-  const getGuidesForSection = (section: HelpSection): GuideCardData[] => {
-    switch (section) {
-      case 'START': return START_GUIDES;
-      case 'DASHBOARD': return DASHBOARD_GUIDES;
-      case 'FLIGHTS': return FLIGHT_GUIDES;
-      case 'SCHEDULING': return SCHEDULING_GUIDES;
-      case 'FLEET': return FLEET_GUIDES;
-      case 'CREW': return CREW_GUIDES;
-      case 'MAINTENANCE': return MAINTENANCE_GUIDES;
-      case 'CONFLICTS': return CONFLICT_GUIDES;
-      case 'WEATHER': return WEATHER_GUIDES;
-      case 'HISTORY': return HISTORY_GUIDES;
-      default: return [];
-    }
+  const renderGuide = (guide: GuideCardData, section?: HelpSection) => {
+    const key = `${section ?? activeSection ?? 'all'}-${guide.id}`;
+    const expanded = expandedGuide === key;
+    return (
+      <article key={key} className="border-b border-slate-100 last:border-b-0">
+        <button type="button" aria-expanded={expanded}
+          onClick={() => setExpandedGuide(expanded ? null : key)}
+          className="group flex min-h-14 w-full min-w-0 items-center justify-between gap-3 py-3 text-left transition-colors hover:text-emerald-800 focus-visible:rounded-md focus-visible:outline-2 focus-visible:outline-emerald-600">
+          <span className="min-w-0">
+            <span className="block text-sm font-medium leading-6 text-slate-800 group-hover:text-emerald-800">{guide.title}</span>
+            <span className="mt-0.5 block text-xs leading-5 text-slate-500 sm:text-[13px]">{guide.description}</span>
+          </span>
+          {expanded ? <ChevronDown className="h-4 w-4 shrink-0 text-emerald-700" /> : <ChevronRight className="h-4 w-4 shrink-0 text-emerald-700" />}
+        </button>
+        {expanded && (
+          <div className="border-t border-slate-100 pb-5 pt-4">
+            <ol className="space-y-3">
+              {guide.steps.map((step, index) => (
+                <li key={`${guide.id}-step-${index}`} className="flex items-start gap-3">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-700 text-[11px] font-bold text-white">{index + 1}</span>
+                  <p className="pt-0.5 text-sm leading-6 text-slate-700">{step}</p>
+                </li>
+              ))}
+            </ol>
+            {guide.note && (
+              <div className="mt-5 flex gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900">
+                <AlertTriangle className="h-4 w-4 shrink-0" />{guide.note}
+              </div>
+            )}
+          </div>
+        )}
+      </article>
+    );
   };
 
-  const currentGuides = getGuidesForSection(activeSection);
-
-  const handleSelectSection = (section: HelpSection) => {
-    setActiveSection(section);
-    setExpandedGuide(null);
-    setExpandedFaq(null);
+  const renderFaq = (faq: FAQItem) => {
+    const expanded = expandedFaq === faq.id;
+    return (
+      <article key={faq.id} className="border-b border-slate-100 last:border-b-0">
+        <button type="button" aria-expanded={expanded}
+          onClick={() => setExpandedFaq(expanded ? null : faq.id)}
+          className="group flex min-h-14 w-full min-w-0 items-center justify-between gap-3 py-3 text-left transition-colors hover:text-emerald-800 focus-visible:rounded-md focus-visible:outline-2 focus-visible:outline-emerald-600">
+          <span className="min-w-0">
+            <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-emerald-700">{faq.category}</span>
+            <span className="text-sm font-semibold leading-6 text-slate-800">{faq.question}</span>
+          </span>
+          {expanded ? <ChevronUp className="h-4 w-4 shrink-0 text-emerald-700" /> : <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />}
+        </button>
+        {expanded && <p className="border-t border-slate-100 py-4 text-sm leading-7 text-slate-600">{faq.answer}</p>}
+      </article>
+    );
   };
-
-  const goPrev = () => {
-    if (!hasPrev) return;
-    handleSelectSection(HELP_NAV_ITEMS[activeIndex - 1].id);
-  };
-
-  const goNext = () => {
-    if (!hasNext) return;
-    handleSelectSection(HELP_NAV_ITEMS[activeIndex + 1].id);
-  };
-
-  /* =========================================================================
-   * RENDER
-   * ======================================================================= */
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800">
-      <div className="mx-auto max-w-350 space-y-5 p-4 lg:p-6">
+    <main className="w-full min-w-0 overflow-x-hidden bg-transparent text-slate-800">
+      <header className="w-full bg-transparent p-0">
+        <div className="relative w-full min-w-0">
+            <Search aria-hidden="true" className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+            <input type="search" value={searchQuery}
+              onChange={(event) => { setSearchQuery(event.target.value); setExpandedGuide(null); setExpandedFaq(null); }}
+              aria-label="Rechercher dans les guides et les questions fréquentes"
+              placeholder="Rechercher une réponse, un guide ou un mot-clé..."
+              className="h-12 w-full min-w-0 rounded-xl border border-slate-200 bg-white pl-12 pr-4 text-sm text-slate-800 shadow-sm outline-none transition placeholder:text-slate-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/15 sm:h-12" />
+        </div>
+      </header>
 
-        {/* =====================================================================
-            CARTE UNIQUE : HERO + TOP BAR + INFO SECTION (non sticky)
-        ===================================================================== */}
-
-        <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-
-          {/* ---------- HERO ---------- */}
-          <div className="flex flex-col gap-4 p-5 sm:p-6 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-start gap-4">
-              <div className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100">
-                <LifeBuoy className="h-7 w-7" />
-                <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-emerald-500" />
+      <div className="w-full min-w-0 space-y-6 px-2 py-5 sm:px-3 sm:py-6 lg:px-4">
+        {activeSection && !isSearching && (
+          <nav aria-label="Fil d’Ariane" className="flex items-center gap-2 text-xs text-slate-500">
+            <button type="button" onClick={resetHome} className="hover:text-emerald-800">Toutes les rubriques</button>
+            <ChevronRight className="h-3.5 w-3.5" />
+            <span className="text-slate-700">{selectedItem?.label}</span>
+          </nav>
+        )}
+        {isSearching ? (
+          <section aria-live="polite">
+            <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-xl font-bold text-slate-900 sm:text-2xl">Résultats de recherche</h2>
+                <p className="mt-1 text-sm text-slate-500">{guideResults.length + faqResults.length} résultat(s) pour « {searchQuery.trim()} ».</p>
               </div>
-
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="text-xl font-black tracking-tight text-slate-900 sm:text-2xl">
-                    Centre d’aide
-                  </h1>
-                  <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-700">
-                    Guide user
-                  </span>
+              <button type="button" onClick={resetHome} className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-50">Effacer la recherche</button>
+            </div>
+            {guideResults.length > 0 && (
+              <div className="mb-9">
+                <h3 className="mb-4 text-base font-bold text-slate-800">Guides d'utilisation</h3>
+                <div className="rounded-xl border border-slate-200 bg-white px-4 sm:px-5">{guideResults.map((guide) => renderGuide(guide, guide.section))}</div>
+              </div>
+            )}
+            {faqResults.length > 0 && (
+              <div>
+                <h3 className="mb-4 text-base font-bold text-slate-800">Questions fréquentes</h3>
+                <div className="rounded-xl border border-slate-200 bg-white px-4 sm:px-5">{faqResults.map(renderFaq)}</div>
+              </div>
+            )}
+            {guideResults.length === 0 && faqResults.length === 0 && (
+              <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
+                <FileQuestion className="mx-auto h-9 w-9 text-slate-400" />
+                <h3 className="mt-4 font-bold text-slate-800">Aucun résultat trouvé</h3>
+                <p className="mt-2 text-sm text-slate-500">Essayez un autre mot-clé ou contactez le support.</p>
+                <button type="button" onClick={() => selectSection('SUPPORT')} className="mt-5 rounded-xl bg-emerald-700 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-800">Contacter le support</button>
+              </div>
+            )}
+          </section>
+        ) : activeSection === 'SUPPORT' ? (
+          <section>
+            <button type="button" onClick={resetHome} className="mb-5 inline-flex items-center gap-2 text-sm font-semibold text-emerald-700 hover:underline">
+              <BookOpen className="h-4 w-4" /> Retour au centre d'aide
+            </button>
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-slate-900">Contacter le support</h2>
+              <p className="mt-2 text-sm leading-6 text-slate-500">Décrivez votre difficulté afin de conserver une demande d'assistance dans votre navigateur.</p>
+            </div>
+            <div className="grid min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm xl:grid-cols-[minmax(0,1fr)_300px]">
+              <form className="space-y-5 p-5 sm:p-8" onSubmit={handleSubmitSupport}>
+                {supportSuccess && <div role="status" className="flex gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm leading-6 text-emerald-900"><CheckCircle2 className="mt-1 h-4 w-4 shrink-0" />{supportSuccess}</div>}
+                {supportError && <div role="alert" className="flex gap-2 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800"><AlertCircle className="h-4 w-4 shrink-0" />{supportError}</div>}
+                <label className="block space-y-2">
+                  <span className="text-sm font-semibold text-slate-800">Sujet de votre demande *</span>
+                  <input required maxLength={160} value={supportForm.subject}
+                    onChange={(e) => setSupportForm((prev) => ({ ...prev, subject: e.target.value }))}
+                    placeholder="Ex. Impossible d'affecter un équipage"
+                    className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm outline-none focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-100" />
+                </label>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="block space-y-2">
+                    <span className="text-sm font-semibold text-slate-800">Module concerné</span>
+                    <select value={supportForm.category} onChange={(e) => setSupportForm((prev) => ({ ...prev, category: e.target.value as SupportCategory }))}
+                      className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none focus:border-emerald-500">
+                      {Object.entries(SUPPORT_CATEGORY_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                    </select>
+                  </label>
+                  <label className="block space-y-2">
+                    <span className="text-sm font-semibold text-slate-800">Niveau de priorité</span>
+                    <select value={supportForm.priority} onChange={(e) => setSupportForm((prev) => ({ ...prev, priority: e.target.value as SupportPriority }))}
+                      className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none focus:border-emerald-500">
+                      {Object.entries(SUPPORT_PRIORITY_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                    </select>
+                  </label>
                 </div>
-                <p className="mt-1.5 max-w-2xl text-[13px] leading-6 text-slate-500">
-                  Les repères essentiels pour programmer les vols, affecter les appareils et les équipages, anticiper les contraintes et suivre les opérations.
+                <label className="block space-y-2">
+                  <span className="text-sm font-semibold text-slate-800">Description du problème *</span>
+                  <textarea required rows={6} maxLength={5000} value={supportForm.description}
+                    onChange={(e) => setSupportForm((prev) => ({ ...prev, description: e.target.value }))}
+                    placeholder="Expliquez les actions effectuées, le vol ou l'appareil concerné et le message d'erreur affiché..."
+                    className="w-full resize-y rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 outline-none focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-100" />
+                </label>
+                <div className="flex justify-end">
+                  <button type="submit" disabled={sending} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 px-6 py-3 text-sm font-bold text-white transition hover:bg-emerald-800 disabled:opacity-50 sm:w-auto">
+                    <Send className="h-4 w-4" />{sending ? 'Enregistrement...' : 'Enregistrer la demande'}
+                  </button>
+                </div>
+              </form>
+              <aside className="border-t border-slate-200 bg-slate-50/80 p-6 xl:border-l xl:border-t-0 xl:p-8">
+                <div className="flex items-center gap-3"><span className="rounded-xl bg-emerald-100 p-2.5 text-emerald-700"><Info className="h-5 w-5" /></span><h3 className="font-bold text-slate-900">Pour une aide plus efficace</h3></div>
+                <p className="mt-4 text-sm leading-7 text-slate-600">Indiquez le module concerné, le numéro du vol ou l'immatriculation de l'appareil, puis expliquez précisément les étapes ayant conduit au problème.</p>
+                <p className="mt-4 text-sm leading-7 text-slate-600">Si un message d'erreur apparaît, recopiez-le pour faciliter le diagnostic.</p>
+                <div className="mt-6 flex gap-2 rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs leading-6 text-amber-900"><AlertTriangle className="mt-1 h-4 w-4 shrink-0" />L'enregistrement est uniquement local. Pour transmettre la demande à une équipe, il faudra connecter ce formulaire à votre API de support.</div>
+              </aside>
+            </div>
+          </section>
+        ) : activeSection === 'FAQ' ? (
+          <section>
+            <div className="mb-7 flex flex-col items-start gap-3">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700">{selectedItem?.icon}</span>
+              <div><h1 className="text-2xl font-bold tracking-tight text-slate-900">Questions fréquentes</h1><p className="mt-1 text-sm leading-6 text-slate-500">Réponses aux questions les plus courantes concernant la gestion des vols.</p><p className="mt-3 text-xs text-slate-400">{FAQ_ITEMS.length} questions</p></div>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-white px-4 sm:px-5">{FAQ_ITEMS.map(renderFaq)}</div>
+          </section>
+        ) : activeSection ? (
+          <section>
+            <div className="mb-7 flex flex-col items-start gap-3">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700">{selectedItem?.icon}</span>
+              <div><h1 className="text-2xl font-bold tracking-tight text-slate-900">{selectedItem?.label}</h1><p className="mt-1 text-sm leading-6 text-slate-600">{selectedItem?.description}</p><p className="mt-3 text-xs text-slate-400">{guideList.length} article{guideList.length === 1 ? '' : 's'}</p></div>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-white px-4 sm:px-5">
+              <h2 className="border-b border-slate-200 py-4 text-base font-semibold text-slate-800">Guides et procédures</h2>
+              {guideList.map((guide) => renderGuide(guide))}
+            </div>
+          </section>
+        ) : (
+          <>
+            <section>
+              <nav aria-label="Fil d’Ariane" className="mb-5 flex items-center gap-1.5 text-xs text-slate-500">
+                <span>Toutes les rubriques</span>
+                <ChevronRight className="h-3 w-3" />
+                <span className="text-slate-700">Centre d’aide</span>
+              </nav>
+              <div className="mb-6">
+                <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
+                  <BookOpen className="h-6 w-6" />
+                </div>
+                <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Centre d’aide</h1>
+                <p className="mt-1.5 text-sm text-slate-600">Guides et documentation pour Airline Flight Scheduling.</p>
+                <p className="mt-3 text-xs text-slate-400">
+                  {Object.values(ALL_GUIDES).reduce((count, guides) => count + (guides?.length ?? 0), 0) + FAQ_ITEMS.length} articles et réponses
                 </p>
               </div>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3">
-              <HeroPill
-                icon={<BookOpen className="h-3.5 w-3.5" />}
-                value={String(HELP_NAV_ITEMS.length)}
-                label="rubriques"
-              />
-              <HeroPill
-                icon={<HelpCircle className="h-3.5 w-3.5" />}
-                value={String(FAQ_ITEMS.length)}
-                label="FAQ"
-              />
-              <button
-                type="button"
-                onClick={() => handleSelectSection('SUPPORT')}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-800"
-              >
-                <Headphones className="h-4 w-4" />
-                Contacter le support
-              </button>
-            </div>
-          </div>
-
-          {/* ---------- SÉPARATEUR + BARRE DE PROGRESSION ---------- */}
-          <div className="border-t border-slate-100 bg-slate-50/50">
-            <div className="flex items-center gap-3 px-5 pt-3">
-              <div className="flex flex-1 items-center gap-1.5">
-                {HELP_NAV_ITEMS.map((item, index) => {
-                  const isActive = index === activeIndex;
-                  const isPast = index < activeIndex;
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+                {HELP_NAV_ITEMS.map((item) => {
+                  const total = item.id === 'FAQ'
+                    ? FAQ_ITEMS.length
+                    : (ALL_GUIDES[item.id]?.length ?? 0);
                   return (
                     <button
                       key={item.id}
                       type="button"
-                      title={item.label}
-                      onClick={() => handleSelectSection(item.id)}
-                      className={`h-1.5 flex-1 rounded-full transition-all ${
-                        isActive
-                          ? 'bg-emerald-600'
-                          : isPast
-                            ? 'bg-emerald-200 hover:bg-emerald-300'
-                            : 'bg-slate-200 hover:bg-slate-300'
-                      }`}
-                    />
-                  );
-                })}
-              </div>
-              <span className="shrink-0 rounded-md bg-white px-2 py-0.5 text-[10px] font-black text-slate-500 ring-1 ring-slate-200">
-                {activeIndex + 1}/{HELP_NAV_ITEMS.length}
-              </span>
-            </div>
-
-            {/* ---------- LIGNE : PREV | TABS | NEXT ---------- */}
-            <div className="flex items-center gap-2 px-5 py-3">
-              <button
-                type="button"
-                onClick={goPrev}
-                disabled={!hasPrev}
-                title="Section précédente"
-                className="group flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-200 disabled:hover:bg-white disabled:hover:text-slate-600 sm:w-auto sm:px-3"
-              >
-                <ChevronLeft className="h-4 w-4 transition group-hover:-translate-x-0.5" />
-                <span className="hidden text-[11px] font-black sm:inline">
-                  Précédent
-                </span>
-              </button>
-
-              <div className="flex min-w-0 flex-1 items-stretch gap-1">
-                {visibleTabs.map((item) => {
-                  const isActive = item.id === activeSection;
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => handleSelectSection(item.id)}
-                      title={item.description}
-                      className={`group flex h-11 min-w-0 flex-1 items-center justify-center gap-2 rounded-xl px-2 text-left transition-all duration-200 ${
-                        isActive
-                          ? 'bg-emerald-700 text-white shadow-sm shadow-emerald-700/20'
-                          : 'bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                      }`}
+                      onClick={() => selectSection(item.id)}
+                      className="group flex min-h-[205px] min-w-0 flex-col items-start rounded-lg border border-slate-300 bg-white p-5 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-emerald-500 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 sm:min-h-[225px]"
                     >
-                      <span
-                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition ${
-                          isActive
-                            ? 'bg-white/15 text-white'
-                            : 'bg-slate-100 text-slate-500 group-hover:bg-white group-hover:text-emerald-700'
-                        }`}
-                      >
+                      <span className="mb-4 flex h-8 w-8 items-center justify-start text-slate-800 [&_svg]:h-6 [&_svg]:w-6" aria-hidden="true">
                         {item.icon}
                       </span>
-                      <span
-                        className={`hidden truncate text-[11px] font-black tracking-tight lg:inline ${
-                          isActive ? 'text-white' : 'text-slate-700'
-                        }`}
-                      >
+                      <span className="text-[15px] font-bold leading-5 text-slate-900">
                         {item.label}
                       </span>
+                      <span className="mt-2 line-clamp-3 text-[13px] leading-[1.55] text-slate-600">
+                        {item.description}. Retrouvez les explications et les procédures de cette rubrique.
+                      </span>
+                      <span className="mt-auto inline-flex items-center gap-2 pt-6 text-[13px] font-semibold text-emerald-700 transition-colors group-hover:text-emerald-900">
+                        {item.id === 'SUPPORT' ? 'Contacter le support' : 'Explorer les articles'}
+                        <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                      </span>
+                      {item.id !== 'SUPPORT' && (
+                        <span className="sr-only"> — {total} article{total > 1 ? 's' : ''}</span>
+                      )}
                     </button>
                   );
                 })}
               </div>
-
-              <button
-                type="button"
-                onClick={goNext}
-                disabled={!hasNext}
-                title="Section suivante"
-                className="group flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-700 text-white shadow-sm transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-emerald-700 sm:w-auto sm:px-3"
-              >
-                <span className="hidden text-[11px] font-black sm:inline">
-                  Suivant
-                </span>
-                <ChevronRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
-              </button>
-            </div>
-          </div>
-
-          {/* ---------- INFO SECTION ACTIVE ---------- */}
-          <div className="flex items-center gap-3 border-t border-slate-100 bg-linear-to-r from-emerald-50/70 to-transparent px-5 py-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-emerald-500 to-emerald-700 text-white shadow-sm">
-              {activeNavItem.icon}
-            </span>
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="truncate text-[13px] font-black text-slate-900">
-                  {activeNavItem.label}
-                </p>
-                {currentGuides.length > 0 && (
-                  <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-emerald-700">
-                    {currentGuides.length} fiche{currentGuides.length > 1 ? 's' : ''}
-                  </span>
-                )}
-              </div>
-              <p className="truncate text-[10px] text-slate-500">
-                {activeNavItem.description}
-              </p>
-            </div>
-          </div>
-        </section>
-
-        {/* =====================================================================
-            GUIDE GRID
-        ===================================================================== */}
-
-        {currentGuides.length > 0 && (
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {currentGuides.map((guide) => {
-              const expanded = expandedGuide === guide.id;
-              return (
-                <article
-                  key={guide.id}
-                  className={`overflow-hidden rounded-2xl border bg-white shadow-sm transition ${
-                    expanded
-                      ? 'border-emerald-200 shadow-md'
-                      : 'border-slate-200 hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-md'
-                  }`}
-                >
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setExpandedGuide(expanded ? null : guide.id)
-                    }
-                    className="w-full p-4 text-left"
-                  >
-                    <div className="flex items-start gap-3">
-                      <div
-                        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${guide.tone}`}
-                      >
-                        {guide.icon}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-start justify-between gap-2">
-                          <h3 className="text-[13px] font-black leading-5 text-slate-900">
-                            {guide.title}
-                          </h3>
-                          <span
-                            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition ${
-                              expanded
-                                ? 'bg-emerald-50 text-emerald-700'
-                                : 'bg-slate-50 text-slate-400'
-                            }`}
-                          >
-                            {expanded ? (
-                              <ChevronUp className="h-4 w-4" />
-                            ) : (
-                              <ChevronDown className="h-4 w-4" />
-                            )}
-                          </span>
-                        </div>
-                        <p className="mt-1 text-[11px] leading-5 text-slate-500">
-                          {guide.description}
-                        </p>
-                      </div>
-                    </div>
-                  </button>
-
-                  {expanded && (
-                    <div className="border-t border-slate-100 bg-slate-50/60 p-4">
-                      <div className="relative">
-                        <div className="absolute bottom-2 left-3.25 top-2 w-px bg-slate-200" />
-                        <ol className="relative space-y-3">
-                          {guide.steps.map((step, index) => (
-                            <li
-                              key={`${guide.id}-${index}`}
-                              className="flex gap-3"
-                            >
-                              <span className="relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-700 text-[10px] font-black text-white shadow-sm">
-                                {index + 1}
-                              </span>
-                              <p className="pt-1 text-[11px] leading-5 text-slate-700">
-                                {step}
-                              </p>
-                            </li>
-                          ))}
-                        </ol>
-                      </div>
-
-                      {guide.note && (
-                        <div className="mt-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3">
-                          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
-                          <p className="text-[11px] font-medium leading-5 text-amber-900">
-                            {guide.note}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </article>
-              );
-            })}
-          </section>
+            </section>
+          </>
         )}
 
-        {/* =====================================================================
-            FAQ
-        ===================================================================== */}
-
-        {activeSection === 'FAQ' && (
-          <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <SectionHeader
-              icon={<HelpCircle className="h-4 w-4" />}
-              title="Questions fréquentes"
-              subtitle="Retrouvez rapidement une réponse aux problèmes les plus courants"
-            />
-
-            <div className="border-b border-slate-100 bg-slate-50/60 p-4">
-              <div className="relative max-w-2xl">
-                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <input
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Rechercher : équipage, aircraft, météo, horaire..."
-                  className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-11 text-[13px] font-medium text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-                />
-                {searchQuery && (
-                  <button
-                    type="button"
-                    onClick={() => setSearchQuery('')}
-                    className="absolute right-2.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
+        {activeSection !== 'SUPPORT' && (
+          <section className="flex flex-col items-start justify-between gap-5 rounded-2xl border border-emerald-100 bg-emerald-50/65 px-5 py-6 text-left sm:px-7 md:flex-row md:items-center">
+            <div className="flex min-w-0 max-w-xl items-start gap-4">
+              <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white text-emerald-700 shadow-sm"><Headphones className="h-7 w-7" /></span>
+              <div><h2 className="text-lg font-bold text-slate-900 sm:text-xl">Vous avez encore besoin d'aide ?</h2><p className="mt-2 text-sm leading-6 text-slate-600">Si vous n'avez pas trouvé la réponse à votre question, décrivez votre problème dans notre espace de support.</p></div>
             </div>
-
-            {filteredFaq.length === 0 ? (
-              <div className="flex min-h-65 flex-col items-center justify-center p-6 text-center">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
-                  <FileQuestion className="h-6 w-6" />
-                </div>
-                <h3 className="mt-3 text-sm font-black text-slate-700">
-                  Aucun résultat
-                </h3>
-                <p className="mt-1 text-xs text-slate-400">
-                  Essayez un autre mot-clé.
-                </p>
-              </div>
-            ) : (
-              <div className="divide-y divide-slate-100">
-                {filteredFaq.map((faq) => {
-                  const expanded = expandedFaq === faq.id;
-                  return (
-                    <div key={faq.id}>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setExpandedFaq(expanded ? null : faq.id)
-                        }
-                        className={`flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition ${
-                          expanded ? 'bg-emerald-50/40' : 'hover:bg-slate-50'
-                        }`}
-                      >
-                        <div className="min-w-0">
-                          <span className="inline-flex rounded-md bg-slate-100 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-slate-500">
-                            {faq.category}
-                          </span>
-                          <p className="mt-1.5 text-[13px] font-bold leading-5 text-slate-800">
-                            {faq.question}
-                          </p>
-                        </div>
-                        <span
-                          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition ${
-                            expanded
-                              ? 'bg-emerald-100 text-emerald-700'
-                              : 'bg-slate-100 text-slate-400'
-                          }`}
-                        >
-                          {expanded ? (
-                            <ChevronUp className="h-4 w-4" />
-                          ) : (
-                            <ChevronDown className="h-4 w-4" />
-                          )}
-                        </span>
-                      </button>
-
-                      {expanded && (
-                        <div className="border-t border-slate-100 bg-slate-50/60 px-5 py-4">
-                          <p className="max-w-4xl text-xs leading-6 text-slate-600">
-                            {faq.answer}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+            <button type="button" onClick={() => selectSection('SUPPORT')} className="inline-flex min-h-11 w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-emerald-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800 sm:w-auto"><Headphones className="h-4 w-4" />Contacter le support</button>
           </section>
         )}
-
-        {/* =====================================================================
-            SUPPORT
-        ===================================================================== */}
-
-        {activeSection === 'SUPPORT' && (
-          <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <SectionHeader
-              icon={<Headphones className="h-4 w-4" />}
-              title="Contacter le support"
-              subtitle="Décrivez le problème lié à un flight, une affectation ou une ressource opérationnelle"
-            />
-
-            <div className="grid lg:grid-cols-[minmax(0,1fr)_320px]">
-              <form onSubmit={handleSubmitSupport} className="space-y-4 p-5">
-                {supportSuccess && (
-                  <MessageBox type="success" text={supportSuccess} />
-                )}
-                {supportError && (
-                  <MessageBox type="error" text={supportError} />
-                )}
-
-                <label className="block">
-                  <span className="mb-1.5 block text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">
-                    Sujet *
-                  </span>
-                  <input
-                    required
-                    value={supportForm.subject}
-                    onChange={(e) =>
-                      setSupportForm((current) => ({
-                        ...current,
-                        subject: e.target.value,
-                      }))
-                    }
-                    placeholder="Ex. Impossible d’affecter un équipage"
-                    className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-[13px] font-medium text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-100"
-                  />
-                </label>
-
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <label>
-                    <span className="mb-1.5 block text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">
-                      Module concerné
-                    </span>
-                    <select
-                      value={supportForm.category}
-                      onChange={(e) =>
-                        setSupportForm((current) => ({
-                          ...current,
-                          category: e.target.value as SupportCategory,
-                        }))
-                      }
-                      className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-[13px] font-medium text-slate-700 outline-none transition focus:border-emerald-500 focus:bg-white"
-                    >
-                      {Object.entries(SUPPORT_CATEGORY_LABELS).map(
-                        ([value, label]) => (
-                          <option key={value} value={value}>
-                            {label}
-                          </option>
-                        ),
-                      )}
-                    </select>
-                  </label>
-
-                  <label>
-                    <span className="mb-1.5 block text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">
-                      Priorité
-                    </span>
-                    <select
-                      value={supportForm.priority}
-                      onChange={(e) =>
-                        setSupportForm((current) => ({
-                          ...current,
-                          priority: e.target.value as SupportPriority,
-                        }))
-                      }
-                      className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-[13px] font-medium text-slate-700 outline-none transition focus:border-emerald-500 focus:bg-white"
-                    >
-                      {Object.entries(SUPPORT_PRIORITY_LABELS).map(
-                        ([value, label]) => (
-                          <option key={value} value={value}>
-                            {label}
-                          </option>
-                        ),
-                      )}
-                    </select>
-                  </label>
-                </div>
-
-                <label className="block">
-                  <span className="mb-1.5 block text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">
-                    Description *
-                  </span>
-                  <textarea
-                    required
-                    rows={6}
-                    value={supportForm.description}
-                    onChange={(e) =>
-                      setSupportForm((current) => ({
-                        ...current,
-                        description: e.target.value,
-                      }))
-                    }
-                    placeholder="Décrivez ce que vous faisiez, le flight ou la ressource concernée, puis le message affiché..."
-                    className="w-full resize-none rounded-xl border border-slate-200 bg-slate-50 p-3 text-[13px] font-medium leading-6 text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-100"
-                  />
-                </label>
-
-                <div className="flex justify-end border-t border-slate-100 pt-4">
-                  <button
-                    type="submit"
-                    disabled={sending}
-                    className="inline-flex h-11 min-w-45 items-center justify-center gap-2 rounded-xl bg-emerald-700 px-5 text-xs font-black text-white shadow-sm transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {sending ? (
-                      <RefreshCw className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Send className="h-4 w-4" />
-                    )}
-                    {sending ? 'Enregistrement...' : 'Envoyer la demande'}
-                  </button>
-                </div>
-              </form>
-
-              <aside className="border-t border-slate-200 bg-slate-50/70 p-5 lg:border-l lg:border-t-0">
-                <div className="flex items-center gap-2">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
-                    <Info className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <h3 className="text-[13px] font-black text-slate-800">
-                      Pour obtenir une aide rapide
-                    </h3>
-                    <p className="mt-0.5 text-[10px] text-slate-400">
-                      Donnez le maximum d’informations utiles.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-5 space-y-3">
-                  <SupportTip number={1} text="Indiquez le module où le problème apparaît." />
-                  <SupportTip number={2} text="Précisez le numéro de flight ou l’appareil concerné." />
-                  <SupportTip number={3} text="Copiez le message d’erreur exactement." />
-                  <SupportTip number={4} text="Expliquez l’action effectuée juste avant le problème." />
-                  <SupportTip number={5} text="Précisez ce que vous attendiez comme résultat." />
-                </div>
-
-                <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-3">
-                  <div className="flex items-start gap-2">
-                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
-                    <p className="text-[10px] font-medium leading-5 text-amber-900">
-                      Pour une situation opérationnelle importante, vérifiez
-                      toujours le flight et les ressources avant de valider une
-                      modification.
-                    </p>
-                  </div>
-                </div>
-              </aside>
-            </div>
-          </section>
-        )}
-
       </div>
-    </div>
+    </main>
   );
 };
-
-/* ============================================================================
- * HERO PILL
- * ========================================================================== */
-
-function HeroPill({
-  icon,
-  value,
-  label,
-}: {
-  icon: React.ReactNode;
-  value: string;
-  label: string;
-}) {
-  return (
-    <div className="hidden items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 sm:flex">
-      <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-white text-emerald-700 ring-1 ring-slate-200">
-        {icon}
-      </span>
-      <div className="leading-tight">
-        <p className="text-xs font-black text-slate-900">{value}</p>
-        <p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">
-          {label}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-/* ============================================================================
- * SECTION HEADER
- * ========================================================================== */
-
-function SectionHeader({
-  icon,
-  title,
-  subtitle,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  subtitle: string;
-}) {
-  return (
-    <div className="flex items-center gap-3 border-b border-slate-200 px-5 py-4">
-      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
-        {icon}
-      </div>
-      <div>
-        <h2 className="text-sm font-black text-slate-900">{title}</h2>
-        <p className="mt-0.5 text-[10px] text-slate-400">{subtitle}</p>
-      </div>
-    </div>
-  );
-}
-
-/* ============================================================================
- * MESSAGE
- * ========================================================================== */
-
-function MessageBox({
-  type,
-  text,
-}: {
-  type: 'success' | 'error';
-  text: string;
-}) {
-  const success = type === 'success';
-  return (
-    <div
-      className={`flex items-start gap-2 rounded-xl border p-3 text-xs font-semibold ${
-        success
-          ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-          : 'border-rose-200 bg-rose-50 text-rose-800'
-      }`}
-    >
-      {success ? (
-        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-      ) : (
-        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-      )}
-      <span>{text}</span>
-    </div>
-  );
-}
-
-/* ============================================================================
- * SUPPORT TIP
- * ========================================================================== */
-
-function SupportTip({
-  number,
-  text,
-}: {
-  number: number;
-  text: string;
-}) {
-  return (
-    <div className="flex items-start gap-3">
-      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-700 text-[9px] font-black text-white">
-        {number}
-      </span>
-      <p className="pt-0.5 text-[11px] leading-5 text-slate-600">
-        {text}
-      </p>
-    </div>
-  );
-}
 
 export default HelpSupportPage;

@@ -25,14 +25,6 @@ const RAW_API_BASE_URL: string =
 
 const API_URL: string = RAW_API_BASE_URL.replace(/\/+$/, '');
 
-if (import.meta.env.DEV) {
-  // eslint-disable-next-line no-console
-  console.info('[maintenanceService] API :', {
-    baseUrl: API_URL,
-    fallbackUsed: !import.meta.env.VITE_API_BASE_URL,
-  });
-}
-
 /* ============================================================================
  * TYPES
  * ========================================================================== */

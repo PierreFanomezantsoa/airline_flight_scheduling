@@ -327,8 +327,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             : 'border-transparent font-medium text-slate-600 hover:border-blue-100 hover:bg-blue-50 hover:text-blue-800'
         }`}
       >
-        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors ${
-          isActive ? 'bg-blue-100 text-blue-600' : 'bg-slate-50 text-slate-400 group-hover:bg-blue-100 group-hover:text-blue-600'
+        <span className={`flex h-8 w-8 shrink-0 items-center justify-center text-slate-400 transition-colors ${
+          isActive ? 'text-blue-600' : 'group-hover:text-blue-600'
         }`}>
           <Icon className="h-4.5 w-4.5" />
         </span>
@@ -543,7 +543,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 }}
                 className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] font-semibold text-rose-600 outline-none transition hover:bg-rose-50 active:bg-rose-100 focus-visible:ring-2 focus-visible:ring-rose-500/30"
               >
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-rose-50">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center">
                   <LogOut className="h-4 w-4" />
                 </span>
                 <span className="flex-1">Se déconnecter</span>

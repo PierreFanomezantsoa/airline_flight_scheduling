@@ -151,7 +151,7 @@ const FlightSchedulerGantt: FC<FlightSchedulerGanttProps> = ({ schedule, searchT
   const scale = useMemo(() => scaleUtc()
     .domain([new Date(domain?.start ?? 0), new Date(domain?.end ?? 1)])
     .range([labelWidth, labelWidth + plotWidth]), [domain, labelWidth, plotWidth]);
-  const ticks = useMemo(() => domain ? scale.ticks(Math.max(2, Math.floor(plotWidth / (width < 550 ? 100 : 125)))) : [], [scale, domain, plotWidth, width]);
+  const ticks = useMemo(() => domain ? scale.ticks(Math.max(2, Math.floor(plotWidth / (width < 550 ? 125 : 145)))) : [], [scale, domain, plotWidth, width]);
 
   const positioned = useMemo(() => {
     const byAircraft = new Map<string, GanttItem[]>();
@@ -200,7 +200,7 @@ const FlightSchedulerGantt: FC<FlightSchedulerGanttProps> = ({ schedule, searchT
         <div className="grid w-full grid-cols-[repeat(3,minmax(0,1fr))_36px_36px] gap-1.5 sm:flex sm:w-auto sm:items-center">
           {(['day', 'week', 'all'] as const).map(mode => (
             <button key={mode} type="button" onClick={() => changeMode(mode)} aria-pressed={rangeMode === mode}
-              className={`min-h-9 rounded-md border px-1.5 py-1.5 text-[11px] font-semibold sm:px-2.5 sm:text-xs ${rangeMode === mode ? 'border-blue-800 bg-blue-800 text-white' : 'border-blue-100 bg-white text-blue-800 hover:bg-blue-50'}`}>
+              className={`min-h-9 rounded-md border px-1.5 py-1.5 text-[11px] font-semibold sm:px-2.5 sm:text-xs ${rangeMode === mode ? 'border-blue-700 text-blue-800' : 'border-blue-100 text-blue-800 hover:border-blue-300 hover:text-blue-900'}`}>
               {mode === 'day' ? '24 h' : mode === 'week' ? '7 jours' : 'Tout'}
             </button>
           ))}
@@ -221,15 +221,15 @@ const FlightSchedulerGantt: FC<FlightSchedulerGanttProps> = ({ schedule, searchT
         ) : (
           <>
             {/* MOBILE : une chronologie SVG compacte par vol, sans déplacement horizontal. */}
-            <div className="space-y-3 px-3 py-3 sm:hidden">
+            <div className="space-y-3 bg-slate-50/50 px-3 py-3 sm:hidden">
               {positioned.rows.map(({ row, flights }) => {
                 const aircraftName = row.aircraftRegistration && !isUUID(row.aircraftRegistration)
                   ? row.aircraftRegistration : row.refAircraft === 'UNASSIGNED' ? 'Non affecté' : 'Aéronef';
                 return (
-                  <section key={row.refAircraft} className="overflow-hidden rounded-lg border border-blue-100 bg-white">
-                    <div className="flex items-center justify-between gap-2 border-b border-blue-100 bg-blue-50/70 px-3 py-2.5">
+                  <section key={row.refAircraft} className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                    <div className="flex items-center justify-between gap-2 border-b border-slate-100 bg-slate-50/60 px-3 py-2.5">
                       <div className="flex min-w-0 items-center gap-2">
-                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white text-blue-700"><Plane className="h-4 w-4" /></span>
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-blue-700"><Plane className="h-4 w-4" /></span>
                         <div className="min-w-0">
                           <p className="truncate text-xs font-bold text-slate-900">{aircraftName}</p>
                           <p className="truncate text-[10px] text-slate-500">{row.currentPosition || row.base || 'Position non renseignée'}</p>
@@ -250,7 +250,7 @@ const FlightSchedulerGantt: FC<FlightSchedulerGanttProps> = ({ schedule, searchT
                           <button key={item.refFlight} type="button"
                             onClick={() => setSelected(active ? null : item.refFlight)}
                             aria-expanded={active}
-                            className={`block w-full px-3 py-3 text-left transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 ${active ? 'bg-blue-50/60' : 'hover:bg-slate-50'}`}>
+                            className={`block w-full border-l-2 px-3 py-3 text-left transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 ${active ? 'border-blue-600 bg-slate-50' : 'border-transparent'}`}>
                             <div className="flex min-w-0 items-start justify-between gap-2">
                               <div className="min-w-0">
                                 <p className="truncate text-xs font-bold text-slate-900">{item.flightNumber || item.label || 'Vol sans numéro'}</p>
@@ -289,7 +289,7 @@ const FlightSchedulerGantt: FC<FlightSchedulerGanttProps> = ({ schedule, searchT
               return <g key={tick.valueOf()}>
                 <line x1={x} x2={x} y1={43} y2={positioned.height} stroke="#DBEAFE" strokeDasharray="3 3" />
                 <text x={x} y={18} fontSize={width < 550 ? 9 : 10} fill="#1E40AF" textAnchor="middle" fontWeight={600}>{new Intl.DateTimeFormat('fr-FR', {timeZone:'UTC', hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(tick)}</text>
-                <text x={x} y={35} fontSize={9} fill="#64748B" textAnchor="middle">{new Intl.DateTimeFormat('fr-FR', {timeZone:'UTC', day:'2-digit',month:'2-digit'}).format(tick)}</text>
+                <text x={x} y={35} fontSize={9} fill="#64748B" textAnchor="middle">{new Intl.DateTimeFormat('fr-FR', {timeZone:'UTC', day:'2-digit',month:'2-digit',year:'numeric'}).format(tick)}</text>
               </g>;
             })}
             {positioned.rows.map(({ row, flights, top, height }, index) => {

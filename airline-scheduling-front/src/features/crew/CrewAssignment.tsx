@@ -11,6 +11,7 @@ import {
   UserCheck,
   Users,
 } from 'lucide-react';
+import { Skeleton } from '../../components/Skeleton';
 import { useCrewAssignments } from './useCrewAssignments';
 import { ApiError } from '../Api/apiService';
 import { SearchableDropdown } from './SearchableDropdown';
@@ -283,22 +284,24 @@ export const CrewAssignment: React.FC = () => {
   /* -------------------- LOADING -------------------- */
   if (loading) {
     return (
-      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 text-center">
-        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-lg shadow-emerald-500/25">
-          <Loader2 className="h-6 w-6 animate-spin" />
+      <div className="mx-auto min-h-[60vh] max-w-7xl space-y-5 p-4 sm:p-6" aria-busy="true" aria-label="Chargement du registre d'équipage">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="space-y-2"><Skeleton className="h-7 w-56" /><Skeleton className="h-4 w-72 max-w-full" /></div>
+          <Skeleton className="h-10 w-36 rounded-xl" />
         </div>
-        <div>
-          <p className="text-sm font-semibold text-slate-800">Chargement du registre d'équipage</p>
-          <p className="mt-1 text-xs text-slate-400">
-            Synchronisation des affectations et du personnel navigant...
-          </p>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 4 }, (_, index) => <Skeleton key={index} className="h-24 rounded-2xl border border-slate-100 bg-white" />)}
+        </div>
+        <div className="grid gap-5 lg:grid-cols-[1fr_1.5fr]">
+          <Skeleton className="h-72 rounded-2xl bg-white" />
+          <Skeleton className="h-72 rounded-2xl bg-white" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100/50 p-4 sm:p-6">
+    <div className="min-h-screen bg-white p-4 sm:bg-gradient-to-b sm:from-slate-50 sm:to-slate-100/50 sm:p-6">
       <div className="mx-auto max-w-7xl space-y-6">
         {/* ═══════════════ HEADER ═══════════════ */}
         <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -328,7 +331,7 @@ export const CrewAssignment: React.FC = () => {
         {/* ═══════════════ CONTENU PRINCIPAL ═══════════════ */}
         <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
           {/* ═════════ REGISTRE ═════════ */}
-          <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm lg:col-span-7 xl:col-span-8">
+          <section className="overflow-hidden rounded-2xl border-0 bg-white shadow-sm md:border md:border-slate-200/80 lg:col-span-7 xl:col-span-8">
             <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
               <div className="flex items-center gap-2.5">
                 <h2 className="text-sm font-semibold text-slate-900">Registre du personnel</h2>
@@ -473,7 +476,7 @@ export const CrewAssignment: React.FC = () => {
           {/* ═════════ FORMULAIRE ═════════ */}
           <form
             onSubmit={handleAssign}
-            className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm lg:col-span-5 lg:sticky lg:top-4 xl:col-span-4"
+            className="overflow-hidden rounded-2xl border-0 bg-white shadow-sm md:border md:border-slate-200/80 lg:col-span-5 lg:sticky lg:top-4 xl:col-span-4"
           >
             <header className="flex items-center gap-3 border-b border-slate-100 bg-gradient-to-r from-emerald-50/60 to-white px-5 py-4">
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600 ring-1 ring-inset ring-emerald-200/70">

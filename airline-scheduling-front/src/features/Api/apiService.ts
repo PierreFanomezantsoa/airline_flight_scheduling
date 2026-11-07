@@ -149,21 +149,6 @@ const PYTHON_BASE_URL: string = RAW_PYTHON_BASE_URL.replace(/\/+$/, '');
 const IS_PRODUCTION: boolean = import.meta.env.PROD;
 const IS_DEVELOPMENT: boolean = import.meta.env.DEV;
 
-// ─────────────────────────────────────────────────────────────
-// Logs de debug (uniquement en développement)
-// ─────────────────────────────────────────────────────────────
-
-if (IS_DEVELOPMENT) {
-  // eslint-disable-next-line no-console
-  console.info('[apiService] Configuration chargée :', {
-    mode: 'development',
-    nestjsApiUrl: API_BASE_URL,
-    pythonApiUrl: PYTHON_BASE_URL,
-    nestjsFallbackUsed: !import.meta.env.VITE_API_BASE_URL,
-    pythonFallbackUsed: !import.meta.env.VITE_PYTHON_BASE_URL,
-  });
-}
-
 // =============================================================================
 // CLÉS SESSION
 // =============================================================================

@@ -27,6 +27,7 @@ import {
   X,
   XCircle,
 } from 'lucide-react';
+import { Skeleton } from '../../components/Skeleton';
 
 import { getAuthSession } from '../Api/apiService';
 
@@ -52,15 +53,6 @@ const PYTHON_BASE_URL: string = RAW_PYTHON_BASE_URL.replace(/\/+$/, '');
 const DEFAULT_API_URL = `${PYTHON_BASE_URL}/flights`;
 
 const PAGE_SIZE = 10;
-
-if (import.meta.env.DEV) {
-  // eslint-disable-next-line no-console
-  console.info('[FlightHistory] API :', {
-    baseUrl: PYTHON_BASE_URL,
-    apiUrl: DEFAULT_API_URL,
-    fallbackUsed: !import.meta.env.VITE_PYTHON_BASE_URL,
-  });
-}
 
 /* ============================================================================
  * TYPES
@@ -444,7 +436,7 @@ const MobileHistoryCard: FC<MobileHistoryCardProps> = ({ flight, onOpen }) => (
       <StatusBadge status={flight.flightStatus} />
     </div>
 
-    <div className="space-y-3 p-4">
+    <div className="space-y-3 p-3">
       <div className="rounded-lg border border-slate-100 bg-slate-50/50 p-3">
         <div className="flex items-center justify-between gap-2">
           <span className="font-mono text-sm font-bold text-slate-800">
@@ -464,7 +456,7 @@ const MobileHistoryCard: FC<MobileHistoryCardProps> = ({ flight, onOpen }) => (
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <div className="rounded-lg border border-slate-100 p-3">
+        <div className="rounded-lg border border-slate-100 bg-slate-50/60 p-3">
           <p className="text-[10px] font-medium text-slate-400">Départ local</p>
           <p className="mt-1 font-mono text-xs font-semibold text-slate-800">
             {formatDate(flight.localDeparture)}
@@ -473,7 +465,7 @@ const MobileHistoryCard: FC<MobileHistoryCardProps> = ({ flight, onOpen }) => (
             {formatTime(flight.localDeparture)}
           </p>
         </div>
-        <div className="rounded-lg border border-slate-100 p-3">
+        <div className="rounded-lg border border-slate-100 bg-slate-50/60 p-3">
           <p className="text-[10px] font-medium text-slate-400">Arrivée locale</p>
           <p className="mt-1 font-mono text-xs font-semibold text-slate-800">
             {formatDate(flight.localArrival)}
@@ -485,13 +477,13 @@ const MobileHistoryCard: FC<MobileHistoryCardProps> = ({ flight, onOpen }) => (
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <div className="rounded-lg border border-slate-100 p-3">
+        <div className="rounded-lg border border-slate-100 bg-slate-50/60 p-3">
           <p className="text-[10px] font-medium text-slate-400">Durée</p>
           <p className="mt-1 font-mono text-xs font-semibold text-slate-800">
             {formatDuration(flight.durationMinutes)}
           </p>
         </div>
-        <div className="rounded-lg border border-slate-100 p-3">
+        <div className="rounded-lg border border-slate-100 bg-slate-50/60 p-3">
           <p className="text-[10px] font-medium text-slate-400">Appareil</p>
           <p className="mt-1 truncate font-mono text-xs font-semibold text-slate-800">
             {flight.aircraftRegistration}
@@ -507,7 +499,7 @@ const MobileHistoryCard: FC<MobileHistoryCardProps> = ({ flight, onOpen }) => (
       </div>
     </div>
 
-    <div className="border-t border-slate-100 p-3">
+    <div className="border-t border-slate-100 bg-slate-50/40 p-3">
       <button
         type="button"
         onClick={() => onOpen(flight)}
@@ -713,17 +705,16 @@ const FlightHistory: FC<FlightHistoryProps> = ({
 
   if (loading) {
     return (
-      <div className="flex min-h-125 items-center justify-center">
-        <div className="rounded-2xl border border-slate-200 bg-white px-10 py-8 text-center shadow-sm">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
-            <RefreshCw size={22} className="animate-spin" />
+      <div className="min-h-125 space-y-5" aria-busy="true" aria-label="Chargement de l'historique des vols">
+        <div className="flex justify-end"><Skeleton className="h-10 w-32 rounded-xl" /></div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 4 }, (_, index) => <Skeleton key={index} className="h-24 rounded-2xl border border-slate-100 bg-white" />)}
+        </div>
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+          <div className="mb-5 flex flex-wrap gap-3"><Skeleton className="h-10 w-full sm:flex-1" /><Skeleton className="h-10 w-32" /><Skeleton className="h-10 w-32" /></div>
+          <div className="space-y-3">
+            {Array.from({ length: 6 }, (_, index) => <Skeleton key={index} className="h-12 w-full" />)}
           </div>
-          <p className="mt-4 text-sm font-semibold text-slate-700">
-            Chargement de l&apos;historique
-          </p>
-          <p className="mt-1 text-xs text-slate-400">
-            Synchronisation des vols archivés...
-          </p>
         </div>
       </div>
     );
@@ -799,7 +790,7 @@ const FlightHistory: FC<FlightHistoryProps> = ({
       </section>
 
       {/* TABLEAU / CARTES */}
-      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <section className="overflow-hidden rounded-xl border-0 bg-white shadow-sm md:border md:border-slate-200">
         {/* SEARCH + FILTRES INTÉGRÉS */}
         <div className="border-b border-slate-100 p-4 sm:p-5">
           <div className="grid gap-3 xl:grid-cols-[minmax(280px,1.5fr)_200px_160px_160px]">
@@ -813,7 +804,7 @@ const FlightHistory: FC<FlightHistoryProps> = ({
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Vol, route, aéroport ou appareil..."
-                className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-9 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
+                className="h-10 w-full rounded-lg border border-slate-200 bg-transparent pl-10 pr-9 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
               />
               {search && (
                 <button
@@ -830,7 +821,7 @@ const FlightHistory: FC<FlightHistoryProps> = ({
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-              className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
+              className="h-10 rounded-lg border border-slate-200 bg-transparent px-3 text-sm text-slate-700 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
             >
               <option value="ALL">Tous les statuts</option>
               <option value="Completed">Effectués</option>
@@ -842,7 +833,7 @@ const FlightHistory: FC<FlightHistoryProps> = ({
               type="date"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
-              className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
+              className="h-10 rounded-lg border border-slate-200 bg-transparent px-3 text-sm text-slate-700 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
               title="Date de début"
             />
 
@@ -850,7 +841,7 @@ const FlightHistory: FC<FlightHistoryProps> = ({
               type="date"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
-              className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
+              className="h-10 rounded-lg border border-slate-200 bg-transparent px-3 text-sm text-slate-700 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
               title="Date de fin"
             />
           </div>
@@ -871,7 +862,7 @@ const FlightHistory: FC<FlightHistoryProps> = ({
         ) : (
           <>
             {/* MOBILE */}
-            <div className="space-y-3 bg-slate-50/50 p-4 md:hidden">
+            <div className="space-y-3 bg-slate-50/50 p-3 md:hidden">
               {paginatedFlights.map((flight) => (
                 <MobileHistoryCard
                   key={flight.refFlight}

@@ -34,6 +34,7 @@ import {
   Wrench,
   X,
 } from 'lucide-react';
+import { Skeleton } from '../../components/Skeleton';
 
 import {
   ApiError,
@@ -45,7 +46,7 @@ import {
 // DESIGN TOKENS
 // =============================================================================
 
-const SURFACE = 'rounded-xl border border-slate-200 bg-white shadow-sm';
+const SURFACE = 'rounded-xl border-0 bg-white shadow-sm md:border md:border-slate-200';
 const FOCUS_RING =
   'outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10';
 const LABEL_UPPER =
@@ -1049,7 +1050,7 @@ export function AircraftManagement() {
    * ====================================================================== */
 
   return (
-    <div className="min-h-screen bg-slate-50/50 p-3 text-slate-800 antialiased sm:p-6 lg:p-8">
+    <div className="min-h-screen bg-white p-3 text-slate-800 antialiased sm:bg-slate-50/50 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-[1500px] space-y-4 sm:space-y-6">
         
         {/* ═══════════════ HEADER — ACTIONS RESPONSIVES ═══════════════ */}
@@ -1146,7 +1147,7 @@ export function AircraftManagement() {
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
                   placeholder="Immatriculation, modèle, constructeur..."
-                  className={`h-10 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-9 text-sm text-slate-700 placeholder:text-slate-400 ${FOCUS_RING}`}
+                  className={`h-10 w-full rounded-lg border border-slate-200 bg-transparent pl-10 pr-9 text-sm text-slate-700 placeholder:text-slate-400 ${FOCUS_RING}`}
                 />
                 {searchTerm && (
                   <button
@@ -1166,7 +1167,7 @@ export function AircraftManagement() {
                   onChange={e =>
                     setStatusFilter(e.target.value as AircraftStatus | 'ALL')
                   }
-                  className={`h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 ${FOCUS_RING}`}
+                  className={`h-10 rounded-lg border border-slate-200 bg-transparent px-3 text-sm font-medium text-slate-700 ${FOCUS_RING}`}
                 >
                   <option value="ALL">Tous les statuts</option>
                   {STATUS_OPTIONS.map(option => (
@@ -1201,13 +1202,13 @@ export function AircraftManagement() {
                     aria-pressed={active}
                     className={`inline-flex min-h-9 items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 ${
                       active
-                        ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-                        : 'border-slate-200 bg-white text-slate-600 hover:border-emerald-200 hover:bg-emerald-50/50'
+                        ? 'border-emerald-200 text-emerald-800'
+                        : 'border-slate-200 text-slate-600 hover:border-emerald-200 hover:text-emerald-700'
                     }`}
                   >
                     <span className={`h-2 w-2 rounded-full ${item.dot}`} aria-hidden="true" />
                     <span>{item.label}</span>
-                    <span className={`rounded-md px-1.5 py-0.5 tabular-nums ${active ? 'bg-white text-emerald-700' : 'bg-slate-100 text-slate-700'}`}>
+                    <span className={`rounded-md px-1.5 py-0.5 tabular-nums ${active ? 'text-emerald-700' : 'text-slate-500'}`}>
                       {statusCounts[item.value]}
                     </span>
                   </button>
@@ -1217,11 +1218,15 @@ export function AircraftManagement() {
           </div>
 
           {loading ? (
-            <div className="flex min-h-[240px] items-center justify-center">
-              <span className="inline-flex items-center gap-2 text-sm font-medium text-slate-500">
-                <LoaderCircle className="h-5 w-5 animate-spin text-emerald-600" />
-                Chargement de la flotte...
-              </span>
+            <div className="space-y-3 p-4" aria-busy="true" aria-label="Chargement de la flotte">
+              {Array.from({ length: 5 }, (_, index) => (
+                <div key={index} className="flex items-center gap-4 rounded-xl border border-slate-100 p-4">
+                  <Skeleton className="h-10 w-10 rounded-xl" />
+                  <div className="flex-1 space-y-2"><Skeleton className="h-4 w-40 max-w-full" /><Skeleton className="h-3 w-56 max-w-full" /></div>
+                  <Skeleton className="hidden h-7 w-20 rounded-full sm:block" />
+                  <Skeleton className="hidden h-9 w-24 rounded-lg md:block" />
+                </div>
+              ))}
             </div>
           ) : filteredAircrafts.length === 0 ? (
             <div className="flex min-h-[240px] flex-col items-center justify-center p-6 text-center">
@@ -1274,8 +1279,8 @@ export function AircraftManagement() {
                       </div>
 
                       {/* Body : infos clés en grille */}
-                      <div className="grid grid-cols-2 gap-x-4 gap-y-3 px-4 py-3">
-                        <div>
+                      <div className="grid grid-cols-2 gap-2 p-3">
+                        <div className="rounded-lg bg-slate-50 p-2.5">
                           <p className="text-[10px] font-medium text-slate-400">Base</p>
                           {aircraft.homeBase ? (
                             <p className="mt-0.5 font-mono text-xs font-semibold text-slate-700">
@@ -1286,21 +1291,21 @@ export function AircraftManagement() {
                           )}
                         </div>
 
-                        <div>
+                        <div className="rounded-lg bg-slate-50 p-2.5">
                           <p className="text-[10px] font-medium text-slate-400">Capacité</p>
                           <p className="mt-0.5 font-mono text-xs font-semibold text-slate-700">
                             {aircraft.capacity} <span className="text-[10px] font-medium text-slate-400">sièges</span>
                           </p>
                         </div>
 
-                        <div>
+                        <div className="rounded-lg bg-slate-50 p-2.5">
                           <p className="text-[10px] font-medium text-slate-400">Heures totales</p>
                           <p className="mt-0.5 font-mono text-xs font-semibold text-slate-700">
                             {formatNumber(aircraft.totalFlightHrs)} <span className="text-[10px] font-medium text-slate-400">h</span>
                           </p>
                         </div>
 
-                        <div>
+                        <div className="rounded-lg bg-slate-50 p-2.5">
                           <p className="text-[10px] font-medium text-slate-400">Dernière maint.</p>
                           <p className="mt-0.5 font-mono text-xs font-semibold text-slate-600">
                             {formatDate(aircraft.lastMaintAt)}

@@ -21,6 +21,7 @@ interface SearchableDropdownProps {
   onChange: (value: string) => void;
   disabled?: boolean;
   icon?: ReactNode;
+  transparent?: boolean;
 }
 
 const normalizeSearchText = (value: string) =>
@@ -39,6 +40,7 @@ export const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
   onChange,
   disabled = false,
   icon,
+  transparent = false,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -137,7 +139,9 @@ export const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
           setIsOpen(open => !open);
           setQuery('');
         }}
-        className="flex h-10 w-full min-w-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-left text-[13px] font-medium text-slate-700 outline-none transition hover:border-slate-300 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-60"
+        className={`flex h-10 w-full min-w-0 items-center gap-2 rounded-xl border border-slate-200 px-3 text-left text-[13px] font-medium text-slate-700 outline-none transition hover:border-slate-300 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 disabled:cursor-not-allowed disabled:opacity-60 ${
+          transparent ? 'bg-transparent disabled:bg-transparent' : 'bg-white disabled:bg-slate-50'
+        }`}
       >
         {icon}
         <span className={`min-w-0 flex-1 truncate ${selectedOption ? '' : 'text-slate-400'}`}>

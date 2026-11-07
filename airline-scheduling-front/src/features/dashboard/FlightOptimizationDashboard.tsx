@@ -13,6 +13,7 @@ import {
   X,
   XCircle,
 } from 'lucide-react';
+import { Skeleton } from '../../components/Skeleton';
 import { getAuthSession, pythonRequestJson } from '../Api/apiService';
 /* ============================================================================
  * CENTRE CONFLITS & OPTIMISATION — API Python / Flask :5000
@@ -312,7 +313,7 @@ export const FlightOptimizationDashboard: React.FC = () => {
     if (page > totalPages) setPage(totalPages);
   }, [page, totalPages]);
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-white sm:bg-slate-50">
       <div className="mx-auto max-w-[1600px] space-y-4 p-3 sm:space-y-5 sm:p-6">
         <header className="w-full">
           <div className="grid w-full grid-cols-2 gap-2 rounded-2xl  p-3  sm:flex sm:w-auto sm:justify-end sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none">
@@ -364,7 +365,7 @@ export const FlightOptimizationDashboard: React.FC = () => {
             onClose={() => setSuccess(null)}
           />
         )}
-        <section className={`${SURFACE} overflow-hidden`}>
+        <section className={`${SURFACE} overflow-hidden border-0 md:border md:border-slate-200`}>
           <div className="border-b border-slate-100 p-4 sm:p-5">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div>
@@ -383,7 +384,7 @@ export const FlightOptimizationDashboard: React.FC = () => {
                     value={searchQuery}
                     onChange={event => setSearchQuery(event.target.value)}
                     placeholder="Vol, aéronef, type…"
-                    className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:ring-4 focus:ring-emerald-500/10"
+                    className="h-10 w-full rounded-lg border border-slate-200 bg-transparent pl-9 pr-3 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:ring-4 focus:ring-emerald-500/10"
                   />
                 </div>
 
@@ -403,13 +404,13 @@ export const FlightOptimizationDashboard: React.FC = () => {
                   aria-pressed={severityFilter === item.id}
                   className={`flex h-10 min-w-0 w-full items-center justify-center gap-1.5 rounded-xl border px-2 text-[11px] font-semibold transition sm:h-9 sm:w-auto sm:gap-2 sm:px-3 sm:text-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 ${
                     severityFilter === item.id
-                      ? 'border-emerald-200 bg-emerald-100 text-emerald-800 shadow-sm'
-                      : 'border-slate-200 bg-white text-slate-600 hover:border-emerald-200 hover:bg-emerald-50'
+                      ? 'border-emerald-200 text-emerald-800'
+                      : 'border-slate-200 text-slate-600 hover:border-emerald-200 hover:text-emerald-700'
                   }`}
                 >
                   <span className={`h-2 w-2 shrink-0 rounded-full ${item.dot}`} />
                   <span className="truncate whitespace-nowrap">{item.label}</span>
-                  <span className={`shrink-0 rounded-md px-1.5 py-0.5 tabular-nums ${severityFilter === item.id ? 'bg-white text-emerald-800' : 'bg-slate-100 text-slate-700'}`}>{item.count}</span>
+                  <span className={`shrink-0 rounded-md px-1.5 py-0.5 tabular-nums ${severityFilter === item.id ? 'text-emerald-800' : 'text-slate-500'}`}>{item.count}</span>
                 </button>
               ))}
             </div>
@@ -420,9 +421,14 @@ export const FlightOptimizationDashboard: React.FC = () => {
             </div>
           </div>
           {loading && !conflictResult ? (
-            <div className="flex min-h-64 items-center justify-center p-8 text-sm text-slate-500">
-              <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-              Analyse des conflits en cours…
+            <div className="space-y-3 p-4" aria-busy="true" aria-label="Chargement des résultats de l'analyse">
+              {Array.from({ length: 4 }, (_, index) => (
+                <div key={index} className="flex items-center gap-3 rounded-xl border border-slate-100 p-4">
+                  <Skeleton className="h-9 w-9 rounded-lg" />
+                  <div className="flex-1 space-y-2"><Skeleton className="h-4 w-40 max-w-full" /><Skeleton className="h-3 w-64 max-w-full" /></div>
+                  <Skeleton className="h-6 w-20 rounded-full" />
+                </div>
+              ))}
             </div>
           ) : paginatedConflicts.length === 0 ? (
             <div className="flex min-h-64 flex-col items-center justify-center p-8 text-center">

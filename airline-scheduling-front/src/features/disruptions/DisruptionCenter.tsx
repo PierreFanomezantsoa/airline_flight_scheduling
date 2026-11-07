@@ -16,6 +16,7 @@ import {
   X,
   Zap,
 } from 'lucide-react';
+import { Skeleton } from '../../components/Skeleton';
 import ConflictCard from './ConflictCard';
 import { pythonRequestJson } from '../Api/apiService';
 
@@ -499,17 +500,18 @@ export const DisruptionCenter: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex min-h-[60vh] flex-col items-center justify-center bg-slate-50">
-        <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-violet-100">
-          <BrainCircuit className="h-8 w-8 text-violet-700" />
-          <Loader2 className="absolute h-14 w-14 animate-spin text-violet-200" />
+      <div className="mx-auto min-h-[60vh] max-w-7xl space-y-5 bg-slate-50 p-4 sm:p-6" aria-busy="true" aria-label="Chargement des conflits">
+        <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-5">
+          <div className="space-y-2"><Skeleton className="h-6 w-56" /><Skeleton className="h-4 w-72 max-w-full" /></div>
+          <Skeleton className="h-10 w-32 rounded-xl" />
         </div>
-        <p className="mt-4 text-xs font-bold uppercase tracking-widest text-slate-500">
-          Analyse des conflits
-        </p>
-        <p className="mt-1 text-xs text-slate-400">
-          Analyse des rotations en cours...
-        </p>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 4 }, (_, index) => <Skeleton key={index} className="h-24 rounded-2xl bg-white" />)}
+        </div>
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-5">
+          <div className="mb-5 flex flex-wrap gap-3"><Skeleton className="h-10 w-full sm:flex-1" /><Skeleton className="h-10 w-32" /><Skeleton className="h-10 w-32" /></div>
+          <div className="space-y-3">{Array.from({ length: 5 }, (_, index) => <Skeleton key={index} className="h-14 w-full rounded-xl" />)}</div>
+        </div>
       </div>
     );
   }
@@ -543,7 +545,7 @@ export const DisruptionCenter: React.FC = () => {
   /* RENDER */
 
   return (
-    <div className="min-h-screen bg-slate-50 p-2.5 text-slate-800 sm:p-5 lg:p-6">
+    <div className="min-h-screen bg-white p-2.5 text-slate-800 sm:bg-slate-50 sm:p-5 lg:p-6">
       <div className="mx-auto max-w-375 space-y-4">
 
         {/* HEADER */}
@@ -677,7 +679,7 @@ export const DisruptionCenter: React.FC = () => {
         {/* MODEL INFO */}
         {(model?.minTurnaroundMinutes != null ||
           model?.positioningMinutes != null) && (
-          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <section className="rounded-2xl border-0 bg-white p-4 shadow-sm md:border md:border-slate-200">
             <div className="flex items-start gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-700">
                 <BrainCircuit className="h-5 w-5" />
@@ -713,7 +715,7 @@ export const DisruptionCenter: React.FC = () => {
 
         {/* OPTIMIZATION RESULT */}
         {optimizationResult && (
-          <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <section className="overflow-hidden rounded-2xl border-0 bg-white shadow-sm md:border md:border-slate-200">
             <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/50 px-4 py-4 sm:px-5">
               <div>
                 <h2 className="text-sm font-black text-slate-900">
@@ -810,7 +812,7 @@ export const DisruptionCenter: React.FC = () => {
         )}
 
         {/* FILTERS */}
-        <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+        <section className="rounded-2xl border-0 bg-white p-3 shadow-sm md:border md:border-slate-200 sm:p-4">
           <div className="grid gap-2.5 lg:grid-cols-[1fr_220px_270px]">
             <div className="relative">
               <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -819,7 +821,7 @@ export const DisruptionCenter: React.FC = () => {
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
                 placeholder="Rechercher : flight, appareil, route, motif..."
-                className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm font-medium text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-emerald-600 focus:bg-white focus:ring-4 focus:ring-emerald-600/10"
+                className="h-11 w-full rounded-xl border border-slate-200 bg-transparent pl-10 pr-4 text-sm font-medium text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-emerald-600 focus:ring-4 focus:ring-emerald-600/10"
               />
             </div>
             <div className="relative">
@@ -827,7 +829,7 @@ export const DisruptionCenter: React.FC = () => {
               <select
                 value={selectedSeverity}
                 onChange={(event) => setSelectedSeverity(event.target.value)}
-                className="h-11 w-full appearance-none rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-4 focus:ring-emerald-600/10"
+                className="h-11 w-full appearance-none rounded-xl border border-slate-200 bg-transparent pl-10 pr-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-emerald-600 focus:ring-4 focus:ring-emerald-600/10"
               >
                 <option value="ALL">Toutes les sévérités</option>
                 <option value="CRITICAL">Critique</option>
@@ -839,7 +841,7 @@ export const DisruptionCenter: React.FC = () => {
             <select
               value={selectedType}
               onChange={(event) => setSelectedType(event.target.value)}
-              className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-4 focus:ring-emerald-600/10"
+              className="h-11 w-full rounded-xl border border-slate-200 bg-transparent px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-emerald-600 focus:ring-4 focus:ring-emerald-600/10"
             >
               <option value="ALL">Tous les types de conflit</option>
               {availableTypes.map((type) => (
@@ -852,7 +854,7 @@ export const DisruptionCenter: React.FC = () => {
         </section>
 
         {/* LIST */}
-        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <section className="overflow-hidden rounded-2xl border-0 bg-white shadow-sm md:border md:border-slate-200">
           <div className="flex items-center justify-between gap-3 border-b border-slate-200 bg-slate-50/50 px-4 py-4 sm:px-5">
             <div>
               <h2 className="text-sm font-black text-slate-900 sm:text-base">
@@ -881,7 +883,7 @@ export const DisruptionCenter: React.FC = () => {
           ) : (
             <>
               {/* MOBILE */}
-              <div className="space-y-3 bg-slate-50 p-2.5 md:hidden">
+              <div className="space-y-3 bg-slate-50/50 p-3 md:hidden">
                 {filteredConflicts.map((conflict) => (
                   <ConflictCard key={conflict.id} conflict={conflict} />
                 ))}

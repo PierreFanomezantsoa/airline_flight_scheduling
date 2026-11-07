@@ -17,6 +17,7 @@ import {
   X,
   XCircle,
 } from 'lucide-react';
+import { Skeleton } from '../../components/Skeleton';
 import { ApiError, authFetch, getAuthSession } from '../Api/apiService';
 
 interface Airport {
@@ -299,7 +300,7 @@ export function AirportManagement() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-6 sm:px-6 lg:px-8">
+    <main className="min-h-screen bg-white px-4 py-6 sm:bg-slate-50 sm:px-6 lg:px-8">
       <div className="mx-auto w-full max-w-350">
         {/* ═══════════════ ACTIONS EN HAUT ═══════════════ */}
         <div className="mb-5 flex items-center justify-end gap-2">
@@ -327,7 +328,7 @@ export function AirportManagement() {
         </div>
 
         {/* ═══════════════ CONTENEUR PRINCIPAL ═══════════════ */}
-        <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_1px_3px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)]">
+        <section className="overflow-hidden rounded-2xl border-0 bg-white shadow-[0_1px_3px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)] md:border md:border-slate-200/80">
           {/* Barre de recherche + filtres */}
           <div className="flex flex-col gap-3 border-b border-slate-100 p-3 sm:p-4 lg:flex-row lg:items-center lg:justify-between">
             <label className="relative block w-full lg:max-w-md">
@@ -337,7 +338,7 @@ export function AirportManagement() {
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Rechercher un aéroport…"
                 aria-label="Rechercher un aéroport"
-                className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-emerald-600 focus:ring-4 focus:ring-emerald-600/10"
+                className="h-11 w-full rounded-xl border border-slate-200 bg-transparent pl-11 pr-4 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-emerald-600 focus:ring-4 focus:ring-emerald-600/10"
               />
             </label>
 
@@ -354,13 +355,13 @@ export function AirportManagement() {
                   aria-pressed={statusFilter === option.value}
                   className={`inline-flex h-10 items-center gap-2 rounded-xl border px-3 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 ${
                     statusFilter === option.value
-                      ? 'border-emerald-200 bg-emerald-100 text-emerald-800'
-                      : 'border-slate-200 bg-white text-slate-600 hover:border-emerald-200 hover:bg-emerald-50'
+                      ? 'border-emerald-200 text-emerald-800'
+                      : 'border-slate-200 text-slate-600 hover:border-emerald-200 hover:text-emerald-700'
                   }`}
                 >
                   <span className={`h-2 w-2 rounded-full ${option.dot}`} />
                   <span>{option.label}</span>
-                  <span className={`rounded-md px-1.5 py-0.5 tabular-nums ${statusFilter === option.value ? 'bg-white text-emerald-800' : 'bg-slate-100 text-slate-700'}`}>
+                  <span className={`rounded-md px-1.5 py-0.5 tabular-nums ${statusFilter === option.value ? 'text-emerald-800' : 'text-slate-500'}`}>
                     {option.count}
                   </span>
                 </button>
@@ -390,13 +391,14 @@ export function AirportManagement() {
           )}
 
           {/* ═══════════════ MOBILE : CARDS ═══════════════ */}
-          <div className="space-y-2 bg-slate-50/40 p-3 md:hidden">
+          <div className="space-y-3 bg-slate-50/50 p-3 md:hidden">
             {loading ? (
-              <div className="rounded-xl border border-slate-200 bg-white p-10 text-center">
-                <LoaderCircle className="mx-auto h-6 w-6 animate-spin text-emerald-600" />
-                <span className="mt-3 block text-sm font-medium text-slate-500">
-                  Chargement des aéroports…
-                </span>
+              <div className="space-y-3" aria-busy="true" aria-label="Chargement des aéroports">
+                {Array.from({ length: 4 }, (_, index) => (
+                  <div key={index} className="rounded-xl border border-slate-200 bg-white p-4">
+                    <div className="flex items-center gap-3"><Skeleton className="h-10 w-10 rounded-xl" /><div className="flex-1 space-y-2"><Skeleton className="h-4 w-28" /><Skeleton className="h-3 w-44 max-w-full" /></div><Skeleton className="h-6 w-16 rounded-full" /></div>
+                  </div>
+                ))}
               </div>
             ) : paginatedAirports.length === 0 ? (
               <div className="rounded-xl border border-slate-200 bg-white p-8 text-center">
@@ -418,7 +420,7 @@ export function AirportManagement() {
               paginatedAirports.map((airport) => (
                 <article
                   key={airport.refAirport}
-                  className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md"
+                  className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
                 >
                   {/* Bande de couleur status */}
                   <span
@@ -464,20 +466,20 @@ export function AirportManagement() {
                     </div>
 
                     {/* Nom de l'aéroport */}
-                    <p className="mt-2.5 text-sm font-semibold leading-5 text-slate-800">
-                      {airport.airportName}
-                    </p>
-
-                    {/* Fuseau horaire */}
-                    <div className="mt-2 flex items-center gap-1.5">
-                      <Clock className="h-3 w-3 shrink-0 text-slate-400" />
-                      <span className="font-mono text-[11px] font-semibold text-slate-600">
-                        {airport.timezone}
-                      </span>
+                    <div className="mt-3 space-y-2 rounded-lg bg-slate-50 p-3">
+                      <p className="text-sm font-semibold leading-5 text-slate-800">
+                        {airport.airportName}
+                      </p>
+                      <div className="flex items-center gap-1.5 border-t border-slate-200/70 pt-2">
+                        <Clock className="h-3 w-3 shrink-0 text-slate-400" />
+                        <span className="font-mono text-[11px] font-semibold text-slate-600">
+                          {airport.timezone}
+                        </span>
+                      </div>
                     </div>
 
                     {/* Actions */}
-                    <div className="mt-3 flex items-center gap-2 border-t border-slate-100 pt-3">
+                    <div className="-mx-3 -mb-3 mt-3 flex items-center gap-2 border-t border-slate-100 bg-slate-50/50 px-3 pb-3 pt-3">
                       <button
                         type="button"
                         onClick={() => void reactivateAirport(airport)}
@@ -542,14 +544,16 @@ export function AirportManagement() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
-                  <tr>
-                    <td colSpan={6} className="px-4 py-16 text-center text-slate-500">
-                      <LoaderCircle className="mx-auto h-6 w-6 animate-spin text-emerald-600" />
-                      <span className="mt-3 block text-sm font-medium">
-                        Chargement des aéroports…
-                      </span>
-                    </td>
-                  </tr>
+                  <>
+                    {Array.from({ length: 5 }, (_, row) => (
+                      <tr key={row} aria-hidden="true" className="animate-pulse">
+                        {Array.from({ length: 6 }, (_, column) => (
+                          <td key={column} className="px-4 py-4"><Skeleton className={`h-4 ${column === 1 ? 'w-40' : 'w-24'}`} /></td>
+                        ))}
+                      </tr>
+                    ))}
+                    <tr className="sr-only"><td colSpan={6}>Chargement des aéroports</td></tr>
+                  </>
                 ) : paginatedAirports.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-4 py-16 text-center">

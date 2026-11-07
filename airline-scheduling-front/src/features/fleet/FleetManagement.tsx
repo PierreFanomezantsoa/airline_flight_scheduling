@@ -14,6 +14,7 @@ import {
   AlertCircle,
   X,
 } from 'lucide-react';
+import { Skeleton } from '../../components/Skeleton';
 
 import { fleetService } from './fleetService';
 import type {
@@ -304,12 +305,19 @@ export const FleetManagement: React.FC = () => {
 
   if (isLoading && aircrafts.length === 0) {
     return (
-      <div className="flex h-96 items-center justify-center">
-        <div className="text-center">
-          <Loader className="mx-auto mb-2 h-8 w-8 animate-spin text-emerald-700" />
-          <p className="text-sm font-medium text-slate-500">
-            Chargement de la flotte aéronautique...
-          </p>
+      <div className="mx-auto max-w-350 space-y-6 p-4 md:p-6" aria-busy="true" aria-label="Chargement de la flotte aéronautique">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="space-y-2"><Skeleton className="h-7 w-56" /><Skeleton className="h-4 w-72 max-w-full" /></div>
+          <Skeleton className="h-10 w-36 rounded-xl" />
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {Array.from({ length: 4 }, (_, index) => <Skeleton key={index} className="h-28 rounded-2xl border border-slate-100 bg-white" />)}
+        </div>
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-5">
+          <div className="mb-5 flex gap-3"><Skeleton className="h-10 flex-1" /><Skeleton className="h-10 w-32" /></div>
+          <div className="space-y-3">
+            {Array.from({ length: 6 }, (_, index) => <Skeleton key={index} className="h-14 w-full rounded-xl" />)}
+          </div>
         </div>
       </div>
     );

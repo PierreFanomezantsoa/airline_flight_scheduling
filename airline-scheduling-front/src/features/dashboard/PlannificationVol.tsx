@@ -335,7 +335,6 @@ const FlightCard: FC<FlightCardProps> = ({
         isUnassigned
           ? 'border-rose-200 hover:border-rose-300'
           : 'border-slate-200/80 hover:border-blue-300',
-        isDone ? 'bg-slate-50/40' : '',
       ].join(' ')}
     >
       {/* Barre d'accent couleur du status */}
@@ -642,7 +641,7 @@ export const FlightPlanning: FC<FlightPlanningProps> = ({
   /* ══════════════════════════════════════════════════════════════════════ */
 
   return (
-    <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-900/[0.03]">
+    <section className="overflow-hidden rounded-lg border-0 bg-white shadow-sm shadow-slate-900/[0.03] md:border md:border-slate-200">
       {topHeader && <div className="border-b border-slate-100 p-5">{topHeader}</div>}
 
       {/* ─────────────── EN-TÊTE ─────────────── */}
@@ -711,9 +710,9 @@ export const FlightPlanning: FC<FlightPlanningProps> = ({
                   className={`h-9 shrink-0 cursor-pointer rounded-md px-3 text-sm font-medium transition ${FOCUS_RING} ${
                     active
                       ? isUnassignedFilter
-                        ? 'bg-rose-600 font-semibold text-white shadow-sm shadow-rose-600/25'
-                        : 'bg-blue-600 font-semibold text-white shadow-sm shadow-blue-600/25'
-                      : 'bg-slate-100 text-slate-600 hover:bg-blue-50 hover:text-blue-700'
+                        ? 'font-semibold text-rose-700'
+                        : 'font-semibold text-blue-700'
+                      : 'text-slate-600 hover:text-blue-700'
                   }`}
                 >
                   {label}
@@ -763,9 +762,9 @@ export const FlightPlanning: FC<FlightPlanningProps> = ({
       ) : (
         <>
           {/* MOBILE / TABLETTE */}
-          <div className="divide-y divide-slate-100 lg:hidden">
+          <div className="divide-y divide-slate-100 bg-slate-50/50 lg:hidden">
             {flightsByAircraft.map(([aircraft, aircraftFlights]) => (
-              <div key={aircraft} className="p-3">
+              <div key={aircraft} className="space-y-2.5 p-3">
                 <AircraftHeader
                   aircraft={aircraft}
                   label={getAircraftLabel(aircraft, aircraftFlights)}

@@ -49,31 +49,11 @@ const FALLBACK_PYTHON_URL: string = import.meta.env.PROD
   ? '/python'
   : 'http://localhost:5000';
 
-const FALLBACK_API_URL: string = import.meta.env.PROD
-  ? '/api'
-  : 'http://localhost:3001';
-
 const RAW_PYTHON_BASE_URL: string =
   import.meta.env.VITE_PYTHON_BASE_URL || FALLBACK_PYTHON_URL;
 
-const RAW_API_BASE_URL: string =
-  import.meta.env.VITE_API_BASE_URL || FALLBACK_API_URL;
-
 /** Base URL pour les routes Python (`/flights/*`, `/weather/*`) */
 const PYTHON_BASE_URL = RAW_PYTHON_BASE_URL.replace(/\/+$/, '');
-
-/** Base URL pour les routes NestJS (`/fleet/*`) */
-const API_BASE_URL = RAW_API_BASE_URL.replace(/\/+$/, '');
-
-if (import.meta.env.DEV) {
-  // eslint-disable-next-line no-console
-  console.info('[FlightsPlanning] Configuration API :', {
-    python: PYTHON_BASE_URL,
-    nestjs: API_BASE_URL,
-    pythonFallback: !import.meta.env.VITE_PYTHON_BASE_URL,
-    nestjsFallback: !import.meta.env.VITE_API_BASE_URL,
-  });
-}
 
 /* ============================================================================
  * TYPES
@@ -199,7 +179,7 @@ interface MobileFlightCardProps {
  * DESIGN TOKENS
  * ========================================================================== */
 
-const SURFACE = 'rounded-xl border border-slate-200 bg-white shadow-sm';
+const SURFACE = 'rounded-xl border-0 bg-white shadow-sm md:border md:border-slate-200';
 
 const FOCUS_RING =
   'outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10';
@@ -565,7 +545,7 @@ const MobileFlightCard: FC<MobileFlightCardProps> = ({
         </div>
       </div>
 
-      <div className="space-y-3 px-4 py-3">
+      <div className="space-y-3 p-3">
         <div className="flex items-center gap-2 font-mono text-xs font-bold text-slate-700">
           <span>{flight.origin}</span>
           {stops.map((stop, index) => (
@@ -579,7 +559,7 @@ const MobileFlightCard: FC<MobileFlightCardProps> = ({
         </div>
 
         <div className="grid grid-cols-2 gap-2">
-          <div className="rounded-lg border border-slate-100 bg-slate-50/50 p-2.5">
+          <div className="rounded-lg border border-slate-100 bg-slate-50/60 p-2.5">
             <p className="flex items-center gap-1.5 text-[10px] font-medium text-slate-500">
               <Plane className="h-3 w-3 rotate-45" />
               Départ
@@ -588,7 +568,7 @@ const MobileFlightCard: FC<MobileFlightCardProps> = ({
               {formatMobileDate(flight.departure)} {formatMobileTime(flight.departure)}
             </p>
           </div>
-          <div className="rounded-lg border border-slate-100 bg-slate-50/50 p-2.5">
+          <div className="rounded-lg border border-slate-100 bg-slate-50/60 p-2.5">
             <p className="flex items-center gap-1.5 text-[10px] font-medium text-slate-500">
               <Globe className="h-3 w-3" />
               Arrivée
@@ -600,13 +580,13 @@ const MobileFlightCard: FC<MobileFlightCardProps> = ({
         </div>
 
         <div className="grid grid-cols-2 gap-2">
-          <div className="rounded-lg border border-slate-100 p-2.5">
+          <div className="rounded-lg border border-slate-100 bg-slate-50/60 p-2.5">
             <p className="text-[10px] font-medium text-slate-500">Durée</p>
             <p className="mt-1 font-mono text-xs font-semibold text-slate-900">
               {duration || '--'}
             </p>
           </div>
-          <div className="rounded-lg border border-slate-100 p-2.5">
+          <div className="rounded-lg border border-slate-100 bg-slate-50/60 p-2.5">
             <p className="text-[10px] font-medium text-slate-500">Aéronef</p>
             <p
               className={`mt-1 truncate font-mono text-xs font-semibold ${
@@ -618,7 +598,7 @@ const MobileFlightCard: FC<MobileFlightCardProps> = ({
           </div>
         </div>
 
-        <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-3">
+        <div className="rounded-lg border border-slate-100 bg-slate-50/60 p-3">
           <div className="flex items-center justify-between">
             <p className="text-[10px] font-medium text-slate-500">Météo</p>
             <span className="font-mono text-[11px] font-bold text-slate-600">
@@ -645,7 +625,7 @@ const MobileFlightCard: FC<MobileFlightCardProps> = ({
         </div>
       </div>
 
-      <div className="border-t border-slate-100 p-3">
+      <div className="border-t border-slate-100 bg-slate-50/40 p-3">
         <button
           type="button"
           onClick={() => onEdit(flight)}
@@ -1189,7 +1169,7 @@ export const FlightsPlanning: FC = () => {
    * ----------------------------------------------------------------------- */
 
   return (
-    <div className="relative mx-auto min-h-screen max-w-375 space-y-6 bg-slate-50/50 p-4 pb-8 sm:p-6">
+    <div className="relative mx-auto min-h-screen max-w-375 space-y-6 bg-white p-4 pb-8 sm:bg-slate-50/50 sm:p-6">
       {/* TOASTS */}
       <div className="pointer-events-none fixed bottom-3 left-3 right-3 z-70 flex flex-col gap-2 sm:bottom-5 sm:left-auto sm:right-5 sm:w-full sm:max-w-md">
         {toasts.map((toast) => (
@@ -1299,7 +1279,7 @@ export const FlightsPlanning: FC = () => {
                 placeholder="Rechercher un vol, un appareil, un itinéraire…"
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
-                className={`h-10 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-4 text-sm text-slate-700 placeholder:text-slate-400 ${FOCUS_RING}`}
+                className={`h-10 w-full rounded-lg border border-slate-200 bg-transparent pl-10 pr-4 text-sm text-slate-700 placeholder:text-slate-400 ${FOCUS_RING}`}
               />
             </div>
 
@@ -1310,7 +1290,7 @@ export const FlightsPlanning: FC = () => {
                   aria-label="Filtrer les vols par statut"
                   value={selectedStatusFilter}
                   onChange={(event) => setSelectedStatusFilter(event.target.value)}
-                  className={`h-10 w-full cursor-pointer appearance-none rounded-lg border border-slate-200 bg-white pl-9 pr-8 text-sm font-medium text-slate-700 ${FOCUS_RING}`}
+                  className={`h-10 w-full cursor-pointer appearance-none rounded-lg border border-slate-200 bg-transparent pl-9 pr-8 text-sm font-medium text-slate-700 ${FOCUS_RING}`}
                 >
                   {STATUS_FILTERS.map((filter) => (
                     <option key={filter.id} value={filter.id}>
@@ -1323,7 +1303,7 @@ export const FlightsPlanning: FC = () => {
                 <button
                   type="button"
                   onClick={() => { setSearchTerm(''); setSelectedStatusFilter('ALL'); }}
-                  className="inline-flex h-10 items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                  className="inline-flex h-10 items-center gap-1 rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-600 hover:text-slate-800"
                 >
                   <X className="h-3.5 w-3.5" /> Effacer
                 </button>
@@ -1343,13 +1323,13 @@ export const FlightsPlanning: FC = () => {
                   onClick={() => setSelectedStatusFilter(filter.id)}
                   className={`inline-flex h-10 min-w-0 items-center justify-center gap-1.5 rounded-xl border px-2 text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 sm:justify-start sm:gap-2 sm:px-3 sm:text-xs ${filter.id === 'ALL' ? 'col-span-2 sm:col-auto' : ''} ${
                     active
-                      ? 'border-emerald-300 bg-emerald-100 text-emerald-800 shadow-sm'
-                      : 'border-slate-200 bg-white text-slate-600 hover:border-emerald-200 hover:bg-emerald-50'
+                      ? 'border-emerald-300 text-emerald-800'
+                      : 'border-slate-200 text-slate-600 hover:border-emerald-200 hover:text-emerald-700'
                   }`}
                 >
                   <span className={`h-2 w-2 rounded-full ${active ? 'bg-emerald-600' : filter.dot}`} aria-hidden="true" />
                   <span className="truncate">{filter.label}</span>
-                  <span className={`shrink-0 rounded-md px-1.5 py-0.5 font-bold tabular-nums ${active ? 'bg-emerald-200 text-emerald-900' : 'bg-slate-100 text-slate-700'}`}>
+                  <span className={`shrink-0 rounded-md px-1.5 py-0.5 font-bold tabular-nums ${active ? 'text-emerald-900' : 'text-slate-500'}`}>
                     {filter.value}
                   </span>
                 </button>
@@ -1416,7 +1396,7 @@ export const FlightsPlanning: FC = () => {
         ) : (
           <>
             {/* MOBILE */}
-            <div className="space-y-3 bg-slate-50/50 p-4 sm:hidden">
+            <div className="space-y-3 bg-slate-50/50 p-3 sm:hidden">
               {paginatedFlights.map((flight) => (
                 <MobileFlightCard
                   key={flight.refFlight}

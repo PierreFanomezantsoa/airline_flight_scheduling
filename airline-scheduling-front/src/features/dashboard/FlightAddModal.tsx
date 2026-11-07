@@ -29,6 +29,7 @@ import {
   ShieldAlert,
   Activity,
 } from 'lucide-react';
+import { Skeleton } from '../../components/Skeleton';
 import { authFetch, pythonFetch } from '../Api/apiService';
 
 /* ============================================================================
@@ -1754,11 +1755,13 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
                 }}
               />
             </div>
-            {(isLoadingAirports || airportLoadError) && (
-              <p className={`text-[10px] font-semibold ${airportLoadError ? 'text-rose-600' : 'text-slate-500'}`}>
-                {airportLoadError || 'Chargement des aéroports actifs…'}
-              </p>
-            )}
+            {airportLoadError ? (
+              <p className="text-[10px] font-semibold text-rose-600">{airportLoadError}</p>
+            ) : isLoadingAirports ? (
+              <div role="status" aria-busy="true" aria-label="Chargement des aéroports actifs" className="py-1">
+                <Skeleton className="h-3 w-36" />
+              </div>
+            ) : null}
           </div>
 
           {/* DIRECT ROUTE */}
@@ -2081,6 +2084,11 @@ export const FlightAddModal: React.FC<FlightAddModalProps> = ({
                 }))
               }
             />
+            {isLoadingFleet && (
+              <div role="status" aria-busy="true" aria-label="Chargement de la flotte" className="mt-2 py-1">
+                <Skeleton className="h-3 w-32" />
+              </div>
+            )}
             {fleetLoadError ? (
               <div className="mt-2 flex items-center justify-between gap-2 rounded-lg border border-rose-200 bg-rose-50 p-2">
                 <p className="text-[9px] leading-4 text-rose-800">{fleetLoadError}</p>

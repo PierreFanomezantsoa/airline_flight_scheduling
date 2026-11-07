@@ -504,7 +504,7 @@ export function UsersManagementPage() {
       {/* ═══════════════════════════════════════════════════════════════════
           CARTE PRINCIPALE
       ═══════════════════════════════════════════════════════════════════ */}
-      <section className="relative rounded-2xl border border-slate-200/80 bg-white shadow-sm shadow-slate-900/[0.03]">
+      <section className="relative rounded-2xl border-0 bg-white shadow-sm shadow-slate-900/[0.03] md:border md:border-slate-200/80">
         {/* Navigation */}
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 pt-4 sm:px-5">
           <div role="tablist" aria-label="Type de comptes" className="flex gap-1">
@@ -526,12 +526,12 @@ export function UsersManagementPage() {
             <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input type="search" value={search} onChange={(e) => setSearch(e.target.value)}
               placeholder="Rechercher un nom, un e-mail ou un rôle…" aria-label="Rechercher un utilisateur"
-              className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-3 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10" />
+              className="h-10 w-full rounded-xl border border-slate-200 bg-transparent pl-10 pr-3 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10" />
           </div>
           <div className="flex flex-wrap items-center gap-2 lg:ml-auto">
             <div className="relative flex-1 sm:flex-none">
               <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} aria-label="Filtrer par rôle"
-                className="h-10 w-full min-w-[145px] cursor-pointer appearance-none rounded-xl border border-slate-200 bg-white pl-3 pr-8 text-[13px] font-medium text-slate-700 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10">
+                className="h-10 w-full min-w-[145px] cursor-pointer appearance-none rounded-xl border border-slate-200 bg-transparent pl-3 pr-8 text-[13px] font-medium text-slate-700 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10">
                 <option value="ALL">Tous les rôles</option>
                 {availableRoles.map((role) => <option key={role} value={role}>{ROLE_LABELS[role] ?? role}</option>)}
               </select>
@@ -539,7 +539,7 @@ export function UsersManagementPage() {
             </div>
             {activeTab === 'users' && <div className="relative flex-1 sm:flex-none">
               <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as FilterStatus)} aria-label="Filtrer par statut"
-                className="h-10 w-full min-w-[145px] cursor-pointer appearance-none rounded-xl border border-slate-200 bg-white pl-3 pr-8 text-[13px] font-medium text-slate-700 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10">
+                className="h-10 w-full min-w-[145px] cursor-pointer appearance-none rounded-xl border border-slate-200 bg-transparent pl-3 pr-8 text-[13px] font-medium text-slate-700 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10">
                 <option value="ALL">Tous les statuts</option>
                 <option value="PENDING">En attente</option>
                 <option value="APPROVED">Validés</option>
@@ -550,7 +550,7 @@ export function UsersManagementPage() {
             <div className="relative flex-1 sm:flex-none">
               <ArrowUpDown className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
               <select value={sortBy} onChange={(e) => setSortBy(e.target.value as 'newest' | 'oldest' | 'name')} aria-label="Trier les utilisateurs"
-                className="h-10 w-full min-w-[155px] cursor-pointer appearance-none rounded-xl border border-slate-200 bg-white pl-8 pr-7 text-[13px] font-medium text-slate-700 outline-none focus:border-emerald-500">
+                className="h-10 w-full min-w-[155px] cursor-pointer appearance-none rounded-xl border border-slate-200 bg-transparent pl-8 pr-7 text-[13px] font-medium text-slate-700 outline-none focus:border-emerald-500">
                 <option value="newest">Plus récents</option><option value="oldest">Plus anciens</option><option value="name">Nom (A à Z)</option>
               </select>
               <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
@@ -574,7 +574,7 @@ export function UsersManagementPage() {
         ) : (
           <>
             {/* MOBILE : CARTES */}
-            <div className="space-y-3 bg-slate-50/60 p-3 md:hidden">
+            <div className="space-y-3 bg-slate-50/50 p-3 md:hidden">
               {paginatedUsers.map((user) => (
                 <UserMobileCard key={user.refUser} {...actionProps(user)} />
               ))}
@@ -1044,21 +1044,21 @@ function UserMobileCard(props: UserActionsProps) {
         <StatusBadge status={user.accountStatus} />
       </div>
 
-      <dl className="grid grid-cols-2 gap-3 px-4 pb-4">
-        <div>
+      <dl className="grid grid-cols-2 gap-2 px-4 pb-4">
+        <div className="rounded-lg bg-slate-50 p-3">
           <dt className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Rôle</dt>
           <dd className="mt-1">
             <RoleBadge role={user.role} />
           </dd>
         </div>
-        <div>
+        <div className="rounded-lg bg-slate-50 p-3">
           <dt className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Création</dt>
           <dd className="mt-1.5 text-[13px] font-medium text-slate-700">
             {formatDate(user.createdAt)}
           </dd>
         </div>
         {user.accountStatus !== 'PENDING' && (
-          <div className="col-span-2">
+          <div className="col-span-2 rounded-lg bg-slate-50 p-3">
             <dt className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Décision</dt>
             <dd className="mt-1">
               <DecisionCell user={user} />

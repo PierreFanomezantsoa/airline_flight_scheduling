@@ -299,11 +299,12 @@ export function AdminDashboard({
         items-center
         justify-center
         overflow-hidden
-        bg-slate-100/70
+        bg-white
         p-3
         font-sans
         antialiased
 
+        sm:bg-slate-100/70
         sm:p-5
         lg:p-8
       "
@@ -316,6 +317,8 @@ export function AdminDashboard({
         className="
           pointer-events-none
           absolute
+          hidden
+          sm:block
           -left-40
           -top-40
           h-96
@@ -331,6 +334,8 @@ export function AdminDashboard({
         className="
           pointer-events-none
           absolute
+          hidden
+          sm:block
           -bottom-40
           -right-20
           h-96

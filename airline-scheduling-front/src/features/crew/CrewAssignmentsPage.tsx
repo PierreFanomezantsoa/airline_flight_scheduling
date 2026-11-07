@@ -24,6 +24,7 @@ import {
   Users,
   X,
 } from 'lucide-react';
+import { Skeleton } from '../../components/Skeleton';
 import {
   ApiError,
   authFetch,
@@ -765,7 +766,7 @@ export const CrewAssignmentsPage: React.FC = () => {
   };
   /* RENDER */
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100/50 px-0 py-3 sm:p-6">
+    <div className="min-h-screen bg-white px-0 py-3 sm:bg-gradient-to-b sm:from-slate-50 sm:to-slate-100/50 sm:p-6">
       <div className="mx-auto w-full max-w-7xl space-y-4 sm:space-y-6">
         {/* ═══════════════ HEADER ═══════════════ */}
         <header className="flex items-center justify-end gap-2">
@@ -804,7 +805,7 @@ export const CrewAssignmentsPage: React.FC = () => {
           />
         )}
         {/* ═══════════════ TABLEAU ═══════════════ */}
-        <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+        <section className="overflow-hidden rounded-2xl border-0 bg-white shadow-sm md:border md:border-slate-200/80">
           {/* TOOLBAR */}
           <div className="border-b border-slate-100 bg-slate-50/50 p-2.5 sm:p-4">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -815,7 +816,7 @@ export const CrewAssignmentsPage: React.FC = () => {
                   value={searchTerm}
                   onChange={event => setSearchTerm(event.target.value)}
                   placeholder="Rechercher un vol, un membre ou une fonction..."
-                  className={`h-10 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-3 text-sm text-slate-700 placeholder:text-slate-400 ${FOCUS_RING}`}
+                  className={`h-10 w-full rounded-xl border border-slate-200 bg-transparent pl-10 pr-3 text-sm text-slate-700 placeholder:text-slate-400 ${FOCUS_RING}`}
                 />
               </div>
               <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
@@ -827,6 +828,7 @@ export const CrewAssignmentsPage: React.FC = () => {
                     placeholder="Tous les vols"
                     searchPlaceholder="Rechercher un vol..."
                     onChange={setSelectedFlightId}
+                    transparent
                     options={[
                       { value: 'TOUS', label: 'Tous les vols' },
                       ...flights.map(flight => ({
@@ -839,29 +841,36 @@ export const CrewAssignmentsPage: React.FC = () => {
                   />
                 </div>
                 <div className="min-w-0 sm:w-56">
-                  <SearchableDropdown
-                    id="crew-filter-member"
-                    label="Filtrer par membre"
-                    value={selectedUserId}
-                    placeholder={loadingUsers ? 'Chargement...' : 'Tous les membres'}
-                    searchPlaceholder="Rechercher un membre..."
-                    onChange={setSelectedUserId}
-                    disabled={loadingUsers}
-                    options={[
-                      { value: 'TOUS', label: 'Tous les membres' },
-                      ...users.map(user => ({
-                        value: user.refUser,
-                        label: user.userName,
-                        description: user.email,
-                      })),
-                    ]}
-                  />
+                  {loadingUsers ? (
+                    <div className="space-y-2" aria-busy="true" aria-label="Chargement des membres">
+                      <Skeleton className="h-3 w-24" />
+                      <Skeleton className="h-10 w-full rounded-xl" />
+                    </div>
+                  ) : (
+                    <SearchableDropdown
+                      id="crew-filter-member"
+                      label="Filtrer par membre"
+                      value={selectedUserId}
+                      placeholder="Tous les membres"
+                      searchPlaceholder="Rechercher un membre..."
+                      onChange={setSelectedUserId}
+                      transparent
+                      options={[
+                        { value: 'TOUS', label: 'Tous les membres' },
+                        ...users.map(user => ({
+                          value: user.refUser,
+                          label: user.userName,
+                          description: user.email,
+                        })),
+                      ]}
+                    />
+                  )}
                 </div>
                 {activeFilterCount > 0 && (
                   <button
                     type="button"
                     onClick={resetFilters}
-                    className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-[13px] font-medium text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700"
+                    className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-slate-200 px-3 text-[13px] font-medium text-slate-500 transition hover:border-slate-300 hover:text-slate-700"
                   >
                     <X className="h-3.5 w-3.5" />
                     Réinitialiser
@@ -891,11 +900,14 @@ export const CrewAssignmentsPage: React.FC = () => {
           {/* MOBILE */}
           <div className="space-y-2.5 bg-slate-50/60 p-2 sm:p-4 md:hidden">
             {loading ? (
-              <div className="flex min-h-[180px] items-center justify-center rounded-2xl border border-slate-200 bg-white">
-                <span className="inline-flex items-center gap-2 text-sm font-medium text-slate-500">
-                  <RefreshCw className="h-4 w-4 animate-spin" />
-                  Chargement...
-                </span>
+              <div className="space-y-3" aria-busy="true" aria-label="Chargement des affectations">
+                {Array.from({ length: 4 }, (_, index) => (
+                  <div key={index} className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
+                    <div className="flex justify-between gap-3"><Skeleton className="h-4 w-24" /><Skeleton className="h-6 w-20 rounded-full" /></div>
+                    <Skeleton className="h-4 w-3/4" />
+                    <div className="flex gap-3"><Skeleton className="h-3 w-24" /><Skeleton className="h-3 w-28" /></div>
+                  </div>
+                ))}
               </div>
             ) : filteredAssignments.length === 0 ? (
               <div className="flex min-h-[220px] flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white p-6 text-center">
@@ -1019,14 +1031,14 @@ export const CrewAssignmentsPage: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
-                  <tr>
-                    <td colSpan={7} className="px-4 py-16 text-center">
-                      <span className="inline-flex items-center gap-2 text-sm font-medium text-slate-500">
-                        <RefreshCw className="h-4 w-4 animate-spin" />
-                        Chargement des affectations...
-                      </span>
-                    </td>
-                  </tr>
+                  <>
+                    {Array.from({ length: 5 }, (_, row) => (
+                      <tr key={row} aria-hidden="true" className="animate-pulse">
+                        {Array.from({ length: 7 }, (_, column) => <td key={column} className="px-4 py-4"><Skeleton className={`h-4 ${column === 1 ? 'w-36' : 'w-20'}`} /></td>)}
+                      </tr>
+                    ))}
+                    <tr className="sr-only"><td colSpan={7}>Chargement des affectations</td></tr>
+                  </>
                 ) : filteredAssignments.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="px-4 py-16 text-center">

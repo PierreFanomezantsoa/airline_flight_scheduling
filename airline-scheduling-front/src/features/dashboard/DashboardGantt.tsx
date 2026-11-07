@@ -509,7 +509,7 @@ export const DashboardGantt: React.FC = () => {
   ];
 
   return (
-    <main className="mx-auto w-full max-w-[1640px] min-w-0 space-y-4 bg-slate-50/70 p-3 sm:p-4 lg:p-5">
+    <main className="mx-auto w-full max-w-[1640px] min-w-0 space-y-4 bg-white p-3 sm:bg-slate-50/70 sm:p-4 lg:p-5">
       {globalError && (
         <AlertMessage title="Erreur de chargement" message={globalError} onClose={() => setGlobalError(null)} />
       )}
@@ -587,16 +587,16 @@ export const DashboardGantt: React.FC = () => {
             </article>
           </section>
 
-          <section aria-labelledby="flights-heading" className="min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+          <section aria-labelledby="flights-heading" className="min-w-0 overflow-hidden rounded-lg border-0 bg-white shadow-sm md:border md:border-slate-200">
             <header className="border-b border-slate-100 px-4 py-4 sm:px-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-md bg-blue-50 text-blue-800"><CalendarDays className="h-4 w-4"/></span><div><h2 id="flights-heading" className="text-base font-bold text-slate-900">Programmation des vols</h2><p className="text-xs text-slate-500">{filteredFlights.length} résultat{filteredFlights.length !== 1 ? 's' : ''} · {PAGE_SIZE} vols/page · Cliquez sur un numéro de vol pour les détails</p></div></div>
                 <button type="button" onClick={() => void loadData()} disabled={isFetching} className="inline-flex h-9 items-center gap-2 rounded-md bg-blue-800 px-3 text-xs font-semibold text-white transition hover:bg-blue-900 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600"><RefreshCw className={`h-3.5 w-3.5 ${isFetching ? 'animate-spin' : ''}`}/>Actualiser</button>
               </div>
               <div className="mt-3 flex flex-col gap-3">
-                <label className="relative block"><span className="sr-only">Rechercher un vol, aéroport ou appareil</span><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-blue-500"/><input value={search} onChange={e => {setSearch(e.target.value); setPage(1);}} placeholder="Rechercher : vol, aéroport, aéronef…" className="h-10 w-full rounded-md border border-slate-200 bg-slate-50/60 pl-9 pr-9 text-sm text-slate-800 outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100"/>{search && <button type="button" onClick={() => {setSearch('');setPage(1);}} aria-label="Effacer la recherche" className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-blue-700 hover:bg-blue-50"><X className="h-4 w-4"/></button>}</label>
+                <label className="relative block"><span className="sr-only">Rechercher un vol, aéroport ou appareil</span><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-blue-500"/><input value={search} onChange={e => {setSearch(e.target.value); setPage(1);}} placeholder="Rechercher : vol, aéroport, aéronef…" className="h-10 w-full rounded-md border border-slate-200 bg-transparent pl-9 pr-9 text-sm text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"/>{search && <button type="button" onClick={() => {setSearch('');setPage(1);}} aria-label="Effacer la recherche" className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-blue-700"><X className="h-4 w-4"/></button>}</label>
                 <div className="flex flex-wrap items-center gap-2"><Filter className="h-4 w-4 shrink-0 text-blue-700"/><div aria-label="Filtrer les vols par statut" className="flex min-w-0 flex-wrap gap-1.5">
-                  {statusFilters.map(filter => <button key={filter.value} type="button" onClick={() => {setStatusFilter(filter.value); setPage(1);}} aria-pressed={statusFilter === filter.value} className={`rounded-md border px-2.5 py-1.5 text-[11px] font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 ${statusFilter === filter.value ? 'border-blue-800 bg-blue-800 text-white' : 'border-blue-100 bg-white text-blue-800 hover:bg-blue-50'}`}>{filter.label}</button>)}
+                  {statusFilters.map(filter => <button key={filter.value} type="button" onClick={() => {setStatusFilter(filter.value); setPage(1);}} aria-pressed={statusFilter === filter.value} className={`rounded-md border px-2.5 py-1.5 text-[11px] font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 ${statusFilter === filter.value ? 'border-blue-700 text-blue-800' : 'border-blue-100 text-blue-800 hover:border-blue-300 hover:text-blue-900'}`}>{filter.label}</button>)}
                 </div></div>
               </div>
             </header>

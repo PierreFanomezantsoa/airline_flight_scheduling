@@ -77,19 +77,6 @@ const API_BASE_URL: string = (
  */
 const API_URL: string = `${API_BASE_URL}/flights`;
 
-// ─────────────────────────────────────────────────────────────
-// Logs de debug (uniquement en développement)
-// ─────────────────────────────────────────────────────────────
-
-if (import.meta.env.DEV) {
-  // eslint-disable-next-line no-console
-  console.info('[flightsApi] Configuration chargée :', {
-    mode: 'development',
-    apiUrl: API_URL,
-    fallbackUsed: !import.meta.env.VITE_API_BASE_URL,
-  });
-}
-
 // =============================================================================
 // FLIGHTS API
 // =============================================================================

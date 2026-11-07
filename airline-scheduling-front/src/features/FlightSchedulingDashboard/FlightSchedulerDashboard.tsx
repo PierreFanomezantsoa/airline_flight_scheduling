@@ -40,14 +40,6 @@ const RAW_PYTHON_BASE_URL: string =
 
 const API_BASE_URL: string = RAW_PYTHON_BASE_URL.replace(/\/+$/, '');
 
-if (import.meta.env.DEV) {
-  // eslint-disable-next-line no-console
-  console.info('[FlightSchedulerDashboard] Python API :', {
-    baseUrl: API_BASE_URL,
-    fallbackUsed: !import.meta.env.VITE_PYTHON_BASE_URL,
-  });
-}
-
 const AUTO_SCHEDULE_GENERATE_ENDPOINT = '/flights/auto-schedule/generate';
 const AUTO_SCHEDULE_GANTT_ENDPOINT = '/flights/auto-schedule/gantt';
 
@@ -538,7 +530,7 @@ export const FlightSchedulerDashboard: FC = () => {
    * ----------------------------------------------------------------------- */
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 sm:p-6">
+    <div className="min-h-screen bg-white p-4 sm:bg-slate-50 sm:p-6">
       <div className="mx-auto max-w-[1500px] min-w-0 space-y-5">
         {/* ═══════════════ HEADER ═══════════════ */}
         <header className="flex items-center justify-end gap-2">
@@ -622,7 +614,7 @@ export const FlightSchedulerDashboard: FC = () => {
         )}
 
         {/* ═══════════════ SEARCH + GANTT ═══════════════ */}
-        <section className="rounded-xl border border-slate-200 bg-white">
+        <section className="rounded-xl border-0 bg-white md:border md:border-slate-200">
           <div className="border-b border-slate-100 p-4">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="relative w-full lg:max-w-[320px]">
@@ -631,7 +623,7 @@ export const FlightSchedulerDashboard: FC = () => {
                   value={searchTerm}
                   onChange={(event) => setSearchTerm(event.target.value)}
                   placeholder="Rechercher un vol, appareil..."
-                  className={`h-10 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-9 text-sm text-slate-700 placeholder:text-slate-400 ${FOCUS_RING}`}
+                  className={`h-10 w-full rounded-lg border border-slate-200 bg-transparent pl-10 pr-9 text-sm text-slate-700 placeholder:text-slate-400 ${FOCUS_RING}`}
                 />
                 {searchTerm && (
                   <button
@@ -654,10 +646,10 @@ export const FlightSchedulerDashboard: FC = () => {
                     key={tab.id}
                     type="button"
                     onClick={() => setSelectedStatus(tab.id)}
-                    className={`h-8 shrink-0 rounded-full px-4 text-xs font-medium transition ${
+                    className={`h-8 shrink-0 rounded-full border px-4 text-xs font-medium transition ${
                       selectedStatus === tab.id
-                        ? 'bg-blue-800 text-white'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        ? 'border-blue-700 text-blue-800'
+                        : 'border-slate-200 text-slate-600 hover:border-blue-300 hover:text-blue-700'
                     }`}
                   >
                     {tab.label}
@@ -677,7 +669,7 @@ export const FlightSchedulerDashboard: FC = () => {
         </section>
 
         {/* ═══════════════ TABLEAU ═══════════════ */}
-        {previewScenario && <section className="rounded-xl border border-slate-200 bg-white">
+        {previewScenario && <section className="rounded-xl border-0 bg-white md:border md:border-slate-200">
           <FlightSchedulerDetails
             flights={filteredFlights}
             analytics={effectiveAnalytics}

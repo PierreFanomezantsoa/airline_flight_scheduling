@@ -138,7 +138,7 @@ const FlightBadge: FC<FlightBadgeProps> = ({ flight }) => (
 );
 
 const MetricBox: FC<MetricBoxProps> = ({ label, value, tone = 'neutral' }) => (
-  <div className="rounded-xl border border-slate-200 bg-white p-3">
+  <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3">
     <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400">
       {label}
     </span>
@@ -238,11 +238,11 @@ const ConflictCard: FC<ConflictCardProps> = ({ conflict }) => {
 
         {/* AIRCRAFT */}
         {conflict.aircraftRegistration && (
-          <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2">
+          <div className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/60 px-3 py-2">
             <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
               Appareil
             </span>
-            <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-xs font-black text-slate-800">
+            <span className="font-mono text-xs font-black text-slate-800">
               {conflict.aircraftRegistration}
             </span>
           </div>

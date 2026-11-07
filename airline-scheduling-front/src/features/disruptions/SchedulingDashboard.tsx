@@ -17,6 +17,7 @@ import {
   Activity,
   ChevronRight,
 } from 'lucide-react';
+import { Skeleton } from '../../components/Skeleton';
 
 /* ============================================================================
  * CONFIGURATION API — NestJS (port 3001 en dev, /api en prod via Nginx)
@@ -34,14 +35,6 @@ const RAW_API_BASE_URL: string =
   import.meta.env.VITE_API_BASE_URL || FALLBACK_API_URL;
 
 const BACKEND_URL: string = RAW_API_BASE_URL.replace(/\/+$/, '');
-
-if (import.meta.env.DEV) {
-  // eslint-disable-next-line no-console
-  console.info('[SchedulingDashboard] API :', {
-    baseUrl: BACKEND_URL,
-    fallbackUsed: !import.meta.env.VITE_API_BASE_URL,
-  });
-}
 
 /* ============================================================================
  * TYPES
@@ -399,14 +392,18 @@ export const SchedulingDashboard: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] bg-slate-900 text-slate-100 rounded-3xl p-8">
-        <div className="relative flex items-center justify-center">
-          <div className="w-16 h-16 border-4 border-emerald-500/20 border-t-emerald-400 rounded-full animate-spin" />
-          <Plane className="w-6 h-6 text-emerald-400 absolute animate-pulse" />
+      <div className="mx-auto min-h-[60vh] max-w-7xl space-y-5 rounded-2xl bg-slate-50 p-4 sm:p-6" aria-busy="true" aria-label="Chargement du centre de programmation">
+        <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-5">
+          <div className="space-y-2"><Skeleton className="h-6 w-56" /><Skeleton className="h-4 w-72 max-w-full" /></div>
+          <Skeleton className="h-10 w-32 rounded-xl" />
         </div>
-        <p className="text-xs font-semibold tracking-widest text-slate-400 uppercase mt-5">
-          Synchronisation Ops Center...
-        </p>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 4 }, (_, index) => <Skeleton key={index} className="h-24 rounded-2xl bg-white" />)}
+        </div>
+        <div className="grid gap-5 lg:grid-cols-[1.4fr_1fr]">
+          <Skeleton className="h-80 rounded-2xl bg-white" />
+          <Skeleton className="h-80 rounded-2xl bg-white" />
+        </div>
       </div>
     );
   }
@@ -416,7 +413,7 @@ export const SchedulingDashboard: React.FC = () => {
    * ======================================================================= */
 
   return (
-    <div className="space-y-6 p-2 md:p-6 max-w-7xl mx-auto bg-slate-50/50 min-h-screen text-slate-800">
+    <div className="mx-auto min-h-screen max-w-7xl space-y-6 bg-white p-2 text-slate-800 md:bg-slate-50/50 md:p-6">
       {/* MODAL SUPPRESSION */}
       {creneauToDelete && (
         <div

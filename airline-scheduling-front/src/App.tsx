@@ -595,7 +595,7 @@ function App() {
   // ===========================================================================
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] font-sans antialiased selection:bg-emerald-500/20 selection:text-emerald-900">
+    <div className="min-h-screen bg-white font-sans antialiased selection:bg-emerald-500/20 selection:text-emerald-900 md:bg-[#F8FAFC]">
       {/* SIDEBAR */}
       <Sidebar
         activeScreen={activeScreen}

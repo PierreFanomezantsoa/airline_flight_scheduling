@@ -26,6 +26,7 @@ import {
   ChevronRight,
   ArrowUpRight,
 } from 'lucide-react';
+import { Skeleton } from '../../components/Skeleton';
 
 import { fleetService } from '../fleet/fleetService';
 import type { Aircraft } from '../fleet/fleetService';
@@ -69,7 +70,7 @@ type AircraftLike = Aircraft & {
  * DESIGN TOKENS
  * ========================================================================== */
 
-const SURFACE = 'rounded-xl border border-slate-200 bg-white';
+const SURFACE = 'rounded-xl border-0 bg-white md:border md:border-slate-200';
 
 const INPUT =
   'w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 placeholder:text-slate-400 transition outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100';
@@ -788,10 +789,19 @@ export const MaintenancePlanning: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="mx-auto flex min-h-105 w-full max-w-[1600px] items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="h-6 w-6 animate-spin text-emerald-600" />
-          <p className="text-sm text-slate-500">Chargement du planning...</p>
+      <div className="mx-auto min-h-105 w-full max-w-[1600px] space-y-6 p-2 sm:p-4" aria-busy="true" aria-label="Chargement du planning de maintenance">
+        <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-5">
+          <div className="space-y-2"><Skeleton className="h-6 w-48" /><Skeleton className="h-4 w-72 max-w-full" /></div>
+          <Skeleton className="h-10 w-32 rounded-xl" />
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {Array.from({ length: 4 }, (_, index) => <Skeleton key={index} className="h-24 rounded-2xl border border-slate-100 bg-white" />)}
+        </div>
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-5">
+          <div className="mb-5 flex gap-3"><Skeleton className="h-10 flex-1" /><Skeleton className="h-10 w-36" /></div>
+          <div className="space-y-4">
+            {Array.from({ length: 6 }, (_, index) => <Skeleton key={index} className="h-12 w-full" />)}
+          </div>
         </div>
       </div>
     );
@@ -1004,12 +1014,15 @@ export const MaintenancePlanning: React.FC = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Rechercher un appareil..."
-              className={`${INPUT} h-10 pl-9`}
+              className={`${INPUT} h-10 pl-9 !bg-transparent`}
             />
           </div>
 
           <div className="flex items-center gap-2">
-            <button type="button" className={BTN_SECONDARY}>
+            <button
+              type="button"
+              className={`${BTN_SECONDARY} !bg-transparent hover:!bg-transparent`}
+            >
               <Filter className="h-4 w-4" />
               Filtrer
             </button>
@@ -1057,7 +1070,7 @@ export const MaintenancePlanning: React.FC = () => {
           />
         ) : (
           <>
-            <div className="space-y-3 p-3 md:hidden">
+            <div className="space-y-3 bg-slate-50/50 p-3 md:hidden">
               {paginatedSlots.map((slot) => (
                 <SlotMobileCard
                   key={slot.refMaintSlot}
@@ -1502,8 +1515,8 @@ function TabButton({
       onClick={onClick}
       className={`inline-flex h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl border px-3 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 sm:text-sm ${
         active
-          ? 'border-emerald-200 bg-emerald-100 text-emerald-800'
-          : 'border-transparent bg-white text-slate-600 hover:border-slate-200 hover:bg-slate-50'
+          ? 'border-emerald-200 text-emerald-800'
+          : 'border-transparent text-slate-600 hover:border-slate-200 hover:text-slate-800'
       }`}
     >
       <span>{label}</span>
@@ -1511,10 +1524,10 @@ function TabButton({
         <span
           className={`inline-flex h-5 min-w-5 items-center justify-center rounded-md px-1.5 text-[11px] font-bold tabular-nums ${
             accent && count > 0
-              ? 'bg-amber-100 text-amber-800'
+              ? 'text-amber-800'
               : active
-                ? 'bg-white text-emerald-800'
-                : 'bg-slate-100 text-slate-700'
+                ? 'text-emerald-800'
+                : 'text-slate-500'
           }`}
         >
           {count}
